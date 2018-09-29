@@ -121,3 +121,20 @@ func ReadBigInt(r io.Reader) (*big.Int, error) {
 	b.SetBytes(bigBytes)
 	return b, nil
 }
+
+// ReadHashArray reads an array of hashes from the reader.
+func ReadHashArray(r io.Reader) ([]*chainhash.Hash, error) {
+	l, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*chainhash.Hash, l)
+	for i := uint64(0); i < l; l++ {
+		out[i], err = ReadHash(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}

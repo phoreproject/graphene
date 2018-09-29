@@ -11,12 +11,13 @@ type RegisterTransaction struct {
 	From serialization.Address
 }
 
+// Deserialize reads a register transaction from bytes
 func (rt RegisterTransaction) Deserialize(r io.Reader) error {
 	from, err := serialization.ReadAddress(r)
 	if err != nil {
 		return err
 	}
-	tt.From = *from
+	rt.From = *from
 	return nil
 }
 

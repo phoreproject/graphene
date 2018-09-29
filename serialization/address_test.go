@@ -10,7 +10,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 
-	"github.com/phoreproject/phore2/transaction"
+	"github.com/phoreproject/synapse/transaction"
 )
 
 func TestEncodeDecode(t *testing.T) {

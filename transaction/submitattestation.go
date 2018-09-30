@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"encoding/binary"
 	"io"
 
 	"github.com/phoreproject/synapse/serialization"
@@ -34,10 +35,12 @@ func (sat SubmitAttestationTransaction) Deserialize(r io.Reader) error {
 	}
 	sat.AggregateSignature = aggregateSig
 	sat.AttesterBitField = aggregateBitField
+	return nil
 }
 
+// Serialize serializes a attestation submission transaction to bytes.
 func (sat SubmitAttestationTransaction) Serialize() []byte {
-
+	return serialization.AppendAll(serialization.WriteByteArray(sat.AggregateSignature), serialization.WriteByteArray(sat.AttesterBitField), sat.Attestation.Serialize())
 }
 
 // Attestation is a signed attestation of a shard block.
@@ -83,6 +86,7 @@ func (a Attestation) Deserialize(r io.Reader) error {
 	}
 
 	a.Slot = slot
+	a.JustifiedSlot = justifiedSlot
 	a.ShardID = shardID
 	a.ShardBlockHash = shardBlockHash
 	a.JustifiedSlot = justifiedSlot
@@ -91,6 +95,13 @@ func (a Attestation) Deserialize(r io.Reader) error {
 	return nil
 }
 
+// Serialize serializes an attestation into bytes.
 func (a Attestation) Serialize() []byte {
-
+	var slotBytes []byte
+	var shardIDBytes []byte
+	var justifiedSlot []byte
+	binary.BigEndian.PutUint64(slotBytes, a.Slot)
+	binary.BigEndian.PutUint64(shardIDBytes, a.ShardID)
+	binary.BigEndian.PutUint64(justifiedSlot, a.JustifiedSlot)
+	return serialization.AppendAll(slotBytes, shardIDBytes, justifiedSlot, a.JustifiedBlockHash[:], a.ShardBlockHash[:], serialization.WriteHashArray(a.ObliqueParentHashes))
 }

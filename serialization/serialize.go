@@ -58,6 +58,27 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 	}
 }
 
+// WriteVarInt will get the binary representation of a varint.
+func WriteVarInt(i uint64) []byte {
+	if i < 0xfd {
+		return []byte{byte(uint8(i))}
+	} else {
+		if i < math.MaxUint16 {
+			var b []byte
+			binary.BigEndian.PutUint16(b, uint16(i))
+			return append([]byte{'\xfd'}, b...)
+		} else if i < math.MaxUint32 {
+			var b []byte
+			binary.BigEndian.PutUint32(b, uint32(i))
+			return append([]byte{'\xfe'}, b...)
+		} else {
+			var b []byte
+			binary.BigEndian.PutUint64(b, uint64(i))
+			return append([]byte{'\xff'}, b...)
+		}
+	}
+}
+
 // ReadByteArray reads a byte array from a reader encoded as
 // a length as a varint followed by [length]byte
 func ReadByteArray(r io.Reader) ([]byte, error) {
@@ -69,6 +90,11 @@ func ReadByteArray(r io.Reader) ([]byte, error) {
 		return nil, errors.New("invalid length of byte array (greater than max uint32)")
 	}
 	return ReadBytes(r, int(i))
+}
+
+// WriteByteArray gets the binary representation of a byte array.
+func WriteByteArray(toWrite []byte) []byte {
+	return append(WriteVarInt(uint64(len(toWrite))), toWrite...)
 }
 
 // ReadHash will read a hash from the reader provided.
@@ -137,4 +163,14 @@ func ReadHashArray(r io.Reader) ([]*chainhash.Hash, error) {
 		}
 	}
 	return out, nil
+}
+
+// WriteHashArray will serialize a hash array and return bytes.
+func WriteHashArray(hs []*chainhash.Hash) []byte {
+	out := []byte{}
+	out = append(out, WriteVarInt(uint64(len(hs)))...)
+	for _, h := range hs {
+		out = append(out, h[:]...)
+	}
+	return out
 }

@@ -21,6 +21,7 @@ func (lt LoginTransaction) Deserialize(r io.Reader) error {
 	return nil
 }
 
+// Serialize serializes a login transaction to bytes.
 func (lt LoginTransaction) Serialize() []byte {
-
+	return lt.From[:]
 }

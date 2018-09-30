@@ -28,6 +28,7 @@ func (ft FraudTransaction) Deserialize(r io.Reader) error {
 	return nil
 }
 
+// Serialize a fraud transaction to bytes.
 func (ft FraudTransaction) Serialize() []byte {
-
+	return append(ft.From[:], serialization.WriteByteArray(ft.Fraud)...)
 }

@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"encoding/binary"
 	"io"
 
 	"github.com/phoreproject/synapse/serialization"
@@ -36,6 +37,9 @@ func (tt TransferTransaction) Deserialize(r io.Reader) error {
 	return nil
 }
 
+// Serialize serializes a transfer transaction to bytes.
 func (tt TransferTransaction) Serialize() []byte {
-
+	var amountBytes []byte
+	binary.BigEndian.PutUint64(amountBytes, tt.Amount)
+	return serialization.AppendAll(tt.From[:], tt.To[:], amountBytes)
 }

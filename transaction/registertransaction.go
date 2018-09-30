@@ -21,6 +21,7 @@ func (rt RegisterTransaction) Deserialize(r io.Reader) error {
 	return nil
 }
 
+// Serialize serializes a register transaction into bytes.
 func (rt RegisterTransaction) Serialize() []byte {
-
+	return rt.From[:]
 }

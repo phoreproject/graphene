@@ -18,7 +18,22 @@ type SubmitAttestationTransaction struct {
 
 // Deserialize reads a submitattestationtransaction from the reader.
 func (sat SubmitAttestationTransaction) Deserialize(r io.Reader) error {
+	aggregateSig, err := serialization.ReadByteArray(r)
+	if err != nil {
+		return err
+	}
 
+	aggregateBitField, err := serialization.ReadByteArray(r)
+	if err != nil {
+		return err
+	}
+
+	err = sat.Attestation.Deserialize(r)
+	if err != nil {
+		return err
+	}
+	sat.AggregateSignature = aggregateSig
+	sat.AttesterBitField = aggregateBitField
 }
 
 func (sat SubmitAttestationTransaction) Serialize() []byte {

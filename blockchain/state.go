@@ -82,7 +82,7 @@ func (b Blockchain) ValidateAttestation(s State, attestation transaction.Attesta
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
-	justifiedBlock, err := b.index.GetBlockNodeByHash(*attestation.JustifiedBlockHash)
+	justifiedBlock, err := b.index.GetBlockNodeByHash(attestation.JustifiedBlockHash)
 	if err != nil {
 		return errors.New("justified block not in index")
 	}

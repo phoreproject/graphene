@@ -3,6 +3,7 @@ package blockchain
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -12,14 +13,16 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
+var zeroHash = chainhash.Hash{}
+
 // BlockHeader is a block header for the beacon chain.
 type BlockHeader struct {
-	ParentHash      *chainhash.Hash
+	ParentHash      chainhash.Hash
 	SlotNumber      uint64
-	RandaoReveal    *chainhash.Hash
-	ActiveStateRoot *chainhash.Hash
+	RandaoReveal    chainhash.Hash
+	ActiveStateRoot chainhash.Hash
 	Timestamp       time.Time
-	TransactionRoot *chainhash.Hash
+	TransactionRoot chainhash.Hash
 }
 
 // Serialize serializes a block header to bytes.
@@ -66,6 +69,11 @@ func (b BlockHeader) Deserialize(r io.Reader) error {
 	return nil
 }
 
+// Hash gets the hash of a block node.
+func (b BlockHeader) Hash() chainhash.Hash {
+	return transaction.GetHash(b)
+}
+
 // BlockNode is a block header with a reference to the
 // last block.
 type BlockNode struct {
@@ -79,10 +87,15 @@ type BlockIndex struct {
 	index map[chainhash.Hash]*BlockNode
 }
 
+// NewBlockIndex creates and initializes a new block index.
+func NewBlockIndex() BlockIndex {
+	return BlockIndex{index: make(map[chainhash.Hash]*BlockNode)}
+}
+
 // GetBlockNodeByHash gets a block node by the given hash from the index.
 func (b BlockIndex) GetBlockNodeByHash(h chainhash.Hash) (*BlockNode, error) {
-	o, err := b.index[h]
-	if err {
+	o, found := b.index[h]
+	if !found {
 		return nil, errors.New("could not find block in index")
 	}
 	return o, nil
@@ -96,24 +109,81 @@ func (b BlockIndex) AddNode(node *BlockNode) {
 
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
-	index           BlockIndex
-	bestChainHeight uint64
-	chain           []*BlockNode
+	index BlockIndex
+	chain []*BlockNode
 }
 
-// AddBlock adds a block header to the current chain.
-func (b Blockchain) AddBlock(h BlockHeader) error {
-	parent, err := b.index.GetBlockNodeByHash(*h.ParentHash)
-	if err != nil {
-		return err
+func NewBlockchain(index BlockIndex) Blockchain {
+	return Blockchain{index: index}
+}
+
+// AddBlock adds a block header to the current chain. The block should already
+// have been validated by this point.
+func (b *Blockchain) AddBlock(h BlockHeader) error {
+	var parent *BlockNode
+	if !(h.ParentHash == zeroHash && len(b.chain) == 0) {
+		p, err := b.index.GetBlockNodeByHash(h.ParentHash)
+		parent = p
+		if err != nil {
+			return err
+		}
 	}
 
-	node := &BlockNode{BlockHeader: h, PrevNode: parent, Height: parent.Height + 1}
+	height := uint64(0)
+	if parent != nil {
+		height = parent.Height + 1
+	}
+
+	node := &BlockNode{BlockHeader: h, PrevNode: parent, Height: height}
 
 	// Add block to the index
 	b.index.AddNode(node)
 
-	// TODO: flawed fork choice mechanism (should be IMD-GHOST)
-	b.chain = append(b.chain, node)
+	b.UpdateChainHead(node)
+
 	return nil
+}
+
+// UpdateChainHead updates the blockchain head if needed
+func (b *Blockchain) UpdateChainHead(n *BlockNode) {
+	if int64(n.Height) > int64(len(b.chain)-1) {
+		b.SetTip(n)
+	}
+}
+
+// SetTip sets the tip of the chain.
+func (b *Blockchain) SetTip(n *BlockNode) {
+	fmt.Println("test!")
+	needed := n.Height + 1
+	if uint64(cap(b.chain)) < needed {
+		nodes := make([]*BlockNode, needed, needed+100)
+		copy(nodes, b.chain)
+		b.chain = nodes
+	} else {
+		prevLen := int32(len(b.chain))
+		b.chain = b.chain[0:needed]
+		for i := prevLen; uint64(i) < needed; i++ {
+			b.chain[i] = nil
+		}
+	}
+
+	for n != nil && b.chain[n.Height] != n {
+		b.chain[n.Height] = n
+		n = n.PrevNode
+	}
+}
+
+// Tip returns the block at the tip of the chain.
+func (b Blockchain) Tip() *BlockNode {
+	return b.chain[len(b.chain)-1]
+}
+
+// GetNodeByHeight gets a node from the active blockchain by height.
+func (b Blockchain) GetNodeByHeight(height int64) *BlockNode {
+	return b.chain[height]
+}
+
+// Height returns the height of the chain.
+func (b Blockchain) Height() int {
+	return len(b.chain) - 1
 }

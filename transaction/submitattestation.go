@@ -48,9 +48,9 @@ type Attestation struct {
 	Slot                uint64
 	ShardID             uint64
 	JustifiedSlot       uint64
-	JustifiedBlockHash  *chainhash.Hash
-	ShardBlockHash      *chainhash.Hash
-	ObliqueParentHashes []*chainhash.Hash
+	JustifiedBlockHash  chainhash.Hash
+	ShardBlockHash      chainhash.Hash
+	ObliqueParentHashes []chainhash.Hash
 }
 
 // Deserialize reads an attestation from the provided reader.

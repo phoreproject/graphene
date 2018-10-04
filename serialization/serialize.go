@@ -62,20 +62,18 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 func WriteVarInt(i uint64) []byte {
 	if i < 0xfd {
 		return []byte{byte(uint8(i))}
+	} else if i < math.MaxUint16 {
+		var b []byte
+		binary.BigEndian.PutUint16(b, uint16(i))
+		return append([]byte{'\xfd'}, b...)
+	} else if i < math.MaxUint32 {
+		var b []byte
+		binary.BigEndian.PutUint32(b, uint32(i))
+		return append([]byte{'\xfe'}, b...)
 	} else {
-		if i < math.MaxUint16 {
-			var b []byte
-			binary.BigEndian.PutUint16(b, uint16(i))
-			return append([]byte{'\xfd'}, b...)
-		} else if i < math.MaxUint32 {
-			var b []byte
-			binary.BigEndian.PutUint32(b, uint32(i))
-			return append([]byte{'\xfe'}, b...)
-		} else {
-			var b []byte
-			binary.BigEndian.PutUint64(b, uint64(i))
-			return append([]byte{'\xff'}, b...)
-		}
+		var b []byte
+		binary.BigEndian.PutUint64(b, uint64(i))
+		return append([]byte{'\xff'}, b...)
 	}
 }
 
@@ -98,12 +96,13 @@ func WriteByteArray(toWrite []byte) []byte {
 }
 
 // ReadHash will read a hash from the reader provided.
-func ReadHash(r io.Reader) (*chainhash.Hash, error) {
+func ReadHash(r io.Reader) (chainhash.Hash, error) {
 	b, err := ReadBytes(r, chainhash.HashSize)
 	if err != nil {
-		return nil, err
+		return chainhash.Hash{}, err
 	}
-	return chainhash.NewHash(b)
+	h, err := chainhash.NewHash(b)
+	return *h, err
 }
 
 // ReadAddress will read an address from the reader.
@@ -149,13 +148,13 @@ func ReadBigInt(r io.Reader) (*big.Int, error) {
 }
 
 // ReadHashArray reads an array of hashes from the reader.
-func ReadHashArray(r io.Reader) ([]*chainhash.Hash, error) {
+func ReadHashArray(r io.Reader) ([]chainhash.Hash, error) {
 	l, err := ReadVarInt(r)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]*chainhash.Hash, l)
+	out := make([]chainhash.Hash, l)
 	for i := uint64(0); i < l; l++ {
 		out[i], err = ReadHash(r)
 		if err != nil {
@@ -166,7 +165,7 @@ func ReadHashArray(r io.Reader) ([]*chainhash.Hash, error) {
 }
 
 // WriteHashArray will serialize a hash array and return bytes.
-func WriteHashArray(hs []*chainhash.Hash) []byte {
+func WriteHashArray(hs []chainhash.Hash) []byte {
 	out := []byte{}
 	out = append(out, WriteVarInt(uint64(len(hs)))...)
 	for _, h := range hs {

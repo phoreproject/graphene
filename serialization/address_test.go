@@ -9,8 +9,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
-
-	"github.com/phoreproject/synapse/transaction"
+	"github.com/phoreproject/synapse/serialization"
 )
 
 func TestEncodeDecode(t *testing.T) {
@@ -19,9 +18,9 @@ func TestEncodeDecode(t *testing.T) {
 		t.Fatal(err)
 	}
 	pub := btcec.PublicKey(priv.PublicKey)
-	addr := transaction.NewAddress(&pub)
+	addr := serialization.NewAddress(&pub)
 	fmt.Println(addr.ToString())
-	addr2, err := transaction.DecodeAddress(addr.ToString())
+	addr2, err := serialization.DecodeAddress(addr.ToString())
 	if err != nil {
 		t.Fatal(err)
 	}

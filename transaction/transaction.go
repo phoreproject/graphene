@@ -4,32 +4,14 @@ import (
 	"io"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"github.com/phoreproject/synapse/serialization"
 )
 
-// Serializable represents an object that can be serialized
-// or deserialized.
-type Serializable interface {
-	// Serialize takes an object an returns a representation of the object
-	// in bytes.
-	Serialize() []byte
-
-	// Deserialize reads from a buffer and creates the object from a
-	Deserialize(io.Reader) error
-}
-
-// GetHash returns the hash of a serializable object.
-func GetHash(s Serializable) chainhash.Hash {
-	serialized := s.Serialize()
-	return chainhash.HashH(serialized)
-}
-
 // Transaction is a wrapper struct to provide functions for different
 // transaction types.
 type Transaction struct {
-	Data      Serializable
+	Data      serialization.Serializable
 	Signed    bool
 	Signature *btcec.Signature
 }

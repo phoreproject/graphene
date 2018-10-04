@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/phoreproject/synapse/serialization"
-	"github.com/phoreproject/synapse/transaction"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
@@ -35,7 +34,7 @@ func (b BlockHeader) Serialize() []byte {
 }
 
 // Deserialize reads a block header from the given reader.
-func (b BlockHeader) Deserialize(r io.Reader) error {
+func (b *BlockHeader) Deserialize(r io.Reader) error {
 	p, err := serialization.ReadHash(r)
 	if err != nil {
 		return err
@@ -70,8 +69,8 @@ func (b BlockHeader) Deserialize(r io.Reader) error {
 }
 
 // Hash gets the hash of a block node.
-func (b BlockHeader) Hash() chainhash.Hash {
-	return transaction.GetHash(b)
+func (b *BlockHeader) Hash() chainhash.Hash {
+	return serialization.GetHash(b)
 }
 
 // BlockNode is a block header with a reference to the
@@ -103,7 +102,7 @@ func (b BlockIndex) GetBlockNodeByHash(h chainhash.Hash) (*BlockNode, error) {
 
 // AddNode adds a node to the block index.
 func (b BlockIndex) AddNode(node *BlockNode) {
-	h := transaction.GetHash(node.BlockHeader)
+	h := serialization.GetHash(&node.BlockHeader)
 	b.index[h] = node
 }
 
@@ -113,6 +112,7 @@ type Blockchain struct {
 	chain []*BlockNode
 }
 
+// NewBlockchain creates a new blockchain.
 func NewBlockchain(index BlockIndex) Blockchain {
 	return Blockchain{index: index}
 }

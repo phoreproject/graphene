@@ -10,6 +10,23 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
+// Serializable represents an object that can be serialized
+// or deserialized.
+type Serializable interface {
+	// Serialize takes an object an returns a representation of the object
+	// in bytes.
+	Serialize() []byte
+
+	// Deserialize reads from a buffer and creates the object from a
+	Deserialize(io.Reader) error
+}
+
+// GetHash returns the hash of a serializable object.
+func GetHash(s Serializable) chainhash.Hash {
+	serialized := s.Serialize()
+	return chainhash.HashH(serialized)
+}
+
 // ReadBytes reads a certain number of bytes guaranteed from
 // a reader.
 func ReadBytes(r io.Reader, numBytes int) ([]byte, error) {

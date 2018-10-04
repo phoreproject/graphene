@@ -1,7 +1,12 @@
 package blockchain_test
 
 import (
+	"bytes"
+	"math/rand"
 	"testing"
+	"time"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"github.com/phoreproject/synapse/blockchain"
 )
@@ -85,5 +90,27 @@ func TestHeightConsistency(t *testing.T) {
 	block5 := b.GetNodeByHeight(5)
 	if block5.Height != 5 {
 		t.Errorf("block height doesn't match getter")
+	}
+}
+
+func TestBlockHeaderSerializeAndDeserialize(t *testing.T) {
+	b := blockchain.BlockHeader{
+		ParentHash:      chainhash.HashH([]byte("random")),
+		RandaoReveal:    chainhash.HashH([]byte("random1")),
+		ActiveStateRoot: chainhash.HashH([]byte("random2")),
+		TransactionRoot: chainhash.HashH([]byte("random3")),
+		Timestamp:       time.Unix(time.Now().Unix(), 0),
+		SlotNumber:      rand.Uint64(),
+	}
+
+	bBytes := b.Serialize()
+
+	newB := blockchain.BlockHeader{}
+	err := newB.Deserialize(bytes.NewBuffer(bBytes))
+	if err != nil {
+		t.Error(err)
+	}
+	if newB != b {
+		t.Error("invalid serialization")
 	}
 }

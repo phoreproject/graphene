@@ -7,6 +7,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/phoreproject/synapse/transaction"
+
 	"github.com/phoreproject/synapse/serialization"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -22,6 +24,11 @@ type BlockHeader struct {
 	ActiveStateRoot chainhash.Hash
 	Timestamp       time.Time
 	TransactionRoot chainhash.Hash
+}
+
+type Block struct {
+	BlockHeader
+	Transactions []transaction.Transaction
 }
 
 // Serialize serializes a block header to bytes.
@@ -115,33 +122,6 @@ type Blockchain struct {
 // NewBlockchain creates a new blockchain.
 func NewBlockchain(index BlockIndex) Blockchain {
 	return Blockchain{index: index}
-}
-
-// AddBlock adds a block header to the current chain. The block should already
-// have been validated by this point.
-func (b *Blockchain) AddBlock(h BlockHeader) error {
-	var parent *BlockNode
-	if !(h.ParentHash == zeroHash && len(b.chain) == 0) {
-		p, err := b.index.GetBlockNodeByHash(h.ParentHash)
-		parent = p
-		if err != nil {
-			return err
-		}
-	}
-
-	height := uint64(0)
-	if parent != nil {
-		height = parent.Height + 1
-	}
-
-	node := &BlockNode{BlockHeader: h, PrevNode: parent, Height: height}
-
-	// Add block to the index
-	b.index.AddNode(node)
-
-	b.UpdateChainHead(node)
-
-	return nil
 }
 
 // UpdateChainHead updates the blockchain head if needed

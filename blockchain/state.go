@@ -5,71 +5,12 @@ import (
 	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/serialization"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/transaction"
 )
 
-// CrystallizedState is state that is updated every epoch
-type CrystallizedState struct {
-	LastStateRecalculation uint64
-	JustifiedStreak        uint64
-	LastJustifiedSlot      uint64
-	LastFinalizedSlot      uint64
-	CurrentDynasty         uint64
-	DynastySeed            []byte
-	DynastyStart           uint64
-	Crosslinks             []Crosslink
-	Validators             []Validator
-	Committees             []ShardAndCommittee
-}
-
-// Validator is a single validator session (logging in and out)
-type Validator struct {
-	Pubkey            [32]byte
-	WithdrawalAddress serialization.Address
-	WithdrawalShardID uint64
-	RandaoCommitment  *chainhash.Hash
-	Balance           uint64
-	StartDynasty      uint64
-	EndDynasty        uint64
-}
-
-// Crosslink goes in a collation to represent the last crystallized beacon block.
-type Crosslink struct {
-	// Dynasty is the current dynasty number.
-	Dynasty uint64
-
-	// Slot is the slot within the current dynasty.
-	Slot uint64
-
-	// Hash is the hash of the beacon chain block.
-	Hash *chainhash.Hash
-}
-
-// ShardAndCommittee keeps track of the validators assigned to a specific shard.
-type ShardAndCommittee struct {
-	// ShardID is which shard the committee is assigned to.
-	ShardID uint64
-
-	// Committee is the validator IDs that are assigned to this shard.
-	Committee []uint32
-}
-
-// ActiveState is state that can change every block.
-type ActiveState struct {
-	PendingAttestations []transaction.Attestation
-	PendingValidators   []Validator
-	Balances            map[serialization.Address]uint64
-}
-
-// State is active and crystallized state.
-type State struct {
-	Active       ActiveState
-	Crystallized CrystallizedState
-}
-
 // ValidateAttestation checks attestation invariants and the BLS signature.
-func (b Blockchain) ValidateAttestation(s State, attestation transaction.Attestation, block BlockHeader, parentBlock BlockHeader, c Config) error {
+func (b Blockchain) ValidateAttestation(attestation transaction.Attestation, block primitives.BlockHeader, parentBlock primitives.BlockHeader, c Config) error {
 	if attestation.Slot > parentBlock.SlotNumber {
 		return errors.New("attestation slot number too high")
 	}
@@ -78,7 +19,7 @@ func (b Blockchain) ValidateAttestation(s State, attestation transaction.Attesta
 		return errors.New("attestation slot number too low")
 	}
 
-	if attestation.JustifiedSlot > s.Crystallized.LastJustifiedSlot {
+	if attestation.JustifiedSlot > b.state.Crystallized.LastJustifiedSlot {
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
@@ -91,6 +32,8 @@ func (b Blockchain) ValidateAttestation(s State, attestation transaction.Attesta
 		return errors.New("justified slot does not match attestation")
 	}
 
+	// if (!len(attestation.att))
+
 	// TODO: validate BLS sig
 
 	return nil
@@ -98,10 +41,10 @@ func (b Blockchain) ValidateAttestation(s State, attestation transaction.Attesta
 
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
-func (b *Blockchain) AddBlock(h BlockHeader) error {
+func (b *Blockchain) AddBlock(h primitives.BlockHeader) error {
 	var parent *BlockNode
-	if !(h.ParentHash == zeroHash && len(b.chain) == 0) {
-		p, err := b.index.GetBlockNodeByHash(h.ParentHash)
+	if !(h.AncestorHashes[0] == zeroHash && len(b.chain) == 0) {
+		p, err := b.index.GetBlockNodeByHash(h.AncestorHashes[0])
 		parent = p
 		if err != nil {
 			return err
@@ -124,7 +67,7 @@ func (b *Blockchain) AddBlock(h BlockHeader) error {
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b Blockchain) ProcessBlock(block Block) error {
+func (b Blockchain) ProcessBlock(block primitives.Block) error {
 	err := b.ValidateIncomingBlock(block)
 	if err != nil {
 		return err
@@ -163,7 +106,7 @@ func UpdateAncestorHashes(parentAncestorHashes []*chainhash.Hash, parentSlotNumb
 }
 
 // ValidateIncomingBlock runs a couple of checks on an incoming block.
-func (b Blockchain) ValidateIncomingBlock(newBlock Block) error {
+func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 	if _, err := b.index.GetBlockNodeByHash(newBlock.BlockHeader.Hash()); err != nil {
 		return errors.New("could not find parent block")
 	}

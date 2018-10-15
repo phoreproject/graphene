@@ -1,30 +1,30 @@
 package blockchain_test
 
 import (
-	"bytes"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"github.com/phoreproject/synapse/blockchain"
+	"github.com/phoreproject/synapse/primitives"
 )
+
+var zeroHash = chainhash.Hash{}
 
 func TestReorganization(t *testing.T) {
 	b := blockchain.NewBlockchain(blockchain.NewBlockIndex())
 
-	h00 := blockchain.BlockHeader{}
+	h00 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{zeroHash}}
 	h00hash := h00.Hash()
-	h01 := blockchain.BlockHeader{ParentHash: h00hash}
+	h01 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h00hash}}
 	h01hash := h01.Hash()
-	h02 := blockchain.BlockHeader{ParentHash: h01hash}
+	h02 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h01hash}}
 	h02hash := h02.Hash()
-	h03 := blockchain.BlockHeader{ParentHash: h02hash}
+	h03 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h02hash}}
 	h03hash := h03.Hash()
-	h04 := blockchain.BlockHeader{ParentHash: h03hash}
+	h04 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h03hash}}
 	h04hash := h04.Hash()
-	h05 := blockchain.BlockHeader{ParentHash: h04hash}
+	h05 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h04hash}}
 
 	b.AddBlock(h00)
 	b.AddBlock(h01)
@@ -37,13 +37,13 @@ func TestReorganization(t *testing.T) {
 		t.Errorf("Height is not expected value of 6; got %d", b.Height())
 	}
 
-	h13 := blockchain.BlockHeader{ParentHash: h02hash}
+	h13 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h02hash}}
 	h13hash := h13.Hash()
-	h14 := blockchain.BlockHeader{ParentHash: h13hash}
+	h14 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h13hash}}
 	h14hash := h14.Hash()
-	h15 := blockchain.BlockHeader{ParentHash: h14hash}
+	h15 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h14hash}}
 	h15hash := h15.Hash()
-	h16 := blockchain.BlockHeader{ParentHash: h15hash}
+	h16 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h15hash}}
 
 	b.AddBlock(h13)
 
@@ -68,17 +68,17 @@ func TestReorganization(t *testing.T) {
 func TestHeightConsistency(t *testing.T) {
 	b := blockchain.NewBlockchain(blockchain.NewBlockIndex())
 
-	h00 := blockchain.BlockHeader{}
+	h00 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{zeroHash}}
 	h00hash := h00.Hash()
-	h01 := blockchain.BlockHeader{ParentHash: h00hash}
+	h01 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h00hash}}
 	h01hash := h01.Hash()
-	h02 := blockchain.BlockHeader{ParentHash: h01hash}
+	h02 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h01hash}}
 	h02hash := h02.Hash()
-	h03 := blockchain.BlockHeader{ParentHash: h02hash}
+	h03 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h02hash}}
 	h03hash := h03.Hash()
-	h04 := blockchain.BlockHeader{ParentHash: h03hash}
+	h04 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h03hash}}
 	h04hash := h04.Hash()
-	h05 := blockchain.BlockHeader{ParentHash: h04hash}
+	h05 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{h04hash}}
 
 	b.AddBlock(h00)
 	b.AddBlock(h01)
@@ -90,27 +90,5 @@ func TestHeightConsistency(t *testing.T) {
 	block5 := b.GetNodeByHeight(5)
 	if block5.Height != 5 {
 		t.Errorf("block height doesn't match getter")
-	}
-}
-
-func TestBlockHeaderSerializeAndDeserialize(t *testing.T) {
-	b := blockchain.BlockHeader{
-		ParentHash:      chainhash.HashH([]byte("random")),
-		RandaoReveal:    chainhash.HashH([]byte("random1")),
-		ActiveStateRoot: chainhash.HashH([]byte("random2")),
-		TransactionRoot: chainhash.HashH([]byte("random3")),
-		Timestamp:       time.Unix(time.Now().Unix(), 0),
-		SlotNumber:      rand.Uint64(),
-	}
-
-	bBytes := b.Serialize()
-
-	newB := blockchain.BlockHeader{}
-	err := newB.Deserialize(bytes.NewBuffer(bBytes))
-	if err != nil {
-		t.Error(err)
-	}
-	if newB != b {
-		t.Error("invalid serialization")
 	}
 }

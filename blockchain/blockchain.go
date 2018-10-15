@@ -1,14 +1,9 @@
 package blockchain
 
 import (
-	"encoding/binary"
 	"errors"
-	"fmt"
-	"io"
-	"time"
 
-	"github.com/phoreproject/synapse/transaction"
-
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -16,74 +11,10 @@ import (
 
 var zeroHash = chainhash.Hash{}
 
-// BlockHeader is a block header for the beacon chain.
-type BlockHeader struct {
-	ParentHash      chainhash.Hash
-	SlotNumber      uint64
-	RandaoReveal    chainhash.Hash
-	ActiveStateRoot chainhash.Hash
-	Timestamp       time.Time
-	TransactionRoot chainhash.Hash
-}
-
-type Block struct {
-	BlockHeader
-	Transactions []transaction.Transaction
-}
-
-// Serialize serializes a block header to bytes.
-func (b BlockHeader) Serialize() []byte {
-	var slotNumBytes [8]byte
-	var timeBytes [8]byte
-	binary.BigEndian.PutUint64(timeBytes[:], uint64(b.Timestamp.Unix()))
-	binary.BigEndian.PutUint64(slotNumBytes[:], b.SlotNumber)
-	return serialization.AppendAll(b.ParentHash[:], slotNumBytes[:], b.RandaoReveal[:], b.ActiveStateRoot[:], timeBytes[:], b.TransactionRoot[:])
-}
-
-// Deserialize reads a block header from the given reader.
-func (b *BlockHeader) Deserialize(r io.Reader) error {
-	p, err := serialization.ReadHash(r)
-	if err != nil {
-		return err
-	}
-	b.ParentHash = p
-	slotNumber, err := serialization.ReadUint64(r)
-	if err != nil {
-		return err
-	}
-	b.SlotNumber = slotNumber
-	rr, err := serialization.ReadHash(r)
-	if err != nil {
-		return err
-	}
-	b.RandaoReveal = rr
-	asr, err := serialization.ReadHash(r)
-	if err != nil {
-		return err
-	}
-	b.ActiveStateRoot = asr
-	t, err := serialization.ReadUint64(r)
-	if err != nil {
-		return err
-	}
-	b.Timestamp = time.Unix(int64(t), 0)
-	tr, err := serialization.ReadHash(r)
-	if err != nil {
-		return err
-	}
-	b.TransactionRoot = tr
-	return nil
-}
-
-// Hash gets the hash of a block node.
-func (b *BlockHeader) Hash() chainhash.Hash {
-	return serialization.GetHash(b)
-}
-
 // BlockNode is a block header with a reference to the
 // last block.
 type BlockNode struct {
-	BlockHeader
+	primitives.BlockHeader
 	Height   uint64
 	PrevNode *BlockNode
 }
@@ -117,6 +48,7 @@ func (b BlockIndex) AddNode(node *BlockNode) {
 type Blockchain struct {
 	index BlockIndex
 	chain []*BlockNode
+	state primitives.State
 }
 
 // NewBlockchain creates a new blockchain.
@@ -133,7 +65,6 @@ func (b *Blockchain) UpdateChainHead(n *BlockNode) {
 
 // SetTip sets the tip of the chain.
 func (b *Blockchain) SetTip(n *BlockNode) {
-	fmt.Println("test!")
 	needed := n.Height + 1
 	if uint64(cap(b.chain)) < needed {
 		nodes := make([]*BlockNode, needed, needed+100)

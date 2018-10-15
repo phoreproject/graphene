@@ -1,6 +1,7 @@
 package serialization
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -10,21 +11,11 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
-// Serializable represents an object that can be serialized
-// or deserialized.
-type Serializable interface {
-	// Serialize takes an object an returns a representation of the object
-	// in bytes.
-	Serialize() []byte
-
-	// Deserialize reads from a buffer and creates the object from a
-	Deserialize(io.Reader) error
-}
-
 // GetHash returns the hash of a serializable object.
-func GetHash(s Serializable) chainhash.Hash {
-	serialized := s.Serialize()
-	return chainhash.HashH(serialized)
+func GetHash(s interface{}) chainhash.Hash {
+	b := new(bytes.Buffer)
+	binary.Write(b, binary.BigEndian, s)
+	return chainhash.HashH(b.Bytes())
 }
 
 // ReadBytes reads a certain number of bytes guaranteed from
@@ -112,36 +103,6 @@ func WriteByteArray(toWrite []byte) []byte {
 	return append(WriteVarInt(uint64(len(toWrite))), toWrite...)
 }
 
-// ReadHash will read a hash from the reader provided.
-func ReadHash(r io.Reader) (chainhash.Hash, error) {
-	b, err := ReadBytes(r, chainhash.HashSize)
-	if err != nil {
-		return chainhash.Hash{}, err
-	}
-	h, err := chainhash.NewHash(b)
-	return *h, err
-}
-
-// ReadAddress will read an address from the reader.
-func ReadAddress(r io.Reader) (*Address, error) {
-	b, err := ReadBytes(r, 20)
-	if err != nil {
-		return nil, err
-	}
-	var a Address
-	copy(a[:], b)
-	return &a, nil
-}
-
-// ReadUint64 will read a uint64 from the reader.
-func ReadUint64(r io.Reader) (uint64, error) {
-	b, err := ReadBytes(r, 8)
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint64(b), nil
-}
-
 // ReadBool will read a boolean from the reader.
 // 00 if false else true.
 func ReadBool(r io.Reader) (bool, error) {
@@ -162,31 +123,4 @@ func ReadBigInt(r io.Reader) (*big.Int, error) {
 	b := new(big.Int)
 	b.SetBytes(bigBytes)
 	return b, nil
-}
-
-// ReadHashArray reads an array of hashes from the reader.
-func ReadHashArray(r io.Reader) ([]chainhash.Hash, error) {
-	l, err := ReadVarInt(r)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]chainhash.Hash, l)
-	for i := uint64(0); i < l; l++ {
-		out[i], err = ReadHash(r)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
-// WriteHashArray will serialize a hash array and return bytes.
-func WriteHashArray(hs []chainhash.Hash) []byte {
-	out := []byte{}
-	out = append(out, WriteVarInt(uint64(len(hs)))...)
-	for _, h := range hs {
-		out = append(out, h[:]...)
-	}
-	return out
 }

@@ -105,6 +105,12 @@ func UpdateAncestorHashes(parentAncestorHashes []chainhash.Hash, parentSlotNumbe
 	return newAncestorHashes
 }
 
+// GetShardsAndCommitteesForSlot gets the committee for each shard.
+func (b Blockchain) GetShardsAndCommitteesForSlot(slot uint64) []primitives.ShardAndCommittee {
+	earliestSlotInArray := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength)
+	return b.state.Crystallized.ShardAndCommitteeForSlots[slot-earliestSlotInArray]
+}
+
 // ValidateIncomingBlock runs a couple of checks on an incoming block.
 func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 	if len(newBlock.AncestorHashes) != 32 {
@@ -125,7 +131,20 @@ func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 
 	for _, tx := range newBlock.Transactions {
 		if sat, success := tx.Data.(transaction.SubmitAttestationTransaction); success {
-			b.ValidateAttestation(sat.Attestation, newBlock.BlockHeader, parentBlock.BlockHeader, b.config)
+			err := b.ValidateAttestation(sat.Attestation, newBlock.BlockHeader, parentBlock.BlockHeader, b.config)
+			if err != nil {
+				return err
+			}
+			b.state.Active.PendingAttestations = append(b.state.Active.PendingAttestations, sat.Attestation)
+		}
+		if _, success := tx.Data.(transaction.LoginTransaction); success {
+			b.state.Active.PendingActions = append(b.state.Active.PendingActions, tx)
+		}
+		if _, success := tx.Data.(transaction.LogoutTransaction); success {
+			b.state.Active.PendingActions = append(b.state.Active.PendingActions, tx)
+		}
+		if _, success := tx.Data.(transaction.RegisterTransaction); success {
+			b.state.Active.PendingActions = append(b.state.Active.PendingActions, tx)
 		}
 	}
 

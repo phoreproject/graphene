@@ -27,7 +27,7 @@ type CrystallizedState struct {
 type Validator struct {
 	Pubkey            [32]byte
 	WithdrawalAddress serialization.Address
-	WithdrawalShardID uint64
+	WithdrawalShardID uint32
 	RandaoCommitment  *chainhash.Hash
 	Balance           uint64
 	Status            uint8

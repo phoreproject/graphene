@@ -3,6 +3,8 @@ package blockchain_test
 import (
 	"testing"
 
+	"github.com/phoreproject/synapse/db"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 
 	"github.com/phoreproject/synapse/blockchain"
@@ -12,7 +14,7 @@ import (
 var zeroHash = chainhash.Hash{}
 
 func TestReorganization(t *testing.T) {
-	b := blockchain.NewBlockchain(blockchain.NewBlockIndex())
+	b := blockchain.NewBlockchain(blockchain.NewBlockIndex(), db.NewInMemoryDB(), blockchain.MainNetConfig)
 
 	h00 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{zeroHash}}
 	h00hash := h00.Hash()
@@ -66,7 +68,7 @@ func TestReorganization(t *testing.T) {
 }
 
 func TestHeightConsistency(t *testing.T) {
-	b := blockchain.NewBlockchain(blockchain.NewBlockIndex())
+	b := blockchain.NewBlockchain(blockchain.NewBlockIndex(), db.NewInMemoryDB(), blockchain.MainNetConfig)
 
 	h00 := primitives.BlockHeader{AncestorHashes: []chainhash.Hash{zeroHash}}
 	h00hash := h00.Hash()

@@ -95,7 +95,7 @@ func GetNewRecentBlockHashes(oldHashes []*chainhash.Hash, parentSlot uint32, cur
 
 // UpdateAncestorHashes fills in the parent hash in ancestor hashes
 // where the ith element represents the 2**i past block.
-func UpdateAncestorHashes(parentAncestorHashes []*chainhash.Hash, parentSlotNumber int, parentHash *chainhash.Hash) []*chainhash.Hash {
+func UpdateAncestorHashes(parentAncestorHashes []chainhash.Hash, parentSlotNumber uint64, parentHash chainhash.Hash) []chainhash.Hash {
 	newAncestorHashes := parentAncestorHashes[:]
 	for i := uint(0); i < 32; i++ {
 		if parentSlotNumber%(1<<i) == 0 {
@@ -107,8 +107,26 @@ func UpdateAncestorHashes(parentAncestorHashes []*chainhash.Hash, parentSlotNumb
 
 // ValidateIncomingBlock runs a couple of checks on an incoming block.
 func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
-	if _, err := b.index.GetBlockNodeByHash(newBlock.BlockHeader.Hash()); err != nil {
-		return errors.New("could not find parent block")
+	if len(newBlock.AncestorHashes) != 32 {
+		return errors.New("ancestorHashes improperly formed")
+	}
+
+	parentBlock, err := b.index.GetBlockNodeByHash(newBlock.AncestorHashes[0])
+	if err != nil {
+		return err
+	}
+
+	newHashes := UpdateAncestorHashes(parentBlock.AncestorHashes, parentBlock.SlotNumber, parentBlock.Hash())
+	for i := range newBlock.AncestorHashes {
+		if newHashes[i] != newBlock.AncestorHashes[i] {
+			return errors.New("ancestor hashes don't match expected value")
+		}
+	}
+
+	for _, tx := range newBlock.Transactions {
+		if sat, success := tx.Data.(transaction.SubmitAttestationTransaction); success {
+			b.ValidateAttestation(sat.Attestation, newBlock.BlockHeader, parentBlock.BlockHeader, b.config)
+		}
 	}
 
 	// TODO: check attestation from proposer

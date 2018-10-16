@@ -3,6 +3,7 @@ package blockchain
 import (
 	"errors"
 
+	"github.com/phoreproject/synapse/db"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 
@@ -46,15 +47,92 @@ func (b BlockIndex) AddNode(node *BlockNode) {
 
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
-	index BlockIndex
-	chain []*BlockNode
-	state primitives.State
+	index  BlockIndex
+	chain  []*BlockNode
+	db     db.Database
+	config Config
+	state  primitives.State
 }
 
 // NewBlockchain creates a new blockchain.
-func NewBlockchain(index BlockIndex) Blockchain {
-	return Blockchain{index: index}
+func NewBlockchain(index BlockIndex, db db.Database, config Config) Blockchain {
+	return Blockchain{index: index, db: db, config: config}
 }
+
+// InitialValidatorEntry is the validator entry to be added
+// at the beginning of a blockchain.
+type InitialValidatorEntry struct {
+	PubKey            []byte
+	ProofOfPossession []byte
+	WithdrawalShard   uint32
+	WithdrawalAddress serialization.Address
+	RandaoCommitment  chainhash.Hash
+}
+
+// NewBlockchainStartup creates a new blockchain from scratch.
+// func NewBlockchainStartup(index BlockIndex, db db.Database, config Config, initialValidators []InitialValidatorEntry) *Blockchain {
+// 	b := &Blockchain{index: index, db: db, config: config}
+// 	validators := make([]primitives.Validator, len(initialValidators))
+// 	for _, v := range initialValidators {
+// 		b.AddValidator(validators, v.PubKey, v.ProofOfPossession, v.WithdrawalShard, v.WithdrawalAddress, v.RandaoCommitment, 0)
+// 	}
+
+// }
+
+// MinEmptyValidator finds the first validator slot that is empty.
+func MinEmptyValidator(validators []primitives.Validator) int {
+	for i, v := range validators {
+		if v.Status == Withdrawn {
+			return i
+		}
+	}
+	return -1
+}
+
+// AddValidator adds a validator to the current validator set.
+func (b *Blockchain) AddValidator(currentValidators []primitives.Validator, pubkey []byte, proofOfPossession []byte, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64) (uint32, error) {
+	verifies := true // blsig.Verify(chainhash.HashB(pubkey), pubkey, proofOfPossession)
+	if !verifies {
+		return 0, errors.New("validator proof of possesion does not verify")
+	}
+
+	var pk [32]byte
+	copy(pk[:], pubkey)
+
+	rec := primitives.Validator{
+		Pubkey:            pk,
+		WithdrawalAddress: withdrawalAddress,
+		WithdrawalShardID: withdrawalShard,
+		RandaoCommitment:  &randaoCommitment,
+		Balance:           b.config.DepositSize,
+		Status:            PendingActivation,
+		ExitSlot:          0,
+	}
+
+	index := MinEmptyValidator(currentValidators)
+	if index == -1 {
+		currentValidators = append(currentValidators, rec)
+		return uint32(len(currentValidators) - 1), nil
+	}
+	currentValidators[index] = rec
+	return uint32(index), nil
+}
+
+// GetActiveValidatorIndices gets the indices of active validators.
+func (b *Blockchain) GetActiveValidatorIndices() []int {
+	var l []int
+	for i, v := range b.state.Crystallized.Validators {
+		if v.Status == Active {
+			l = append(l, i)
+		}
+	}
+	return l
+}
+
+// func ShuffleValidators(toShuffle []int, seed chainhash.Hash) {
+// 	h := chainhash.HashH(seed[:])
+
+// }
 
 // UpdateChainHead updates the blockchain head if needed
 func (b *Blockchain) UpdateChainHead(n *BlockNode) {

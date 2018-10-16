@@ -48,7 +48,7 @@ type Crosslink struct {
 // ShardAndCommittee keeps track of the validators assigned to a specific shard.
 type ShardAndCommittee struct {
 	// ShardID is which shard the committee is assigned to.
-	ShardID uint64
+	ShardID uint32
 
 	// Committee is the validator IDs that are assigned to this shard.
 	Committee []uint32
@@ -59,6 +59,7 @@ type ActiveState struct {
 	PendingAttestations []transaction.Attestation
 	PendingActions      []transaction.Transaction
 	RecentBlockHashes   []chainhash.Hash
+	RandaoMix           chainhash.Hash
 	Balances            map[serialization.Address]uint64
 }
 

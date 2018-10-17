@@ -7,8 +7,6 @@ import (
 // SubmitAttestationTransaction submits a signed attestation to the
 // beacon chain.
 type SubmitAttestationTransaction struct {
-	AggregateSignature []byte
-	AttesterBitField   []byte
 	Attestation
 }
 

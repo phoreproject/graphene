@@ -16,7 +16,7 @@ type VoteCache struct {
 }
 
 // Copy makes a deep copy of the vote cache.
-func (v VoteCache) Copy() *VoteCache {
+func (v *VoteCache) Copy() *VoteCache {
 	voterIndices := make([]uint32, len(v.validatorIndices))
 	copy(voterIndices, v.validatorIndices)
 
@@ -41,7 +41,7 @@ func voteCacheDeepCopy(old map[chainhash.Hash]*VoteCache) map[chainhash.Hash]*Vo
 }
 
 // CalculateNewVoteCache tallies votes for attestations in each block.
-func (s State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) (map[chainhash.Hash]*VoteCache, error) {
+func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) (map[chainhash.Hash]*VoteCache, error) {
 	newCache := voteCacheDeepCopy(cache)
 
 	for _, a := range block.Attestations {
@@ -94,7 +94,7 @@ func (s State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhas
 	return newCache, nil
 }
 
-func (a ActiveState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {
+func (a *ActiveState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {
 	recentHashes := a.RecentBlockHashes
 	obliqueParentHashes := att.ObliqueParentHashes
 	earliestSlot := int(block.SlotNumber) - len(recentHashes)

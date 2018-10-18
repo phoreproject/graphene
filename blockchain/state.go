@@ -44,6 +44,11 @@ type CrystallizedState struct {
 	ForkSlotNumber              uint64
 }
 
+// Copy returns a copy of the crystallized state.
+func (c CrystallizedState) Copy() CrystallizedState {
+	return c
+}
+
 // ShardCommitteeByShardID gets the shards committee from a list of committees/shards
 // in a list.
 func ShardCommitteeByShardID(shardID uint64, shardCommittees []primitives.ShardAndCommittee) ([]uint32, error) {
@@ -66,14 +71,14 @@ func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [
 
 // GetAttesterIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (c CrystallizedState) GetAttesterIndices(attestation *transaction.Attestation, con *Config) ([]uint32, error) {
+func (c *CrystallizedState) GetAttesterIndices(attestation *transaction.Attestation, con *Config) ([]uint32, error) {
 	slotsStart := c.LastStateRecalculation - uint64(con.CycleLength)
 	slotIndex := (attestation.Slot - slotsStart) % uint64(con.CycleLength)
 	return CommitteeInShardAndSlot(slotIndex, attestation.ShardID, c.ShardAndCommitteeForSlots)
 }
 
 // InitializeState initializes state to the genesis state according to the config.
-func (b Blockchain) InitializeState(initialValidators []InitialValidatorEntry) {
+func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) {
 	b.state.Crystallized.Validators = make([]primitives.Validator, len(initialValidators))
 	for _, v := range initialValidators {
 		b.AddValidator(b.state.Crystallized.Validators, v.PubKey, v.ProofOfPossession, v.WithdrawalShard, v.WithdrawalAddress, v.RandaoCommitment, 0)
@@ -252,7 +257,7 @@ func (b *Blockchain) GetNewShuffling(seed chainhash.Hash, crosslinkingStart int)
 }
 
 // ValidateAttestation checks attestation invariants and the BLS signature.
-func (b Blockchain) ValidateAttestation(attestation *transaction.Attestation, block *primitives.Block, parentBlock *primitives.Block, c *Config) error {
+func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, block *primitives.Block, parentBlock *primitives.Block, c *Config) error {
 	if attestation.Slot > parentBlock.SlotNumber {
 		return errors.New("attestation slot number too high")
 	}
@@ -330,7 +335,7 @@ func UpdateAncestorHashes(parentAncestorHashes []chainhash.Hash, parentSlotNumbe
 }
 
 // GetShardsAndCommitteesForSlot gets the committee for each shard.
-func (b Blockchain) GetShardsAndCommitteesForSlot(slot uint64) []primitives.ShardAndCommittee {
+func (b *Blockchain) GetShardsAndCommitteesForSlot(slot uint64) []primitives.ShardAndCommittee {
 	earliestSlotInArray := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength)
 	return b.state.Crystallized.ShardAndCommitteeForSlots[slot-earliestSlotInArray]
 }
@@ -347,7 +352,7 @@ func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	return h
 }
 
-func (b Blockchain) getTotalActiveValidatorBalance() uint64 {
+func (b *Blockchain) getTotalActiveValidatorBalance() uint64 {
 	total := uint64(0)
 	for _, v := range b.state.Crystallized.Validators {
 		if v.Status == Active {
@@ -358,7 +363,7 @@ func (b Blockchain) getTotalActiveValidatorBalance() uint64 {
 }
 
 // TotalValidatingBalance is the sum of the balances of active validators.
-func (c CrystallizedState) TotalValidatingBalance() uint64 {
+func (c *CrystallizedState) TotalValidatingBalance() uint64 {
 	total := uint64(0)
 	for _, v := range c.Validators {
 		total += v.Balance
@@ -368,7 +373,7 @@ func (c CrystallizedState) TotalValidatingBalance() uint64 {
 
 // ApplyBlockActiveStateChanges applys state changes from the block
 // to the blockchain's state.
-func (b Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) error {
+func (b *Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) error {
 	if len(newBlock.AncestorHashes) != 32 {
 		return errors.New("ancestorHashes improperly formed")
 	}
@@ -448,7 +453,7 @@ func (b Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) err
 
 // ApplyBlockCrystallizedStateChanges applies crystallized state changes up to
 // a certain slot number.
-func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error {
+func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error {
 	// go through each cycle needed to get up to the specified slot number
 	for slotNumber-b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
 		// per-cycle parameters for reward calculation
@@ -583,7 +588,7 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 }
 
 // ApplyBlock applies a block to the state
-func (b Blockchain) ApplyBlock(newBlock *primitives.Block) error {
+func (b *Blockchain) ApplyBlock(newBlock *primitives.Block) error {
 	err := b.ApplyBlockCrystallizedStateChanges(newBlock.SlotNumber)
 	if err != nil {
 		return err

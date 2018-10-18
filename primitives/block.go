@@ -20,7 +20,7 @@ type Block struct {
 }
 
 // Hash gets the hash of the block header
-func (b Block) Hash() chainhash.Hash {
+func (b *Block) Hash() chainhash.Hash {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, b)
 	return chainhash.HashH(buf.Bytes())

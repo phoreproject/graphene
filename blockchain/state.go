@@ -499,8 +499,8 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 			}
 
 			// adjust rewards
-			for validatorIndex, validatorID := range committee {
-				if hasVoted(attestation.AttesterBitField, validatorIndex) {
+			for _, validatorID := range committee {
+				if hasVoted(attestation.AttesterBitField, int(validatorID)) {
 					if timeSinceFinality <= uint64(3*b.config.CycleLength) {
 						balance := b.state.Crystallized.Validators[validatorID].Balance
 						b.state.Crystallized.Validators[validatorID].Balance += balance / rewardQuotient * (2*attesterBalance - totalBalance)
@@ -513,6 +513,7 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 						b.state.Crystallized.Validators[validatorID].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
 					}
 				}
+
 			}
 
 			if b.state.Crystallized.JustifiedStreak >= uint64(b.config.CycleLength+1) {
@@ -539,19 +540,34 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 				totalCommitteeBalance := uint64(0)
 
 				// tally up the balance of each validator who voted for this hash
-				for i, validatorIndex := range shardCommittee {
-					if hasVoted(attestation.AttesterBitField, i) {
+				for _, validatorIndex := range shardCommittee {
+					if hasVoted(attestation.AttesterBitField, int(validatorIndex)) {
 						totalCommitteeBalance += b.state.Crystallized.Validators[validatorIndex].Balance
 					}
 				}
 
 				// if this is a super-majority, set up a cross-link
 				if 3*totalCommitteeBalance >= 2*totalBalanceAttesting && !b.state.Crystallized.Crosslinks[shard].RecentlyChanged {
+					timeSinceLastConfirmations := block.SlotNumber - b.state.Crystallized.Crosslinks[shard].Slot
+
+					for _, validatorIndex := range shardCommittee {
+						if !b.state.Crystallized.Crosslinks[shard].RecentlyChanged {
+							checkBit := hasVoted(attestation.AttesterBitField, int(validatorIndex))
+							if checkBit {
+								balance := b.state.Crystallized.Validators[validatorIndex].Balance
+								b.state.Crystallized.Validators[validatorIndex].Balance += balance / rewardQuotient * (2*totalBalanceAttesting - totalCommitteeBalance) / totalCommitteeBalance
+							} else {
+								balance := b.state.Crystallized.Validators[validatorIndex].Balance
+								b.state.Crystallized.Validators[validatorIndex].Balance += balance/rewardQuotient + balance*timeSinceLastConfirmations/quadraticPenaltyQuotient
+							}
+						}
+					}
 					b.state.Crystallized.Crosslinks[shard] = primitives.Crosslink{
 						RecentlyChanged: true,
 						Slot:            b.state.Crystallized.LastStateRecalculation + uint64(b.config.CycleLength),
 						Hash:            &shardBlockHash,
 					}
+
 				}
 			}
 		}

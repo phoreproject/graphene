@@ -12,51 +12,18 @@ import (
 
 var zeroHash = chainhash.Hash{}
 
-// BlockNode is a block header with a reference to the
-// last block.
-type BlockNode struct {
-	primitives.BlockHeader
-	Height   uint64
-	PrevNode *BlockNode
-}
-
-// BlockIndex is an in-memory store of block headers.
-type BlockIndex struct {
-	index map[chainhash.Hash]*BlockNode
-}
-
-// NewBlockIndex creates and initializes a new block index.
-func NewBlockIndex() BlockIndex {
-	return BlockIndex{index: make(map[chainhash.Hash]*BlockNode)}
-}
-
-// GetBlockNodeByHash gets a block node by the given hash from the index.
-func (b BlockIndex) GetBlockNodeByHash(h chainhash.Hash) (*BlockNode, error) {
-	o, found := b.index[h]
-	if !found {
-		return nil, errors.New("could not find block in index")
-	}
-	return o, nil
-}
-
-// AddNode adds a node to the block index.
-func (b BlockIndex) AddNode(node *BlockNode) {
-	h := serialization.GetHash(&node.BlockHeader)
-	b.index[h] = node
-}
-
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
-	index  BlockIndex
-	chain  []*BlockNode
-	db     db.Database
-	config Config
-	state  primitives.State
+	chain     []chainhash.Hash
+	db        db.Database
+	config    *Config
+	state     State
+	voteCache map[chainhash.Hash]*VoteCache
 }
 
 // NewBlockchain creates a new blockchain.
-func NewBlockchain(index BlockIndex, db db.Database, config Config) Blockchain {
-	return Blockchain{index: index, db: db, config: config}
+func NewBlockchain(db db.Database, config *Config) Blockchain {
+	return Blockchain{db: db, config: config}
 }
 
 // InitialValidatorEntry is the validator entry to be added
@@ -75,40 +42,47 @@ const (
 )
 
 // UpdateChainHead updates the blockchain head if needed
-func (b *Blockchain) UpdateChainHead(n *BlockNode) {
-	if int64(n.Height) > int64(len(b.chain)-1) {
+func (b *Blockchain) UpdateChainHead(n *primitives.Block) {
+	if int64(n.SlotNumber) > int64(len(b.chain)-1) {
 		b.SetTip(n)
 	}
 }
 
 // SetTip sets the tip of the chain.
-func (b *Blockchain) SetTip(n *BlockNode) {
-	needed := n.Height + 1
+func (b *Blockchain) SetTip(n *primitives.Block) error {
+	needed := n.SlotNumber + 1
 	if uint64(cap(b.chain)) < needed {
-		nodes := make([]*BlockNode, needed, needed+100)
+		nodes := make([]chainhash.Hash, needed, needed+100)
 		copy(nodes, b.chain)
 		b.chain = nodes
 	} else {
 		prevLen := int32(len(b.chain))
 		b.chain = b.chain[0:needed]
 		for i := prevLen; uint64(i) < needed; i++ {
-			b.chain[i] = nil
+			b.chain[i] = zeroHash
 		}
 	}
 
-	for n != nil && b.chain[n.Height] != n {
-		b.chain[n.Height] = n
-		n = n.PrevNode
+	current := n
+
+	for current != nil && b.chain[current.SlotNumber] != current.Hash() {
+		b.chain[n.SlotNumber] = n.Hash()
+		nextBlock, err := b.db.GetBlockForHash(n.AncestorHashes[0])
+		if err != nil {
+			return errors.New("block data is corrupted")
+		}
+		current = nextBlock
 	}
+	return nil
 }
 
 // Tip returns the block at the tip of the chain.
-func (b Blockchain) Tip() *BlockNode {
+func (b Blockchain) Tip() chainhash.Hash {
 	return b.chain[len(b.chain)-1]
 }
 
 // GetNodeByHeight gets a node from the active blockchain by height.
-func (b Blockchain) GetNodeByHeight(height int64) *BlockNode {
+func (b Blockchain) GetNodeByHeight(height int64) chainhash.Hash {
 	return b.chain[height]
 }
 

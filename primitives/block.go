@@ -8,24 +8,20 @@ import (
 	"github.com/phoreproject/synapse/transaction"
 )
 
-// BlockHeader represents a single beacon chain header.
-type BlockHeader struct {
+// Block represents a single beacon chain block.
+type Block struct {
 	SlotNumber            uint64
 	RandaoReveal          chainhash.Hash
 	AncestorHashes        []chainhash.Hash
 	ActiveStateRoot       chainhash.Hash
 	CrystallizedStateRoot chainhash.Hash
+	Specials              []transaction.Transaction
+	Attestations          []transaction.Attestation
 }
 
 // Hash gets the hash of the block header
-func (b BlockHeader) Hash() chainhash.Hash {
+func (b Block) Hash() chainhash.Hash {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, b)
 	return chainhash.HashH(buf.Bytes())
-}
-
-// Block represents a single beacon chain block.
-type Block struct {
-	BlockHeader
-	Transactions []transaction.Transaction
 }

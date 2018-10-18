@@ -3,6 +3,7 @@ package blockchain
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -10,6 +11,66 @@ import (
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
 )
+
+// ActiveState is state that can change every block.
+type ActiveState struct {
+	PendingAttestations []transaction.Attestation
+	PendingActions      []transaction.Transaction
+	RecentBlockHashes   []chainhash.Hash
+	RandaoMix           chainhash.Hash
+	Balances            map[serialization.Address]uint64
+}
+
+// State is active and crystallized state.
+type State struct {
+	Active       ActiveState
+	Crystallized CrystallizedState
+}
+
+// CrystallizedState is state that is updated every epoch
+type CrystallizedState struct {
+	ValidatorSetChangeSlot      uint64
+	Crosslinks                  []primitives.Crosslink
+	Validators                  []primitives.Validator
+	LastStateRecalculation      uint64
+	JustifiedStreak             uint64
+	LastJustifiedSlot           uint64
+	LastFinalizedSlot           uint64
+	ShardAndCommitteeForSlots   [][]primitives.ShardAndCommittee
+	DepositsPenalizedInPeriod   []uint32
+	ValidatorSetDeltaHashChange chainhash.Hash
+	PreForkVersion              uint32
+	PostForkVersion             uint32
+	ForkSlotNumber              uint64
+}
+
+// ShardCommitteeByShardID gets the shards committee from a list of committees/shards
+// in a list.
+func ShardCommitteeByShardID(shardID uint64, shardCommittees []primitives.ShardAndCommittee) ([]uint32, error) {
+	for _, s := range shardCommittees {
+		if uint64(s.ShardID) == shardID {
+			return s.Committee, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unable to find committee based on shard: %v", shardID)
+}
+
+// CommitteeInShardAndSlot gets the committee of validator indices at a specific
+// shard and slot given the relative slot number [0, CYCLE_LENGTH] and shard ID.
+func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [][]primitives.ShardAndCommittee) ([]uint32, error) {
+	shardCommittee := shardCommittees[slotIndex]
+
+	return ShardCommitteeByShardID(shardID, shardCommittee)
+}
+
+// GetAttesterIndices gets all of the validator indices involved with the committee
+// assigned to the shard and slot of the committee.
+func (c CrystallizedState) GetAttesterIndices(attestation *transaction.Attestation, con *Config) ([]uint32, error) {
+	slotsStart := c.LastStateRecalculation - uint64(con.CycleLength)
+	slotIndex := (attestation.Slot - slotsStart) % uint64(con.CycleLength)
+	return CommitteeInShardAndSlot(slotIndex, attestation.ShardID, c.ShardAndCommitteeForSlots)
+}
 
 // InitializeState initializes state to the genesis state according to the config.
 func (b Blockchain) InitializeState(initialValidators []InitialValidatorEntry) {
@@ -30,7 +91,7 @@ func (b Blockchain) InitializeState(initialValidators []InitialValidatorEntry) {
 		}
 	}
 
-	b.state.Crystallized = primitives.CrystallizedState{
+	b.state.Crystallized = CrystallizedState{
 		Validators:                  b.state.Crystallized.Validators,
 		ValidatorSetChangeSlot:      0,
 		Crosslinks:                  crosslinks,
@@ -51,7 +112,7 @@ func (b Blockchain) InitializeState(initialValidators []InitialValidatorEntry) {
 		recentBlockHashes[i] = zeroHash
 	}
 
-	b.state.Active = primitives.ActiveState{
+	b.state.Active = ActiveState{
 		PendingActions:      []transaction.Transaction{},
 		PendingAttestations: []transaction.Attestation{},
 		RecentBlockHashes:   recentBlockHashes,
@@ -191,7 +252,7 @@ func (b *Blockchain) GetNewShuffling(seed chainhash.Hash, crosslinkingStart int)
 }
 
 // ValidateAttestation checks attestation invariants and the BLS signature.
-func (b Blockchain) ValidateAttestation(attestation transaction.Attestation, block primitives.BlockHeader, parentBlock primitives.BlockHeader, c Config) error {
+func (b Blockchain) ValidateAttestation(attestation *transaction.Attestation, block *primitives.Block, parentBlock *primitives.Block, c *Config) error {
 	if attestation.Slot > parentBlock.SlotNumber {
 		return errors.New("attestation slot number too high")
 	}
@@ -204,7 +265,7 @@ func (b Blockchain) ValidateAttestation(attestation transaction.Attestation, blo
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
-	justifiedBlock, err := b.index.GetBlockNodeByHash(attestation.JustifiedBlockHash)
+	justifiedBlock, err := b.db.GetBlockForHash(attestation.JustifiedBlockHash)
 	if err != nil {
 		return errors.New("justified block not in index")
 	}
@@ -222,39 +283,25 @@ func (b Blockchain) ValidateAttestation(attestation transaction.Attestation, blo
 
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
-func (b *Blockchain) AddBlock(h primitives.BlockHeader) error {
-	var parent *BlockNode
-	if !(h.AncestorHashes[0] == zeroHash && len(b.chain) == 0) {
-		p, err := b.index.GetBlockNodeByHash(h.AncestorHashes[0])
-		parent = p
-		if err != nil {
-			return err
-		}
-	}
-
-	height := uint64(0)
-	if parent != nil {
-		height = parent.Height + 1
-	}
-
-	node := &BlockNode{BlockHeader: h, PrevNode: parent, Height: height}
-
-	// Add block to the index
-	b.index.AddNode(node)
-
-	b.UpdateChainHead(node)
+func (b *Blockchain) AddBlock(h *primitives.Block) error {
+	b.UpdateChainHead(h)
 
 	return nil
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b Blockchain) ProcessBlock(block primitives.Block) error {
-	err := b.ValidateIncomingBlock(block)
+func (b Blockchain) ProcessBlock(block *primitives.Block) error {
+	// err := b.ValidateIncomingBlock(block)
+	// if err != nil {
+	// 	return err
+	// }
+
+	b.ApplyBlock(block)
+
+	err := b.AddBlock(block)
 	if err != nil {
 		return err
 	}
-
-	b.AddBlock(block.BlockHeader)
 
 	return nil
 }
@@ -314,13 +361,12 @@ func (b Blockchain) getTotalActiveValidatorBalance() uint64 {
 	return total
 }
 
-// ValidateIncomingBlock runs a couple of checks on an incoming block.
-func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
+func (b Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) error {
 	if len(newBlock.AncestorHashes) != 32 {
 		return errors.New("ancestorHashes improperly formed")
 	}
 
-	parentBlock, err := b.index.GetBlockNodeByHash(newBlock.AncestorHashes[0])
+	parentBlock, err := b.db.GetBlockForHash(newBlock.AncestorHashes[0])
 	if err != nil {
 		return err
 	}
@@ -332,14 +378,22 @@ func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 		}
 	}
 
-	for _, tx := range newBlock.Transactions {
-		if sat, success := tx.Data.(transaction.SubmitAttestationTransaction); success {
-			err := b.ValidateAttestation(sat.Attestation, newBlock.BlockHeader, parentBlock.BlockHeader, b.config)
-			if err != nil {
-				return err
-			}
-			b.state.Active.PendingAttestations = append(b.state.Active.PendingAttestations, sat.Attestation)
+	for _, a := range newBlock.Attestations {
+		err := b.ValidateAttestation(&a, newBlock, parentBlock, b.config)
+		if err != nil {
+			return err
 		}
+
+		newCache, err := b.state.CalculateNewVoteCache(newBlock, b.voteCache, b.config)
+		if err != nil {
+			return err
+		}
+
+		b.voteCache = newCache
+
+		b.state.Active.PendingAttestations = append(b.state.Active.PendingAttestations, a)
+	}
+	for _, tx := range newBlock.Specials {
 		if _, success := tx.Data.(transaction.LoginTransaction); success {
 			b.state.Active.PendingActions = append(b.state.Active.PendingActions, tx)
 		}
@@ -357,10 +411,8 @@ func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 	// validate parent block proposer
 	if newBlock.SlotNumber != 0 {
 		attestations := []transaction.Attestation{}
-		for _, a := range newBlock.Transactions {
-			if sat, success := a.Data.(transaction.SubmitAttestationTransaction); success {
-				attestations = append(attestations, sat.Attestation)
-			}
+		for _, a := range newBlock.Attestations {
+			attestations = append(attestations, a)
 		}
 		if len(attestations) == 0 {
 			return errors.New("invalid parent block proposer")
@@ -384,7 +436,16 @@ func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 		b.state.Active.RandaoMix[i] ^= newBlock.RandaoReveal[i]
 	}
 
-	for newBlock.SlotNumber-b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
+	return nil
+}
+
+// ApplyBlockCrystallizedStateChanges applies crystallized state changes up to
+// a certain slot number.
+func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error {
+	// go through each cycle needed to get up to the specified slot number
+	for slotNumber-b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
+
+		// go through each slot for that cycle
 		for slot := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength); slot < b.state.Crystallized.LastStateRecalculation-1; slot++ {
 			shardsAndCommittees := b.GetShardsAndCommitteesForSlot(slot)
 			committee := shardsAndCommittees[0].Committee
@@ -395,13 +456,14 @@ func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 			attesterBalance := uint64(0)
 
 			node := b.chain[slot]
-			block := b.db.GetBlockForHash(node.Hash())
+			block, err := b.db.GetBlockForHash(node)
+			if err != nil {
+				return err
+			}
 
 			attestations := []transaction.Attestation{}
-			for _, a := range block.Transactions {
-				if sat, success := a.Data.(transaction.SubmitAttestationTransaction); success {
-					attestations = append(attestations, sat.Attestation)
-				}
+			for _, a := range block.Attestations {
+				attestations = append(attestations, a)
 			}
 			if len(attestations) == 0 {
 				return errors.New("invalid parent block proposer")
@@ -428,7 +490,51 @@ func (b Blockchain) ValidateIncomingBlock(newBlock primitives.Block) error {
 					b.state.Crystallized.LastFinalizedSlot = slot - uint64(b.config.CycleLength-1)
 				}
 			}
+
+			shardProposals := make(map[chainhash.Hash]uint32)
+
+			// populate shard proposals
+			for _, a := range attestations {
+				if _, success := shardProposals[a.ShardBlockHash]; !success {
+					shardProposals[a.ShardBlockHash] = uint32(a.ShardID)
+				}
+			}
+
+			for shardBlockHash, shard := range shardProposals {
+				totalBalanceAttesting := b.voteCache[shardBlockHash].totalDeposit
+				shardCommittee, err := ShardCommitteeByShardID(uint64(shard), shardsAndCommittees)
+				if err != nil {
+					return err
+				}
+				totalCommitteeBalance := uint64(0)
+
+				// tally up the balance of each validator who voted for this hash
+				for i, validatorIndex := range shardCommittee {
+					if hasVoted(attestation.AttesterBitField, i) {
+						totalCommitteeBalance += b.state.Crystallized.Validators[validatorIndex].Balance
+					}
+				}
+
+				// if this is a super-majority, set up a cross-link
+				if 3*totalCommitteeBalance >= 2*totalBalanceAttesting && !b.state.Crystallized.Crosslinks[shard].RecentlyChanged {
+					b.state.Crystallized.Crosslinks[shard] = primitives.Crosslink{
+						RecentlyChanged: true,
+						Slot:            b.state.Crystallized.LastStateRecalculation + uint64(b.config.CycleLength),
+						Hash:            &shardBlockHash,
+					}
+				}
+			}
 		}
 	}
 	return nil
+}
+
+// ApplyBlock applies a block to the state
+func (b Blockchain) ApplyBlock(newBlock *primitives.Block) error {
+	err := b.ApplyBlockCrystallizedStateChanges(newBlock.SlotNumber)
+	if err != nil {
+		return err
+	}
+
+	return b.ApplyBlockActiveStateChanges(newBlock)
 }

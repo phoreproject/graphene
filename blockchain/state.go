@@ -291,10 +291,6 @@ func (b *Blockchain) AddBlock(h *primitives.Block) error {
 
 // ProcessBlock is called when a block is received from a peer.
 func (b Blockchain) ProcessBlock(block *primitives.Block) error {
-	// err := b.ValidateIncomingBlock(block)
-	// if err != nil {
-	// 	return err
-	// }
 
 	b.ApplyBlock(block)
 
@@ -361,6 +357,8 @@ func (b Blockchain) getTotalActiveValidatorBalance() uint64 {
 	return total
 }
 
+// ApplyBlockActiveStateChanges applys state changes from the block
+// to the blockchain's state.
 func (b Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) error {
 	if len(newBlock.AncestorHashes) != 32 {
 		return errors.New("ancestorHashes improperly formed")

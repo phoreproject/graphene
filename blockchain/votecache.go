@@ -8,11 +8,14 @@ import (
 	"github.com/phoreproject/synapse/transaction"
 )
 
+// VoteCache is a cache of the total deposit of a committee
+// and the validator indices in the committee.
 type VoteCache struct {
 	validatorIndices []uint32
 	totalDeposit     uint64
 }
 
+// Copy makes a deep copy of the vote cache.
 func (v VoteCache) Copy() *VoteCache {
 	voterIndices := make([]uint32, len(v.validatorIndices))
 	copy(voterIndices, v.validatorIndices)

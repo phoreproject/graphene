@@ -357,6 +357,15 @@ func (b Blockchain) getTotalActiveValidatorBalance() uint64 {
 	return total
 }
 
+// TotalValidatingBalance is the sum of the balances of active validators.
+func (c CrystallizedState) TotalValidatingBalance() uint64 {
+	total := uint64(0)
+	for _, v := range c.Validators {
+		total += v.Balance
+	}
+	return total
+}
+
 // ApplyBlockActiveStateChanges applys state changes from the block
 // to the blockchain's state.
 func (b Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) error {
@@ -442,6 +451,12 @@ func (b Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) err
 func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error {
 	// go through each cycle needed to get up to the specified slot number
 	for slotNumber-b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
+		// per-cycle parameters for reward calculation
+		totalBalance := b.state.Crystallized.TotalValidatingBalance()
+		totalBalanceInCoins := totalBalance / UnitInCoin
+		rewardQuotient := b.config.BaseRewardQuotient * uint64(math.Sqrt(float64(totalBalanceInCoins)))
+		quadraticPenaltyQuotient := b.config.SqrtEDropTime * b.config.SqrtEDropTime
+		timeSinceFinality := slotNumber - b.state.Crystallized.LastFinalizedSlot
 
 		// go through each slot for that cycle
 		for slot := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength); slot < b.state.Crystallized.LastStateRecalculation-1; slot++ {
@@ -468,9 +483,9 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 			}
 			attestation := attestations[0]
 
-			for _, i := range committee {
-				if hasVoted(attestation.AttesterBitField, int(i)) {
-					attesterBalance += b.state.Crystallized.Validators[i].Balance
+			for index := range committee {
+				if hasVoted(attestation.AttesterBitField, int(index)) {
+					attesterBalance += b.state.Crystallized.Validators[index].Balance
 				}
 			}
 
@@ -481,6 +496,23 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 				b.state.Crystallized.JustifiedStreak++
 			} else {
 				b.state.Crystallized.JustifiedStreak = 0
+			}
+
+			// adjust rewards
+			for validatorIndex, validatorID := range committee {
+				if hasVoted(attestation.AttesterBitField, validatorIndex) {
+					if timeSinceFinality <= uint64(3*b.config.CycleLength) {
+						balance := b.state.Crystallized.Validators[validatorID].Balance
+						b.state.Crystallized.Validators[validatorID].Balance += balance / rewardQuotient * (2*attesterBalance - totalBalance)
+					}
+				} else {
+					if timeSinceFinality <= uint64(3*b.config.CycleLength) {
+						b.state.Crystallized.Validators[validatorID].Balance -= b.state.Crystallized.Validators[validatorID].Balance / rewardQuotient
+					} else {
+						balance := b.state.Crystallized.Validators[validatorID].Balance
+						b.state.Crystallized.Validators[validatorID].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
+					}
+				}
 			}
 
 			if b.state.Crystallized.JustifiedStreak >= uint64(b.config.CycleLength+1) {
@@ -521,6 +553,13 @@ func (b Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error 
 						Hash:            &shardBlockHash,
 					}
 				}
+			}
+		}
+
+		for i := range b.state.Crystallized.Validators {
+			if b.state.Crystallized.Validators[i].Status == Penalized {
+				balance := b.state.Crystallized.Validators[i].Balance
+				b.state.Crystallized.Validators[i].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
 			}
 		}
 	}

@@ -7,6 +7,8 @@ type Config struct {
 	MinCommitteeSize    int
 	ShardCount          int
 	RandaoSlotsPerLayer int
+	BaseRewardQuotient  uint64
+	SqrtEDropTime       uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -19,6 +21,8 @@ var MainNetConfig = Config{
 	MinCommitteeSize:    128,
 	ShardCount:          10,
 	RandaoSlotsPerLayer: 4192,
+	BaseRewardQuotient:  85000,
+	SqrtEDropTime:       65536,
 }
 
 const (

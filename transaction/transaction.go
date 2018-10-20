@@ -24,7 +24,7 @@ const (
 	typeSubmitAttestation
 	typeLogin
 	typeLogout
-	typeFraud
+	typeCasperSlashing
 )
 
 // Deserialize reads from a reader and deserializes a transaction into the
@@ -44,8 +44,8 @@ func (t Transaction) Deserialize(r io.Reader) error {
 		t.Data = &LoginTransaction{}
 	case typeLogout:
 		t.Data = &LogoutTransaction{}
-	case typeFraud:
-		t.Data = &FraudTransaction{}
+	case typeCasperSlashing:
+		t.Data = &CasperSlashingTransaction{}
 	}
 
 	tx, err := serialization.ReadByteArray(r)
@@ -95,9 +95,9 @@ func (t Transaction) Serialize() ([]byte, error) {
 	case LogoutTransaction:
 		transactionType = byte(typeLogout)
 		err = binary.Write(b, binary.BigEndian, t.Data.(LogoutTransaction))
-	case FraudTransaction:
-		transactionType = byte(typeFraud)
-		err = binary.Write(b, binary.BigEndian, t.Data.(FraudTransaction))
+	case CasperSlashingTransaction:
+		transactionType = byte(typeCasperSlashing)
+		err = binary.Write(b, binary.BigEndian, t.Data.(CasperSlashingTransaction))
 	}
 	if err != nil {
 		return []byte{}, err

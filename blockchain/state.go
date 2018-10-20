@@ -37,7 +37,7 @@ type CrystallizedState struct {
 	LastJustifiedSlot           uint64
 	LastFinalizedSlot           uint64
 	ShardAndCommitteeForSlots   [][]primitives.ShardAndCommittee
-	DepositsPenalizedInPeriod   []uint32
+	DepositsPenalizedInPeriod   []uint64
 	ValidatorSetDeltaHashChange chainhash.Hash
 	PreForkVersion              uint32
 	PostForkVersion             uint32
@@ -105,7 +105,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		LastJustifiedSlot:           0,
 		JustifiedStreak:             0,
 		ShardAndCommitteeForSlots:   append(x, x...),
-		DepositsPenalizedInPeriod:   []uint32{},
+		DepositsPenalizedInPeriod:   []uint64{},
 		ValidatorSetDeltaHashChange: zeroHash,
 		PreForkVersion:              InitialForkVersion,
 		PostForkVersion:             InitialForkVersion,
@@ -451,6 +451,27 @@ func (b *Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) er
 	return nil
 }
 
+// AddValidatorSetChangeRecord adds a validator addition/removal to the
+// validator set hash change.
+func (c *CrystallizedState) AddValidatorSetChangeRecord(index uint32, pubkey []byte, flag uint8) {
+	var indexBytes [4]byte
+	binary.BigEndian.PutUint32(indexBytes[:], index)
+	c.ValidatorSetDeltaHashChange = chainhash.HashH(serialization.AppendAll(c.ValidatorSetDeltaHashChange[:], indexBytes[:], pubkey, []byte{flag}))
+}
+
+// ExitValidator exits a validator from being active to either
+// penalized or pending an exit.
+func (c *CrystallizedState) ExitValidator(index uint32, penalize bool, currentSlot uint64, con *Config) {
+	validator := &c.Validators[index]
+	validator.ExitSlot = currentSlot
+	if penalize {
+		validator.Status = Penalized
+		c.DepositsPenalizedInPeriod[currentSlot/con.WithdrawalPeriod] += validator.Balance
+	} else {
+		validator.Status = PendingExit
+	}
+}
+
 // ApplyBlockCrystallizedStateChanges applies crystallized state changes up to
 // a certain slot number.
 func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error {
@@ -581,6 +602,21 @@ func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error
 			if b.state.Crystallized.Validators[i].Status == Penalized {
 				balance := b.state.Crystallized.Validators[i].Balance
 				b.state.Crystallized.Validators[i].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
+			}
+		}
+
+		for _, a := range b.state.Active.PendingActions {
+			if t, success := a.Data.(transaction.LogoutTransaction); success {
+				// TODO: verify the signature
+				if b.state.Crystallized.Validators[t.From].Status != Active {
+					// can only log out from an active state
+					continue
+				}
+
+				b.state.Crystallized.ExitValidator(t.From, false, slotNumber, b.config)
+			}
+			if _, success := a.Data.(transaction.CasperSlashingTransaction); success {
+				// TODO
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/phoreproject/synapse/transaction"
 )
 
@@ -21,7 +22,8 @@ type Block struct {
 
 // Hash gets the hash of the block header
 func (b *Block) Hash() chainhash.Hash {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, b)
+	var buf bytes.Buffer
+	spew.Printf("\n\n\n%#v\n", b)
+	binary.Write(&buf, binary.BigEndian, b)
 	return chainhash.HashH(buf.Bytes())
 }

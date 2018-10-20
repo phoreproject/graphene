@@ -9,6 +9,7 @@ type Config struct {
 	RandaoSlotsPerLayer int
 	BaseRewardQuotient  uint64
 	SqrtEDropTime       uint64
+	WithdrawalPeriod    uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -19,10 +20,11 @@ var MainNetConfig = Config{
 	CycleLength:         64,
 	DepositSize:         100 * UnitInCoin,
 	MinCommitteeSize:    128,
-	ShardCount:          10,
+	ShardCount:          5,
 	RandaoSlotsPerLayer: 4192,
 	BaseRewardQuotient:  85000,
 	SqrtEDropTime:       65536,
+	WithdrawalPeriod:    524288,
 }
 
 const (

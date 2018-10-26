@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -288,8 +289,10 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, b
 
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
-func (b *Blockchain) AddBlock(h *primitives.Block) error {
-	b.UpdateChainHead(h)
+func (b *Blockchain) AddBlock(block *primitives.Block) error {
+	b.UpdateChainHead(block)
+
+	b.db.SetBlock(block)
 
 	return nil
 }
@@ -472,6 +475,18 @@ func (c *CrystallizedState) ExitValidator(index uint32, penalize bool, currentSl
 	}
 }
 
+// removeProcessedAttestations removes attestations from the list
+// with a slot greater than the last state recalculation.
+func removeProcessedAttestations(attestations []transaction.Attestation, lastStateRecalculation uint64) []transaction.Attestation {
+	attestationsf := make([]transaction.Attestation, 0)
+	for _, a := range attestations {
+		if a.Slot > lastStateRecalculation {
+			attestationsf = append(attestationsf, a)
+		}
+	}
+	return attestationsf
+}
+
 // ApplyBlockCrystallizedStateChanges applies crystallized state changes up to
 // a certain slot number.
 func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error {
@@ -615,11 +630,145 @@ func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error
 
 				b.state.Crystallized.ExitValidator(t.From, false, slotNumber, b.config)
 			}
-			if _, success := a.Data.(transaction.CasperSlashingTransaction); success {
-				// TODO
+			if t, success := a.Data.(transaction.CasperSlashingTransaction); success {
+				// TODO: verify signatures 1 + 2
+				if bytes.Equal(t.SourceDataSigned, t.DestinationDataSigned) {
+					// data must be distinct
+					continue
+				}
+
+				validators := make(map[uint32]bool)
+				validatorsInBoth := []uint32{}
+
+				sourceBuf := bytes.NewBuffer(t.SourceDataSigned)
+				destBuf := bytes.NewBuffer(t.DestinationDataSigned)
+
+				var attestationTransactionSource transaction.Attestation
+				var attestationTransactionDest transaction.Attestation
+
+				err := binary.Read(destBuf, binary.BigEndian, attestationTransactionDest)
+				if err != nil {
+					continue
+				}
+
+				err = binary.Read(sourceBuf, binary.BigEndian, attestationTransactionSource)
+				if err != nil {
+					continue
+				}
+
+				for _, v := range t.DestinationValidators {
+					validators[v] = true
+				}
+				for _, v := range t.SourceValidators {
+					if _, success := validators[v]; success {
+						validatorsInBoth = append(validatorsInBoth, v)
+					}
+				}
+
+				for _, v := range validatorsInBoth {
+					if b.state.Crystallized.Validators[v].Status != Penalized {
+						b.state.Crystallized.ExitValidator(v, true, slotNumber, b.config)
+					}
+				}
+			}
+			if t, success := a.Data.(transaction.RandaoRevealTransaction); success {
+				b.state.Crystallized.Validators[t.ValidatorIndex].RandaoCommitment = t.Commitment
 			}
 		}
+
+		for i, v := range b.state.Crystallized.Validators {
+			if v.Status == Active && v.Balance < b.config.MinimumDepositSize {
+				b.state.Crystallized.ExitValidator(uint32(i), false, slotNumber, b.config)
+			}
+		}
+
+		b.state.Crystallized.LastStateRecalculation += uint64(b.config.CycleLength)
+
+		b.state.Active.PendingAttestations = removeProcessedAttestations(b.state.Active.PendingAttestations, b.state.Crystallized.LastStateRecalculation)
+
+		b.state.Active.PendingActions = []transaction.Transaction{}
+
+		b.state.Active.RecentBlockHashes = b.state.Active.RecentBlockHashes[b.config.CycleLength:]
+
+		for i := 0; i < b.config.CycleLength; i++ {
+			b.state.Crystallized.ShardAndCommitteeForSlots[i] = b.state.Crystallized.ShardAndCommitteeForSlots[b.config.CycleLength+i]
+		}
 	}
+	return nil
+}
+
+const (
+	// ValidatorEntry is a flag for validator set change meaning a validator was added to the set
+	ValidatorEntry = iota
+
+	// ValidatorExit is a flag for validator set change meaning a validator was removed from the set
+	ValidatorExit
+)
+
+// ChangeValidatorSet updates the current validator set.
+func (b *Blockchain) ChangeValidatorSet(validators []primitives.Validator, currentSlot uint64) error {
+	activeValidators := b.GetActiveValidatorIndices()
+
+	totalBalance := uint64(0)
+	for _, v := range activeValidators {
+		totalBalance += b.state.Crystallized.Validators[v].Balance
+	}
+
+	maxAllowableChange := 2 * b.config.DepositSize * UnitInCoin
+	if maxAllowableChange < totalBalance/b.config.MaxValidatorChurnQuotient {
+		maxAllowableChange = totalBalance / b.config.MaxValidatorChurnQuotient
+	}
+
+	totalChanged := uint64(0)
+	for i := range validators {
+		if validators[i].Status == PendingActivation {
+			validators[i].Status = Active
+			totalChanged += b.config.DepositSize * UnitInCoin
+			b.state.Crystallized.AddValidatorSetChangeRecord(uint32(i), validators[i].Pubkey[:], ValidatorEntry)
+		}
+		if validators[i].Status == PendingExit {
+			validators[i].Status = PendingWithdraw
+			validators[i].ExitSlot = currentSlot
+			totalChanged += validators[i].Balance
+			b.state.Crystallized.AddValidatorSetChangeRecord(uint32(i), validators[i].Pubkey[:], ValidatorExit)
+		}
+		if totalChanged >= maxAllowableChange {
+			break
+		}
+	}
+
+	periodIndex := currentSlot / b.config.WithdrawalPeriod
+	totalPenalties := b.state.Crystallized.DepositsPenalizedInPeriod[periodIndex]
+	if periodIndex >= 1 {
+		totalPenalties += b.state.Crystallized.DepositsPenalizedInPeriod[periodIndex-1]
+	}
+	if periodIndex >= 2 {
+		totalPenalties += b.state.Crystallized.DepositsPenalizedInPeriod[periodIndex-2]
+	}
+
+	for i := range validators {
+		if (validators[i].Status == PendingWithdraw || validators[i].Status == Penalized) && currentSlot >= validators[i].ExitSlot+b.config.WithdrawalPeriod {
+			if validators[i].Status == Penalized {
+				validatorBalanceFactor := totalPenalties * 3 / totalBalance
+				if totalBalance < 1 {
+					validatorBalanceFactor = 1
+				}
+				validators[i].Balance -= validators[i].Balance * validatorBalanceFactor
+			}
+			validators[i].Status = Withdrawn
+
+			// withdraw validators[i].balance to shard chain
+		}
+	}
+
+	b.state.Crystallized.ValidatorSetChangeSlot = b.state.Crystallized.LastStateRecalculation
+	for i := range b.state.Crystallized.Crosslinks {
+		b.state.Crystallized.Crosslinks[i].RecentlyChanged = false
+	}
+	lastShardAndCommittee := b.state.Crystallized.ShardAndCommitteeForSlots[len(b.state.Crystallized.ShardAndCommitteeForSlots)-1]
+	nextStartShard := (lastShardAndCommittee[len(lastShardAndCommittee)-1].ShardID + 1) % uint32(b.config.ShardCount)
+	b.GetNewShuffling(b.state.Active.RandaoMix, int(nextStartShard))
+	// TODO: make this actually update the next slot/shard state
 	return nil
 }
 
@@ -630,5 +779,36 @@ func (b *Blockchain) ApplyBlock(newBlock *primitives.Block) error {
 		return err
 	}
 
-	return b.ApplyBlockActiveStateChanges(newBlock)
+	err = b.ApplyBlockActiveStateChanges(newBlock)
+	if err != nil {
+		return err
+	}
+
+	// validator set change
+	shouldChangeValidatorSet := true
+	if newBlock.SlotNumber-b.state.Crystallized.ValidatorSetChangeSlot < b.config.MinimumValidatorSetChangeInterval {
+		shouldChangeValidatorSet = false
+	}
+	if b.state.Crystallized.LastFinalizedSlot <= b.state.Crystallized.ValidatorSetChangeSlot {
+		shouldChangeValidatorSet = false
+	}
+	for i := range b.state.Crystallized.ShardAndCommitteeForSlots {
+		if b.state.Crystallized.Crosslinks[i].Slot <= b.state.Crystallized.ValidatorSetChangeSlot {
+			shouldChangeValidatorSet = false
+		}
+	}
+
+	if shouldChangeValidatorSet {
+		err := b.ChangeValidatorSet(b.state.Crystallized.Validators, newBlock.SlotNumber)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// GetState gets a copy of the current state of the blockchain.
+func (b *Blockchain) GetState() State {
+	return b.state
 }

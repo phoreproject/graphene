@@ -5,17 +5,13 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/btcsuite/btcd/btcec"
-
 	"github.com/phoreproject/synapse/serialization"
 )
 
 // Transaction is a wrapper struct to provide functions for different
 // transaction types.
 type Transaction struct {
-	Data      interface{}
-	Signed    bool
-	Signature *btcec.Signature
+	Data interface{}
 }
 
 const (
@@ -25,6 +21,7 @@ const (
 	typeLogin
 	typeLogout
 	typeCasperSlashing
+	typeRandaoReveal
 )
 
 // Deserialize reads from a reader and deserializes a transaction into the
@@ -46,6 +43,8 @@ func (t Transaction) Deserialize(r io.Reader) error {
 		t.Data = &LogoutTransaction{}
 	case typeCasperSlashing:
 		t.Data = &CasperSlashingTransaction{}
+	case typeRandaoReveal:
+		t.Data = &RandaoRevealTransaction{}
 	}
 
 	tx, err := serialization.ReadByteArray(r)
@@ -54,23 +53,6 @@ func (t Transaction) Deserialize(r io.Reader) error {
 	}
 	r2 := bytes.NewBuffer(tx)
 	binary.Read(r2, binary.BigEndian, &t.Data)
-
-	isSigned, err := serialization.ReadBool(r)
-	if err != nil {
-		return err
-	}
-	t.Signed = isSigned
-	if isSigned {
-		t.Signature = new(btcec.Signature)
-		t.Signature.R, err = serialization.ReadBigInt(r)
-		if err != nil {
-			return err
-		}
-		t.Signature.S, err = serialization.ReadBigInt(r)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -98,6 +80,9 @@ func (t Transaction) Serialize() ([]byte, error) {
 	case CasperSlashingTransaction:
 		transactionType = byte(typeCasperSlashing)
 		err = binary.Write(b, binary.BigEndian, t.Data.(CasperSlashingTransaction))
+	case RandaoRevealTransaction:
+		transactionType = byte(typeRandaoReveal)
+		err = binary.Write(b, binary.BigEndian, t.Data.(RandaoRevealTransaction))
 	}
 	if err != nil {
 		return []byte{}, err

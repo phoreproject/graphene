@@ -27,6 +27,10 @@ func generateAncestorHashes(hashes []chainhash.Hash) []chainhash.Hash {
 	return out[:]
 }
 
+func GenerateNextBlock(b *blockchain.Blockchain) primitives.Block {
+	return primitives.Block{}
+}
+
 func TestStateActiveValidatorChanges(t *testing.T) {
 	b := blockchain.NewBlockchain(db.NewInMemoryDB(), &blockchain.MainNetConfig)
 
@@ -60,5 +64,17 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 		Attestations:          []transaction.Attestation{},
 	}
 
-	b.ProcessBlock(&block0)
+	b.AddBlock(&block0)
+
+	block1 := primitives.Block{
+		SlotNumber:            1,
+		RandaoReveal:          zeroHash,
+		AncestorHashes:        generateAncestorHashes([]chainhash.Hash{block0.Hash()}),
+		ActiveStateRoot:       zeroHash,
+		CrystallizedStateRoot: zeroHash,
+		Specials:              []transaction.Transaction{},
+		Attestations:          []transaction.Attestation{},
+	}
+
+	b.ProcessBlock(&block1)
 }

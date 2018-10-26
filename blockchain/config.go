@@ -2,14 +2,17 @@ package blockchain
 
 // Config is the config for the blockchain.
 type Config struct {
-	CycleLength         int
-	DepositSize         uint64
-	MinCommitteeSize    int
-	ShardCount          int
-	RandaoSlotsPerLayer int
-	BaseRewardQuotient  uint64
-	SqrtEDropTime       uint64
-	WithdrawalPeriod    uint64
+	CycleLength                       int
+	DepositSize                       uint64
+	MinCommitteeSize                  int
+	ShardCount                        int
+	RandaoSlotsPerLayer               int
+	BaseRewardQuotient                uint64
+	SqrtEDropTime                     uint64
+	WithdrawalPeriod                  uint64
+	MinimumDepositSize                uint64
+	MinimumValidatorSetChangeInterval uint64
+	MaxValidatorChurnQuotient         uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -17,14 +20,17 @@ const UnitInCoin = 100000000
 
 // MainNetConfig is the config used on the mainnet
 var MainNetConfig = Config{
-	CycleLength:         64,
-	DepositSize:         100 * UnitInCoin,
-	MinCommitteeSize:    128,
-	ShardCount:          5,
-	RandaoSlotsPerLayer: 4192,
-	BaseRewardQuotient:  85000,
-	SqrtEDropTime:       65536,
-	WithdrawalPeriod:    524288,
+	CycleLength:                       64,
+	DepositSize:                       100 * UnitInCoin,
+	MinCommitteeSize:                  128,
+	ShardCount:                        5,
+	RandaoSlotsPerLayer:               4192,
+	BaseRewardQuotient:                85000,
+	SqrtEDropTime:                     65536,
+	WithdrawalPeriod:                  524288,
+	MinimumDepositSize:                50 * UnitInCoin,
+	MinimumValidatorSetChangeInterval: 256,
+	MaxValidatorChurnQuotient:         32,
 }
 
 const (

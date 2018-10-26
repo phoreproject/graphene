@@ -85,7 +85,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		b.AddValidator(b.state.Crystallized.Validators, v.PubKey, v.ProofOfPossession, v.WithdrawalShard, v.WithdrawalAddress, v.RandaoCommitment, 0)
 	}
 
-	x := b.GetNewShuffling(zeroHash, 0)
+	x := GetNewShuffling(zeroHash, b.state.Crystallized.Validators, 0, b.config)
 
 	crosslinks := make([]primitives.Crosslink, b.config.ShardCount)
 
@@ -167,9 +167,9 @@ func (b *Blockchain) AddValidator(currentValidators []primitives.Validator, pubk
 }
 
 // GetActiveValidatorIndices gets the indices of active validators.
-func (b *Blockchain) GetActiveValidatorIndices() []uint32 {
+func GetActiveValidatorIndices(vs []primitives.Validator) []uint32 {
 	var l []uint32
-	for i, v := range b.state.Crystallized.Validators {
+	for i, v := range vs {
 		if v.Status == Active {
 			l = append(l, uint32(i))
 		}
@@ -221,23 +221,23 @@ func Split(l []uint32, splitCount uint32) [][]uint32 {
 
 // GetNewShuffling calculates the new shuffling of validators
 // to slots and shards.
-func (b *Blockchain) GetNewShuffling(seed chainhash.Hash, crosslinkingStart int) [][]primitives.ShardAndCommittee {
-	activeValidators := b.GetActiveValidatorIndices()
+func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, crosslinkingStart int, con *Config) [][]primitives.ShardAndCommittee {
+	activeValidators := GetActiveValidatorIndices(validators)
 	numActiveValidators := len(activeValidators)
 
-	committeesPerSlot := numActiveValidators/b.config.CycleLength/(b.config.MinCommitteeSize*2) + 1
+	committeesPerSlot := numActiveValidators/con.CycleLength/(con.MinCommitteeSize*2) + 1
 	// clamp between 1 and b.config.ShardCount / b.config.CycleLength
 	if committeesPerSlot < 1 {
 		committeesPerSlot = 1
-	} else if committeesPerSlot > b.config.ShardCount/b.config.CycleLength {
-		committeesPerSlot = b.config.ShardCount / b.config.CycleLength
+	} else if committeesPerSlot > con.ShardCount/con.CycleLength {
+		committeesPerSlot = con.ShardCount / con.CycleLength
 	}
 
-	output := make([][]primitives.ShardAndCommittee, b.config.CycleLength)
+	output := make([][]primitives.ShardAndCommittee, con.CycleLength)
 
 	shuffledValidatorIndices := ShuffleValidators(activeValidators, seed)
 
-	validatorsPerSlot := Split(shuffledValidatorIndices, uint32(b.config.CycleLength))
+	validatorsPerSlot := Split(shuffledValidatorIndices, uint32(con.CycleLength))
 
 	for slot, slotIndices := range validatorsPerSlot {
 		shardIndices := Split(slotIndices, uint32(committeesPerSlot))
@@ -247,7 +247,7 @@ func (b *Blockchain) GetNewShuffling(seed chainhash.Hash, crosslinkingStart int)
 		shardCommittees := make([]primitives.ShardAndCommittee, len(shardIndices))
 		for shardPosition, indices := range shardIndices {
 			shardCommittees[shardPosition] = primitives.ShardAndCommittee{
-				ShardID:   uint32((shardIDStart + shardPosition) % b.config.ShardCount),
+				ShardID:   uint32((shardIDStart + shardPosition) % con.ShardCount),
 				Committee: indices,
 			}
 		}
@@ -707,7 +707,7 @@ const (
 
 // ChangeValidatorSet updates the current validator set.
 func (b *Blockchain) ChangeValidatorSet(validators []primitives.Validator, currentSlot uint64) error {
-	activeValidators := b.GetActiveValidatorIndices()
+	activeValidators := GetActiveValidatorIndices(validators)
 
 	totalBalance := uint64(0)
 	for _, v := range activeValidators {
@@ -767,8 +767,12 @@ func (b *Blockchain) ChangeValidatorSet(validators []primitives.Validator, curre
 	}
 	lastShardAndCommittee := b.state.Crystallized.ShardAndCommitteeForSlots[len(b.state.Crystallized.ShardAndCommitteeForSlots)-1]
 	nextStartShard := (lastShardAndCommittee[len(lastShardAndCommittee)-1].ShardID + 1) % uint32(b.config.ShardCount)
-	b.GetNewShuffling(b.state.Active.RandaoMix, int(nextStartShard))
-	// TODO: make this actually update the next slot/shard state
+	slotsForNextCycle := GetNewShuffling(b.state.Active.RandaoMix, validators, int(nextStartShard), b.config)
+
+	for i := range slotsForNextCycle {
+		b.state.Crystallized.ShardAndCommitteeForSlots[b.config.CycleLength+i] = slotsForNextCycle[i]
+	}
+
 	return nil
 }
 

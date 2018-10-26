@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/phoreproject/synapse/bls"
+
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
 
@@ -44,8 +46,8 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 
 	for i := 0; i <= 5*128; i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
-			PubKey:            []byte{},
-			ProofOfPossession: []byte{},
+			PubKey:            bls.PublicKey{},
+			ProofOfPossession: bls.Signature{},
 			WithdrawalShard:   1,
 			WithdrawalAddress: serialization.Address{},
 			RandaoCommitment:  randaoCommitment,

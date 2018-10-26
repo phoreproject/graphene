@@ -2,12 +2,13 @@ package primitives
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/serialization"
 )
 
 // Validator is a single validator session (logging in and out)
 type Validator struct {
-	Pubkey            [32]byte
+	Pubkey            *bls.PublicKey
 	WithdrawalAddress serialization.Address
 	WithdrawalShardID uint32
 	RandaoCommitment  chainhash.Hash

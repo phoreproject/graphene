@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
@@ -138,17 +139,14 @@ func MinEmptyValidator(validators []primitives.Validator) int {
 }
 
 // AddValidator adds a validator to the current validator set.
-func (b *Blockchain) AddValidator(currentValidators []primitives.Validator, pubkey []byte, proofOfPossession []byte, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64) (uint32, error) {
-	verifies := true // blsig.Verify(chainhash.HashB(pubkey), pubkey, proofOfPossession)
-	if !verifies {
+func (b *Blockchain) AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64) (uint32, error) {
+	verifies, err := bls.VerifySig(&pubkey, pubkey.Hash(), &proofOfPossession)
+	if err != nil || !verifies {
 		return 0, errors.New("validator proof of possesion does not verify")
 	}
 
-	var pk [32]byte
-	copy(pk[:], pubkey)
-
 	rec := primitives.Validator{
-		Pubkey:            pk,
+		Pubkey:            &pubkey,
 		WithdrawalAddress: withdrawalAddress,
 		WithdrawalShardID: withdrawalShard,
 		RandaoCommitment:  randaoCommitment,
@@ -622,7 +620,11 @@ func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error
 
 		for _, a := range b.state.Active.PendingActions {
 			if t, success := a.Data.(transaction.LogoutTransaction); success {
-				// TODO: verify the signature
+				verified, err := bls.VerifySig(b.state.Crystallized.Validators[t.From].Pubkey, []byte("LOGOUT"), &t.Signature)
+				if err != nil || !verified {
+					// verification failed
+					continue
+				}
 				if b.state.Crystallized.Validators[t.From].Status != Active {
 					// can only log out from an active state
 					continue
@@ -724,13 +726,13 @@ func (b *Blockchain) ChangeValidatorSet(validators []primitives.Validator, curre
 		if validators[i].Status == PendingActivation {
 			validators[i].Status = Active
 			totalChanged += b.config.DepositSize * UnitInCoin
-			b.state.Crystallized.AddValidatorSetChangeRecord(uint32(i), validators[i].Pubkey[:], ValidatorEntry)
+			b.state.Crystallized.AddValidatorSetChangeRecord(uint32(i), validators[i].Pubkey.Hash(), ValidatorEntry)
 		}
 		if validators[i].Status == PendingExit {
 			validators[i].Status = PendingWithdraw
 			validators[i].ExitSlot = currentSlot
 			totalChanged += validators[i].Balance
-			b.state.Crystallized.AddValidatorSetChangeRecord(uint32(i), validators[i].Pubkey[:], ValidatorExit)
+			b.state.Crystallized.AddValidatorSetChangeRecord(uint32(i), validators[i].Pubkey.Hash(), ValidatorExit)
 		}
 		if totalChanged >= maxAllowableChange {
 			break

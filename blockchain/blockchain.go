@@ -3,6 +3,8 @@ package blockchain
 import (
 	"errors"
 
+	"github.com/phoreproject/synapse/bls"
+
 	"github.com/phoreproject/synapse/db"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
@@ -29,8 +31,8 @@ func NewBlockchain(db db.Database, config *Config) Blockchain {
 // InitialValidatorEntry is the validator entry to be added
 // at the beginning of a blockchain.
 type InitialValidatorEntry struct {
-	PubKey            []byte
-	ProofOfPossession []byte
+	PubKey            bls.PublicKey
+	ProofOfPossession bls.Signature
 	WithdrawalShard   uint32
 	WithdrawalAddress serialization.Address
 	RandaoCommitment  chainhash.Hash

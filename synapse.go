@@ -1,10 +1,13 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 
-	"github.com/whyrusleeping/go-logging"
+	"github.com/phoreproject/synapse/rpc"
+
+	"github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/libp2p/go-libp2p-peerstore"
 
@@ -13,22 +16,30 @@ import (
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/db"
 	"github.com/phoreproject/synapse/net"
+
+	logger "github.com/inconshreveable/log15"
+	iaddr "github.com/ipfs/go-ipfs-addr"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
-var log = logging.MustGetLogger("main")
-
-func parseInitialConnections(in string) (peerstore.PeerInfo, error) {
+func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 	currentAddr := ""
 
-	peers := peerstore.PeerInfo{}
+	peers := []*peerstore.PeerInfo{}
 
 	for i := range in {
 		if in[i] == ',' {
-			sourceMultiAddr, err := multiaddr.NewMultiaddr(currentAddr)
+			addr, err := iaddr.ParseString(currentAddr)
+			currentAddr = ""
 			if err != nil {
-				return peers, err
+				return nil, err
 			}
-			peers.Addrs = append(peers.Addrs, sourceMultiAddr)
+			peerinfo, err := pstore.InfoFromP2pAddr(addr.Multiaddr())
+			if err != nil {
+				return nil, err
+			}
+
+			peers = append(peers, peerinfo)
 		}
 		currentAddr = currentAddr + string(in[i])
 	}
@@ -39,15 +50,21 @@ func parseInitialConnections(in string) (peerstore.PeerInfo, error) {
 const clientVersion = "0.0.1"
 
 func main() {
-	log.Infof("Starting client version %s", clientVersion)
-	database := db.NewInMemoryDB()
-	c := blockchain.MainNetConfig
-	blockchain := blockchain.NewBlockchain(database, &c)
-
 	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
 	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
+	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	flag.Parse()
 
+	logger.Info("initializing client", "version", clientVersion)
+
+	logger.Info("initializing database")
+	database := db.NewInMemoryDB()
+	c := blockchain.MainNetConfig
+
+	logger.Info("initializing blockchain")
+	blockchain := blockchain.NewBlockchain(database, &c)
+
+	logger.Info("initializing net")
 	ps, err := parseInitialConnections(*initialConnections)
 	if err != nil {
 		panic(err)
@@ -59,14 +76,38 @@ func main() {
 		return
 	}
 
-	network, err := net.NewNetworkingService(&sourceMultiAddr)
+	priv, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	network.Connect(&ps)
+	network, err := net.NewNetworkingService(&sourceMultiAddr, priv)
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info("connecting to bootnodes")
+
+	for _, p := range ps {
+		err = network.Connect(p)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info("listening for blocks")
 
 	blocks := network.GetBlocksChannel()
 
 	go blockchain.HandleNewBlocks(blocks)
+
+	logger.Info("initializing RPC")
+
+	err = rpc.Serve(*rpcConnect)
+	if err != nil {
+		panic(err)
+	}
 }

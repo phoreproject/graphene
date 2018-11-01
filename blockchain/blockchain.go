@@ -25,7 +25,9 @@ type Blockchain struct {
 
 // NewBlockchain creates a new blockchain.
 func NewBlockchain(db db.Database, config *Config) Blockchain {
-	return Blockchain{db: db, config: config}
+	b := Blockchain{db: db, config: config}
+	b.InitializeState(config.InitialValidators)
+	return b
 }
 
 // InitialValidatorEntry is the validator entry to be added

@@ -1,11 +1,17 @@
 package net
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
+	"crypto/rand"
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/libp2p/go-libp2p-peerstore"
+
+	logger "github.com/inconshreveable/log15"
 
 	"github.com/phoreproject/synapse/primitives"
 
@@ -30,13 +36,15 @@ func (n *NetworkingService) handleBlockSubscriptions(blockSub *pubsub.Subscripti
 		if err != nil {
 			return err
 		}
-		newBlock := primitives.Block{}
+		logger.Debug("got new block", "data", string(b.Data))
 
-		buf := bytes.NewBuffer(b.Data)
+		// newBlock := primitives.Block{}
 
-		binary.Read(buf, binary.BigEndian, &newBlock)
+		// buf := bytes.NewBuffer(b.Data)
 
-		n.blocks <- newBlock
+		// binary.Read(buf, binary.BigEndian, &newBlock)
+
+		// n.blocks <- newBlock
 	}
 }
 
@@ -47,21 +55,35 @@ func (n *NetworkingService) GetBlocksChannel() chan primitives.Block {
 
 // Connect connects to a peer
 func (n *NetworkingService) Connect(p *peerstore.PeerInfo) error {
-	return n.host.Connect(context.Background(), *p)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return n.host.Connect(ctx, *p)
 }
 
 // NewNetworkingService creates a networking service instance that will
 // run on the given IP.
-func NewNetworkingService(addr *multiaddr.Multiaddr) (NetworkingService, error) {
+func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) (NetworkingService, error) {
+	ctx := context.Background()
 	host, err := libp2p.New(
-		context.Background(),
+		ctx,
 		libp2p.ListenAddrs(*addr),
+		libp2p.Identity(privateKey),
 	)
+
+	for _, a := range host.Addrs() {
+		logger.Debug("binding to port", "address", a.String())
+	}
+
 	if err != nil {
 		return NetworkingService{}, err
 	}
 
-	g, err := pubsub.NewGossipSub(context.Background(), host)
+	g, err := pubsub.NewGossipSub(ctx, host)
+	if err != nil {
+		return NetworkingService{}, err
+	}
+
+	err = startDiscovery(ctx, host)
 	if err != nil {
 		return NetworkingService{}, err
 	}
@@ -72,11 +94,26 @@ func NewNetworkingService(addr *multiaddr.Multiaddr) (NetworkingService, error) 
 		gossipSub: g,
 	}
 
+	timer := time.NewTimer(time.Second * 2)
+
+	go func() {
+		<-timer.C
+		i0, _ := rand.Int(rand.Reader, big.NewInt(100000))
+		i := i0.Uint64()
+
+		toPublish := []byte(fmt.Sprintf("test data %d", i))
+
+		g.Publish("block", toPublish)
+
+		logger.Debug("publishing", "data", string(toPublish))
+	}()
+
 	s, err := g.Subscribe("block")
 	if err != nil {
-		return NetworkingService{}, err
+		return n, err
 	}
-	n.handleBlockSubscriptions(s)
+
+	go n.handleBlockSubscriptions(s)
 
 	return n, nil
 }

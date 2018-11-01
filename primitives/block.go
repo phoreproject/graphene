@@ -8,6 +8,13 @@ import (
 	"github.com/phoreproject/synapse/transaction"
 )
 
+// To create a block:
+// - increase slot number
+// - reveal randao commitment
+// - update ancestor hashes
+// - calculate state roots
+// - aggregate specials + attestations (mempool?)
+
 // Block represents a single beacon chain block.
 type Block struct {
 	SlotNumber            uint64

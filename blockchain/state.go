@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
@@ -127,7 +128,22 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		RandaoMix:           zeroHash,
 		Balances:            make(map[serialization.Address]uint64),
 	}
+
 	b.stateLock.Unlock()
+
+	ancestorHashes := make([]chainhash.Hash, 32)
+
+	block0 := primitives.Block{
+		SlotNumber:            0,
+		RandaoReveal:          zeroHash,
+		AncestorHashes:        ancestorHashes,
+		ActiveStateRoot:       zeroHash,
+		CrystallizedStateRoot: zeroHash,
+		Specials:              []transaction.Transaction{},
+		Attestations:          []transaction.Attestation{},
+	}
+
+	b.AddBlock(&block0)
 }
 
 // MinEmptyValidator finds the first validator slot that is empty.
@@ -290,6 +306,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, b
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
+	logger.Debug("adding block to cache and updating head if needed", "hash", block.Hash())
 	b.UpdateChainHead(block)
 
 	b.db.SetBlock(block)

@@ -54,24 +54,16 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 		})
 	}
 
-	b.InitializeState(validators)
-
-	block0 := primitives.Block{
-		SlotNumber:            0,
-		RandaoReveal:          zeroHash,
-		AncestorHashes:        generateAncestorHashes([]chainhash.Hash{}),
-		ActiveStateRoot:       zeroHash,
-		CrystallizedStateRoot: zeroHash,
-		Specials:              []transaction.Transaction{},
-		Attestations:          []transaction.Attestation{},
+	lastBlock, err := b.GetNodeByHeight(0)
+	if err != nil {
+		t.Error(err)
+		return
 	}
-
-	b.AddBlock(&block0)
 
 	block1 := primitives.Block{
 		SlotNumber:            1,
 		RandaoReveal:          zeroHash,
-		AncestorHashes:        generateAncestorHashes([]chainhash.Hash{block0.Hash()}),
+		AncestorHashes:        generateAncestorHashes([]chainhash.Hash{lastBlock}),
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
 		Specials:              []transaction.Transaction{},

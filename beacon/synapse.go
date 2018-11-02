@@ -106,7 +106,7 @@ func main() {
 
 	logger.Info("initializing RPC")
 
-	err = rpc.Serve(*rpcConnect)
+	err = rpc.Serve(*rpcConnect, &blockchain)
 	if err != nil {
 		panic(err)
 	}

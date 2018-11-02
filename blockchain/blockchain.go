@@ -2,8 +2,10 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
+	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/db"
@@ -64,6 +66,7 @@ const (
 func (b *Blockchain) UpdateChainHead(n *primitives.Block) {
 	b.chain.lock.Lock()
 	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
+		logger.Debug("updating blockchain head", "hash", n.Hash(), "height", n.SlotNumber)
 		b.chain.lock.Unlock()
 		b.SetTip(n)
 	} else {
@@ -111,11 +114,14 @@ func (b Blockchain) Tip() chainhash.Hash {
 }
 
 // GetNodeByHeight gets a node from the active blockchain by height.
-func (b Blockchain) GetNodeByHeight(height int64) chainhash.Hash {
+func (b Blockchain) GetNodeByHeight(height uint64) (chainhash.Hash, error) {
 	b.chain.lock.Lock()
+	defer b.chain.lock.Unlock()
+	if uint64(len(b.chain.chain)-1) < height {
+		return chainhash.Hash{}, fmt.Errorf("attempted to retrieve block hash of height > chain height")
+	}
 	node := b.chain.chain[height]
-	b.chain.lock.Unlock()
-	return node
+	return node, nil
 }
 
 // Height returns the height of the chain.

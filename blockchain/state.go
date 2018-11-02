@@ -507,11 +507,13 @@ func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error
 			}
 			attesterBalance := uint64(0)
 
-			node := b.chain[slot]
+			b.chain.lock.Lock()
+			node := b.chain.chain[slot]
 			block, err := b.db.GetBlockForHash(node)
 			if err != nil {
 				return err
 			}
+			b.chain.lock.Unlock()
 
 			attestations := []transaction.Attestation{}
 			for _, a := range block.Attestations {

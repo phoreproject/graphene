@@ -26,12 +26,21 @@ type Blockchain struct {
 	db        db.Database
 	config    *Config
 	state     State
+	stateLock *sync.Mutex
 	voteCache map[chainhash.Hash]*VoteCache
 }
 
 // NewBlockchain creates a new blockchain.
 func NewBlockchain(db db.Database, config *Config) Blockchain {
-	b := Blockchain{db: db, config: config}
+	b := Blockchain{
+		db:     db,
+		config: config,
+		chain: blockchainView{
+			chain: []chainhash.Hash{},
+			lock:  new(sync.Mutex),
+		},
+		stateLock: new(sync.Mutex),
+	}
 	b.InitializeState(config.InitialValidators)
 	return b
 }

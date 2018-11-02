@@ -64,9 +64,11 @@ const (
 func (b *Blockchain) UpdateChainHead(n *primitives.Block) {
 	b.chain.lock.Lock()
 	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
+		b.chain.lock.Unlock()
 		b.SetTip(n)
+	} else {
+		b.chain.lock.Unlock()
 	}
-	b.chain.lock.Unlock()
 }
 
 // SetTip sets the tip of the chain.

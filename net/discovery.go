@@ -38,12 +38,20 @@ type discovery struct {
 
 // HandlePeerFound registers the peer with the host.
 func (d *discovery) HandlePeerFound(pi ps.PeerInfo) {
+	for _, p := range d.host.Peerstore().PeersWithAddrs() {
+		if p == pi.ID {
+			return
+		}
+	}
+
 	logger.Debug("attempting to connect to a peer", "addrs", pi.Addrs, "id", pi.ID)
 
-	d.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, ps.PermanentAddrTTL)
 	if err := d.host.Connect(d.ctx, pi); err != nil {
-		logger.Warn("Failed to connect to peer", "error", err)
+		logger.Warn("failed to connect to peer", "error", err)
+		return
 	}
+
+	d.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, ps.PermanentAddrTTL)
 
 	logger.Debug("peers updated", "peers", d.host.Peerstore().Peers())
 }

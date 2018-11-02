@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	pb "github.com/phoreproject/synapse/proto"
+	pb "github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/transaction"
 )
 

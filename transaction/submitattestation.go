@@ -2,7 +2,7 @@ package transaction
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	pb "github.com/phoreproject/synapse/proto"
+	pb "github.com/phoreproject/synapse/pb"
 )
 
 // Attestation is a signed attestation of a shard block.

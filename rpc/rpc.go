@@ -9,7 +9,7 @@ import (
 
 	"github.com/phoreproject/synapse/primitives"
 
-	pb "github.com/phoreproject/synapse/proto"
+	pb "github.com/phoreproject/synapse/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

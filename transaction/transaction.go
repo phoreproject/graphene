@@ -3,7 +3,7 @@ package transaction
 import (
 	"fmt"
 
-	pb "github.com/phoreproject/synapse/proto"
+	pb "github.com/phoreproject/synapse/pb"
 )
 
 // Transaction is a wrapper struct to provide functions for different

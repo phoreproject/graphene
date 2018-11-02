@@ -1,10 +1,9 @@
 package net
 
 import (
+	"bytes"
 	"context"
-	"crypto/rand"
-	"fmt"
-	"math/big"
+	"encoding/binary"
 	"time"
 
 	"github.com/libp2p/go-libp2p-crypto"
@@ -34,17 +33,20 @@ func (n *NetworkingService) handleBlockSubscriptions(blockSub *pubsub.Subscripti
 	for {
 		b, err := blockSub.Next(context.Background())
 		if err != nil {
-			return err
+			continue
 		}
-		logger.Debug("got new block", "data", string(b.Data))
+		newBlock := primitives.Block{}
 
-		// newBlock := primitives.Block{}
+		buf := bytes.NewBuffer(b.Data)
 
-		// buf := bytes.NewBuffer(b.Data)
+		err = binary.Read(buf, binary.BigEndian, &newBlock)
+		if err != nil {
+			continue
+		}
 
-		// binary.Read(buf, binary.BigEndian, &newBlock)
+		logger.Debug("processing new block", "hash", newBlock.Hash(), "height", newBlock.SlotNumber)
 
-		// n.blocks <- newBlock
+		n.blocks <- newBlock
 	}
 }
 
@@ -93,20 +95,6 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 		blocks:    make(chan primitives.Block),
 		gossipSub: g,
 	}
-
-	timer := time.NewTimer(time.Second * 2)
-
-	go func() {
-		<-timer.C
-		i0, _ := rand.Int(rand.Reader, big.NewInt(100000))
-		i := i0.Uint64()
-
-		toPublish := []byte(fmt.Sprintf("test data %d", i))
-
-		g.Publish("block", toPublish)
-
-		logger.Debug("publishing", "data", string(toPublish))
-	}()
 
 	s, err := g.Subscribe("block")
 	if err != nil {

@@ -9,6 +9,18 @@ import (
 // Signature used in the BLS signature scheme.
 type Signature struct{}
 
+// Serialize gets the binary representation of the
+// signature.
+func (s Signature) Serialize() []byte {
+	return []byte{}
+}
+
+// DeserializeSignature deserializes a binary signature
+// into the actual signature.
+func DeserializeSignature([]byte) (Signature, error) {
+	return Signature{}, nil
+}
+
 // SecretKey used in the BLS scheme.
 type SecretKey struct{}
 

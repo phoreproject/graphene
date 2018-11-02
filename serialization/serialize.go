@@ -98,6 +98,37 @@ func ReadByteArray(r io.Reader) ([]byte, error) {
 	return ReadBytes(r, int(i))
 }
 
+// ReadUint32Array reads a variable-length uint32 array
+// from reader r.
+func ReadUint32Array(r io.Reader) ([]uint32, error) {
+	i, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
+	arr := make([]uint32, i)
+	for i := range arr {
+		b, err := ReadBytes(r, 4)
+		if err != nil {
+			return nil, err
+		}
+		arr[i] = binary.BigEndian.Uint32(b)
+	}
+	return arr, nil
+}
+
+// WriteUint32Array gets the binary representation of a uint32 byte
+// array.
+func WriteUint32Array(toWrite []uint32) []byte {
+	lenBytes := WriteVarInt(uint64(len(toWrite)))
+	b := lenBytes
+	for _, i := range toWrite {
+		var intBytes [4]byte
+		binary.BigEndian.PutUint32(intBytes[:], i)
+		b = append(b, intBytes[:]...)
+	}
+	return b
+}
+
 // WriteByteArray gets the binary representation of a byte array.
 func WriteByteArray(toWrite []byte) []byte {
 	return append(WriteVarInt(uint64(len(toWrite))), toWrite...)

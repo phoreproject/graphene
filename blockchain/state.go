@@ -53,9 +53,9 @@ func (c CrystallizedState) Copy() CrystallizedState {
 
 // ShardCommitteeByShardID gets the shards committee from a list of committees/shards
 // in a list.
-func ShardCommitteeByShardID(shardID uint64, shardCommittees []primitives.ShardAndCommittee) ([]uint32, error) {
+func ShardCommitteeByShardID(shardID uint32, shardCommittees []primitives.ShardAndCommittee) ([]uint32, error) {
 	for _, s := range shardCommittees {
-		if uint64(s.ShardID) == shardID {
+		if s.ShardID == shardID {
 			return s.Committee, nil
 		}
 	}
@@ -65,7 +65,7 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []primitives.ShardA
 
 // CommitteeInShardAndSlot gets the committee of validator indices at a specific
 // shard and slot given the relative slot number [0, CYCLE_LENGTH] and shard ID.
-func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [][]primitives.ShardAndCommittee) ([]uint32, error) {
+func CommitteeInShardAndSlot(slotIndex uint64, shardID uint32, shardCommittees [][]primitives.ShardAndCommittee) ([]uint32, error) {
 	shardCommittee := shardCommittees[slotIndex]
 
 	return ShardCommitteeByShardID(shardID, shardCommittee)
@@ -432,7 +432,7 @@ func (b *Blockchain) ApplyBlockActiveStateChanges(newBlock *primitives.Block) er
 		}
 
 		attestation := attestations[0]
-		if attestation.ShardID != uint64(shardAndCommittee.ShardID) || attestation.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitField, proposerIndex) {
+		if attestation.ShardID != shardAndCommittee.ShardID || attestation.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitField, proposerIndex) {
 			return errors.New("invalid parent block proposer")
 		}
 	}
@@ -572,7 +572,7 @@ func (b *Blockchain) ApplyBlockCrystallizedStateChanges(slotNumber uint64) error
 
 			for shardBlockHash, shard := range shardProposals {
 				totalBalanceAttesting := b.voteCache[shardBlockHash].totalDeposit
-				shardCommittee, err := ShardCommitteeByShardID(uint64(shard), shardsAndCommittees)
+				shardCommittee, err := ShardCommitteeByShardID(shard, shardsAndCommittees)
 				if err != nil {
 					return err
 				}

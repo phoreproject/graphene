@@ -1,11 +1,9 @@
 package transaction
 
 import (
-	"bytes"
-	"encoding/binary"
-	"io"
+	"fmt"
 
-	"github.com/phoreproject/synapse/serialization"
+	pb "github.com/phoreproject/synapse/proto"
 )
 
 // Transaction is a wrapper struct to provide functions for different
@@ -24,68 +22,84 @@ const (
 	typeRandaoReveal
 )
 
-// Deserialize reads from a reader and deserializes a transaction into the
+// DeserializeTransaction reads from a reader and deserializes a transaction into the
 // specified type.
-func (t Transaction) Deserialize(r io.Reader) error {
-	b, err := serialization.ReadBytes(r, 1)
-	if err != nil {
-		return err
-	}
-	transactionType := uint8(b[0])
+func DeserializeTransaction(transactionType uint32, transactionData [][]byte) (*Transaction, error) {
+	t := &Transaction{}
+
 	switch transactionType {
 	case typeTransfer:
-		t.Data = &TransferTransaction{}
+		transferTransaction, err := DeserializeTransferTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = transferTransaction
 	case typeRegister:
-		t.Data = &RegisterTransaction{}
+		transferTransaction, err := DeserializeRegisterTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = transferTransaction
 	case typeLogin:
-		t.Data = &LoginTransaction{}
+		transferTransaction, err := DeserializeLoginTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = transferTransaction
 	case typeLogout:
-		t.Data = &LogoutTransaction{}
+		transferTransaction, err := DeserializeLogoutTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = transferTransaction
 	case typeCasperSlashing:
-		t.Data = &CasperSlashingTransaction{}
+		transferTransaction, err := DeserializeCasperSlashingTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = transferTransaction
 	case typeRandaoReveal:
-		t.Data = &RandaoRevealTransaction{}
+		transferTransaction, err := DeserializeRandaoRevealTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = transferTransaction
 	}
 
-	tx, err := serialization.ReadByteArray(r)
-	if err != nil {
-		return err
-	}
-	r2 := bytes.NewBuffer(tx)
-	binary.Read(r2, binary.BigEndian, &t.Data)
-	return nil
+	return t, nil
 }
 
 // Serialize serializes a transaction into binary.
-func (t Transaction) Serialize() ([]byte, error) {
-	var transactionType byte
-	b := new(bytes.Buffer)
+func (t Transaction) Serialize() (*pb.Special, error) {
+	var transactionType uint32
+	var out [][]byte
 	var err error
-	switch t.Data.(type) {
+	switch v := t.Data.(type) {
 	case TransferTransaction:
-		transactionType = byte(typeTransfer)
-		err = binary.Write(b, binary.BigEndian, t.Data.(TransferTransaction))
+		transactionType = typeTransfer
+		out = v.Serialize()
 	case RegisterTransaction:
-		transactionType = byte(typeRegister)
-		err = binary.Write(b, binary.BigEndian, t.Data.(RegisterTransaction))
-	case SubmitAttestationTransaction:
-		transactionType = byte(typeSubmitAttestation)
-		err = binary.Write(b, binary.BigEndian, t.Data.(SubmitAttestationTransaction))
+		transactionType = typeRegister
+		out = v.Serialize()
 	case LoginTransaction:
-		transactionType = byte(typeLogin)
-		err = binary.Write(b, binary.BigEndian, t.Data.(LoginTransaction))
+		transactionType = typeLogin
+		out = v.Serialize()
 	case LogoutTransaction:
-		transactionType = byte(typeLogout)
-		err = binary.Write(b, binary.BigEndian, t.Data.(LogoutTransaction))
+		transactionType = typeLogout
+		out = v.Serialize()
 	case CasperSlashingTransaction:
-		transactionType = byte(typeCasperSlashing)
-		err = binary.Write(b, binary.BigEndian, t.Data.(CasperSlashingTransaction))
+		transactionType = typeCasperSlashing
+		out, err = v.Serialize()
 	case RandaoRevealTransaction:
-		transactionType = byte(typeRandaoReveal)
-		err = binary.Write(b, binary.BigEndian, t.Data.(RandaoRevealTransaction))
+		transactionType = typeRandaoReveal
+		out = v.Serialize()
+	default:
+		return nil, fmt.Errorf("invalid transaction type")
 	}
+
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
-	return append([]byte{transactionType}, b.Bytes()...), nil
+
+	return &pb.Special{Type: transactionType, Data: out}, nil
 }

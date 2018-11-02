@@ -1,53 +1,51 @@
+//go:generate protoc -I ../helloworld --go_out=plugins=grpc:../helloworld ../helloworld/helloworld.proto
+
 package rpc
 
 import (
 	"net"
-	"net/http"
-	"net/rpc"
 
-	logger "github.com/inconshreveable/log15"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+
+	"github.com/phoreproject/synapse/primitives"
+
+	pb "github.com/phoreproject/synapse/proto"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
-//Holds arguments to be passed to service Arith in RPC call
-type Args struct {
-	A, B int
+// server is used to implement rpc.BlockchainRPCServer.
+type server struct{}
+
+// SubmitBlock submits a block to the network after verifying it
+func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*pb.SubmitBlockResponse, error) {
+	b, err := primitives.BlockFromProto(in.Block)
+	if err != nil {
+		return nil, err
+	}
+	h := b.Hash()
+	return &pb.SubmitBlockResponse{BlockHash: h[:]}, nil
 }
 
-//Representss service Arith with method Multiply
-type Arith int
-
-//Result of RPC call is of this type
-type Result int
-
-//This procedure is invoked by rpc and calls rpcexample.Multiply which stores product of args.A and args.B in result pointer
-func (t *Arith) Multiply(args Args, result *Result) error {
-	return Multiply(args, result)
+func (s *server) GetSlotNumber(ctx context.Context, in *pb.Empty) (*pb.SlotNumberResponse, error) {
+	return &pb.SlotNumberResponse{SlotNumber: 0}, nil
 }
 
-//stores product of args.A and args.B in result pointer
-func Multiply(args Args, result *Result) error {
-	logger.Debug("multiplying", "a", args.A, "b", args.B)
-	*result = Result(args.A * args.B)
-	return nil
+func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
+	return &pb.GetBlockHashResponse{Hash: chainhash.HashB([]byte("this is a test"))}, nil
 }
 
-func Serve(hostPort string) error {
-	//register Arith object as a service
-	arith := new(Arith)
-	err := rpc.Register(arith)
+// Serve serves the RPC server
+func Serve(listenAddr string) error {
+	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err
 	}
-	rpc.HandleHTTP()
-	//start listening for messages on port 1234
-	l, e := net.Listen("tcp", hostPort)
-	if e != nil {
-		return err
-	}
-	logger.Debug("serving RPC handler")
-	err = http.Serve(l, nil)
-	if err != nil {
-		return err
-	}
-	return nil
+	s := grpc.NewServer()
+	pb.RegisterBlockchainRPCServer(s, &server{})
+	// Register reflection service on gRPC server.
+	reflection.Register(s)
+	err = s.Serve(lis)
+	return err
 }

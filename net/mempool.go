@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/gogo/protobuf/proto"
+	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/transaction"
@@ -25,6 +26,8 @@ func NewMempool(b *blockchain.Blockchain) Mempool {
 
 // ProcessTransaction validates a transaction and adds it to the mempool.
 func (m *Mempool) ProcessTransaction(t *transaction.Transaction) error {
+	logger.Debug("received new transaction")
+
 	// TODO: mempool validation
 	m.transactions = append(m.transactions, t)
 
@@ -34,6 +37,7 @@ func (m *Mempool) ProcessTransaction(t *transaction.Transaction) error {
 // ProcessAttestation validates an attestation and adds it to the
 // mempool.
 func (m *Mempool) ProcessAttestation(a *transaction.Attestation) error {
+	logger.Debug("received new attestation")
 	lb, err := m.blockchain.LastBlock()
 	if err != nil {
 		return err

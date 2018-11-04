@@ -32,13 +32,16 @@ type State struct {
 
 // CrystallizedState is state that is updated every epoch
 type CrystallizedState struct {
-	ValidatorSetChangeSlot      uint64
-	Crosslinks                  []primitives.Crosslink
-	Validators                  []primitives.Validator
-	LastStateRecalculation      uint64
-	JustifiedStreak             uint64
-	LastJustifiedSlot           uint64
-	LastFinalizedSlot           uint64
+	ValidatorSetChangeSlot uint64
+	Crosslinks             []primitives.Crosslink
+	Validators             []primitives.Validator
+	LastStateRecalculation uint64
+	JustifiedStreak        uint64
+	LastJustifiedSlot      uint64
+	LastFinalizedSlot      uint64
+
+	// ShardAndCommitteeForSlots is an array of slots where each element
+	// is the committee assigned to that slot for each shard.
 	ShardAndCommitteeForSlots   [][]primitives.ShardAndCommittee
 	DepositsPenalizedInPeriod   []uint64
 	ValidatorSetDeltaHashChange chainhash.Hash
@@ -356,8 +359,11 @@ func UpdateAncestorHashes(parentAncestorHashes []chainhash.Hash, parentSlotNumbe
 
 // getShardsAndCommitteesForSlot gets the committee for each shard.
 func (b *Blockchain) getShardsAndCommitteesForSlot(slot uint64) []primitives.ShardAndCommittee {
-	earliestSlotInArray := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength)
-	return b.state.Crystallized.ShardAndCommitteeForSlots[slot-earliestSlotInArray]
+	earliestSlotInArray := int(b.state.Crystallized.LastStateRecalculation) - b.config.CycleLength
+	if earliestSlotInArray < 0 {
+		earliestSlotInArray = 0
+	}
+	return b.state.Crystallized.ShardAndCommitteeForSlots[slot-uint64(earliestSlotInArray)]
 }
 
 func hasVoted(bitfield []byte, index int) bool {

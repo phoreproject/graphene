@@ -39,9 +39,9 @@ func NewBlockchain(db db.Database, config *Config) Blockchain {
 		config: config,
 		chain: blockchainView{
 			chain: []chainhash.Hash{},
-			lock:  new(sync.Mutex),
+			lock:  &sync.Mutex{},
 		},
-		stateLock: new(sync.Mutex),
+		stateLock: &sync.Mutex{},
 	}
 	b.InitializeState(config.InitialValidators)
 	return b

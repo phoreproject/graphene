@@ -22,6 +22,24 @@ type blockchainView struct {
 	lock  *sync.Mutex
 }
 
+func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
+	bv.lock.Lock()
+	defer bv.lock.Unlock()
+	if len(bv.chain)-1 > n {
+		return &bv.chain[n], nil
+	}
+	return nil, fmt.Errorf("block %d does not exist", n)
+}
+
+func (bv *blockchainView) Height() int {
+	bv.lock.Lock()
+	defer bv.lock.Unlock()
+	if len(bv.chain) > 0 {
+		return len(bv.chain) - 1
+	}
+	return 0
+}
+
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
 	chain     blockchainView
@@ -125,9 +143,25 @@ func (b Blockchain) GetNodeByHeight(height uint64) (chainhash.Hash, error) {
 }
 
 // Height returns the height of the chain.
-func (b Blockchain) Height() int {
-	b.chain.lock.Lock()
-	height := len(b.chain.chain) - 1
-	b.chain.lock.Unlock()
-	return height
+func (b *Blockchain) Height() int {
+	return b.chain.Height()
+}
+
+// LastBlock gets the last block in the chain
+func (b *Blockchain) LastBlock() (*primitives.Block, error) {
+	hash, err := b.chain.GetBlock(b.chain.Height())
+	if err != nil {
+		return nil, err
+	}
+	block, err := b.db.GetBlockForHash(*hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
+
+// GetConfig returns the config used by this blockchain
+func (b *Blockchain) GetConfig() *Config {
+	return b.config
 }

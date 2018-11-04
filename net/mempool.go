@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/transaction"
 )
@@ -10,26 +11,39 @@ import (
 type Mempool struct {
 	transactions []*transaction.Transaction
 	attestations []*transaction.Attestation
+	blockchain   *blockchain.Blockchain
 }
 
 // NewMempool creates a new mempool
-func NewMempool() Mempool {
+func NewMempool(b *blockchain.Blockchain) Mempool {
 	return Mempool{
 		transactions: []*transaction.Transaction{},
 		attestations: []*transaction.Attestation{},
+		blockchain:   b,
 	}
 }
 
 // ProcessTransaction validates a transaction and adds it to the mempool.
-func (m *Mempool) ProcessTransaction(t *transaction.Transaction) {
+func (m *Mempool) ProcessTransaction(t *transaction.Transaction) error {
 	// TODO: mempool validation
 	m.transactions = append(m.transactions, t)
+
+	return nil
 }
 
 // ProcessAttestation validates an attestation and adds it to the
 // mempool.
-func (m *Mempool) ProcessAttestation(a *transaction.Attestation) {
+func (m *Mempool) ProcessAttestation(a *transaction.Attestation) error {
+	lb, err := m.blockchain.LastBlock()
+	if err != nil {
+		return err
+	}
+	err = m.blockchain.ValidateAttestation(a, lb, m.blockchain.GetConfig())
+	if err != nil {
+		return err
+	}
 	m.attestations = append(m.attestations, a)
+	return nil
 }
 
 // ProcessNewTransaction processes raw bytes received from the network

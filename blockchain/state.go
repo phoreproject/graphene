@@ -274,7 +274,7 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 }
 
 // ValidateAttestation checks attestation invariants and the BLS signature.
-func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, block *primitives.Block, parentBlock *primitives.Block, c *Config) error {
+func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
 	if attestation.Slot > parentBlock.SlotNumber {
 		return errors.New("attestation slot number too high")
 	}
@@ -411,7 +411,7 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 	}
 
 	for _, a := range newBlock.Attestations {
-		err := b.ValidateAttestation(&a, newBlock, parentBlock, b.config)
+		err := b.ValidateAttestation(&a, parentBlock, b.config)
 		if err != nil {
 			return err
 		}

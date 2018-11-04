@@ -1,9 +1,7 @@
 package net
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"time"
 
 	"github.com/libp2p/go-libp2p-crypto"
@@ -21,33 +19,20 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
+// Message is a network message and the context for processing
+// that message.
+type Message struct {
+	Ctx  context.Context
+	Data []byte
+}
+
 // NetworkingService handles networking throughout the network.
 type NetworkingService struct {
 	host      host.Host
 	gossipSub *pubsub.PubSub
 	blocks    chan primitives.Block
-}
-
-func (n *NetworkingService) handleBlockSubscriptions(blockSub *pubsub.Subscription) error {
-	defer blockSub.Cancel()
-	for {
-		b, err := blockSub.Next(context.Background())
-		if err != nil {
-			continue
-		}
-		newBlock := primitives.Block{}
-
-		buf := bytes.NewBuffer(b.Data)
-
-		err = binary.Read(buf, binary.BigEndian, &newBlock)
-		if err != nil {
-			continue
-		}
-
-		logger.Debug("processing new block", "hash", newBlock.Hash(), "height", newBlock.SlotNumber)
-
-		n.blocks <- newBlock
-	}
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // GetBlocksChannel returns a channel containing incoming blocks.
@@ -62,10 +47,38 @@ func (n *NetworkingService) Connect(p *peerstore.PeerInfo) error {
 	return n.host.Connect(ctx, *p)
 }
 
+// RegisterHandler registers a handler for a network topic.
+func (n *NetworkingService) RegisterHandler(topic string, handler func(Message) error) error {
+	s, err := n.gossipSub.Subscribe(topic)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer s.Cancel()
+		for {
+			m, err := s.Next(n.ctx)
+			if err != nil {
+				return
+			}
+
+			msg := Message{n.ctx, m.Data}
+
+			err = handler(msg)
+			if err != nil {
+				logger.Debug("message processing error", "type", topic, "error", err)
+				continue
+			}
+		}
+	}()
+
+	return nil
+}
+
 // NewNetworkingService creates a networking service instance that will
 // run on the given IP.
 func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) (NetworkingService, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
 		libp2p.ListenAddrs(*addr),
@@ -77,16 +90,19 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 	}
 
 	if err != nil {
+		cancel()
 		return NetworkingService{}, err
 	}
 
 	g, err := pubsub.NewGossipSub(ctx, host)
 	if err != nil {
+		cancel()
 		return NetworkingService{}, err
 	}
 
 	err = startDiscovery(ctx, host)
 	if err != nil {
+		cancel()
 		return NetworkingService{}, err
 	}
 
@@ -94,14 +110,9 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 		host:      host,
 		blocks:    make(chan primitives.Block),
 		gossipSub: g,
+		ctx:       ctx,
+		cancel:    cancel,
 	}
-
-	s, err := g.Subscribe("block")
-	if err != nil {
-		return n, err
-	}
-
-	go n.handleBlockSubscriptions(s)
 
 	return n, nil
 }

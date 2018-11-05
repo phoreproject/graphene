@@ -14,7 +14,11 @@ import (
 var zeroHash = chainhash.Hash{}
 
 func TestReorganization(t *testing.T) {
-	b := blockchain.NewBlockchain(db.NewInMemoryDB(), &blockchain.MainNetConfig)
+	b, err := blockchain.NewBlockchain(db.NewInMemoryDB(), &blockchain.MainNetConfig)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	h00 := primitives.Block{AncestorHashes: []chainhash.Hash{zeroHash}}
 	h00hash := h00.Hash()

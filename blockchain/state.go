@@ -84,14 +84,19 @@ func (c *CrystallizedState) GetAttesterIndices(attestation *transaction.Attestat
 }
 
 // InitializeState initializes state to the genesis state according to the config.
-func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) {
+func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) error {
 	b.stateLock.Lock()
-	b.state.Crystallized.Validators = make([]primitives.Validator, len(initialValidators))
+	validators := []primitives.Validator{}
 	for _, v := range initialValidators {
-		AddValidator(b.state.Crystallized.Validators, v.PubKey, v.ProofOfPossession, v.WithdrawalShard, v.WithdrawalAddress, v.RandaoCommitment, 0, b.config)
+		newValidators, _, err := AddValidator(validators, v.PubKey, v.ProofOfPossession, v.WithdrawalShard, v.WithdrawalAddress, v.RandaoCommitment, 0, Active, b.config)
+		validators = newValidators
+		if err != nil {
+			b.stateLock.Unlock()
+			return err
+		}
 	}
 
-	x := GetNewShuffling(zeroHash, b.state.Crystallized.Validators, 0, b.config)
+	x := GetNewShuffling(zeroHash, validators, 0, b.config)
 
 	crosslinks := make([]primitives.Crosslink, b.config.ShardCount)
 
@@ -104,7 +109,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 	}
 
 	b.state.Crystallized = CrystallizedState{
-		Validators:                  b.state.Crystallized.Validators,
+		Validators:                  validators,
 		ValidatorSetChangeSlot:      0,
 		Crosslinks:                  crosslinks,
 		LastStateRecalculation:      0,
@@ -132,8 +137,6 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		Balances:            make(map[serialization.Address]uint64),
 	}
 
-	b.stateLock.Unlock()
-
 	ancestorHashes := make([]chainhash.Hash, 32)
 
 	block0 := primitives.Block{
@@ -146,7 +149,11 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		Attestations:          []transaction.Attestation{},
 	}
 
+	b.stateLock.Unlock()
+
 	b.AddBlock(&block0)
+
+	return nil
 }
 
 // MinEmptyValidator finds the first validator slot that is empty.
@@ -160,10 +167,10 @@ func MinEmptyValidator(validators []primitives.Validator) int {
 }
 
 // AddValidator adds a validator to the current validator set.
-func AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64, con *Config) (uint32, error) {
+func AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64, status uint8, con *Config) ([]primitives.Validator, uint32, error) {
 	verifies, err := bls.VerifySig(&pubkey, pubkey.Hash(), &proofOfPossession)
 	if err != nil || !verifies {
-		return 0, errors.New("validator proof of possesion does not verify")
+		return nil, 0, errors.New("validator proof of possesion does not verify")
 	}
 
 	rec := primitives.Validator{
@@ -172,17 +179,17 @@ func AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey
 		WithdrawalShardID: withdrawalShard,
 		RandaoCommitment:  randaoCommitment,
 		Balance:           con.DepositSize,
-		Status:            PendingActivation,
+		Status:            status,
 		ExitSlot:          0,
 	}
 
 	index := MinEmptyValidator(currentValidators)
 	if index == -1 {
 		currentValidators = append(currentValidators, rec)
-		return uint32(len(currentValidators) - 1), nil
+		return currentValidators, uint32(len(currentValidators) - 1), nil
 	}
 	currentValidators[index] = rec
-	return uint32(index), nil
+	return currentValidators, uint32(index), nil
 }
 
 // GetActiveValidatorIndices gets the indices of active validators.
@@ -238,19 +245,24 @@ func Split(l []uint32, splitCount uint32) [][]uint32 {
 	return out
 }
 
+func clamp(min int, max int, val int) int {
+	if val <= min {
+		return min
+	} else if val >= max {
+		return max
+	} else {
+		return val
+	}
+}
+
 // GetNewShuffling calculates the new shuffling of validators
 // to slots and shards.
 func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, crosslinkingStart int, con *Config) [][]primitives.ShardAndCommittee {
 	activeValidators := GetActiveValidatorIndices(validators)
 	numActiveValidators := len(activeValidators)
 
-	committeesPerSlot := numActiveValidators/con.CycleLength/(con.MinCommitteeSize*2) + 1
 	// clamp between 1 and b.config.ShardCount / b.config.CycleLength
-	if committeesPerSlot < 1 {
-		committeesPerSlot = 1
-	} else if committeesPerSlot > con.ShardCount/con.CycleLength {
-		committeesPerSlot = con.ShardCount / con.CycleLength
-	}
+	committeesPerSlot := clamp(1, con.ShardCount/con.CycleLength, numActiveValidators/con.CycleLength/(con.MinCommitteeSize*2)+1)
 
 	output := make([][]primitives.ShardAndCommittee, con.CycleLength)
 
@@ -536,13 +548,14 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 			}
 			attesterBalance := uint64(0)
 
-			b.chain.lock.Lock()
-			node := b.chain.chain[slot]
-			block, err := b.db.GetBlockForHash(node)
+			node, err := b.chain.GetBlock(int(slot))
 			if err != nil {
 				return err
 			}
-			b.chain.lock.Unlock()
+			block, err := b.db.GetBlockForHash(*node)
+			if err != nil {
+				return err
+			}
 
 			attestations := []transaction.Attestation{}
 			for _, a := range block.Attestations {
@@ -813,6 +826,7 @@ func (b *Blockchain) ChangeValidatorSet(validators []primitives.Validator, curre
 // ApplyBlock applies a block to the state
 func (b *Blockchain) ApplyBlock(newBlock *primitives.Block) error {
 	b.stateLock.Lock()
+	defer b.stateLock.Unlock()
 	err := b.applyBlockCrystallizedStateChanges(newBlock.SlotNumber)
 	if err != nil {
 		return err
@@ -843,8 +857,6 @@ func (b *Blockchain) ApplyBlock(newBlock *primitives.Block) error {
 			return err
 		}
 	}
-
-	b.stateLock.Unlock()
 
 	return nil
 }

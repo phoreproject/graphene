@@ -51,8 +51,14 @@ type Blockchain struct {
 }
 
 // NewBlockchain creates a new blockchain.
-func NewBlockchain(db db.Database, config *Config) Blockchain {
-	b := Blockchain{
+func NewBlockchain(db db.Database, config *Config) (*Blockchain, error) {
+	return NewBlockchainWithInitialValidators(db, config, config.InitialValidators)
+}
+
+// NewBlockchainWithInitialValidators creates a new blockchain with the specified
+// initial validators.
+func NewBlockchainWithInitialValidators(db db.Database, config *Config, validators []InitialValidatorEntry) (*Blockchain, error) {
+	b := &Blockchain{
 		db:     db,
 		config: config,
 		chain: blockchainView{
@@ -61,8 +67,11 @@ func NewBlockchain(db db.Database, config *Config) Blockchain {
 		},
 		stateLock: &sync.Mutex{},
 	}
-	b.InitializeState(config.InitialValidators)
-	return b
+	err := b.InitializeState(validators)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // InitialValidatorEntry is the validator entry to be added

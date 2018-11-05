@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/serialization"
@@ -34,8 +35,6 @@ func GenerateNextBlock(b *blockchain.Blockchain) primitives.Block {
 }
 
 func TestStateActiveValidatorChanges(t *testing.T) {
-	b := blockchain.NewBlockchain(db.NewInMemoryDB(), &blockchain.MainNetConfig)
-
 	var randaoSecret [32]byte
 
 	rand.Read(randaoSecret[:])
@@ -44,7 +43,7 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 
 	validators := []blockchain.InitialValidatorEntry{}
 
-	for i := 0; i <= 5*128; i++ {
+	for i := 0; i <= 256; i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
 			PubKey:            bls.PublicKey{},
 			ProofOfPossession: bls.Signature{},
@@ -52,6 +51,12 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 			WithdrawalAddress: serialization.Address{},
 			RandaoCommitment:  randaoCommitment,
 		})
+	}
+
+	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), &blockchain.MainNetConfig, validators)
+	if err != nil {
+		t.Error(err)
+		return
 	}
 
 	lastBlock, err := b.GetNodeByHeight(0)
@@ -70,5 +75,16 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 		Attestations:          []transaction.Attestation{},
 	}
 
-	b.ProcessBlock(&block1)
+	err = b.ProcessBlock(&block1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	s := b.GetState()
+
+	spew.Println(s.Crystallized.ShardAndCommitteeForSlots)
+	if len(s.Crystallized.ShardAndCommitteeForSlots[0]) == 0 {
+		t.Errorf("invalid initial validator entries")
+	}
 }

@@ -43,7 +43,7 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 
 	validators := []blockchain.InitialValidatorEntry{}
 
-	for i := 0; i <= 256; i++ {
+	for i := 0; i <= 100000; i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
 			PubKey:            bls.PublicKey{},
 			ProofOfPossession: bls.Signature{},

@@ -86,13 +86,16 @@ func (c *CrystallizedState) GetAttesterIndices(attestation *transaction.Attestat
 // InitializeState initializes state to the genesis state according to the config.
 func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) error {
 	b.stateLock.Lock()
-	validators := []primitives.Validator{}
-	for _, v := range initialValidators {
-		newValidators, _, err := AddValidator(validators, v.PubKey, v.ProofOfPossession, v.WithdrawalShard, v.WithdrawalAddress, v.RandaoCommitment, 0, Active, b.config)
-		validators = newValidators
-		if err != nil {
-			b.stateLock.Unlock()
-			return err
+	validators := make([]primitives.Validator, len(initialValidators))
+	for i, v := range initialValidators {
+		validators[i] = primitives.Validator{
+			Pubkey:            &v.PubKey,
+			WithdrawalAddress: v.WithdrawalAddress,
+			WithdrawalShardID: v.WithdrawalShard,
+			RandaoCommitment:  v.RandaoCommitment,
+			Balance:           b.config.DepositSize,
+			Status:            Active,
+			ExitSlot:          0,
 		}
 	}
 

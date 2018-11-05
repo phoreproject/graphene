@@ -474,6 +474,10 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 		b.state.Active.RandaoMix[i] ^= newBlock.RandaoReveal[i]
 	}
 
+	tx := transaction.Transaction{Data: transaction.RandaoChangeTransaction{ProposerIndex: uint32(proposerIndex), NewRandao: newBlock.RandaoReveal}}
+
+	b.state.Active.PendingActions = append(b.state.Active.PendingActions, tx)
+
 	return nil
 }
 
@@ -547,6 +551,7 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 			if len(attestations) == 0 {
 				return errors.New("invalid parent block proposer")
 			}
+
 			attestation := attestations[0]
 
 			for index := range committee {

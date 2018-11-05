@@ -20,6 +20,7 @@ const (
 	typeLogout
 	typeCasperSlashing
 	typeRandaoReveal
+	typeRandaoChange
 )
 
 // DeserializeTransaction reads from a reader and deserializes a transaction into the
@@ -29,41 +30,54 @@ func DeserializeTransaction(transactionType uint32, transactionData [][]byte) (*
 
 	switch transactionType {
 	case typeTransfer:
-		transferTransaction, err := DeserializeTransferTransaction(transactionData)
+		tx, err := DeserializeTransferTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
-		t.Data = transferTransaction
+		t.Data = tx
+		break
 	case typeRegister:
-		transferTransaction, err := DeserializeRegisterTransaction(transactionData)
+		tx, err := DeserializeRegisterTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
-		t.Data = transferTransaction
+		t.Data = tx
+		break
 	case typeLogin:
-		transferTransaction, err := DeserializeLoginTransaction(transactionData)
+		tx, err := DeserializeLoginTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
-		t.Data = transferTransaction
+		t.Data = tx
+		break
 	case typeLogout:
-		transferTransaction, err := DeserializeLogoutTransaction(transactionData)
+		tx, err := DeserializeLogoutTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
-		t.Data = transferTransaction
+		t.Data = tx
+		break
 	case typeCasperSlashing:
-		transferTransaction, err := DeserializeCasperSlashingTransaction(transactionData)
+		tx, err := DeserializeCasperSlashingTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
-		t.Data = transferTransaction
+		t.Data = tx
+		break
 	case typeRandaoReveal:
-		transferTransaction, err := DeserializeRandaoRevealTransaction(transactionData)
+		tx, err := DeserializeRandaoRevealTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
-		t.Data = transferTransaction
+		t.Data = tx
+		break
+	case typeRandaoChange:
+		tx, err := DeserializeRandaoChangeTransaction(transactionData)
+		if err != nil {
+			return nil, err
+		}
+		t.Data = tx
+		break
 	}
 
 	return t, nil
@@ -78,21 +92,31 @@ func (t Transaction) Serialize() (*pb.Special, error) {
 	case TransferTransaction:
 		transactionType = typeTransfer
 		out = v.Serialize()
+		break
 	case RegisterTransaction:
 		transactionType = typeRegister
 		out = v.Serialize()
+		break
 	case LoginTransaction:
 		transactionType = typeLogin
 		out = v.Serialize()
+		break
 	case LogoutTransaction:
 		transactionType = typeLogout
 		out = v.Serialize()
+		break
 	case CasperSlashingTransaction:
 		transactionType = typeCasperSlashing
 		out, err = v.Serialize()
+		break
 	case RandaoRevealTransaction:
 		transactionType = typeRandaoReveal
 		out = v.Serialize()
+		break
+	case RandaoChangeTransaction:
+		transactionType = typeRandaoChange
+		out = v.Serialize()
+		break
 	default:
 		return nil, fmt.Errorf("invalid transaction type")
 	}

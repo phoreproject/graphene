@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/bls"
 	pb "github.com/phoreproject/synapse/pb"
 )
 
@@ -14,7 +15,7 @@ type Attestation struct {
 	ShardBlockHash      chainhash.Hash
 	ObliqueParentHashes []chainhash.Hash
 	AttesterBitField    []byte
-	AggregateSignature  []byte
+	AggregateSignature  bls.Signature
 }
 
 // NewAttestationFromProto gets a new attestation from a protobuf attestation
@@ -38,6 +39,12 @@ func NewAttestationFromProto(att *pb.Attestation) (*Attestation, error) {
 		}
 		obliqueParentHashes[i] = *h
 	}
+
+	s, err := bls.DeserializeSignature(att.AggregateSignature)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Attestation{
 		Slot:                att.Slot,
 		ShardID:             att.ShardID,
@@ -46,16 +53,21 @@ func NewAttestationFromProto(att *pb.Attestation) (*Attestation, error) {
 		JustifiedBlockHash:  *justifiedBlockHash,
 		ObliqueParentHashes: obliqueParentHashes,
 		AttesterBitField:    att.AttesterBitField,
-		AggregateSignature:  att.AggregateSignature,
+		AggregateSignature:  s,
 	}, nil
 }
 
 // AttestationSignedData is the part of the attestation that is signed.
 type AttestationSignedData struct {
-	Version        int64
-	Slot           int64
-	Shard          int64
-	ParentHashes   [32]chainhash.Hash
+	Version        uint32
+	Slot           uint64
+	Shard          uint32
+	ParentHashes   []chainhash.Hash
 	ShardBlockHash chainhash.Hash
-	JustifiedSlot  int64
+	JustifiedSlot  uint64
+}
+
+// Serialize gets the binary representation of the signed data
+func (a *AttestationSignedData) Serialize() []byte {
+	return []byte("this is a test")
 }

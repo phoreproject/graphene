@@ -291,12 +291,42 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 	return output
 }
 
+func checkTrailingZeros(a byte, numZeros uint8) bool {
+	i := uint8(a)
+	if i/128 == 1 && numZeros == 0 {
+		return false
+	}
+	if (i%128)/64 == 1 && numZeros <= 1 {
+		return false
+	}
+	if (i%64)/32 == 1 && numZeros <= 2 {
+		return false
+	}
+	if (i%32)/16 == 1 && numZeros <= 3 {
+		return false
+	}
+	if (i%16)/8 == 1 && numZeros <= 4 {
+		return false
+	}
+	if (i%8)/4 == 1 && numZeros <= 5 {
+		return false
+	}
+	if (i%4)/2 == 1 && numZeros <= 6 {
+		return false
+	}
+	if (i%2) == 1 && numZeros <= 7 {
+		return false
+	}
+	return true
+}
+
 // ValidateAttestation checks attestation invariants and the BLS signature.
 func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
 	if attestation.Slot > parentBlock.SlotNumber {
 		return errors.New("attestation slot number too high")
 	}
 
+	// verify attestation slot >= max(parent.slot - CYCLE_LENGTH + 1, 0)
 	if !(attestation.Slot >= uint64(math.Max(float64(parentBlock.SlotNumber-uint64(c.CycleLength)+1), 0))) {
 		return errors.New("attestation slot number too low")
 	}
@@ -305,18 +335,81 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
-	justifiedBlock, err := b.db.GetBlockForHash(attestation.JustifiedBlockHash)
+	justifiedBlockHash, err := b.chain.GetBlock(int(attestation.JustifiedSlot))
 	if err != nil {
 		return errors.New("justified block not in index")
 	}
 
-	if justifiedBlock.SlotNumber != attestation.Slot {
-		return errors.New("justified slot does not match attestation")
+	if !justifiedBlockHash.IsEqual(&attestation.JustifiedBlockHash) {
+		return errors.New("justified block hash does not match block at slot")
 	}
 
-	// if (!len(attestation.att))
+	hashes := make([]chainhash.Hash, b.config.CycleLength-len(attestation.ObliqueParentHashes))
 
-	// TODO: validate BLS sig
+	for i := 1; i < b.config.CycleLength-len(attestation.ObliqueParentHashes)+1; i++ {
+		h, err := b.chain.GetBlock(int(attestation.Slot) - b.config.CycleLength + i)
+		if err != nil {
+			return fmt.Errorf("could not find block at slot %d", int(attestation.Slot)-b.config.CycleLength+i)
+		}
+
+		hashes[i-1] = *h
+	}
+
+	attestationIndicesForShards := b.getShardsAndCommitteesForSlot(attestation.Slot)
+	var attestationIndices primitives.ShardAndCommittee
+	found := false
+	for _, s := range attestationIndicesForShards {
+		if s.ShardID == attestation.ShardID {
+			attestationIndices = s
+			found = true
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("could not find shard id %d", attestation.ShardID)
+	}
+
+	if len(attestation.AttesterBitField) != (len(attestationIndices.Committee)+7)/8 {
+		return fmt.Errorf("attestation bitfield length does not match number of validators in committee")
+	}
+
+	trailingZeros := uint8(len(attestationIndices.Committee) % 8)
+	if !checkTrailingZeros(attestation.AttesterBitField[len(attestation.AttesterBitField)-1], trailingZeros) {
+		return fmt.Errorf("expected %d bits at the end empty", trailingZeros)
+	}
+
+	var pubkey *bls.PublicKey
+	for bit := 0; bit < len(attestationIndices.Committee); bit++ {
+		set := (attestation.AttesterBitField[bit/8]>>uint(7-(bit%8)))%2 == 1
+		if set {
+			if pubkey == nil {
+				pubkey = b.state.Crystallized.Validators[attestationIndices.Committee[bit]].Pubkey
+			} else {
+				pubkey, err = bls.AggregatePubKeys([]*bls.PublicKey{pubkey, b.state.Crystallized.Validators[attestationIndices.Committee[bit]].Pubkey})
+			}
+		}
+	}
+
+	forkVersion := b.state.Crystallized.PreForkVersion
+	if attestation.Slot >= b.state.Crystallized.ForkSlotNumber {
+		forkVersion = b.state.Crystallized.PostForkVersion
+	}
+
+	asd := transaction.AttestationSignedData{
+		Version:        forkVersion,
+		Slot:           attestation.Slot,
+		Shard:          attestation.ShardID,
+		ParentHashes:   hashes,
+		ShardBlockHash: attestation.ShardBlockHash,
+		JustifiedSlot:  attestation.JustifiedSlot,
+	}
+
+	bs := asd.Serialize()
+	valid, err := bls.VerifySig(pubkey, bs, attestation.AggregateSignature)
+
+	if err != nil || !valid {
+		return errors.New("bls signature did not validate")
+	}
 
 	return nil
 }

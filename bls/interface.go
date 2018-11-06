@@ -49,23 +49,26 @@ func VerifySig(pub *PublicKey, msg []byte, sig *Signature) (bool, error) {
 	return true, nil
 }
 
-// VerifyAggregateSig created using the underlying BLS signature
-// aggregation scheme.
-func VerifyAggregateSig(pubs []*PublicKey, msg []byte, asig *Signature) (bool, error) {
-	return true, nil
-}
-
 // BatchVerify a list of individual signatures by aggregating them.
 func BatchVerify(pubs []*PublicKey, msg []byte, sigs []*Signature) (bool, error) {
 	asigs, err := AggregateSigs(sigs)
 	if err != nil {
 		return false, fmt.Errorf("could not aggregate signatures: %v", err)
 	}
-	return VerifyAggregateSig(pubs, msg, asigs)
+	pub, err := AggregatePubKeys(pubs)
+	if err != nil {
+		return false, fmt.Errorf("could not aggregate public keys")
+	}
+	return VerifySig(pub, msg, asigs)
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying
 // BLS sum functions.
 func AggregateSigs(sigs []*Signature) (*Signature, error) {
 	return &Signature{}, nil
+}
+
+// AggregatePubKeys by adding them up
+func AggregatePubKeys(pubs []*PublicKey) (*PublicKey, error) {
+	return &PublicKey{}, nil
 }

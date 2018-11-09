@@ -1,30 +1,33 @@
-package main
+package validator
 
 import (
-	"context"
-	"flag"
-
-	"google.golang.org/grpc"
+	"time"
 
 	"github.com/inconshreveable/log15"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
 )
 
-func main() {
-	log15.Info("Starting validator")
-	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
-	flag.Parse()
+// Validator is a single validator to keep track of
+type Validator struct {
+	secretKey *bls.SecretKey
+	rpc       *rpc.BlockchainRPCClient
+	id        uint32
+}
 
-	conn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
-	if err != nil {
-		panic(err)
+// NewValidator gets a validator
+func NewValidator(key *bls.SecretKey, rpc *rpc.BlockchainRPCClient, id uint32) *Validator {
+	return &Validator{secretKey: key, rpc: rpc, id: id}
+}
+
+// RunValidator keeps track of assignments and creates/signs attestations as needed.
+func (v *Validator) RunValidator() error {
+	log15.Info("Running validator", "validator", v.id)
+
+	t := time.NewTicker(time.Second)
+
+	for {
+		<-t.C
+
 	}
-
-	rpcClient := pb.NewBlockchainRPCClient(conn)
-	slot, err := rpcClient.GetSlotNumber(context.Background(), &pb.Empty{})
-	if err != nil {
-		panic(err)
-	}
-
-	log15.Info("got slot number", "slot", slot.SlotNumber)
 }

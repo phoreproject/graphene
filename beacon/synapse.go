@@ -5,7 +5,10 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/rpc"
+	"github.com/phoreproject/synapse/serialization"
 
 	"github.com/libp2p/go-libp2p-crypto"
 
@@ -62,7 +65,27 @@ func main() {
 	c := blockchain.MainNetConfig
 
 	logger.Info("initializing blockchain")
-	blockchain := blockchain.NewBlockchain(database, &c)
+
+	validators := []blockchain.InitialValidatorEntry{}
+
+	randaoCommitment := chainhash.HashH([]byte("test"))
+
+	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
+		validators = append(validators, blockchain.InitialValidatorEntry{
+			PubKey:            bls.PublicKey{},
+			ProofOfPossession: bls.Signature{},
+			WithdrawalShard:   1,
+			WithdrawalAddress: serialization.Address{},
+			RandaoCommitment:  randaoCommitment,
+		})
+	}
+
+	logger.Info("initializing blockchain with validators", "numValidators", len(validators))
+
+	blockchain, err := blockchain.NewBlockchainWithInitialValidators(database, &c, validators)
+	if err != nil {
+		panic(err)
+	}
 
 	logger.Info("initializing net")
 	ps, err := parseInitialConnections(*initialConnections)
@@ -106,7 +129,7 @@ func main() {
 
 	logger.Info("initializing RPC")
 
-	err = rpc.Serve(*rpcConnect, &blockchain)
+	err = rpc.Serve(*rpcConnect, blockchain)
 	if err != nil {
 		panic(err)
 	}

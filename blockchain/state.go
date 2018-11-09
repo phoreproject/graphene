@@ -99,7 +99,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		}
 	}
 
-	x := GetNewShuffling(zeroHash, validators, 0, b.config)
+	x := GetNewShuffling(chainhash.HashH([]byte("nothing?")), validators, 0, b.config)
 
 	crosslinks := make([]primitives.Crosslink, b.config.ShardCount)
 
@@ -274,12 +274,12 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 	validatorsPerSlot := Split(shuffledValidatorIndices, uint32(con.CycleLength))
 
 	for slot, slotIndices := range validatorsPerSlot {
-		shardIndices := Split(slotIndices, uint32(committeesPerSlot))
+		validatorsPerShard := Split(slotIndices, uint32(committeesPerSlot))
 
 		shardIDStart := crosslinkingStart + slot*committeesPerSlot
 
-		shardCommittees := make([]primitives.ShardAndCommittee, len(shardIndices))
-		for shardPosition, indices := range shardIndices {
+		shardCommittees := make([]primitives.ShardAndCommittee, len(validatorsPerShard))
+		for shardPosition, indices := range validatorsPerShard {
 			shardCommittees[shardPosition] = primitives.ShardAndCommittee{
 				ShardID:   uint32((shardIDStart + shardPosition) % con.ShardCount),
 				Committee: indices,
@@ -355,7 +355,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 		hashes[i-1] = *h
 	}
 
-	attestationIndicesForShards := b.getShardsAndCommitteesForSlot(attestation.Slot)
+	attestationIndicesForShards := b.GetShardsAndCommitteesForSlot(attestation.Slot)
 	var attestationIndices primitives.ShardAndCommittee
 	found := false
 	for _, s := range attestationIndicesForShards {
@@ -405,7 +405,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	}
 
 	bs := asd.Serialize()
-	valid, err := bls.VerifySig(pubkey, bs, attestation.AggregateSignature)
+	valid, err := bls.VerifySig(pubkey, bs, &attestation.AggregateSignature)
 
 	if err != nil || !valid {
 		return errors.New("bls signature did not validate")
@@ -465,8 +465,8 @@ func UpdateAncestorHashes(parentAncestorHashes []chainhash.Hash, parentSlotNumbe
 	return newAncestorHashes
 }
 
-// getShardsAndCommitteesForSlot gets the committee for each shard.
-func (b *Blockchain) getShardsAndCommitteesForSlot(slot uint64) []primitives.ShardAndCommittee {
+// GetShardsAndCommitteesForSlot gets the committee for each shard.
+func (b *Blockchain) GetShardsAndCommitteesForSlot(slot uint64) []primitives.ShardAndCommittee {
 	earliestSlotInArray := int(b.state.Crystallized.LastStateRecalculation) - b.config.CycleLength
 	if earliestSlotInArray < 0 {
 		earliestSlotInArray = 0
@@ -551,7 +551,7 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 		}
 	}
 
-	shardAndCommittee := b.getShardsAndCommitteesForSlot(parentBlock.SlotNumber)[0]
+	shardAndCommittee := b.GetShardsAndCommitteesForSlot(parentBlock.SlotNumber)[0]
 	proposerIndex := int(parentBlock.SlotNumber % uint64(len(shardAndCommittee.Committee)))
 
 	// validate parent block proposer
@@ -636,7 +636,7 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 
 		// go through each slot for that cycle
 		for slot := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength); slot < b.state.Crystallized.LastStateRecalculation-1; slot++ {
-			shardsAndCommittees := b.getShardsAndCommitteesForSlot(slot)
+			shardsAndCommittees := b.GetShardsAndCommitteesForSlot(slot)
 			committee := shardsAndCommittees[0].Committee
 			totalBalance := uint64(0)
 			for _, i := range committee {

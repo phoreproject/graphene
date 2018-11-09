@@ -50,11 +50,6 @@ type Blockchain struct {
 	voteCache map[chainhash.Hash]*VoteCache
 }
 
-// NewBlockchain creates a new blockchain.
-func NewBlockchain(db db.Database, config *Config) (*Blockchain, error) {
-	return NewBlockchainWithInitialValidators(db, config, config.InitialValidators)
-}
-
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
 func NewBlockchainWithInitialValidators(db db.Database, config *Config, validators []InitialValidatorEntry) (*Blockchain, error) {
@@ -83,6 +78,14 @@ type InitialValidatorEntry struct {
 	WithdrawalAddress serialization.Address
 	RandaoCommitment  chainhash.Hash
 }
+
+const (
+	// RoleProposer is assigned to validators who need to propose a shard block.
+	RoleProposer = iota
+
+	// RoleAttester is assigned to validators who need to attest to a shard block.
+	RoleAttester
+)
 
 const (
 	// InitialForkVersion is version #1 of the chain.
@@ -173,4 +176,27 @@ func (b *Blockchain) LastBlock() (*primitives.Block, error) {
 // GetConfig returns the config used by this blockchain
 func (b *Blockchain) GetConfig() *Config {
 	return b.config
+}
+
+// GetSlotAndShardAssignment gets the shard and slot assignment for a specific
+// validator.
+func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint64, int, error) {
+	earliestSlotInArray := int(b.state.Crystallized.LastStateRecalculation) - b.config.CycleLength
+	if earliestSlotInArray < 0 {
+		earliestSlotInArray = 0
+	}
+	for i, slot := range b.state.Crystallized.ShardAndCommitteeForSlots {
+		for j, committee := range slot {
+			for v, validator := range committee.Committee {
+				if uint32(validator) != validatorID {
+					continue
+				}
+				if j == 0 && v == i%len(committee.Committee) {
+					return committee.ShardID, uint64(i), RoleProposer, nil
+				}
+				return committee.ShardID, uint64(i), RoleAttester, nil
+			}
+		}
+	}
+	return 0, 0, 0, fmt.Errorf("validator not found in set %d", validatorID)
 }

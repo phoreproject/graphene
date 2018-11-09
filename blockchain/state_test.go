@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/serialization"
@@ -83,8 +82,8 @@ func TestStateActiveValidatorChanges(t *testing.T) {
 
 	s := b.GetState()
 
-	spew.Println(s.Crystallized.ShardAndCommitteeForSlots)
 	if len(s.Crystallized.ShardAndCommitteeForSlots[0]) == 0 {
 		t.Errorf("invalid initial validator entries")
 	}
+	t.Error("why not")
 }

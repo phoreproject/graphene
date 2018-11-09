@@ -1,11 +1,5 @@
 package blockchain
 
-import (
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/serialization"
-)
-
 // Config is the config for the blockchain.
 type Config struct {
 	CycleLength      int
@@ -22,7 +16,6 @@ type Config struct {
 	MinimumDepositSize                uint64
 	MinimumValidatorSetChangeInterval uint64
 	MaxValidatorChurnQuotient         uint64
-	InitialValidators                 []InitialValidatorEntry
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -41,15 +34,6 @@ var MainNetConfig = Config{
 	MinimumDepositSize:                50 * UnitInCoin,
 	MinimumValidatorSetChangeInterval: 256,
 	MaxValidatorChurnQuotient:         32,
-	InitialValidators: []InitialValidatorEntry{
-		{
-			PubKey:            bls.PublicKey{},
-			ProofOfPossession: bls.Signature{},
-			WithdrawalShard:   0,
-			WithdrawalAddress: serialization.Address{},
-			RandaoCommitment:  chainhash.HashH([]byte("wow!")),
-		},
-	},
 }
 
 const (

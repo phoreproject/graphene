@@ -5,6 +5,7 @@ package rpc
 import (
 	"net"
 
+	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
 
 	"github.com/phoreproject/synapse/primitives"
@@ -41,6 +42,22 @@ func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (
 		return nil, err
 	}
 	return &pb.GetBlockHashResponse{Hash: h[:]}, nil
+}
+
+func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAndShardAssignmentRequest) (*pb.SlotAndShardAssignment, error) {
+	shardID, slot, role, err := s.chain.GetSlotAndShardAssignment(in.ValidatorID)
+	if err != nil {
+		return nil, err
+	}
+
+	r := pb.Role_ATTESTER
+	if role == blockchain.RoleProposer {
+		r = pb.Role_PROPOSER
+	}
+
+	log15.Debug("slot shard assignment", "validatorID", in.ValidatorID, "shardID", shardID, "slot", slot, "role", r)
+
+	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
 }
 
 // Serve serves the RPC server

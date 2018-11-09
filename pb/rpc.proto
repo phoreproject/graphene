@@ -6,9 +6,26 @@ service BlockchainRPC {
     rpc GetSlotNumber(Empty) returns (SlotNumberResponse);
 
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
+
+    rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
+}
+
+enum Role {
+    ATTESTER = 0;
+    PROPOSER = 1;
 }
 
 message Empty {}
+
+message GetSlotAndShardAssignmentRequest {
+    uint32 ValidatorID = 1;
+}
+
+message SlotAndShardAssignment {
+    uint32 ShardID = 1;
+    uint64 Slot = 2;
+    Role Role = 3;
+}
 
 message SubmitBlockRequest {
     Block Block = 1;

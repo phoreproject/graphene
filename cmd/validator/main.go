@@ -19,14 +19,34 @@ func main() {
 	flag.Parse()
 
 	validatorsStrings := strings.Split(*validators, ",")
-	validatorIndices := make([]uint32, len(validatorsStrings))
-	for index, s := range validatorsStrings {
-		i, err := strconv.Atoi(s)
-		if err != nil {
-			panic("invalid validators parameter")
+	validatorIndices := []uint32{}
+	for _, s := range validatorsStrings {
+		if strings.IndexRune(s, '-') < 0 {
+			i, err := strconv.Atoi(s)
+			if err != nil {
+				panic("invalid validators parameter")
+			}
+			validatorIndices = append(validatorIndices, uint32(i))
+		} else {
+			parts := strings.SplitN(s, "-", 2)
+			if len(parts) != 2 {
+				panic("invalid validators parameter")
+			}
+			first, err := strconv.Atoi(parts[0])
+			if err != nil {
+				panic("invalid validators parameter")
+			}
+			second, err := strconv.Atoi(parts[1])
+			if err != nil {
+				panic("invalid validators parameter")
+			}
+			for i := first; i <= second; i++ {
+				validatorIndices = append(validatorIndices, uint32(i))
+			}
 		}
-		validatorIndices[index] = uint32(i)
 	}
+
+	log15.Debug("running with validators", "validators", validatorIndices)
 
 	conn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
 	if err != nil {

@@ -28,11 +28,12 @@ type Message struct {
 
 // NetworkingService handles networking throughout the network.
 type NetworkingService struct {
-	host      host.Host
-	gossipSub *pubsub.PubSub
-	blocks    chan primitives.Block
-	ctx       context.Context
-	cancel    context.CancelFunc
+	host         host.Host
+	gossipSub    *pubsub.PubSub
+	blocks       chan primitives.Block
+	ctx          context.Context
+	cancel       context.CancelFunc
+	closeSignals map[string]chan struct{}
 }
 
 // GetBlocksChannel returns a channel containing incoming blocks.
@@ -54,20 +55,36 @@ func (n *NetworkingService) RegisterHandler(topic string, handler func(Message) 
 		return err
 	}
 
+	closeChan := make(chan struct{})
+
+	n.closeSignals[topic] = closeChan
+
 	go func() {
 		defer s.Cancel()
 		for {
-			m, err := s.Next(n.ctx)
-			if err != nil {
+			message := make(chan *pubsub.Message)
+			ctx, cancel := context.WithCancel(n.ctx)
+			go func() {
+				m, err := s.Next(ctx)
+				if err != nil {
+					return
+				}
+				message <- m
+			}()
+
+			select {
+			case m := <-message:
+				msg := Message{n.ctx, m.Data}
+
+				err = handler(msg)
+				if err != nil {
+					logger.Debug("message processing error", "type", topic, "error", err)
+					continue
+				}
+			case <-closeChan:
+				cancel()
+				n.closeSignals[topic] = nil
 				return
-			}
-
-			msg := Message{n.ctx, m.Data}
-
-			err = handler(msg)
-			if err != nil {
-				logger.Debug("message processing error", "type", topic, "error", err)
-				continue
 			}
 		}
 	}()
@@ -107,11 +124,12 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 	}
 
 	n := NetworkingService{
-		host:      host,
-		blocks:    make(chan primitives.Block),
-		gossipSub: g,
-		ctx:       ctx,
-		cancel:    cancel,
+		host:         host,
+		blocks:       make(chan primitives.Block),
+		gossipSub:    g,
+		ctx:          ctx,
+		cancel:       cancel,
+		closeSignals: make(map[string]chan struct{}),
 	}
 
 	return n, nil

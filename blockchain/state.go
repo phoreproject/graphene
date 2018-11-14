@@ -567,18 +567,18 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 		}
 	}
 
+	newCache, err := b.state.CalculateNewVoteCache(newBlock, b.voteCache, b.config)
+	if err != nil {
+		return err
+	}
+
+	b.voteCache = newCache
+
 	for _, a := range newBlock.Attestations {
 		err := b.ValidateAttestation(&a, parentBlock, b.config)
 		if err != nil {
 			return err
 		}
-
-		newCache, err := b.state.CalculateNewVoteCache(newBlock, b.voteCache, b.config)
-		if err != nil {
-			return err
-		}
-
-		b.voteCache = newCache
 
 		b.state.Active.PendingAttestations = append(b.state.Active.PendingAttestations, a)
 	}

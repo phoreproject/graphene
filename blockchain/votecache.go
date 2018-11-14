@@ -11,18 +11,27 @@ import (
 // VoteCache is a cache of the total deposit of a committee
 // and the validator indices in the committee.
 type VoteCache struct {
-	validatorIndices []uint32
+	validatorIndices map[uint32]bool
 	totalDeposit     uint64
 }
 
 // Copy makes a deep copy of the vote cache.
 func (v *VoteCache) Copy() *VoteCache {
-	voterIndices := make([]uint32, len(v.validatorIndices))
-	copy(voterIndices, v.validatorIndices)
+	voterIndices := make(map[uint32]bool)
+	for k := range v.validatorIndices {
+		voterIndices[k] = true
+	}
 
 	return &VoteCache{
 		validatorIndices: voterIndices,
 		totalDeposit:     v.totalDeposit,
+	}
+}
+
+func NewVoteCache() *VoteCache {
+	return &VoteCache{
+		validatorIndices: make(map[uint32]bool),
+		totalDeposit:     0,
 	}
 }
 
@@ -68,7 +77,7 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 			}
 
 			if _, success := cache[h]; !success {
-				newCache[h] = &VoteCache{}
+				newCache[h] = NewVoteCache()
 			}
 
 			for i, attester := range attesterIndices {
@@ -76,17 +85,11 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 					continue
 				}
 
-				attesterExists := false
-				for _, indexInCache := range newCache[h].validatorIndices {
-					if attester == indexInCache {
-						attesterExists = true
-					}
+				if _, found := newCache[h].validatorIndices[attester]; found {
+					continue
 				}
-
-				if !attesterExists {
-					newCache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
-					newCache[h].validatorIndices = append(newCache[h].validatorIndices, attester)
-				}
+				newCache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
+				newCache[h].validatorIndices[attester] = true
 			}
 		}
 	}

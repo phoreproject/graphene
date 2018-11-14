@@ -51,7 +51,27 @@ type CrystallizedState struct {
 
 // Copy returns a copy of the crystallized state.
 func (c CrystallizedState) Copy() CrystallizedState {
-	return c
+	newC := c
+	newC.Crosslinks = make([]primitives.Crosslink, len(c.Crosslinks))
+	for i, n := range c.Crosslinks {
+		newC.Crosslinks[i] = n
+	}
+	newC.Validators = make([]primitives.Validator, len(c.Validators))
+	for i, n := range c.Validators {
+		newC.Validators[i] = n
+	}
+	newC.ShardAndCommitteeForSlots = make([][]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots))
+	for i, n := range c.ShardAndCommitteeForSlots {
+		newC.ShardAndCommitteeForSlots[i] = make([]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots[i]))
+		for a, b := range n {
+			newC.ShardAndCommitteeForSlots[i][a] = b
+		}
+	}
+	newC.DepositsPenalizedInPeriod = make([]uint64, len(c.DepositsPenalizedInPeriod))
+	for i, n := range c.DepositsPenalizedInPeriod {
+		newC.DepositsPenalizedInPeriod[i] = n
+	}
+	return newC
 }
 
 // ShardCommitteeByShardID gets the shards committee from a list of committees/shards
@@ -88,7 +108,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 	validators := make([]primitives.Validator, len(initialValidators))
 	for i, v := range initialValidators {
 		validators[i] = primitives.Validator{
-			Pubkey:            &v.PubKey,
+			Pubkey:            v.PubKey,
 			WithdrawalAddress: v.WithdrawalAddress,
 			WithdrawalShardID: v.WithdrawalShard,
 			RandaoCommitment:  v.RandaoCommitment,
@@ -175,7 +195,7 @@ func AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey
 	}
 
 	rec := primitives.Validator{
-		Pubkey:            &pubkey,
+		Pubkey:            pubkey,
 		WithdrawalAddress: withdrawalAddress,
 		WithdrawalShardID: withdrawalShard,
 		RandaoCommitment:  randaoCommitment,
@@ -376,14 +396,20 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 		return fmt.Errorf("expected %d bits at the end empty", trailingZeros)
 	}
 
-	var pubkey *bls.PublicKey
+	var pubkey bls.PublicKey
+	pubkeySet := false
 	for bit := 0; bit < len(attestationIndices.Committee); bit++ {
 		set := (attestation.AttesterBitField[bit/8]>>uint(7-(bit%8)))%2 == 1
 		if set {
-			if pubkey == nil {
+			if pubkeySet {
 				pubkey = b.state.Crystallized.Validators[attestationIndices.Committee[bit]].Pubkey
+				pubkeySet = true
 			} else {
-				pubkey, err = bls.AggregatePubKeys([]*bls.PublicKey{pubkey, b.state.Crystallized.Validators[attestationIndices.Committee[bit]].Pubkey})
+				p, err := bls.AggregatePubKeys([]*bls.PublicKey{&pubkey, &b.state.Crystallized.Validators[attestationIndices.Committee[bit]].Pubkey})
+				if err != nil {
+					return err
+				}
+				pubkey = *p
 			}
 		}
 	}
@@ -403,7 +429,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	}
 
 	bs := asd.Serialize()
-	valid, err := bls.VerifySig(pubkey, bs, &attestation.AggregateSignature)
+	valid, err := bls.VerifySig(&pubkey, bs, &attestation.AggregateSignature)
 
 	if err != nil || !valid {
 		return errors.New("bls signature did not validate")
@@ -759,7 +785,7 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 
 		for _, a := range b.state.Active.PendingActions {
 			if t, success := a.Data.(transaction.LogoutTransaction); success {
-				verified, err := bls.VerifySig(b.state.Crystallized.Validators[t.From].Pubkey, []byte("LOGOUT"), &t.Signature)
+				verified, err := bls.VerifySig(&b.state.Crystallized.Validators[t.From].Pubkey, []byte("LOGOUT"), &t.Signature)
 				if err != nil || !verified {
 					// verification failed
 					continue

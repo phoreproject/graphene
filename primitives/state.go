@@ -8,7 +8,7 @@ import (
 
 // Validator is a single validator session (logging in and out)
 type Validator struct {
-	Pubkey            *bls.PublicKey
+	Pubkey            bls.PublicKey
 	WithdrawalAddress serialization.Address
 	WithdrawalShardID uint32
 	RandaoCommitment  chainhash.Hash

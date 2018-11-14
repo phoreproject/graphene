@@ -21,7 +21,6 @@ type ActiveState struct {
 	PendingActions      []transaction.Transaction
 	RecentBlockHashes   []chainhash.Hash
 	RandaoMix           chainhash.Hash
-	Balances            map[serialization.Address]uint64
 }
 
 // State is active and crystallized state.
@@ -137,7 +136,6 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		PendingAttestations: []transaction.Attestation{},
 		RecentBlockHashes:   recentBlockHashes,
 		RandaoMix:           zeroHash,
-		Balances:            make(map[serialization.Address]uint64),
 	}
 
 	ancestorHashes := make([]chainhash.Hash, 32)

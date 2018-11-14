@@ -162,6 +162,9 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 	}
 
 	ancestorHashes := make([]chainhash.Hash, 32)
+	for i := range ancestorHashes {
+		ancestorHashes[i] = zeroHash
+	}
 
 	block0 := primitives.Block{
 		SlotNumber:            0,
@@ -450,7 +453,10 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
 	logger.Debug("adding block to cache and updating head if needed", "hash", block.Hash())
-	b.UpdateChainHead(block)
+	err := b.UpdateChainHead(block)
+	if err != nil {
+		return err
+	}
 
 	b.db.SetBlock(block)
 

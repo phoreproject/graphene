@@ -43,6 +43,24 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 	if b0.SlotNumber != 0 {
 		t.Fatal("invalid last block for initial chain")
 	}
+
+	_, err = MineBlock(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if b.Height() != 1 {
+		t.Fatalf("invalid height (expected: 1, got: %d)", b.Height())
+	}
+
+	b1, err := b.LastBlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if b1.SlotNumber != 1 {
+		t.Fatal("invalid last block after mining 1 block")
+	}
 }
 
 func GenerateNextBlock(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (primitives.Block, error) {

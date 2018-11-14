@@ -162,7 +162,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 
 	block0 := primitives.Block{
 		SlotNumber:            0,
-		RandaoReveal:          []byte{},
+		RandaoReveal:          chainhash.Hash{},
 		AncestorHashes:        ancestorHashes,
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
@@ -504,14 +504,12 @@ func hasVoted(bitfield []byte, index int) bool {
 	return bitfield[index/8]&(128>>uint(index%8)) != 0
 }
 
-func repeatHash(h []byte, n int) chainhash.Hash {
+func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	for n > 0 {
-		h = chainhash.HashB(h[:])
+		h = chainhash.HashH(h[:])
 		n--
 	}
-	var r chainhash.Hash
-	copy(r[:], h)
-	return r
+	return h
 }
 
 func (b *Blockchain) getTotalActiveValidatorBalance() uint64 {
@@ -969,9 +967,11 @@ func (b *Blockchain) ApplyBlock(newBlock *primitives.Block) error {
 	if b.state.Crystallized.LastFinalizedSlot <= b.state.Crystallized.ValidatorSetChangeSlot {
 		shouldChangeValidatorSet = false
 	}
-	for i := range b.state.Crystallized.ShardAndCommitteeForSlots {
-		if b.state.Crystallized.Crosslinks[i].Slot <= b.state.Crystallized.ValidatorSetChangeSlot {
-			shouldChangeValidatorSet = false
+	for _, slot := range b.state.Crystallized.ShardAndCommitteeForSlots {
+		for _, committee := range slot {
+			if b.state.Crystallized.Crosslinks[committee.ShardID].Slot <= b.state.Crystallized.ValidatorSetChangeSlot {
+				shouldChangeValidatorSet = false
+			}
 		}
 	}
 

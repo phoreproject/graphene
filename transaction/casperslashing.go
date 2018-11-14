@@ -19,7 +19,7 @@ type CasperSlashingTransaction struct {
 }
 
 // Serialize gets a binary representation of the transaction.
-func (c *CasperSlashingTransaction) Serialize() ([][]byte, error) {
+func (c *CasperSlashingTransaction) Serialize() [][]byte {
 	return [][]byte{
 		serialization.WriteUint32Array(c.SourceValidators),
 		c.SourceDataSigned,
@@ -27,7 +27,7 @@ func (c *CasperSlashingTransaction) Serialize() ([][]byte, error) {
 		serialization.WriteUint32Array(c.DestinationValidators),
 		c.DestinationDataSigned,
 		c.DestinationAggregateSignature.Serialize(),
-	}, nil
+	}
 }
 
 // DeserializeCasperSlashingTransaction deserializes a binary casper

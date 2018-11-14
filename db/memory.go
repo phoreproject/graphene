@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -22,7 +23,11 @@ func NewInMemoryDB() *InMemoryDB {
 func (imdb *InMemoryDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, error) {
 	imdb.lock.Lock()
 	defer imdb.lock.Unlock()
-	return imdb.DB[h], nil
+	out, found := imdb.DB[h]
+	if !found {
+		return nil, fmt.Errorf("could not find block with hash")
+	}
+	return out, nil
 }
 
 // SetBlock adds the block to storage

@@ -162,7 +162,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 
 	block0 := primitives.Block{
 		SlotNumber:            0,
-		RandaoReveal:          zeroHash,
+		RandaoReveal:          []byte{},
 		AncestorHashes:        ancestorHashes,
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
@@ -309,6 +309,8 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 	return output
 }
 
+// checkTrailingZeros ensures there are a certain number of trailing
+// zeros in provided byte.
 func checkTrailingZeros(a byte, numZeros uint8) bool {
 	i := uint8(a)
 	if i/128 == 1 && numZeros == 0 {
@@ -345,7 +347,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	}
 
 	// verify attestation slot >= max(parent.slot - CYCLE_LENGTH + 1, 0)
-	if !(attestation.Slot >= uint64(math.Max(float64(parentBlock.SlotNumber-uint64(c.CycleLength)+1), 0))) {
+	if attestation.Slot < uint64(math.Max(float64(int64(parentBlock.SlotNumber)-int64(c.CycleLength)+1), 0)) {
 		return errors.New("attestation slot number too low")
 	}
 
@@ -367,7 +369,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	for i := 1; i < b.config.CycleLength-len(attestation.ObliqueParentHashes)+1; i++ {
 		h, err := b.chain.GetBlock(int(attestation.Slot) - b.config.CycleLength + i)
 		if err != nil {
-			return fmt.Errorf("could not find block at slot %d", int(attestation.Slot)-b.config.CycleLength+i)
+			continue
 		}
 
 		hashes[i-1] = *h
@@ -502,12 +504,14 @@ func hasVoted(bitfield []byte, index int) bool {
 	return bitfield[index/8]&(128>>uint(index%8)) != 0
 }
 
-func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
+func repeatHash(h []byte, n int) chainhash.Hash {
 	for n > 0 {
-		h = chainhash.HashH(h[:])
+		h = chainhash.HashB(h[:])
 		n--
 	}
-	return h
+	var r chainhash.Hash
+	copy(r[:], h)
+	return r
 }
 
 func (b *Blockchain) getTotalActiveValidatorBalance() uint64 {
@@ -606,7 +610,7 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 		b.state.Active.RandaoMix[i] ^= newBlock.RandaoReveal[i]
 	}
 
-	tx := transaction.Transaction{Data: transaction.RandaoChangeTransaction{ProposerIndex: uint32(proposerIndex), NewRandao: newBlock.RandaoReveal}}
+	tx := transaction.Transaction{Data: transaction.RandaoChangeTransaction{ProposerIndex: uint32(proposerIndex), NewRandao: b.state.Active.RandaoMix}}
 
 	b.state.Active.PendingActions = append(b.state.Active.PendingActions, tx)
 

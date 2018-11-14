@@ -25,7 +25,7 @@ type blockchainView struct {
 func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
-	if len(bv.chain)-1 > n {
+	if len(bv.chain) > n && n >= 0 {
 		return &bv.chain[n], nil
 	}
 	return nil, fmt.Errorf("block %d does not exist", n)

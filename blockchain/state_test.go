@@ -1,7 +1,7 @@
 package blockchain_test
 
 import (
-	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/phoreproject/synapse/bls"
@@ -29,14 +29,42 @@ func generateAncestorHashes(hashes []chainhash.Hash) []chainhash.Hash {
 	return out[:]
 }
 
-func GenerateNextBlock(b *blockchain.Blockchain) primitives.Block {
-	return primitives.Block{}
+func TestLastBlockOnInitialSetup(t *testing.T) {
+	b, err := SetupBlockchain()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b0, err := b.LastBlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if b0.SlotNumber != 0 {
+		t.Fatal("invalid last block for initial chain")
+	}
 }
 
-func TestStateInitialization(t *testing.T) {
-	var randaoSecret [32]byte
+func GenerateNextBlock(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (primitives.Block, error) {
+	lb, err := b.LastBlock()
+	if err != nil {
+		return primitives.Block{}, err
+	}
 
-	rand.Read(randaoSecret[:])
+	return primitives.Block{
+		SlotNumber:            lb.SlotNumber + 1,
+		RandaoReveal:          []byte("randao"),
+		AncestorHashes:        blockchain.UpdateAncestorHashes(lb.AncestorHashes, lb.SlotNumber, lb.Hash()),
+		ActiveStateRoot:       chainhash.Hash{},
+		CrystallizedStateRoot: chainhash.Hash{},
+		Specials:              specials,
+		Attestations:          attestations,
+	}, nil
+}
+
+var randaoSecret = []byte("randao")
+
+func SetupBlockchain() (*blockchain.Blockchain, error) {
 
 	randaoCommitment := chainhash.HashH(randaoSecret[:])
 
@@ -54,20 +82,22 @@ func TestStateInitialization(t *testing.T) {
 
 	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), &blockchain.MainNetConfig, validators)
 	if err != nil {
-		t.Error(err)
-		return
+		return nil, err
 	}
 
-	lastBlock, err := b.GetNodeByHeight(0)
+	return b, nil
+}
+
+func MineBlock(b *blockchain.Blockchain) (*primitives.Block, error) {
+	lastBlock, err := b.LastBlock()
 	if err != nil {
-		t.Error(err)
-		return
+		return nil, err
 	}
 
 	block1 := primitives.Block{
-		SlotNumber:            1,
-		RandaoReveal:          zeroHash,
-		AncestorHashes:        generateAncestorHashes([]chainhash.Hash{lastBlock}),
+		SlotNumber:            lastBlock.SlotNumber + 1,
+		RandaoReveal:          randaoSecret,
+		AncestorHashes:        blockchain.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
 		Specials:              []transaction.Transaction{},
@@ -76,8 +106,21 @@ func TestStateInitialization(t *testing.T) {
 
 	err = b.ProcessBlock(&block1)
 	if err != nil {
-		t.Error(err)
-		return
+		return nil, err
+	}
+
+	return &block1, nil
+}
+
+func TestStateInitialization(t *testing.T) {
+	b, err := SetupBlockchain()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = MineBlock(b)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	s := b.GetState()
@@ -218,5 +261,55 @@ func TestShardCommitteeByShardID(t *testing.T) {
 	}
 	if att[0] != 99 {
 		t.Fatal("did not find correct shard")
+	}
+}
+
+func SetBit(bitfield []byte, id uint32) ([]byte, error) {
+	if uint32(len(bitfield)*8) < id {
+		return nil, fmt.Errorf("bitfield is too short")
+	}
+
+	bitfield[id/8] = bitfield[id/8] | (128 >> (id % 8))
+
+	return bitfield, nil
+}
+
+func TestAttestationValidation(t *testing.T) {
+	b, err := SetupBlockchain()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lb, err := b.LastBlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assignment := b.GetState().Crystallized.ShardAndCommitteeForSlots[lb.SlotNumber][0]
+
+	attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
+
+	for i := range assignment.Committee {
+		attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
+	}
+
+	b0, err := b.GetNodeByHeight(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	att := &transaction.Attestation{
+		Slot:                lb.SlotNumber,
+		ShardID:             assignment.ShardID,
+		JustifiedSlot:       0,
+		JustifiedBlockHash:  b0,
+		ObliqueParentHashes: []chainhash.Hash{},
+		AttesterBitField:    attesterBitfield,
+		AggregateSignature:  bls.Signature{},
+	}
+
+	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

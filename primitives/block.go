@@ -20,7 +20,7 @@ import (
 // Block represents a single beacon chain block.
 type Block struct {
 	SlotNumber            uint64
-	RandaoReveal          chainhash.Hash
+	RandaoReveal          []byte
 	AncestorHashes        []chainhash.Hash
 	ActiveStateRoot       chainhash.Hash
 	CrystallizedStateRoot chainhash.Hash
@@ -39,11 +39,6 @@ func (b *Block) Hash() chainhash.Hash {
 func BlockFromProto(blockProto *pb.Block) (*Block, error) {
 	if len(blockProto.AncestorHashes) != 32 {
 		return nil, fmt.Errorf("ancestor hashes length incorrect. got: %d, expected: 32", len(blockProto.AncestorHashes))
-	}
-
-	randaoReveal, err := chainhash.NewHash(blockProto.RandaoReveal)
-	if err != nil {
-		return nil, err
 	}
 
 	ancestorHashes := make([]chainhash.Hash, 32)
@@ -87,7 +82,7 @@ func BlockFromProto(blockProto *pb.Block) (*Block, error) {
 
 	return &Block{
 		SlotNumber:            blockProto.SlotNumber,
-		RandaoReveal:          *randaoReveal,
+		RandaoReveal:          blockProto.RandaoReveal,
 		AncestorHashes:        ancestorHashes,
 		ActiveStateRoot:       *activeStateRoot,
 		CrystallizedStateRoot: *crystallizedStateRoot,

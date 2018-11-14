@@ -403,7 +403,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	for bit := 0; bit < len(attestationIndices.Committee); bit++ {
 		set := (attestation.AttesterBitField[bit/8]>>uint(7-(bit%8)))%2 == 1
 		if set {
-			if pubkeySet {
+			if !pubkeySet {
 				pubkey = b.state.Crystallized.Validators[attestationIndices.Committee[bit]].Pubkey
 				pubkeySet = true
 			} else {

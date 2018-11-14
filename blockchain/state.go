@@ -458,7 +458,7 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 		return err
 	}
 
-	b.db.SetBlock(block)
+	b.db.SetBlock(*block)
 
 	return nil
 }

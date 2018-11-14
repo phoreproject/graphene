@@ -292,7 +292,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	firstValidator := b.GetState().Crystallized.ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 63; i++ {
 		_, err = util.MineBlockWithFullAttestations(b)
 		if err != nil {
 			t.Error(err)

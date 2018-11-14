@@ -8,6 +8,8 @@ service BlockchainRPC {
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
 
     rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
+
+    rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
 }
 
 enum Role {
@@ -45,6 +47,15 @@ message GetBlockHashRequest {
 
 message GetBlockHashResponse {
     bytes Hash = 1;
+}
+
+message GetValidatorAtIndexRequest {
+    uint32 Index = 1;
+}
+
+message GetValidatorAtIndexResponse {
+    uint32 PublicKey = 1; // placeholder, will use bls.PublicKey after it's determined.
+    uint32 Status = 2;
 }
 
 message Block {

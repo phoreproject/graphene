@@ -200,3 +200,11 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint
 	}
 	return 0, 0, 0, fmt.Errorf("validator not found in set %d", validatorID)
 }
+
+func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
+	if index >= uint32(len(b.state.Crystallized.Validators)) {
+		return nil, fmt.Errorf("Index out of bounds")
+	}
+
+	return &b.state.Crystallized.Validators[index], nil
+}

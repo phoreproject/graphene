@@ -60,6 +60,14 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
 }
 
+func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
+	validator, err := s.chain.GetValidatorAtIndex(in.Index)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetValidatorAtIndexResponse{PublicKey: 0, Status: uint32(validator.Status)}, nil
+}
+
 // Serve serves the RPC server
 func Serve(listenAddr string, b *blockchain.Blockchain) error {
 	lis, err := net.Listen("tcp", listenAddr)

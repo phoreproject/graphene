@@ -12,6 +12,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
@@ -817,15 +818,15 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 				sourceBuf := bytes.NewBuffer(t.SourceDataSigned)
 				destBuf := bytes.NewBuffer(t.DestinationDataSigned)
 
-				var attestationTransactionSource transaction.Attestation
-				var attestationTransactionDest transaction.Attestation
+				var attestationTransactionSource pb.Attestation
+				var attestationTransactionDest pb.Attestation
 
-				err := binary.Read(destBuf, binary.BigEndian, attestationTransactionDest)
+				err := proto.Unmarshal(sourceBuf.Bytes(), &attestationTransactionSource)
 				if err != nil {
 					continue
 				}
 
-				err = binary.Read(sourceBuf, binary.BigEndian, attestationTransactionSource)
+				err = proto.Unmarshal(destBuf.Bytes(), &attestationTransactionDest)
 				if err != nil {
 					continue
 				}

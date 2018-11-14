@@ -14,7 +14,7 @@ import (
 var zeroHash = chainhash.Hash{}
 
 func TestReorganization(t *testing.T) {
-	b, err := blockchain.NewBlockchain(db.NewInMemoryDB(), &blockchain.MainNetConfig)
+	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), &blockchain.MainNetConfig, []blockchain.InitialValidatorEntry{})
 	if err != nil {
 		t.Error(err)
 		return

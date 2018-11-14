@@ -312,4 +312,49 @@ func TestAttestationValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	att = &transaction.Attestation{
+		Slot:                lb.SlotNumber + 1,
+		ShardID:             assignment.ShardID,
+		JustifiedSlot:       0,
+		JustifiedBlockHash:  b0,
+		ObliqueParentHashes: []chainhash.Hash{},
+		AttesterBitField:    attesterBitfield,
+		AggregateSignature:  bls.Signature{},
+	}
+
+	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	if err == nil {
+		t.Fatal("did not catch slot number being too high")
+	}
+
+	att = &transaction.Attestation{
+		Slot:                lb.SlotNumber,
+		ShardID:             assignment.ShardID,
+		JustifiedSlot:       10,
+		JustifiedBlockHash:  b0,
+		ObliqueParentHashes: []chainhash.Hash{},
+		AttesterBitField:    attesterBitfield,
+		AggregateSignature:  bls.Signature{},
+	}
+
+	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	if err == nil {
+		t.Fatal("did not catch slot number being out of bounds")
+	}
+
+	att = &transaction.Attestation{
+		Slot:                lb.SlotNumber,
+		ShardID:             100,
+		JustifiedSlot:       0,
+		JustifiedBlockHash:  b0,
+		ObliqueParentHashes: []chainhash.Hash{},
+		AttesterBitField:    attesterBitfield,
+		AggregateSignature:  bls.Signature{},
+	}
+
+	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	if err == nil {
+		t.Fatal("did not catch invalid shard ID")
+	}
 }

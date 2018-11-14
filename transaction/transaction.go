@@ -13,9 +13,7 @@ type Transaction struct {
 }
 
 const (
-	typeTransfer = iota
-	typeRegister
-	typeSubmitAttestation
+	typeRegister = iota
 	typeLogin
 	typeLogout
 	typeCasperSlashing
@@ -29,13 +27,6 @@ func DeserializeTransaction(transactionType uint32, transactionData [][]byte) (*
 	t := &Transaction{}
 
 	switch transactionType {
-	case typeTransfer:
-		tx, err := DeserializeTransferTransaction(transactionData)
-		if err != nil {
-			return nil, err
-		}
-		t.Data = tx
-		break
 	case typeRegister:
 		tx, err := DeserializeRegisterTransaction(transactionData)
 		if err != nil {
@@ -89,10 +80,6 @@ func (t Transaction) Serialize() (*pb.Special, error) {
 	var out [][]byte
 	var err error
 	switch v := t.Data.(type) {
-	case TransferTransaction:
-		transactionType = typeTransfer
-		out = v.Serialize()
-		break
 	case RegisterTransaction:
 		transactionType = typeRegister
 		out = v.Serialize()

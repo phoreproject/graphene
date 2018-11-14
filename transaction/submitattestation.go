@@ -1,6 +1,9 @@
 package transaction
 
 import (
+	"bytes"
+	"encoding/binary"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/bls"
 	pb "github.com/phoreproject/synapse/pb"
@@ -69,5 +72,7 @@ type AttestationSignedData struct {
 
 // Serialize gets the binary representation of the signed data
 func (a *AttestationSignedData) Serialize() []byte {
-	return []byte("this is a test")
+	b := bytes.NewBuffer([]byte{})
+	binary.Write(b, binary.BigEndian, *a)
+	return b.Bytes()
 }

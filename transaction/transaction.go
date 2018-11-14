@@ -1,8 +1,6 @@
 package transaction
 
 import (
-	"fmt"
-
 	pb "github.com/phoreproject/synapse/pb"
 )
 
@@ -19,6 +17,7 @@ const (
 	typeCasperSlashing
 	typeRandaoReveal
 	typeRandaoChange
+	typeInvalid = 9999
 )
 
 // DeserializeTransaction reads from a reader and deserializes a transaction into the
@@ -75,10 +74,9 @@ func DeserializeTransaction(transactionType uint32, transactionData [][]byte) (*
 }
 
 // Serialize serializes a transaction into binary.
-func (t Transaction) Serialize() (*pb.Special, error) {
+func (t Transaction) Serialize() *pb.Special {
 	var transactionType uint32
 	var out [][]byte
-	var err error
 	switch v := t.Data.(type) {
 	case RegisterTransaction:
 		transactionType = typeRegister
@@ -94,7 +92,7 @@ func (t Transaction) Serialize() (*pb.Special, error) {
 		break
 	case CasperSlashingTransaction:
 		transactionType = typeCasperSlashing
-		out, err = v.Serialize()
+		out = v.Serialize()
 		break
 	case RandaoRevealTransaction:
 		transactionType = typeRandaoReveal
@@ -105,12 +103,7 @@ func (t Transaction) Serialize() (*pb.Special, error) {
 		out = v.Serialize()
 		break
 	default:
-		return nil, fmt.Errorf("invalid transaction type")
+		return &pb.Special{Type: typeInvalid, Data: [][]byte{}}
 	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.Special{Type: transactionType, Data: out}, nil
+	return &pb.Special{Type: transactionType, Data: out}
 }

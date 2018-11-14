@@ -60,6 +60,23 @@ func NewAttestationFromProto(att *pb.Attestation) (*Attestation, error) {
 	}, nil
 }
 
+// ToProto gets the protobuf representation of the attestation
+func (a *Attestation) ToProto() *pb.Attestation {
+	obliqueParentHashes := make([][]byte, len(a.ObliqueParentHashes))
+	for i := range obliqueParentHashes {
+		obliqueParentHashes[i] = a.ObliqueParentHashes[i][:]
+	}
+	return &pb.Attestation{
+		Slot:                a.Slot,
+		ShardID:             a.ShardID,
+		JustifiedSlot:       a.JustifiedSlot,
+		JustifiedBlockHash:  a.JustifiedBlockHash[:],
+		ObliqueParentHashes: obliqueParentHashes,
+		AttesterBitField:    a.AttesterBitField,
+		AggregateSignature:  a.AggregateSignature.Serialize(),
+	}
+}
+
 // AttestationSignedData is the part of the attestation that is signed.
 type AttestationSignedData struct {
 	Version        uint32

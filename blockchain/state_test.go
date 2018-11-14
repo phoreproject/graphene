@@ -53,7 +53,7 @@ func GenerateNextBlock(b *blockchain.Blockchain, specials []transaction.Transact
 
 	return primitives.Block{
 		SlotNumber:            lb.SlotNumber + 1,
-		RandaoReveal:          []byte("randao"),
+		RandaoReveal:          chainhash.HashH([]byte("randao")),
 		AncestorHashes:        blockchain.UpdateAncestorHashes(lb.AncestorHashes, lb.SlotNumber, lb.Hash()),
 		ActiveStateRoot:       chainhash.Hash{},
 		CrystallizedStateRoot: chainhash.Hash{},
@@ -62,7 +62,7 @@ func GenerateNextBlock(b *blockchain.Blockchain, specials []transaction.Transact
 	}, nil
 }
 
-var randaoSecret = []byte("randao")
+var randaoSecret = chainhash.HashH([]byte("randao"))
 
 func SetupBlockchain() (*blockchain.Blockchain, error) {
 
@@ -88,7 +88,7 @@ func SetupBlockchain() (*blockchain.Blockchain, error) {
 	return b, nil
 }
 
-func MineBlock(b *blockchain.Blockchain) (*primitives.Block, error) {
+func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (*primitives.Block, error) {
 	lastBlock, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -100,8 +100,8 @@ func MineBlock(b *blockchain.Blockchain) (*primitives.Block, error) {
 		AncestorHashes:        blockchain.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
-		Specials:              []transaction.Transaction{},
-		Attestations:          []transaction.Attestation{},
+		Specials:              specials,
+		Attestations:          attestations,
 	}
 
 	err = b.ProcessBlock(&block1)
@@ -110,6 +110,51 @@ func MineBlock(b *blockchain.Blockchain) (*primitives.Block, error) {
 	}
 
 	return &block1, nil
+}
+
+func MineBlock(b *blockchain.Blockchain) (*primitives.Block, error) {
+	return MineBlockWithSpecialsAndAttestations(b, []transaction.Transaction{}, []transaction.Attestation{})
+}
+
+func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestation, error) {
+	lb, err := b.LastBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	assignments := b.GetState().Crystallized.ShardAndCommitteeForSlots[lb.SlotNumber]
+
+	attestations := make([]transaction.Attestation, len(assignments))
+
+	for i, assignment := range assignments {
+
+		attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
+
+		for i := range assignment.Committee {
+			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
+		}
+
+		attestations[i] = transaction.Attestation{
+			Slot:                lb.SlotNumber,
+			ShardID:             assignment.ShardID,
+			JustifiedSlot:       lb.SlotNumber,
+			JustifiedBlockHash:  lb.Hash(),
+			ObliqueParentHashes: []chainhash.Hash{},
+			AttesterBitField:    attesterBitfield,
+			AggregateSignature:  bls.Signature{},
+		}
+	}
+
+	return attestations, nil
+}
+
+func MineBlockWithFullAttestations(b *blockchain.Blockchain) (*primitives.Block, error) {
+	atts, err := GenerateFakeAttestations(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return MineBlockWithSpecialsAndAttestations(b, []transaction.Transaction{}, atts)
 }
 
 func TestStateInitialization(t *testing.T) {
@@ -357,4 +402,14 @@ func TestAttestationValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("did not catch invalid shard ID")
 	}
+}
+
+func TestCrystallizedStateTransition(t *testing.T) {
+	b, err := SetupBlockchain()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	MineBlockWithFullAttestations(b)
+	MineBlockWithFullAttestations(b)
 }

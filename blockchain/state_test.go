@@ -1,36 +1,20 @@
 package blockchain_test
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/phoreproject/synapse/blockchain/util"
 	"github.com/phoreproject/synapse/bls"
 
-	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/blockchain"
-	"github.com/phoreproject/synapse/db"
 	"github.com/phoreproject/synapse/primitives"
 )
 
-func generateAncestorHashes(hashes []chainhash.Hash) []chainhash.Hash {
-	var out [32]chainhash.Hash
-
-	for i := range out {
-		if i <= len(hashes)-1 {
-			out[i] = hashes[i]
-		} else {
-			out[i] = zeroHash
-		}
-	}
-
-	return out[:]
-}
-
 func TestLastBlockOnInitialSetup(t *testing.T) {
-	b, err := SetupBlockchain()
+	b, err := util.SetupBlockchain()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +28,7 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 		t.Fatal("invalid last block for initial chain")
 	}
 
-	_, err = MineBlock(b)
+	_, err = util.MineBlockWithFullAttestations(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,125 +47,13 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 	}
 }
 
-func GenerateNextBlock(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (primitives.Block, error) {
-	lb, err := b.LastBlock()
-	if err != nil {
-		return primitives.Block{}, err
-	}
-
-	return primitives.Block{
-		SlotNumber:            lb.SlotNumber + 1,
-		RandaoReveal:          chainhash.HashH([]byte("randao")),
-		AncestorHashes:        blockchain.UpdateAncestorHashes(lb.AncestorHashes, lb.SlotNumber, lb.Hash()),
-		ActiveStateRoot:       chainhash.Hash{},
-		CrystallizedStateRoot: chainhash.Hash{},
-		Specials:              specials,
-		Attestations:          attestations,
-	}, nil
-}
-
-var randaoSecret = chainhash.HashH([]byte("randao"))
-
-func SetupBlockchain() (*blockchain.Blockchain, error) {
-
-	randaoCommitment := chainhash.HashH(randaoSecret[:])
-
-	validators := []blockchain.InitialValidatorEntry{}
-
-	for i := 0; i <= 100000; i++ {
-		validators = append(validators, blockchain.InitialValidatorEntry{
-			PubKey:            bls.PublicKey{},
-			ProofOfPossession: bls.Signature{},
-			WithdrawalShard:   1,
-			WithdrawalAddress: serialization.Address{},
-			RandaoCommitment:  randaoCommitment,
-		})
-	}
-
-	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), &blockchain.MainNetConfig, validators)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (*primitives.Block, error) {
-	lastBlock, err := b.LastBlock()
-	if err != nil {
-		return nil, err
-	}
-
-	block1 := primitives.Block{
-		SlotNumber:            lastBlock.SlotNumber + 1,
-		RandaoReveal:          randaoSecret,
-		AncestorHashes:        blockchain.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
-		ActiveStateRoot:       zeroHash,
-		CrystallizedStateRoot: zeroHash,
-		Specials:              specials,
-		Attestations:          attestations,
-	}
-
-	err = b.ProcessBlock(&block1)
-	if err != nil {
-		return nil, err
-	}
-
-	return &block1, nil
-}
-
-func MineBlock(b *blockchain.Blockchain) (*primitives.Block, error) {
-	return MineBlockWithSpecialsAndAttestations(b, []transaction.Transaction{}, []transaction.Attestation{})
-}
-
-func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestation, error) {
-	lb, err := b.LastBlock()
-	if err != nil {
-		return nil, err
-	}
-
-	assignments := b.GetState().Crystallized.ShardAndCommitteeForSlots[lb.SlotNumber]
-
-	attestations := make([]transaction.Attestation, len(assignments))
-
-	for i, assignment := range assignments {
-
-		attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
-
-		for i := range assignment.Committee {
-			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
-		}
-
-		attestations[i] = transaction.Attestation{
-			Slot:                lb.SlotNumber,
-			ShardID:             assignment.ShardID,
-			JustifiedSlot:       lb.SlotNumber,
-			JustifiedBlockHash:  lb.Hash(),
-			ObliqueParentHashes: []chainhash.Hash{},
-			AttesterBitField:    attesterBitfield,
-			AggregateSignature:  bls.Signature{},
-		}
-	}
-
-	return attestations, nil
-}
-
-func MineBlockWithFullAttestations(b *blockchain.Blockchain) (*primitives.Block, error) {
-	atts, err := GenerateFakeAttestations(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return MineBlockWithSpecialsAndAttestations(b, []transaction.Transaction{}, atts)
-}
-
 func TestStateInitialization(t *testing.T) {
-	b, err := SetupBlockchain()
+	b, err := util.SetupBlockchain()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = MineBlock(b)
+	_, err = util.MineBlockWithFullAttestations(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,18 +199,8 @@ func TestShardCommitteeByShardID(t *testing.T) {
 	}
 }
 
-func SetBit(bitfield []byte, id uint32) ([]byte, error) {
-	if uint32(len(bitfield)*8) < id {
-		return nil, fmt.Errorf("bitfield is too short")
-	}
-
-	bitfield[id/8] = bitfield[id/8] | (128 >> (id % 8))
-
-	return bitfield, nil
-}
-
 func TestAttestationValidation(t *testing.T) {
-	b, err := SetupBlockchain()
+	b, err := util.SetupBlockchain()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,7 +215,7 @@ func TestAttestationValidation(t *testing.T) {
 	attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
 
 	for i := range assignment.Committee {
-		attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
+		attesterBitfield, _ = util.SetBit(attesterBitfield, uint32(i))
 	}
 
 	b0, err := b.GetNodeByHeight(0)
@@ -423,11 +285,22 @@ func TestAttestationValidation(t *testing.T) {
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	b, err := SetupBlockchain()
+	b, err := util.SetupBlockchain()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	MineBlockWithFullAttestations(b)
-	MineBlockWithFullAttestations(b)
+	firstValidator := b.GetState().Crystallized.ShardAndCommitteeForSlots[0][0].Committee[0]
+
+	for i := 0; i < 4; i++ {
+		_, err = util.MineBlockWithFullAttestations(b)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	firstValidator2 := b.GetState().Crystallized.ShardAndCommitteeForSlots[0][0].Committee[0]
+	if firstValidator == firstValidator2 {
+		t.Fatal("validators were not shuffled")
+	}
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -19,7 +18,6 @@ func TestEncodeDecode(t *testing.T) {
 	}
 	pub := btcec.PublicKey(priv.PublicKey)
 	addr := serialization.NewAddress(&pub)
-	fmt.Println(addr.ToString())
 	addr2, err := serialization.DecodeAddress(addr.ToString())
 	if err != nil {
 		t.Fatal(err)

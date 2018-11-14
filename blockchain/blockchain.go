@@ -33,7 +33,6 @@ func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
 func (bv *blockchainView) Height() int {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
-	fmt.Println(len(bv.chain))
 	return len(bv.chain) - 1
 }
 

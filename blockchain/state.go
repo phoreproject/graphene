@@ -464,11 +464,14 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b Blockchain) ProcessBlock(block *primitives.Block) error {
+func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
-	b.ApplyBlock(block)
+	err := b.ApplyBlock(block)
+	if err != nil {
+		return err
+	}
 
-	err := b.AddBlock(block)
+	err = b.AddBlock(block)
 	if err != nil {
 		return err
 	}
@@ -494,10 +497,12 @@ func GetNewRecentBlockHashes(oldHashes []*chainhash.Hash, parentSlot uint32, cur
 // UpdateAncestorHashes fills in the parent hash in ancestor hashes
 // where the ith element represents the 2**i past block.
 func UpdateAncestorHashes(parentAncestorHashes []chainhash.Hash, parentSlotNumber uint64, parentHash chainhash.Hash) []chainhash.Hash {
-	newAncestorHashes := parentAncestorHashes[:]
+	newAncestorHashes := make([]chainhash.Hash, len(parentAncestorHashes))
 	for i := uint(0); i < 32; i++ {
 		if parentSlotNumber%(1<<i) == 0 {
-			newAncestorHashes[i] = parentHash
+			copy(newAncestorHashes[i][:], parentHash[:])
+		} else {
+			copy(newAncestorHashes[i][:], parentAncestorHashes[i][:])
 		}
 	}
 	return newAncestorHashes

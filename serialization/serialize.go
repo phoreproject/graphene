@@ -1,22 +1,12 @@
 package serialization
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
 	"math"
 	"math/big"
-
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
-
-// GetHash returns the hash of a serializable object.
-func GetHash(s interface{}) chainhash.Hash {
-	b := new(bytes.Buffer)
-	binary.Write(b, binary.BigEndian, s)
-	return chainhash.HashH(b.Bytes())
-}
 
 // ReadBytes reads a certain number of bytes guaranteed from
 // a reader.

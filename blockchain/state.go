@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
@@ -442,7 +444,10 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 		JustifiedSlot:  attestation.JustifiedSlot,
 	}
 
-	bs := asd.Serialize()
+	bs, err := proto.Marshal(asd.ToProto())
+	if err != nil {
+		return err
+	}
 	valid, err := bls.VerifySig(&pubkey, bs, &attestation.AggregateSignature)
 
 	if err != nil || !valid {

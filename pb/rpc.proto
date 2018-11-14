@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package pb;
+
 service BlockchainRPC {
     rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
 
@@ -93,4 +95,13 @@ message Attestation {
     repeated bytes ObliqueParentHashes = 6;
     bytes AttesterBitField = 7;
     bytes AggregateSignature = 8;
+}
+
+message AttestationSignedData {
+    uint32 Version = 1;
+    uint64 Slot = 2;
+    uint32 Shard = 3;
+    repeated bytes ParentHashes = 4;
+    bytes ShardBlockHash = 5;
+    uint64 JustifiedSlot = 6;
 }

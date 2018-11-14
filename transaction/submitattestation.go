@@ -1,9 +1,6 @@
 package transaction
 
 import (
-	"bytes"
-	"encoding/binary"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/bls"
 	pb "github.com/phoreproject/synapse/pb"
@@ -87,9 +84,19 @@ type AttestationSignedData struct {
 	JustifiedSlot  uint64
 }
 
-// Serialize gets the binary representation of the signed data
-func (a *AttestationSignedData) Serialize() []byte {
-	b := bytes.NewBuffer([]byte{})
-	binary.Write(b, binary.BigEndian, *a)
-	return b.Bytes()
+// ToProto gets the protobuf representation of the data.
+func (a *AttestationSignedData) ToProto() *pb.AttestationSignedData {
+	parentHashes := make([][]byte, len(a.ParentHashes))
+	for i := range parentHashes {
+		parentHashes[i] = a.ParentHashes[i][:]
+	}
+
+	return &pb.AttestationSignedData{
+		Version:        a.Version,
+		Slot:           a.Slot,
+		Shard:          a.Shard,
+		ShardBlockHash: a.ShardBlockHash[:],
+		ParentHashes:   parentHashes,
+		JustifiedSlot:  a.JustifiedSlot,
+	}
 }

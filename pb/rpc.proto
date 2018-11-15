@@ -16,6 +16,55 @@ service BlockchainRPC {
     rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
 }
 
+service P2PRPC {
+    rpc GetConnectionStatus(Empty) returns (ConnectionStatus);
+
+    rpc GetPeers(Empty) returns (GetPeersResponse);
+
+    rpc ListenForMessages(SubscriptionRequest) returns (stream Message);
+
+    rpc Connect(InitialPeers) returns (ConnectResponse);
+
+    rpc Disconnect(Empty) returns (DisconnectResponse);
+
+    rpc GetSettings(Empty) returns (P2PSettings);
+}
+
+message ConnectionStatus {
+    bool Connected = 1;
+}
+
+message Peer {
+    string Address = 1;
+}
+
+message SubscriptionRequest {
+    string Topic = 1;
+}
+
+message GetPeersResponse {
+    repeated Peer Peers = 1;
+}
+
+message Message {
+    bytes Response = 1;
+}
+
+message InitialPeers {
+    repeated Peer Peers = 1;
+}
+
+message ConnectResponse {
+    bool Success = 1;
+}
+
+message DisconnectResponse {
+    bool Success = 1;
+}
+
+message P2PSettings {
+}
+
 enum Role {
     ATTESTER = 0;
     PROPOSER = 1;

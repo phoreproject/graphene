@@ -2,6 +2,7 @@ package net
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/libp2p/go-libp2p-crypto"
@@ -92,6 +93,17 @@ func (n *NetworkingService) RegisterHandler(topic string, handler func(Message) 
 	return nil
 }
 
+func (n *NetworkingService) CancelHandler(topic string) error {
+	s, found := n.closeSignals[topic]
+	if !found || s == nil {
+		return fmt.Errorf("handler is not active")
+	}
+
+	s <- struct{}{}
+
+	return nil
+}
+
 // NewNetworkingService creates a networking service instance that will
 // run on the given IP.
 func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) (NetworkingService, error) {
@@ -125,7 +137,6 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 
 	n := NetworkingService{
 		host:         host,
-		blocks:       make(chan primitives.Block),
 		gossipSub:    g,
 		ctx:          ctx,
 		cancel:       cancel,

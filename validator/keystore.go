@@ -1,6 +1,9 @@
 package validator
 
 import (
+	"fmt"
+
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/bls"
 )
 
@@ -34,7 +37,12 @@ func (f *FakeKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
 	return s
 }
 
+func (f *FakeKeyStore) GetRandaoSecretForValidatorAndSlot(v uint32, s uint64) chainhash.Hash {
+	return chainhash.HashH([]byte(fmt.Sprintf("validator %d %d", v, s)))
+}
+
 // Keystore is an interface for retrieving keys from a keystore.
 type Keystore interface {
 	GetKeyForValidator(uint32) *bls.SecretKey
+	GetRandaoSecretForValidatorAndSlot(uint32, uint64) chainhash.Hash
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
-	pb "github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"

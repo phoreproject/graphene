@@ -9,7 +9,8 @@ import (
 )
 
 // VoteCache is a cache of the total deposit of a committee
-// and the validator indices in the committee.
+// and the validator indices in the committee that have already
+// been counted.
 type VoteCache struct {
 	validatorIndices map[uint32]bool
 	totalDeposit     uint64
@@ -28,6 +29,7 @@ func (v *VoteCache) Copy() *VoteCache {
 	}
 }
 
+// NewVoteCache initializes a new vote cache.
 func NewVoteCache() *VoteCache {
 	return &VoteCache{
 		validatorIndices: make(map[uint32]bool),
@@ -50,18 +52,16 @@ func voteCacheDeepCopy(old map[chainhash.Hash]*VoteCache) map[chainhash.Hash]*Vo
 }
 
 // CalculateNewVoteCache tallies votes for attestations in each block.
-func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) (map[chainhash.Hash]*VoteCache, error) {
-	newCache := voteCacheDeepCopy(cache)
-
+func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
 	for _, a := range block.Attestations {
 		parentHashes, err := s.Active.getSignedParentHashes(block, &a, c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		attesterIndices, err := s.Crystallized.GetAttesterIndices(&a, c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		for _, h := range parentHashes {
@@ -77,7 +77,7 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 			}
 
 			if _, success := cache[h]; !success {
-				newCache[h] = NewVoteCache()
+				cache[h] = NewVoteCache()
 			}
 
 			for i, attester := range attesterIndices {
@@ -85,16 +85,16 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 					continue
 				}
 
-				if _, found := newCache[h].validatorIndices[attester]; found {
+				if _, found := cache[h].validatorIndices[attester]; found {
 					continue
 				}
-				newCache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
-				newCache[h].validatorIndices[attester] = true
+				cache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
+				cache[h].validatorIndices[attester] = true
 			}
 		}
 	}
 
-	return newCache, nil
+	return nil
 }
 
 func (a *ActiveState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {

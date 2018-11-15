@@ -1,6 +1,7 @@
 package blockchain_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/phoreproject/synapse/blockchain/util"
@@ -75,7 +76,7 @@ func TestCrystallizedStateCopy(t *testing.T) {
 			{
 				RecentlyChanged: false,
 				Slot:            0,
-				Hash:            &zeroHash,
+				Hash:            zeroHash,
 			},
 		},
 		Validators: []primitives.Validator{
@@ -97,7 +98,7 @@ func TestCrystallizedStateCopy(t *testing.T) {
 	c1.Crosslinks[0] = primitives.Crosslink{
 		RecentlyChanged: true,
 		Slot:            1,
-		Hash:            &zeroHash,
+		Hash:            zeroHash,
 	}
 
 	c1.Validators[0] = primitives.Validator{
@@ -292,10 +293,13 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	firstValidator := b.GetState().Crystallized.ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := 0; i < 63; i++ {
-		_, err = util.MineBlockWithFullAttestations(b)
+	for i := uint64(0); i < 256; i++ {
+		blk, err := util.MineBlockWithFullAttestations(b)
 		if err != nil {
 			t.Error(err)
+		}
+		for _, a := range blk.Attestations {
+			fmt.Printf("block %d including shard attestation %d\n", a.Slot, a.ShardID)
 		}
 	}
 

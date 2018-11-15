@@ -57,6 +57,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *Config, validato
 			lock:  &sync.Mutex{},
 		},
 		stateLock: &sync.Mutex{},
+		voteCache: make(map[chainhash.Hash]*VoteCache),
 	}
 	err := b.InitializeState(validators)
 	if err != nil {

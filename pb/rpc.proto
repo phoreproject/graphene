@@ -10,6 +10,8 @@ service BlockchainRPC {
     rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
 
     rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
+
+    rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
 }
 
 enum Role {
@@ -56,6 +58,15 @@ message GetValidatorAtIndexRequest {
 message GetValidatorAtIndexResponse {
     uint32 PublicKey = 1; // placeholder, will use bls.PublicKey after it's determined.
     uint32 Status = 2;
+}
+
+message GetCommitteeValidatorsRequest {
+    uint64 SlotNumber = 1;
+    uint32 Shard = 2;
+}
+
+message GetCommitteeValidatorsResponse {
+    repeated GetValidatorAtIndexResponse Validators = 1;
 }
 
 message Block {

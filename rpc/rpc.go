@@ -68,6 +68,25 @@ func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtI
 	return &pb.GetValidatorAtIndexResponse{PublicKey: 0, Status: uint32(validator.Status)}, nil
 }
 
+func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
+	indices, err := s.chain.GetCommitteeValidatorIndices(0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var validatorList []*pb.GetValidatorAtIndexResponse
+
+	for _, indice := range indices {
+		validator, err = s.GetValidatorAtIndex(ctx, &pb.GetCommitteeValidatorsRequest{Index: indice})
+		if err != nil {
+			return nil, err
+		}
+		validatorList = append(validatorList, validator)
+	}
+
+	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil
+}
+
 // Serve serves the RPC server
 func Serve(listenAddr string, b *blockchain.Blockchain) error {
 	lis, err := net.Listen("tcp", listenAddr)

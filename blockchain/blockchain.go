@@ -201,10 +201,16 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint
 	return 0, 0, 0, fmt.Errorf("validator not found in set %d", validatorID)
 }
 
+// GetValidatorAtIndex gets the validator at index
 func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
 	if index >= uint32(len(b.state.Crystallized.Validators)) {
 		return nil, fmt.Errorf("Index out of bounds")
 	}
 
 	return &b.state.Crystallized.Validators[index], nil
+}
+
+// GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID
+func (b *Blockchain) GetCommitteeValidatorIndices(slot uint64, shardID uint32) ([]uint32, error) {
+	return b.state.Crystallized.GetCommitteeIndices(slot, shardID, b.config)
 }

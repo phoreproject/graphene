@@ -10,7 +10,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/pb"
+	pb "github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
@@ -101,6 +101,14 @@ func (c *CrystallizedState) GetAttesterIndices(attestation *transaction.Attestat
 	slotsStart := c.LastStateRecalculation - uint64(con.CycleLength)
 	slotIndex := (attestation.Slot - slotsStart) % uint64(con.CycleLength)
 	return CommitteeInShardAndSlot(slotIndex, attestation.ShardID, c.ShardAndCommitteeForSlots)
+}
+
+// GetCommitteeIndices gets all of the validator indices involved with the committee
+// assigned to the shard and slot of the committee.
+func (c *CrystallizedState) GetCommitteeIndices(slot uint64, shardID uint32, con *Config) ([]uint32, error) {
+	slotsStart := c.LastStateRecalculation - uint64(con.CycleLength)
+	slotIndex := (slot - slotsStart) % uint64(con.CycleLength)
+	return CommitteeInShardAndSlot(slotIndex, shardID, c.ShardAndCommitteeForSlots)
 }
 
 // InitializeState initializes state to the genesis state according to the config.

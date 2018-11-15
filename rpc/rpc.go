@@ -77,7 +77,7 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 	var validatorList []*pb.GetValidatorAtIndexResponse
 
 	for _, indice := range indices {
-		validator, err = s.GetValidatorAtIndex(ctx, &pb.GetCommitteeValidatorsRequest{Index: indice})
+		validator, err := s.GetValidatorAtIndex(ctx, &pb.GetValidatorAtIndexRequest{Index: indice})
 		if err != nil {
 			return nil, err
 		}

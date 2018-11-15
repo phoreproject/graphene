@@ -75,27 +75,21 @@ func (t Transaction) Serialize() *pb.Special {
 	case RegisterTransaction:
 		transactionType = typeRegister
 		out = v.Serialize()
-		break
 	case LoginTransaction:
 		transactionType = typeLogin
 		out = v.Serialize()
-		break
 	case LogoutTransaction:
 		transactionType = typeLogout
 		out = v.Serialize()
-		break
 	case CasperSlashingTransaction:
 		transactionType = typeCasperSlashing
 		out = v.Serialize()
-		break
 	case RandaoRevealTransaction:
 		transactionType = typeRandaoReveal
 		out = v.Serialize()
-		break
 	case RandaoChangeTransaction:
 		transactionType = typeRandaoChange
 		out = v.Serialize()
-		break
 	default:
 		return &pb.Special{Type: typeInvalid, Data: [][]byte{}}
 	}

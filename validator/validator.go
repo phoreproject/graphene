@@ -70,7 +70,10 @@ func (v *Validator) RunValidator() error {
 
 			<-v.newCycle
 
-			v.GetSlotAssignment()
+			err = v.GetSlotAssignment()
+			if err != nil {
+				return err
+			}
 		}
 	}
 }

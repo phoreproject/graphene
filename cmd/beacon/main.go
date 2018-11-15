@@ -125,7 +125,12 @@ func main() {
 
 	blocks := network.GetBlocksChannel()
 
-	go blockchain.HandleNewBlocks(blocks)
+	go func() {
+		err := blockchain.HandleNewBlocks(blocks)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	logger.Info("initializing RPC")
 

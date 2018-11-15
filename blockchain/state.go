@@ -517,7 +517,7 @@ func hasVoted(bitfield []byte, index int) bool {
 	return bitfield[index/8]&(128>>uint(index%8)) != 0
 }
 
-func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
+func RepeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	for n > 0 {
 		h = chainhash.HashH(h[:])
 		n--
@@ -598,7 +598,7 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 	// TODO: fix tests with this
 	// validator := b.state.Crystallized.Validators[proposerIndex]
 
-	// expected := repeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
+	// expected := RepeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
 
 	// if expected != validator.RandaoCommitment {
 	// 	return errors.New("randao does not match commitment")

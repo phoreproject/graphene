@@ -56,14 +56,24 @@ type CrystallizedState struct {
 func (c CrystallizedState) Copy() CrystallizedState {
 	newC := c
 	newC.Crosslinks = make([]primitives.Crosslink, len(c.Crosslinks))
-	copy(newC.Crosslinks, c.Crosslinks)
-	copy(newC.Validators, c.Validators)
+	for i, n := range c.Crosslinks {
+		newC.Crosslinks[i] = n
+	}
+	newC.Validators = make([]primitives.Validator, len(c.Validators))
+	for i, n := range c.Validators {
+		newC.Validators[i] = n
+	}
 	newC.ShardAndCommitteeForSlots = make([][]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots))
 	for i, n := range c.ShardAndCommitteeForSlots {
 		newC.ShardAndCommitteeForSlots[i] = make([]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots[i]))
-		copy(newC.ShardAndCommitteeForSlots[i], n)
+		for a, b := range n {
+			newC.ShardAndCommitteeForSlots[i][a] = b
+		}
 	}
-	copy(newC.DepositsPenalizedInPeriod, c.DepositsPenalizedInPeriod)
+	newC.DepositsPenalizedInPeriod = make([]uint64, len(c.DepositsPenalizedInPeriod))
+	for i, n := range c.DepositsPenalizedInPeriod {
+		newC.DepositsPenalizedInPeriod[i] = n
+	}
 	return newC
 }
 

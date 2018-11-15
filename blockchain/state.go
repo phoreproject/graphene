@@ -56,24 +56,14 @@ type CrystallizedState struct {
 func (c CrystallizedState) Copy() CrystallizedState {
 	newC := c
 	newC.Crosslinks = make([]primitives.Crosslink, len(c.Crosslinks))
-	for i, n := range c.Crosslinks {
-		newC.Crosslinks[i] = n
-	}
-	newC.Validators = make([]primitives.Validator, len(c.Validators))
-	for i, n := range c.Validators {
-		newC.Validators[i] = n
-	}
+	copy(newC.Crosslinks, c.Crosslinks)
+	copy(newC.Validators, c.Validators)
 	newC.ShardAndCommitteeForSlots = make([][]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots))
 	for i, n := range c.ShardAndCommitteeForSlots {
 		newC.ShardAndCommitteeForSlots[i] = make([]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots[i]))
-		for a, b := range n {
-			newC.ShardAndCommitteeForSlots[i][a] = b
-		}
+		copy(newC.ShardAndCommitteeForSlots[i], n)
 	}
-	newC.DepositsPenalizedInPeriod = make([]uint64, len(c.DepositsPenalizedInPeriod))
-	for i, n := range c.DepositsPenalizedInPeriod {
-		newC.DepositsPenalizedInPeriod[i] = n
-	}
+	copy(newC.DepositsPenalizedInPeriod, c.DepositsPenalizedInPeriod)
 	return newC
 }
 
@@ -178,7 +168,10 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 
 	b.stateLock.Unlock()
 
-	b.AddBlock(&block0)
+	err := b.AddBlock(&block0)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -458,7 +451,10 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 		return err
 	}
 
-	b.db.SetBlock(*block)
+	err = b.db.SetBlock(*block)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -529,16 +525,6 @@ func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	return h
 }
 
-func (b *Blockchain) getTotalActiveValidatorBalance() uint64 {
-	total := uint64(0)
-	for _, v := range b.state.Crystallized.Validators {
-		if v.Status == Active {
-			total += v.Balance
-		}
-	}
-	return total
-}
-
 // totalValidatingBalance is the sum of the balances of active validators.
 func (c *CrystallizedState) totalValidatingBalance() uint64 {
 	total := uint64(0)
@@ -599,28 +585,24 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 
 	// validate parent block proposer
 	if newBlock.SlotNumber != 0 {
-		attestations := []transaction.Attestation{}
-		for _, a := range newBlock.Attestations {
-			attestations = append(attestations, a)
-		}
-		if len(attestations) == 0 {
+		if len(newBlock.Attestations) == 0 {
 			return errors.New("invalid parent block proposer")
 		}
 
-		attestation := attestations[0]
+		attestation := newBlock.Attestations[0]
 		if attestation.ShardID != shardAndCommittee.ShardID || attestation.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitField, proposerIndex) {
 			return errors.New("invalid parent block proposer")
 		}
 	}
 
-	validator := b.state.Crystallized.Validators[proposerIndex]
+	// TODO: fix tests with this
+	// validator := b.state.Crystallized.Validators[proposerIndex]
 
-	expected := repeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
+	// expected := repeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
 
-	if expected != validator.RandaoCommitment {
-		// TODO: fix this
-		// return errors.New("randao does not match commitment")
-	}
+	// if expected != validator.RandaoCommitment {
+	// 	return errors.New("randao does not match commitment")
+	// }
 
 	for i := range b.state.Active.RandaoMix {
 		b.state.Active.RandaoMix[i] ^= newBlock.RandaoReveal[i]

@@ -47,7 +47,10 @@ func (v *Validator) GetSlotAssignment() error {
 func (v *Validator) RunValidator() error {
 	v.logger.Info("running validator", "validator", v.id)
 
-	v.GetSlotAssignment()
+	err := v.GetSlotAssignment()
+	if err != nil {
+		return err
+	}
 
 	v.logger.Info("got slot assignment", "slot", v.slot, "shard", v.shard, "proposer?", v.proposer)
 

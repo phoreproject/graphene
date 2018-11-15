@@ -104,7 +104,12 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 
 // Start starts goroutines for each validator
 func (vm *Manager) Start() {
-	go vm.ListenForBlockAndCycle()
+	go func() {
+		err := vm.ListenForBlockAndCycle()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	var wg sync.WaitGroup
 
@@ -114,7 +119,10 @@ func (vm *Manager) Start() {
 		vClosed := v
 		go func() {
 			defer wg.Done()
-			vClosed.RunValidator()
+			err := vClosed.RunValidator()
+			if err != nil {
+				panic(err)
+			}
 		}()
 	}
 

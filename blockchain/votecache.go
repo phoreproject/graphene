@@ -37,20 +37,6 @@ func NewVoteCache() *VoteCache {
 	}
 }
 
-// voteCacheDeepCopy copies the vote cache from a mapping of the
-// blockhash to vote cache to a new mapping.
-func voteCacheDeepCopy(old map[chainhash.Hash]*VoteCache) map[chainhash.Hash]*VoteCache {
-	new := map[chainhash.Hash]*VoteCache{}
-	for k, v := range old {
-		newK := chainhash.Hash{}
-		copy(newK[:], k[:])
-
-		new[newK] = v.Copy()
-	}
-
-	return new
-}
-
 // CalculateNewVoteCache tallies votes for attestations in each block.
 func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
 	for _, a := range block.Attestations {

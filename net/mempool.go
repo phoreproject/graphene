@@ -65,7 +65,10 @@ func (m *Mempool) ProcessNewTransaction(transactionRaw *Message) error {
 		return err
 	}
 
-	m.ProcessTransaction(t)
+	err = m.ProcessTransaction(t)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -84,8 +87,7 @@ func (m *Mempool) ProcessNewAttestation(attestationRaw *Message) error {
 		return err
 	}
 
-	m.ProcessAttestation(a)
-	return nil
+	return m.ProcessAttestation(a)
 }
 
 // RegisterNetworkListeners registers listeners for mempool transactions

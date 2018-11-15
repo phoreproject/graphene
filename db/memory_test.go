@@ -41,7 +41,10 @@ func TestStoreRetrieve(t *testing.T) {
 		},
 	}
 
-	db.SetBlock(b)
+	err := db.SetBlock(b)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	b1, err := db.GetBlockForHash(b.Hash())
 	if err != nil {

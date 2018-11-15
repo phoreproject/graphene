@@ -178,7 +178,10 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 
 	b.stateLock.Unlock()
 
-	b.AddBlock(&block0)
+	err := b.AddBlock(&block0)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -458,7 +461,10 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 		return err
 	}
 
-	b.db.SetBlock(*block)
+	err = b.db.SetBlock(*block)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -521,22 +527,12 @@ func hasVoted(bitfield []byte, index int) bool {
 	return bitfield[index/8]&(128>>uint(index%8)) != 0
 }
 
-func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
+func RepeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	for n > 0 {
 		h = chainhash.HashH(h[:])
 		n--
 	}
 	return h
-}
-
-func (b *Blockchain) getTotalActiveValidatorBalance() uint64 {
-	total := uint64(0)
-	for _, v := range b.state.Crystallized.Validators {
-		if v.Status == Active {
-			total += v.Balance
-		}
-	}
-	return total
 }
 
 // totalValidatingBalance is the sum of the balances of active validators.
@@ -599,28 +595,24 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 
 	// validate parent block proposer
 	if newBlock.SlotNumber != 0 {
-		attestations := []transaction.Attestation{}
-		for _, a := range newBlock.Attestations {
-			attestations = append(attestations, a)
-		}
-		if len(attestations) == 0 {
+		if len(newBlock.Attestations) == 0 {
 			return errors.New("invalid parent block proposer")
 		}
 
-		attestation := attestations[0]
+		attestation := newBlock.Attestations[0]
 		if attestation.ShardID != shardAndCommittee.ShardID || attestation.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitField, proposerIndex) {
 			return errors.New("invalid parent block proposer")
 		}
 	}
 
-	validator := b.state.Crystallized.Validators[proposerIndex]
+	// TODO: fix tests with this
+	// validator := b.state.Crystallized.Validators[proposerIndex]
 
-	expected := repeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
+	// expected := RepeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
 
-	if expected != validator.RandaoCommitment {
-		// TODO: fix this
-		// return errors.New("randao does not match commitment")
-	}
+	// if expected != validator.RandaoCommitment {
+	// 	return errors.New("randao does not match commitment")
+	// }
 
 	for i := range b.state.Active.RandaoMix {
 		b.state.Active.RandaoMix[i] ^= newBlock.RandaoReveal[i]

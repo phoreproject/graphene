@@ -41,7 +41,7 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 			return 0, err
 		}
 		return uint64(binary.BigEndian.Uint16(i2)), nil
-	} else if iInt == 0xfd {
+	} else if iInt == 0xfe {
 		i2, err := ReadBytes(r, 4)
 		if err != nil {
 			return 0, err

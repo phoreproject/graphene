@@ -32,42 +32,36 @@ func DeserializeTransaction(transactionType uint32, transactionData [][]byte) (*
 			return nil, err
 		}
 		t.Data = tx
-		break
 	case typeLogin:
 		tx, err := DeserializeLoginTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
 		t.Data = tx
-		break
 	case typeLogout:
 		tx, err := DeserializeLogoutTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
 		t.Data = tx
-		break
 	case typeCasperSlashing:
 		tx, err := DeserializeCasperSlashingTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
 		t.Data = tx
-		break
 	case typeRandaoReveal:
 		tx, err := DeserializeRandaoRevealTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
 		t.Data = tx
-		break
 	case typeRandaoChange:
 		tx, err := DeserializeRandaoChangeTransaction(transactionData)
 		if err != nil {
 			return nil, err
 		}
 		t.Data = tx
-		break
 	}
 
 	return t, nil
@@ -81,27 +75,21 @@ func (t Transaction) Serialize() *pb.Special {
 	case RegisterTransaction:
 		transactionType = typeRegister
 		out = v.Serialize()
-		break
 	case LoginTransaction:
 		transactionType = typeLogin
 		out = v.Serialize()
-		break
 	case LogoutTransaction:
 		transactionType = typeLogout
 		out = v.Serialize()
-		break
 	case CasperSlashingTransaction:
 		transactionType = typeCasperSlashing
 		out = v.Serialize()
-		break
 	case RandaoRevealTransaction:
 		transactionType = typeRandaoReveal
 		out = v.Serialize()
-		break
 	case RandaoChangeTransaction:
 		transactionType = typeRandaoChange
 		out = v.Serialize()
-		break
 	default:
 		return &pb.Special{Type: typeInvalid, Data: [][]byte{}}
 	}

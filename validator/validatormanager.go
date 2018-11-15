@@ -7,8 +7,8 @@ import (
 
 	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
-
 	"github.com/phoreproject/synapse/pb"
+
 	"google.golang.org/grpc"
 )
 
@@ -35,7 +35,7 @@ func (n *Notifier) SendNewCycle() {
 
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
-	rpc        rpc.BlockchainRPCClient
+	rpc        pb.BlockchainRPCClient
 	validators []*Validator
 	keystore   Keystore
 	notifiers  []*Notifier
@@ -43,7 +43,7 @@ type Manager struct {
 
 // NewManager creates a new validator manager to manage some validators.
 func NewManager(conn *grpc.ClientConn, validators []uint32, keystore Keystore) (*Manager, error) {
-	r := rpc.NewBlockchainRPCClient(conn)
+	r := pb.NewBlockchainRPCClient(conn)
 
 	validatorObjs := make([]*Validator, len(validators))
 
@@ -74,7 +74,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 	for {
 		<-t.C
 
-		b, err := vm.rpc.GetSlotNumber(context.Background(), &rpc.Empty{})
+		b, err := vm.rpc.GetSlotNumber(context.Background(), &pb.Empty{})
 		if err != nil {
 			return err
 		}

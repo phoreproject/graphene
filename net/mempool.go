@@ -53,7 +53,7 @@ func (m *Mempool) ProcessAttestation(a *transaction.Attestation) error {
 // ProcessNewTransaction processes raw bytes received from the network
 // and adds it to the mempool if needed.
 func (m *Mempool) ProcessNewTransaction(transactionRaw *Message) error {
-	tx := rpc.Special{}
+	tx := pb.Special{}
 
 	err := proto.Unmarshal(transactionRaw.Data, &tx)
 	if err != nil {
@@ -72,7 +72,7 @@ func (m *Mempool) ProcessNewTransaction(transactionRaw *Message) error {
 // ProcessNewAttestation processes raw bytes received from the network
 // and adds it to the mempool if needed.
 func (m *Mempool) ProcessNewAttestation(attestationRaw *Message) error {
-	att := rpc.Attestation{}
+	att := pb.Attestation{}
 
 	err := proto.Unmarshal(attestationRaw.Data, &att)
 	if err != nil {

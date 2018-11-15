@@ -26,7 +26,7 @@ type Crosslink struct {
 	Slot uint64
 
 	// Hash is the hash of the beacon chain block.
-	Hash *chainhash.Hash
+	Hash chainhash.Hash
 }
 
 // ShardAndCommittee keeps track of the validators assigned to a specific shard.

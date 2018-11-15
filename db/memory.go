@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/primitives"
 )
 
@@ -25,7 +24,6 @@ func (imdb *InMemoryDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, er
 	imdb.lock.Lock()
 	defer imdb.lock.Unlock()
 	out, found := imdb.DB[h]
-	log15.Debug("retrieving block from memory db", "hash", h, "success", found)
 	if !found {
 		return nil, fmt.Errorf("could not find block with hash")
 	}
@@ -35,7 +33,6 @@ func (imdb *InMemoryDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, er
 // SetBlock adds the block to storage
 func (imdb *InMemoryDB) SetBlock(b primitives.Block) error {
 	imdb.lock.Lock()
-	log15.Debug("setting block in memory db", "block", b.Hash(), "slot", b.SlotNumber)
 	imdb.DB[b.Hash()] = b
 	imdb.lock.Unlock()
 	return nil

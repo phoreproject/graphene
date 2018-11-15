@@ -137,7 +137,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		crosslinks[i] = primitives.Crosslink{
 			RecentlyChanged: false,
 			Slot:            0,
-			Hash:            &zeroHash,
+			Hash:            zeroHash,
 		}
 	}
 
@@ -489,9 +489,9 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 // GetNewRecentBlockHashes will take a list of recent block hashes and
 // shift them to the right, filling them in with the parentHash provided.
-func GetNewRecentBlockHashes(oldHashes []*chainhash.Hash, parentSlot uint32, currentSlot uint32, parentHash *chainhash.Hash) []*chainhash.Hash {
+func GetNewRecentBlockHashes(oldHashes []chainhash.Hash, parentSlot uint64, currentSlot uint64, parentHash chainhash.Hash) []chainhash.Hash {
 	d := currentSlot - parentSlot
-	newHashes := oldHashes[d:]
+	newHashes := oldHashes[:]
 	numberToAdd := int(d)
 	if numberToAdd > len(oldHashes) {
 		numberToAdd = len(oldHashes)
@@ -575,12 +575,12 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 		}
 	}
 
-	newCache, err := b.state.CalculateNewVoteCache(newBlock, b.voteCache, b.config)
+	b.state.Active.RecentBlockHashes = GetNewRecentBlockHashes(b.state.Active.RecentBlockHashes, parentBlock.SlotNumber, newBlock.SlotNumber, parentBlock.Hash())
+
+	err = b.state.CalculateNewVoteCache(newBlock, b.voteCache, b.config)
 	if err != nil {
 		return err
 	}
-
-	b.voteCache = newCache
 
 	for _, a := range newBlock.Attestations {
 		err := b.ValidateAttestation(&a, parentBlock, b.config)
@@ -685,42 +685,22 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 		quadraticPenaltyQuotient := b.config.SqrtEDropTime * b.config.SqrtEDropTime
 		timeSinceFinality := slotNumber - b.state.Crystallized.LastFinalizedSlot
 
+		lastStateRecalculationSlotCycleBack := uint64(0)
+		if b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
+			lastStateRecalculationSlotCycleBack = b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength)
+		}
+
+		activeValidators := GetActiveValidatorIndices(b.state.Crystallized.Validators)
+
 		// go through each slot for that cycle
-		for slot := b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength); slot < b.state.Crystallized.LastStateRecalculation-1; slot++ {
-			shardsAndCommittees := b.GetShardsAndCommitteesForSlot(slot)
-			committee := shardsAndCommittees[0].Committee
-			totalBalance := uint64(0)
-			for _, i := range committee {
-				totalBalance += b.state.Crystallized.Validators[i].Balance
-			}
-			attesterBalance := uint64(0)
+		for i := uint64(0); i < uint64(b.config.CycleLength); i++ {
+			slot := i + lastStateRecalculationSlotCycleBack
 
-			node, err := b.chain.GetBlock(int(slot))
-			if err != nil {
-				return err
-			}
-			block, err := b.db.GetBlockForHash(*node)
-			if err != nil {
-				return err
-			}
+			blockHash := b.state.Active.RecentBlockHashes[i]
 
-			attestations := []transaction.Attestation{}
-			for _, a := range block.Attestations {
-				attestations = append(attestations, a)
-			}
-			if len(attestations) == 0 {
-				return errors.New("invalid parent block proposer")
-			}
+			voteCache := b.voteCache[blockHash]
 
-			attestation := attestations[0]
-
-			for index := range committee {
-				if hasVoted(attestation.AttesterBitField, int(index)) {
-					attesterBalance += b.state.Crystallized.Validators[index].Balance
-				}
-			}
-
-			if 3*attesterBalance >= 2*totalBalance {
+			if 3*voteCache.totalDeposit >= 2*totalBalance {
 				if slot > b.state.Crystallized.LastJustifiedSlot {
 					b.state.Crystallized.LastJustifiedSlot = slot
 				}
@@ -729,76 +709,73 @@ func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error
 				b.state.Crystallized.JustifiedStreak = 0
 			}
 
-			// adjust rewards
-			for _, validatorID := range committee {
-				if hasVoted(attestation.AttesterBitField, int(validatorID)) {
-					if timeSinceFinality <= uint64(3*b.config.CycleLength) {
-						balance := b.state.Crystallized.Validators[validatorID].Balance
-						b.state.Crystallized.Validators[validatorID].Balance += balance / rewardQuotient * (2*attesterBalance - totalBalance)
-					}
-				} else {
-					if timeSinceFinality <= uint64(3*b.config.CycleLength) {
-						b.state.Crystallized.Validators[validatorID].Balance -= b.state.Crystallized.Validators[validatorID].Balance / rewardQuotient
-					} else {
-						balance := b.state.Crystallized.Validators[validatorID].Balance
-						b.state.Crystallized.Validators[validatorID].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
-					}
-				}
-
-			}
-
 			if b.state.Crystallized.JustifiedStreak >= uint64(b.config.CycleLength+1) {
 				if b.state.Crystallized.LastFinalizedSlot < slot-uint64(b.config.CycleLength-1) {
 					b.state.Crystallized.LastFinalizedSlot = slot - uint64(b.config.CycleLength-1)
 				}
 			}
 
-			shardProposals := make(map[chainhash.Hash]uint32)
-
-			// populate shard proposals
-			for _, a := range attestations {
-				if _, success := shardProposals[a.ShardBlockHash]; !success {
-					shardProposals[a.ShardBlockHash] = uint32(a.ShardID)
+			// adjust rewards
+			if timeSinceFinality <= uint64(3*b.config.CycleLength) {
+				for _, validatorID := range activeValidators {
+					_, voted := voteCache.validatorIndices[validatorID]
+					if voted {
+						balance := b.state.Crystallized.Validators[validatorID].Balance
+						b.state.Crystallized.Validators[validatorID].Balance += balance / rewardQuotient * (2*voteCache.totalDeposit - totalBalance) / totalBalance
+					} else {
+						b.state.Crystallized.Validators[validatorID].Balance -= b.state.Crystallized.Validators[validatorID].Balance / rewardQuotient
+					}
+				}
+			} else {
+				for _, validatorID := range activeValidators {
+					_, voted := voteCache.validatorIndices[validatorID]
+					if !voted {
+						balance := b.state.Crystallized.Validators[validatorID].Balance
+						b.state.Crystallized.Validators[validatorID].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
+					}
 				}
 			}
 
-			for shardBlockHash, shard := range shardProposals {
-				totalBalanceAttesting := b.voteCache[shardBlockHash].totalDeposit
-				shardCommittee, err := ShardCommitteeByShardID(shard, shardsAndCommittees)
-				if err != nil {
-					return err
+		}
+
+		for _, a := range b.state.Active.PendingAttestations {
+			indices, err := b.state.Crystallized.GetAttesterIndices(&a, b.config)
+			if err != nil {
+				return err
+			}
+
+			totalVotingBalance := uint64(0)
+			totalBalance := uint64(0)
+
+			// tally up the balance of each validator who voted for this hash
+			for validatorIndex := range indices {
+				if hasVoted(a.AttesterBitField, int(validatorIndex)) {
+					totalVotingBalance += b.state.Crystallized.Validators[validatorIndex].Balance
 				}
-				totalCommitteeBalance := uint64(0)
+				totalBalance += b.state.Crystallized.Validators[validatorIndex].Balance
+			}
 
-				// tally up the balance of each validator who voted for this hash
-				for _, validatorIndex := range shardCommittee {
-					if hasVoted(attestation.AttesterBitField, int(validatorIndex)) {
-						totalCommitteeBalance += b.state.Crystallized.Validators[validatorIndex].Balance
-					}
+			timeSinceLastConfirmations := slotNumber - b.state.Crystallized.Crosslinks[a.ShardID].Slot
+
+			// if this is a super-majority, set up a cross-link
+			if 3*totalVotingBalance >= 2*totalBalance && !b.state.Crystallized.Crosslinks[a.ShardID].RecentlyChanged {
+				b.state.Crystallized.Crosslinks[a.ShardID] = primitives.Crosslink{
+					RecentlyChanged: true,
+					Slot:            b.state.Crystallized.LastStateRecalculation + uint64(b.config.CycleLength),
+					Hash:            a.ShardBlockHash,
 				}
+			}
 
-				// if this is a super-majority, set up a cross-link
-				if 3*totalCommitteeBalance >= 2*totalBalanceAttesting && !b.state.Crystallized.Crosslinks[shard].RecentlyChanged {
-					timeSinceLastConfirmations := block.SlotNumber - b.state.Crystallized.Crosslinks[shard].Slot
-
-					for _, validatorIndex := range shardCommittee {
-						if !b.state.Crystallized.Crosslinks[shard].RecentlyChanged {
-							checkBit := hasVoted(attestation.AttesterBitField, int(validatorIndex))
-							if checkBit {
-								balance := b.state.Crystallized.Validators[validatorIndex].Balance
-								b.state.Crystallized.Validators[validatorIndex].Balance += balance / rewardQuotient * (2*totalBalanceAttesting - totalCommitteeBalance) / totalCommitteeBalance
-							} else {
-								balance := b.state.Crystallized.Validators[validatorIndex].Balance
-								b.state.Crystallized.Validators[validatorIndex].Balance += balance/rewardQuotient + balance*timeSinceLastConfirmations/quadraticPenaltyQuotient
-							}
-						}
+			for _, validatorIndex := range indices {
+				if !b.state.Crystallized.Crosslinks[a.ShardID].RecentlyChanged {
+					checkBit := hasVoted(a.AttesterBitField, int(validatorIndex))
+					if checkBit {
+						balance := b.state.Crystallized.Validators[validatorIndex].Balance
+						b.state.Crystallized.Validators[validatorIndex].Balance += balance / rewardQuotient * (2*totalVotingBalance - totalBalance) / totalBalance
+					} else {
+						balance := b.state.Crystallized.Validators[validatorIndex].Balance
+						b.state.Crystallized.Validators[validatorIndex].Balance += balance/rewardQuotient + balance*timeSinceLastConfirmations/quadraticPenaltyQuotient
 					}
-					b.state.Crystallized.Crosslinks[shard] = primitives.Crosslink{
-						RecentlyChanged: true,
-						Slot:            b.state.Crystallized.LastStateRecalculation + uint64(b.config.CycleLength),
-						Hash:            &shardBlockHash,
-					}
-
 				}
 			}
 		}

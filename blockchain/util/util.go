@@ -69,7 +69,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 		return nil, err
 	}
 
-	assignments := b.GetState().Crystallized.ShardAndCommitteeForSlots[lb.SlotNumber]
+	assignments := b.GetShardsAndCommitteesForSlot(lb.SlotNumber)
 
 	attestations := make([]transaction.Attestation, len(assignments))
 
@@ -94,6 +94,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 			ObliqueParentHashes: []chainhash.Hash{},
 			AttesterBitField:    attesterBitfield,
 			AggregateSignature:  bls.Signature{},
+			ShardBlockHash:      chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.ShardID, lb.SlotNumber))),
 		}
 	}
 

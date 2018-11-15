@@ -47,7 +47,7 @@ func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []t
 
 	block1 := primitives.Block{
 		SlotNumber:            lastBlock.SlotNumber + 1,
-		RandaoReveal:          randaoSecret,
+		RandaoReveal:          chainhash.HashH([]byte(fmt.Sprintf("test test %d", lastBlock.SlotNumber))),
 		AncestorHashes:        blockchain.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,

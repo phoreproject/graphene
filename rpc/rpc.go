@@ -10,7 +10,7 @@ import (
 
 	"github.com/phoreproject/synapse/primitives"
 
-	pb "github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -58,6 +58,33 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 	log15.Debug("slot shard assignment", "validatorID", in.ValidatorID, "shardID", shardID, "slot", slot, "role", r)
 
 	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
+}
+
+func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
+	validator, err := s.chain.GetValidatorAtIndex(in.Index)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetValidatorAtIndexResponse{Validator: validator.ToProto()}, nil
+}
+
+func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
+	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, in.Shard)
+	if err != nil {
+		return nil, err
+	}
+
+	var validatorList []*pb.ValidatorResponse
+
+	for _, indice := range indices {
+		validator, err := s.chain.GetValidatorAtIndex(indice)
+		if err != nil {
+			return nil, err
+		}
+		validatorList = append(validatorList, validator.ToProto())
+	}
+
+	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil
 }
 
 // Serve serves the RPC server

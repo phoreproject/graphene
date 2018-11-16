@@ -60,28 +60,40 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
 }
 
+func validatorToPb(validator *primitives.Validator) *pb.ValidatorResponse {
+	return &pb.ValidatorResponse{
+		Pubkey:            0, //validator.Pubkey,
+		WithdrawalAddress: validator.WithdrawalAddress[:],
+		WithdrawalShardID: validator.WithdrawalShardID,
+		RandaoCommitment:  validator.RandaoCommitment[:],
+		RandaoLastChange:  validator.RandaoLastChange,
+		Balance:           validator.Balance,
+		Status:            uint32(validator.Status),
+		ExitSlot:          validator.ExitSlot}
+}
+
 func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
 	validator, err := s.chain.GetValidatorAtIndex(in.Index)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetValidatorAtIndexResponse{PublicKey: 0, Status: uint32(validator.Status)}, nil
+	return &pb.GetValidatorAtIndexResponse{Validator: validatorToPb(validator)}, nil
 }
 
 func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(0, 0)
+	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, in.Shard)
 	if err != nil {
 		return nil, err
 	}
 
-	var validatorList []*pb.GetValidatorAtIndexResponse
+	var validatorList []*pb.ValidatorResponse
 
 	for _, indice := range indices {
-		validator, err := s.GetValidatorAtIndex(ctx, &pb.GetValidatorAtIndexRequest{Index: indice})
+		validator, err := s.chain.GetValidatorAtIndex(indice)
 		if err != nil {
 			return nil, err
 		}
-		validatorList = append(validatorList, validator)
+		validatorList = append(validatorList, validatorToPb(validator))
 	}
 
 	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil

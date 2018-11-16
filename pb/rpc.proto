@@ -53,13 +53,23 @@ message GetBlockHashResponse {
     bytes Hash = 1;
 }
 
+message ValidatorResponse {
+    uint32 Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
+	bytes WithdrawalAddress = 2;
+	uint32 WithdrawalShardID = 3;
+	bytes RandaoCommitment = 4;
+	uint64 RandaoLastChange = 5;
+	uint64 Balance = 6;
+	uint32 Status = 7;
+	uint64 ExitSlot = 8;
+}
+
 message GetValidatorAtIndexRequest {
     uint32 Index = 1;
 }
 
 message GetValidatorAtIndexResponse {
-    uint32 PublicKey = 1; // placeholder, will use bls.PublicKey after it's determined.
-    uint32 Status = 2;
+    ValidatorResponse Validator = 1;
 }
 
 message GetCommitteeValidatorsRequest {
@@ -68,7 +78,7 @@ message GetCommitteeValidatorsRequest {
 }
 
 message GetCommitteeValidatorsResponse {
-    repeated GetValidatorAtIndexResponse Validators = 1;
+    repeated ValidatorResponse Validators = 1;
 }
 
 message Block {

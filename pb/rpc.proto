@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package pb;
+
 service BlockchainRPC {
     rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
 
@@ -8,6 +10,10 @@ service BlockchainRPC {
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
 
     rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
+
+    rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
+
+    rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
 }
 
 enum Role {
@@ -47,6 +53,34 @@ message GetBlockHashResponse {
     bytes Hash = 1;
 }
 
+message ValidatorResponse {
+    uint32 Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
+    bytes WithdrawalAddress = 2;
+    uint32 WithdrawalShardID = 3;
+    bytes RandaoCommitment = 4;
+    uint64 RandaoLastChange = 5;
+    uint64 Balance = 6;
+    uint32 Status = 7;
+    uint64 ExitSlot = 8;
+}
+
+message GetValidatorAtIndexRequest {
+    uint32 Index = 1;
+}
+
+message GetValidatorAtIndexResponse {
+    ValidatorResponse Validator = 1;
+}
+
+message GetCommitteeValidatorsRequest {
+    uint64 SlotNumber = 1;
+    uint32 Shard = 2;
+}
+
+message GetCommitteeValidatorsResponse {
+    repeated ValidatorResponse Validators = 1;
+}
+
 message Block {
     uint64 SlotNumber = 1;
     bytes RandaoReveal = 2;
@@ -71,4 +105,13 @@ message Attestation {
     repeated bytes ObliqueParentHashes = 6;
     bytes AttesterBitField = 7;
     bytes AggregateSignature = 8;
+}
+
+message AttestationSignedData {
+    uint32 Version = 1;
+    uint64 Slot = 2;
+    uint32 Shard = 3;
+    repeated bytes ParentHashes = 4;
+    bytes ShardBlockHash = 5;
+    uint64 JustifiedSlot = 6;
 }

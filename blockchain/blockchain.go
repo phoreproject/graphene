@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -25,7 +24,7 @@ type blockchainView struct {
 func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
-	if len(bv.chain)-1 > n {
+	if len(bv.chain) > n && n >= 0 {
 		return &bv.chain[n], nil
 	}
 	return nil, fmt.Errorf("block %d does not exist", n)
@@ -34,10 +33,7 @@ func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
 func (bv *blockchainView) Height() int {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
-	if len(bv.chain) > 0 {
-		return len(bv.chain) - 1
-	}
-	return 0
+	return len(bv.chain) - 1
 }
 
 // Blockchain represents a chain of blocks.
@@ -61,6 +57,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *Config, validato
 			lock:  &sync.Mutex{},
 		},
 		stateLock: &sync.Mutex{},
+		voteCache: make(map[chainhash.Hash]*VoteCache),
 	}
 	err := b.InitializeState(validators)
 	if err != nil {
@@ -93,15 +90,19 @@ const (
 )
 
 // UpdateChainHead updates the blockchain head if needed
-func (b *Blockchain) UpdateChainHead(n *primitives.Block) {
+func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 	b.chain.lock.Lock()
 	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
 		logger.Debug("updating blockchain head", "hash", n.Hash(), "height", n.SlotNumber)
 		b.chain.lock.Unlock()
-		b.SetTip(n)
+		err := b.SetTip(n)
+		if err != nil {
+			return err
+		}
 	} else {
 		b.chain.lock.Unlock()
 	}
+	return nil
 }
 
 // SetTip sets the tip of the chain.
@@ -127,7 +128,7 @@ func (b *Blockchain) SetTip(n *primitives.Block) error {
 		b.chain.chain[n.SlotNumber] = n.Hash()
 		nextBlock, err := b.db.GetBlockForHash(n.AncestorHashes[0])
 		if err != nil {
-			return errors.New("block data is corrupted")
+			nextBlock = nil
 		}
 		current = nextBlock
 	}
@@ -199,4 +200,18 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint
 		}
 	}
 	return 0, 0, 0, fmt.Errorf("validator not found in set %d", validatorID)
+}
+
+// GetValidatorAtIndex gets the validator at index
+func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
+	if index >= uint32(len(b.state.Crystallized.Validators)) {
+		return nil, fmt.Errorf("Index out of bounds")
+	}
+
+	return &b.state.Crystallized.Validators[index], nil
+}
+
+// GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID
+func (b *Blockchain) GetCommitteeValidatorIndices(slot uint64, shardID uint32) ([]uint32, error) {
+	return b.state.Crystallized.GetCommitteeIndices(slot, shardID, b.config)
 }

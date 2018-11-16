@@ -1,9 +1,9 @@
 package primitives
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	pb "github.com/phoreproject/synapse/pb"
@@ -30,20 +30,14 @@ type Block struct {
 
 // Hash gets the hash of the block header
 func (b *Block) Hash() chainhash.Hash {
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, b)
-	return chainhash.HashH(buf.Bytes())
+	m, _ := proto.Marshal(b.ToProto())
+	return chainhash.HashH(m)
 }
 
 // BlockFromProto creates a block from the protobuf block given
 func BlockFromProto(blockProto *pb.Block) (*Block, error) {
 	if len(blockProto.AncestorHashes) != 32 {
 		return nil, fmt.Errorf("ancestor hashes length incorrect. got: %d, expected: 32", len(blockProto.AncestorHashes))
-	}
-
-	randaoReveal, err := chainhash.NewHash(blockProto.RandaoReveal)
-	if err != nil {
-		return nil, err
 	}
 
 	ancestorHashes := make([]chainhash.Hash, 32)
@@ -56,6 +50,11 @@ func BlockFromProto(blockProto *pb.Block) (*Block, error) {
 	}
 
 	activeStateRoot, err := chainhash.NewHash(blockProto.ActiveStateRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	randaoReveal, err := chainhash.NewHash(blockProto.RandaoReveal)
 	if err != nil {
 		return nil, err
 	}
@@ -94,4 +93,33 @@ func BlockFromProto(blockProto *pb.Block) (*Block, error) {
 		Specials:              specials,
 		Attestations:          attestations,
 	}, nil
+}
+
+// ToProto gets the protobuf representation of block
+func (b *Block) ToProto() *pb.Block {
+	ancestorHashes := make([][]byte, len(b.AncestorHashes))
+	for i := range ancestorHashes {
+		ancestorHashes[i] = b.AncestorHashes[i][:]
+	}
+
+	specials := make([]*pb.Special, len(b.Specials))
+	for i := range specials {
+		s := b.Specials[i].Serialize()
+		specials[i] = s
+	}
+
+	attestations := make([]*pb.Attestation, len(b.Attestations))
+	for i := range attestations {
+		attestations[i] = b.Attestations[i].ToProto()
+	}
+
+	return &pb.Block{
+		SlotNumber:            b.SlotNumber,
+		RandaoReveal:          b.RandaoReveal[:],
+		AncestorHashes:        ancestorHashes,
+		ActiveStateRoot:       b.ActiveStateRoot[:],
+		CrystallizedStateRoot: b.CrystallizedStateRoot[:],
+		Specials:              specials,
+		Attestations:          attestations,
+	}
 }

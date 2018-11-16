@@ -9,20 +9,31 @@ import (
 )
 
 // VoteCache is a cache of the total deposit of a committee
-// and the validator indices in the committee.
+// and the validator indices in the committee that have already
+// been counted.
 type VoteCache struct {
-	validatorIndices []uint32
+	validatorIndices map[uint32]bool
 	totalDeposit     uint64
 }
 
 // Copy makes a deep copy of the vote cache.
 func (v *VoteCache) Copy() *VoteCache {
-	voterIndices := make([]uint32, len(v.validatorIndices))
-	copy(voterIndices, v.validatorIndices)
+	voterIndices := make(map[uint32]bool)
+	for k := range v.validatorIndices {
+		voterIndices[k] = true
+	}
 
 	return &VoteCache{
 		validatorIndices: voterIndices,
 		totalDeposit:     v.totalDeposit,
+	}
+}
+
+// NewVoteCache initializes a new vote cache.
+func NewVoteCache() *VoteCache {
+	return &VoteCache{
+		validatorIndices: make(map[uint32]bool),
+		totalDeposit:     0,
 	}
 }
 
@@ -41,18 +52,16 @@ func voteCacheDeepCopy(old map[chainhash.Hash]*VoteCache) map[chainhash.Hash]*Vo
 }
 
 // CalculateNewVoteCache tallies votes for attestations in each block.
-func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) (map[chainhash.Hash]*VoteCache, error) {
-	newCache := voteCacheDeepCopy(cache)
-
+func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
 	for _, a := range block.Attestations {
 		parentHashes, err := s.Active.getSignedParentHashes(block, &a, c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		attesterIndices, err := s.Crystallized.GetAttesterIndices(&a, c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		for _, h := range parentHashes {
@@ -68,7 +77,7 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 			}
 
 			if _, success := cache[h]; !success {
-				newCache[h] = &VoteCache{}
+				cache[h] = NewVoteCache()
 			}
 
 			for i, attester := range attesterIndices {
@@ -76,22 +85,16 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 					continue
 				}
 
-				attesterExists := false
-				for _, indexInCache := range newCache[h].validatorIndices {
-					if attester == indexInCache {
-						attesterExists = true
-					}
+				if _, found := cache[h].validatorIndices[attester]; found {
+					continue
 				}
-
-				if !attesterExists {
-					newCache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
-					newCache[h].validatorIndices = append(newCache[h].validatorIndices, attester)
-				}
+				cache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
+				cache[h].validatorIndices[attester] = true
 			}
 		}
 	}
 
-	return newCache, nil
+	return nil
 }
 
 func (a *ActiveState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {

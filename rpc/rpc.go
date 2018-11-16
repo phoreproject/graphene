@@ -10,7 +10,7 @@ import (
 
 	"github.com/phoreproject/synapse/primitives"
 
-	pb "github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -60,24 +60,12 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
 }
 
-func validatorToPb(validator *primitives.Validator) *pb.ValidatorResponse {
-	return &pb.ValidatorResponse{
-		Pubkey:            0, //validator.Pubkey,
-		WithdrawalAddress: validator.WithdrawalAddress[:],
-		WithdrawalShardID: validator.WithdrawalShardID,
-		RandaoCommitment:  validator.RandaoCommitment[:],
-		RandaoLastChange:  validator.RandaoLastChange,
-		Balance:           validator.Balance,
-		Status:            uint32(validator.Status),
-		ExitSlot:          validator.ExitSlot}
-}
-
 func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
 	validator, err := s.chain.GetValidatorAtIndex(in.Index)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetValidatorAtIndexResponse{Validator: validatorToPb(validator)}, nil
+	return &pb.GetValidatorAtIndexResponse{Validator: validator.ToProto()}, nil
 }
 
 func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
@@ -93,7 +81,7 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 		if err != nil {
 			return nil, err
 		}
-		validatorList = append(validatorList, validatorToPb(validator))
+		validatorList = append(validatorList, validator.ToProto())
 	}
 
 	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil

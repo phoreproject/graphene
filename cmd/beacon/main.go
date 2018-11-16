@@ -1,12 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/rpc"
 	"github.com/phoreproject/synapse/serialization"
+	"google.golang.org/grpc"
 
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/db"
@@ -49,6 +55,54 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	logger.Info("connecting to p2p RPC")
+	conn, err := grpc.Dial(*p2pConnect, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+
+	p2p := pb.NewP2PRPCClient(conn)
+	_, err = p2p.Connect(context.Background(), &pb.InitialPeers{})
+
+	if err != nil {
+		panic(err)
+	}
+
+	listener, err := p2p.ListenForMessages(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		newBlocks := make(chan primitives.Block)
+		go func() {
+			err := blockchain.HandleNewBlocks(newBlocks)
+			if err != nil {
+				panic(err)
+			}
+		}()
+
+		for {
+			msg, err := listener.Recv()
+			if err != nil {
+				panic(err)
+			}
+
+			var blockProto *pb.Block
+
+			err = proto.Unmarshal(msg.Response, blockProto)
+			if err != nil {
+				continue
+			}
+
+			block, err := primitives.BlockFromProto(blockProto)
+			if err != nil {
+				continue
+			}
+
+			newBlocks <- *block
+		}
+	}()
 
 	logger.Info("initializing RPC")
 

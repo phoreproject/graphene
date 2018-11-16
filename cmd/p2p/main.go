@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 
 	logger "github.com/inconshreveable/log15"
@@ -94,7 +95,7 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterP2PRPCServer(s, &p2prpcServer{service: &network})
+	pb.RegisterP2PRPCServer(s, p2p.NewP2PRPCServer(&network))
 	reflection.Register(s)
 	err = s.Serve(lis)
 	if err != nil {

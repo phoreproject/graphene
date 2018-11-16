@@ -2,10 +2,12 @@ syntax = "proto3";
 
 package pb;
 
+import "google/protobuf/empty.proto";
+
 service BlockchainRPC {
     rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
 
-    rpc GetSlotNumber(Empty) returns (SlotNumberResponse);
+    rpc GetSlotNumber(google.protobuf.Empty) returns (SlotNumberResponse);
 
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
 
@@ -17,17 +19,21 @@ service BlockchainRPC {
 }
 
 service P2PRPC {
-    rpc GetConnectionStatus(Empty) returns (ConnectionStatus);
+    rpc GetConnectionStatus(google.protobuf.Empty) returns (ConnectionStatus);
 
-    rpc GetPeers(Empty) returns (GetPeersResponse);
+    rpc GetPeers(google.protobuf.Empty) returns (GetPeersResponse);
 
-    rpc ListenForMessages(SubscriptionRequest) returns (stream Message);
+    rpc Subscribe(SubscriptionRequest) returns (Subscription);
+
+    rpc ListenForMessages(Subscription) returns (stream Message);
+
+    rpc Unsubscribe(Subscription) returns (google.protobuf.Empty);
 
     rpc Connect(InitialPeers) returns (ConnectResponse);
 
-    rpc Disconnect(Empty) returns (DisconnectResponse);
+    rpc Disconnect(google.protobuf.Empty) returns (DisconnectResponse);
 
-    rpc GetSettings(Empty) returns (P2PSettings);
+    rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
 }
 
 message ConnectionStatus {
@@ -40,6 +46,10 @@ message Peer {
 
 message SubscriptionRequest {
     string Topic = 1;
+}
+
+message Subscription {
+    uint64 ID = 1;
 }
 
 message GetPeersResponse {
@@ -69,8 +79,6 @@ enum Role {
     ATTESTER = 0;
     PROPOSER = 1;
 }
-
-message Empty {}
 
 message GetSlotAndShardAssignmentRequest {
     uint32 ValidatorID = 1;

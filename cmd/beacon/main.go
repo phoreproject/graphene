@@ -63,13 +63,18 @@ func main() {
 	}
 
 	p2p := pb.NewP2PRPCClient(conn)
-	_, err = p2p.Connect(context.Background(), &pb.InitialPeers{})
+	// _, err = p2p.Connect(context.Background(), &pb.InitialPeers{})
 
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	sub, err := p2p.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
 	if err != nil {
 		panic(err)
 	}
 
-	listener, err := p2p.ListenForMessages(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
+	listener, err := p2p.ListenForMessages(context.Background(), sub)
 	if err != nil {
 		panic(err)
 	}

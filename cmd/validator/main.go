@@ -21,7 +21,7 @@ func main() {
 	validatorsStrings := strings.Split(*validators, ",")
 	validatorIndices := []uint32{}
 	for _, s := range validatorsStrings {
-		if strings.ContainsRune(s, '-') {
+		if !strings.ContainsRune(s, '-') {
 			i, err := strconv.Atoi(s)
 			if err != nil {
 				panic("invalid validators parameter")

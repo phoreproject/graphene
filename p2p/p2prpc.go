@@ -32,18 +32,20 @@ type p2prpcServer struct {
 	subscriptions  map[uint64]*pubsub.Subscription
 	subChannels    map[uint64]chan []byte
 	cancelChannels map[uint64]chan bool
-	currentSubID   uint64
+	currentSubID   *uint64 // this is weird, but all of the methods have to pass the struct in by value
 }
 
 // NewP2PRPCServer sets up a server for handling P2P module RPC requests.
 func NewP2PRPCServer(netService *net.NetworkingService) p2prpcServer {
-	return p2prpcServer{
+	p := p2prpcServer{
 		service:        netService,
 		subscriptions:  make(map[uint64]*pubsub.Subscription),
 		subChannels:    make(map[uint64]chan []byte),
 		cancelChannels: make(map[uint64]chan bool),
-		currentSubID:   0,
+		currentSubID:   new(uint64),
 	}
+	*p.currentSubID = 0
+	return p
 }
 
 func (p p2prpcServer) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
@@ -81,8 +83,8 @@ func (p p2prpcServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_Liste
 }
 
 func (p p2prpcServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*pb.Subscription, error) {
-	subID := p.currentSubID
-	p.currentSubID++
+	subID := *p.currentSubID
+	*p.currentSubID++
 
 	log15.Debug("subscribed to new messages", "topic", in.Topic, "subID", subID)
 

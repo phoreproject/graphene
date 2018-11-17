@@ -43,12 +43,17 @@ func main() {
 	}
 	fmt.Println()
 
-	s, err := client0.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "cows"})
+	s0, err := client0.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "cows"})
 	if err != nil {
 		panic(err)
 	}
 
-	stream, err := client0.ListenForMessages(context.Background(), s)
+	_, err = client0.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "not-cows"})
+	if err != nil {
+		panic(err)
+	}
+
+	stream, err := client0.ListenForMessages(context.Background(), s0)
 	if err != nil {
 		panic(err)
 	}
@@ -69,6 +74,11 @@ func main() {
 	fmt.Println("peer 1 sending message to topic cow: I'm a cow")
 
 	_, err = client1.Broadcast(context.Background(), &pb.MessageAndTopic{Data: []byte("I'm a cow"), Topic: "cows"})
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = client1.Broadcast(context.Background(), &pb.MessageAndTopic{Data: []byte("I'm not a cow"), Topic: "not-cows"})
 	if err != nil {
 		panic(err)
 	}

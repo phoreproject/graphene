@@ -1,8 +1,6 @@
 package bls
 
 import (
-	"fmt"
-
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
@@ -23,6 +21,10 @@ func DeserializeSignature([]byte) (Signature, error) {
 
 // SecretKey used in the BLS scheme.
 type SecretKey struct{}
+
+func (s SecretKey) DerivePublicKey() *PublicKey {
+	return &PublicKey{}
+}
 
 // PublicKey corresponding to secret key used in the BLS scheme.
 type PublicKey struct{}
@@ -47,19 +49,6 @@ func Sign(sec *SecretKey, msg []byte) (*Signature, error) {
 // VerifySig against a public key.
 func VerifySig(pub *PublicKey, msg []byte, sig *Signature) (bool, error) {
 	return true, nil
-}
-
-// BatchVerify a list of individual signatures by aggregating them.
-func BatchVerify(pubs []*PublicKey, msg []byte, sigs []*Signature) (bool, error) {
-	asigs, err := AggregateSigs(sigs)
-	if err != nil {
-		return false, fmt.Errorf("could not aggregate signatures: %v", err)
-	}
-	pub, err := AggregatePubKeys(pubs)
-	if err != nil {
-		return false, fmt.Errorf("could not aggregate public keys")
-	}
-	return VerifySig(pub, msg, asigs)
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying

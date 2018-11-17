@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"math"
-	"math/big"
 )
 
 // ReadBytes reads a certain number of bytes guaranteed from
@@ -61,15 +60,15 @@ func WriteVarInt(i uint64) []byte {
 	if i < 0xfd {
 		return []byte{byte(uint8(i))}
 	} else if i < math.MaxUint16 {
-		var b []byte
+		b := make([]byte, 2)
 		binary.BigEndian.PutUint16(b, uint16(i))
 		return append([]byte{'\xfd'}, b...)
 	} else if i < math.MaxUint32 {
-		var b []byte
+		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, uint32(i))
 		return append([]byte{'\xfe'}, b...)
 	} else {
-		var b []byte
+		b := make([]byte, 8)
 		binary.BigEndian.PutUint64(b, uint64(i))
 		return append([]byte{'\xff'}, b...)
 	}
@@ -81,9 +80,6 @@ func ReadByteArray(r io.Reader) ([]byte, error) {
 	i, err := ReadVarInt(r)
 	if err != nil {
 		return nil, err
-	}
-	if i > math.MaxUint32 {
-		return nil, errors.New("invalid length of byte array (greater than max uint32)")
 	}
 	return ReadBytes(r, int(i))
 }
@@ -122,26 +118,4 @@ func WriteUint32Array(toWrite []uint32) []byte {
 // WriteByteArray gets the binary representation of a byte array.
 func WriteByteArray(toWrite []byte) []byte {
 	return append(WriteVarInt(uint64(len(toWrite))), toWrite...)
-}
-
-// ReadBool will read a boolean from the reader.
-// 00 if false else true.
-func ReadBool(r io.Reader) (bool, error) {
-	b, err := ReadBytes(r, 1)
-	if err != nil {
-		return false, err
-	}
-	return b[0] != byte(0x00), nil
-}
-
-// ReadBigInt reads a big int from the reader.
-func ReadBigInt(r io.Reader) (*big.Int, error) {
-	bigBytes, err := ReadByteArray(r)
-	if err != nil {
-		return nil, err
-	}
-
-	b := new(big.Int)
-	b.SetBytes(bigBytes)
-	return b, nil
 }

@@ -63,11 +63,6 @@ func main() {
 	}
 
 	p2p := pb.NewP2PRPCClient(conn)
-	// _, err = p2p.Connect(context.Background(), &pb.InitialPeers{})
-
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	sub, err := p2p.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
 	if err != nil {
@@ -95,7 +90,7 @@ func main() {
 
 			var blockProto *pb.Block
 
-			err = proto.Unmarshal(msg.Response, blockProto)
+			err = proto.Unmarshal(msg.Data, blockProto)
 			if err != nil {
 				continue
 			}

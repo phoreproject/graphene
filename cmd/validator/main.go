@@ -46,7 +46,7 @@ func main() {
 		}
 	}
 
-	log15.Debug("running with validators", "validators", validatorIndices)
+	log15.Debug("running with validators", "validators", *validators)
 
 	conn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
 	if err != nil {

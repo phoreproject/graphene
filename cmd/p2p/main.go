@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/rand"
 	"flag"
-	"fmt"
 	"net"
 
 	"google.golang.org/grpc"
@@ -56,7 +55,7 @@ func main() {
 
 	sourceMultiAddr, err := multiaddr.NewMultiaddr(*listen)
 	if err != nil {
-		fmt.Printf("address %s is invalid", *listen)
+		logger.Crit("address is invalid", "addr", *listen)
 		return
 	}
 

@@ -34,6 +34,8 @@ service P2PRPC {
     rpc Disconnect(google.protobuf.Empty) returns (DisconnectResponse);
 
     rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
+
+    rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
 }
 
 message ConnectionStatus {
@@ -57,7 +59,12 @@ message GetPeersResponse {
 }
 
 message Message {
-    bytes Response = 1;
+    bytes Data = 1;
+}
+
+message MessageAndTopic {
+    bytes Data = 1;
+    string Topic = 2;
 }
 
 message InitialPeers {

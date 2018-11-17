@@ -50,7 +50,7 @@ func (p p2prpcServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_Liste
 	for {
 		select {
 		case msg := <-p.subChannels[in.ID]:
-			err := out.Send(&pb.Message{Response: msg})
+			err := out.Send(&pb.Message{Data: msg})
 			if err != nil {
 				return err
 			}
@@ -106,6 +106,10 @@ func (p p2prpcServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*em
 	p.subscriptions[in.ID].Cancel()
 
 	return &empty.Empty{}, nil
+}
+
+func (p p2prpcServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*empty.Empty, error) {
+	return &empty.Empty{}, p.service.Broadcast(in.Topic, in.Data)
 }
 
 func (p p2prpcServer) Connect(ctx context.Context, in *pb.InitialPeers) (*pb.ConnectResponse, error) {

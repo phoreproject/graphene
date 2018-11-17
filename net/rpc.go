@@ -39,7 +39,7 @@ func (r *RPCClient) Subscribe(topic string, handler func([]byte) error) (uint64,
 			return 0, err
 		}
 
-		err = handler(msg.Response)
+		err = handler(msg.Data)
 		if err != nil {
 			log15.Warn("unhandled error while running handler from P2P RPC", "error", err)
 		}

@@ -57,6 +57,10 @@ func (n *NetworkingService) RegisterHandler(topic string, handler func([]byte) e
 	return s, nil
 }
 
+func (n *NetworkingService) Broadcast(topic string, data []byte) error {
+	return n.gossipSub.Publish(topic, data)
+}
+
 func (n *NetworkingService) CancelHandler(subscription *pubsub.Subscription) {
 	subscription.Cancel()
 }

@@ -7,11 +7,25 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/inconshreveable/log15"
+	iaddr "github.com/ipfs/go-ipfs-addr"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-pubsub"
 
 	"github.com/phoreproject/synapse/net"
 	"github.com/phoreproject/synapse/pb"
 )
+
+func StringToPeerInfo(addrStr string) (*peerstore.PeerInfo, error) {
+	addr, err := iaddr.ParseString(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	peerinfo, err := peerstore.InfoFromP2pAddr(addr.Multiaddr())
+	if err != nil {
+		return nil, err
+	}
+	return peerinfo, nil
+}
 
 type p2prpcServer struct {
 	service        *net.NetworkingService
@@ -33,11 +47,16 @@ func NewP2PRPCServer(netService *net.NetworkingService) p2prpcServer {
 }
 
 func (p p2prpcServer) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
-	return nil, fmt.Errorf("not implemented")
+	return &pb.ConnectionStatus{Connected: p.service.IsConnected()}, nil
 }
 
 func (p p2prpcServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+	peers := p.service.GetPeers()
+	peersPb := []*pb.Peer{}
+	for _, p := range peers {
+		peersPb = append(peersPb, &pb.Peer{Address: p.String()})
+	}
+	return &pb.GetPeersResponse{Peers: peersPb}, nil
 }
 
 func (p p2prpcServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenForMessagesServer) error {
@@ -113,13 +132,22 @@ func (p p2prpcServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*e
 }
 
 func (p p2prpcServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p p2prpcServer) Disconnect(ctx context.Context, in *empty.Empty) (*pb.DisconnectResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+	success := true
+	for _, peer := range in.Peers {
+		pInfo, err := StringToPeerInfo(peer.Address)
+		if err != nil {
+			return nil, err
+		}
+		err = p.service.Connect(pInfo)
+		if err != nil {
+			success = false
+			log15.Warn("could not connect to peer", "addr", peer.Address)
+			continue
+		}
+	}
+	return &pb.ConnectResponse{Success: success}, nil
 }
 
 func (p p2prpcServer) GetSettings(ctx context.Context, in *empty.Empty) (*pb.P2PSettings, error) {
-	return nil, fmt.Errorf("not implemented")
+	return &pb.P2PSettings{}, nil
 }

@@ -13,10 +13,8 @@ import (
 	"github.com/phoreproject/synapse/pb"
 
 	logger "github.com/inconshreveable/log15"
-	iaddr "github.com/ipfs/go-ipfs-addr"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	network "github.com/phoreproject/synapse/net"
 )
@@ -28,15 +26,11 @@ func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 
 	for i := range in {
 		if in[i] == ',' {
-			addr, err := iaddr.ParseString(currentAddr)
+			peerinfo, err := p2p.StringToPeerInfo(currentAddr)
+			if err != nil {
+				return nil, err
+			}
 			currentAddr = ""
-			if err != nil {
-				return nil, err
-			}
-			peerinfo, err := pstore.InfoFromP2pAddr(addr.Multiaddr())
-			if err != nil {
-				return nil, err
-			}
 
 			peers = append(peers, peerinfo)
 		}

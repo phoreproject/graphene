@@ -31,8 +31,6 @@ service P2PRPC {
 
     rpc Connect(Peers) returns (ConnectResponse);
 
-    rpc Disconnect(google.protobuf.Empty) returns (DisconnectResponse);
-
     rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
 
     rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);

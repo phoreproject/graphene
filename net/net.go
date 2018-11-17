@@ -65,6 +65,22 @@ func (n *NetworkingService) CancelHandler(subscription *pubsub.Subscription) {
 	subscription.Cancel()
 }
 
+func (n *NetworkingService) GetPeers() []multiaddr.Multiaddr {
+	peers := n.host.Peerstore().PeersWithAddrs()
+	addrs := []multiaddr.Multiaddr{}
+	for _, p := range peers {
+		peerAddrs := n.host.Peerstore().Addrs(p)
+		for _, addr := range peerAddrs {
+			addrs = append(addrs, addr)
+		}
+	}
+	return addrs
+}
+
+func (n *NetworkingService) IsConnected() bool {
+	return n.host.Peerstore().Peers().Len() > 0
+}
+
 // NewNetworkingService creates a networking service instance that will
 // run on the given IP.
 func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) (NetworkingService, error) {

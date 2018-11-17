@@ -106,7 +106,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 
 // SetBit sets a bit in a bitfield.
 func SetBit(bitfield []byte, id uint32) ([]byte, error) {
-	if uint32(len(bitfield)*8) < id {
+	if uint32(len(bitfield)*8) <= id {
 		return nil, fmt.Errorf("bitfield is too short")
 	}
 

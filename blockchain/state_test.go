@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/phoreproject/synapse/blockchain/util"
+	"github.com/phoreproject/synapse/blockchain/internal/util"
 	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/transaction"

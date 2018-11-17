@@ -15,7 +15,7 @@ import (
 )
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+1, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 }
 
 func TestStateInitialization(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+1, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 }
 
 func TestAttestationValidation(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+3, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestAttestationValidation(t *testing.T) {
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+5, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

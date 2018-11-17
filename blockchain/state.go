@@ -330,28 +330,25 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 // zeros in provided byte.
 func checkTrailingZeros(a byte, numZeros uint8) bool {
 	i := uint8(a)
-	if i/128 == 1 && numZeros == 0 {
+	if i/128 == 1 && numZeros == 1 {
 		return false
 	}
-	if (i%128)/64 == 1 && numZeros <= 1 {
+	if (i%128)/64 == 1 && numZeros <= 2 {
 		return false
 	}
-	if (i%64)/32 == 1 && numZeros <= 2 {
+	if (i%64)/32 == 1 && numZeros <= 3 {
 		return false
 	}
-	if (i%32)/16 == 1 && numZeros <= 3 {
+	if (i%32)/16 == 1 && numZeros <= 4 {
 		return false
 	}
-	if (i%16)/8 == 1 && numZeros <= 4 {
+	if (i%16)/8 == 1 && numZeros <= 5 {
 		return false
 	}
-	if (i%8)/4 == 1 && numZeros <= 5 {
+	if (i%8)/4 == 1 && numZeros <= 6 {
 		return false
 	}
-	if (i%4)/2 == 1 && numZeros <= 6 {
-		return false
-	}
-	if (i%2) == 1 && numZeros <= 7 {
+	if (i%4)/2 == 1 && numZeros <= 7 {
 		return false
 	}
 	return true
@@ -411,7 +408,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	}
 
 	trailingZeros := uint8(len(attestationIndices.Committee) % 8)
-	if !checkTrailingZeros(attestation.AttesterBitField[len(attestation.AttesterBitField)-1], trailingZeros) {
+	if !checkTrailingZeros(attestation.AttesterBitField[len(attestation.AttesterBitField)-1], 8-trailingZeros) {
 		return fmt.Errorf("expected %d bits at the end empty", trailingZeros)
 	}
 

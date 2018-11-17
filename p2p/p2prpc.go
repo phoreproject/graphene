@@ -112,7 +112,7 @@ func (p p2prpcServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*e
 	return &empty.Empty{}, p.service.Broadcast(in.Topic, in.Data)
 }
 
-func (p p2prpcServer) Connect(ctx context.Context, in *pb.InitialPeers) (*pb.ConnectResponse, error) {
+func (p p2prpcServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

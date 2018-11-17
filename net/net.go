@@ -10,8 +10,6 @@ import (
 
 	logger "github.com/inconshreveable/log15"
 
-	"github.com/phoreproject/synapse/primitives"
-
 	"github.com/multiformats/go-multiaddr"
 
 	libp2p "github.com/libp2p/go-libp2p"
@@ -19,77 +17,68 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
-// Message is a network message and the context for processing
-// that message.
-type Message struct {
-	Ctx  context.Context
-	Data []byte
-}
-
 // NetworkingService handles networking throughout the network.
 type NetworkingService struct {
-	host         host.Host
-	gossipSub    *pubsub.PubSub
-	blocks       chan primitives.Block
-	ctx          context.Context
-	cancel       context.CancelFunc
-	closeSignals map[string]chan struct{}
-}
-
-// GetBlocksChannel returns a channel containing incoming blocks.
-func (n *NetworkingService) GetBlocksChannel() chan primitives.Block {
-	return n.blocks
+	host      host.Host
+	gossipSub *pubsub.PubSub
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // Connect connects to a peer
 func (n *NetworkingService) Connect(p *peerstore.PeerInfo) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(n.ctx, 10*time.Second)
 	defer cancel()
 	return n.host.Connect(ctx, *p)
 }
 
 // RegisterHandler registers a handler for a network topic.
-func (n *NetworkingService) RegisterHandler(topic string, handler func(Message) error) error {
+func (n *NetworkingService) RegisterHandler(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
 	s, err := n.gossipSub.Subscribe(topic)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	closeChan := make(chan struct{})
-
-	n.closeSignals[topic] = closeChan
-
 	go func() {
-		defer s.Cancel()
 		for {
-			message := make(chan *pubsub.Message)
-			ctx, cancel := context.WithCancel(n.ctx)
-			go func() {
-				m, err := s.Next(ctx)
-				if err != nil {
-					return
-				}
-				message <- m
-			}()
-
-			select {
-			case m := <-message:
-				msg := Message{n.ctx, m.Data}
-
-				err = handler(msg)
-				if err != nil {
-					logger.Debug("message processing error", "type", topic, "error", err)
-					continue
-				}
-			case <-closeChan:
-				cancel()
-				n.closeSignals[topic] = nil
+			msg, err := s.Next(n.ctx)
+			if err != nil {
+				logger.Warn("error when getting next topic message", "error", err)
 				return
+			}
+
+			err = handler(msg.Data)
+			if err != nil {
+				logger.Warn("error when handling message", "topic", topic, "error", err)
 			}
 		}
 	}()
 
-	return nil
+	return s, nil
+}
+
+func (n *NetworkingService) Broadcast(topic string, data []byte) error {
+	return n.gossipSub.Publish(topic, data)
+}
+
+func (n *NetworkingService) CancelHandler(subscription *pubsub.Subscription) {
+	subscription.Cancel()
+}
+
+func (n *NetworkingService) GetPeers() []multiaddr.Multiaddr {
+	peers := n.host.Peerstore().PeersWithAddrs()
+	addrs := []multiaddr.Multiaddr{}
+	for _, p := range peers {
+		peerAddrs := n.host.Peerstore().Addrs(p)
+		for _, addr := range peerAddrs {
+			addrs = append(addrs, addr)
+		}
+	}
+	return addrs
+}
+
+func (n *NetworkingService) IsConnected() bool {
+	return n.host.Peerstore().Peers().Len() > 0
 }
 
 // NewNetworkingService creates a networking service instance that will
@@ -124,12 +113,10 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 	}
 
 	n := NetworkingService{
-		host:         host,
-		blocks:       make(chan primitives.Block),
-		gossipSub:    g,
-		ctx:          ctx,
-		cancel:       cancel,
-		closeSignals: make(map[string]chan struct{}),
+		host:      host,
+		gossipSub: g,
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 
 	return n, nil

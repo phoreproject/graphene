@@ -45,14 +45,10 @@ func (v *Validator) GetSlotAssignment() error {
 
 // RunValidator keeps track of assignments and creates/signs attestations as needed.
 func (v *Validator) RunValidator() error {
-	v.logger.Info("running validator", "validator", v.id)
-
 	err := v.GetSlotAssignment()
 	if err != nil {
 		return err
 	}
-
-	v.logger.Info("got slot assignment", "slot", v.slot, "shard", v.shard, "proposer?", v.proposer)
 
 	for {
 		currentSlot := <-v.newSlot

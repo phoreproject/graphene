@@ -1,60 +1,29 @@
 package main
 
 import (
-	"crypto/rand"
+	"context"
 	"flag"
-	"fmt"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/rpc"
 	"github.com/phoreproject/synapse/serialization"
-
-	"github.com/libp2p/go-libp2p-crypto"
-
-	"github.com/libp2p/go-libp2p-peerstore"
-
-	"github.com/multiformats/go-multiaddr"
+	"google.golang.org/grpc"
 
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/db"
-	"github.com/phoreproject/synapse/net"
 
 	logger "github.com/inconshreveable/log15"
-	iaddr "github.com/ipfs/go-ipfs-addr"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
-
-func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
-	currentAddr := ""
-
-	peers := []*peerstore.PeerInfo{}
-
-	for i := range in {
-		if in[i] == ',' {
-			addr, err := iaddr.ParseString(currentAddr)
-			currentAddr = ""
-			if err != nil {
-				return nil, err
-			}
-			peerinfo, err := pstore.InfoFromP2pAddr(addr.Multiaddr())
-			if err != nil {
-				return nil, err
-			}
-
-			peers = append(peers, peerinfo)
-		}
-		currentAddr = currentAddr + string(in[i])
-	}
-
-	return peers, nil
-}
 
 const clientVersion = "0.0.1"
 
 func main() {
-	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
-	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
+	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	flag.Parse()
 
@@ -87,48 +56,51 @@ func main() {
 		panic(err)
 	}
 
-	logger.Info("initializing net")
-	ps, err := parseInitialConnections(*initialConnections)
+	logger.Info("connecting to p2p RPC")
+	conn, err := grpc.Dial(*p2pConnect, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
 
-	sourceMultiAddr, err := multiaddr.NewMultiaddr(*listen)
-	if err != nil {
-		fmt.Printf("address %s is invalid", *listen)
-		return
-	}
+	p2p := pb.NewP2PRPCClient(conn)
 
-	priv, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
+	sub, err := p2p.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
 	if err != nil {
 		panic(err)
 	}
 
-	network, err := net.NewNetworkingService(&sourceMultiAddr, priv)
+	listener, err := p2p.ListenForMessages(context.Background(), sub)
 	if err != nil {
 		panic(err)
 	}
-
-	logger.Info("connecting to bootnodes")
-
-	for _, p := range ps {
-		err = network.Connect(p)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if err != nil {
-		panic(err)
-	}
-
-	logger.Info("listening for blocks")
-
-	blocks := network.GetBlocksChannel()
-
 	go func() {
-		err := blockchain.HandleNewBlocks(blocks)
-		if err != nil {
-			panic(err)
+		newBlocks := make(chan primitives.Block)
+		go func() {
+			err := blockchain.HandleNewBlocks(newBlocks)
+			if err != nil {
+				panic(err)
+			}
+		}()
+
+		for {
+			msg, err := listener.Recv()
+			if err != nil {
+				panic(err)
+			}
+
+			var blockProto *pb.Block
+
+			err = proto.Unmarshal(msg.Data, blockProto)
+			if err != nil {
+				continue
+			}
+
+			block, err := primitives.BlockFromProto(blockProto)
+			if err != nil {
+				continue
+			}
+
+			newBlocks <- *block
 		}
 	}()
 

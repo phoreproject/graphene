@@ -6,6 +6,7 @@ package pb
 import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 	math "math"
@@ -47,36 +48,434 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_77a6da22d6a3feb1, []int{0}
 }
 
-type Empty struct {
+type ConnectionStatus struct {
+	Connected            bool     `protobuf:"varint,1,opt,name=Connected,proto3" json:"Connected,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Empty) Reset()         { *m = Empty{} }
-func (m *Empty) String() string { return proto.CompactTextString(m) }
-func (*Empty) ProtoMessage()    {}
-func (*Empty) Descriptor() ([]byte, []int) {
+func (m *ConnectionStatus) Reset()         { *m = ConnectionStatus{} }
+func (m *ConnectionStatus) String() string { return proto.CompactTextString(m) }
+func (*ConnectionStatus) ProtoMessage()    {}
+func (*ConnectionStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_77a6da22d6a3feb1, []int{0}
 }
 
-func (m *Empty) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Empty.Unmarshal(m, b)
+func (m *ConnectionStatus) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConnectionStatus.Unmarshal(m, b)
 }
-func (m *Empty) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Empty.Marshal(b, m, deterministic)
+func (m *ConnectionStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConnectionStatus.Marshal(b, m, deterministic)
 }
-func (m *Empty) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Empty.Merge(m, src)
+func (m *ConnectionStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectionStatus.Merge(m, src)
 }
-func (m *Empty) XXX_Size() int {
-	return xxx_messageInfo_Empty.Size(m)
+func (m *ConnectionStatus) XXX_Size() int {
+	return xxx_messageInfo_ConnectionStatus.Size(m)
 }
-func (m *Empty) XXX_DiscardUnknown() {
-	xxx_messageInfo_Empty.DiscardUnknown(m)
+func (m *ConnectionStatus) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConnectionStatus.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Empty proto.InternalMessageInfo
+var xxx_messageInfo_ConnectionStatus proto.InternalMessageInfo
+
+func (m *ConnectionStatus) GetConnected() bool {
+	if m != nil {
+		return m.Connected
+	}
+	return false
+}
+
+type Peer struct {
+	Address              string   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Peer) Reset()         { *m = Peer{} }
+func (m *Peer) String() string { return proto.CompactTextString(m) }
+func (*Peer) ProtoMessage()    {}
+func (*Peer) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{1}
+}
+
+func (m *Peer) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Peer.Unmarshal(m, b)
+}
+func (m *Peer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Peer.Marshal(b, m, deterministic)
+}
+func (m *Peer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Peer.Merge(m, src)
+}
+func (m *Peer) XXX_Size() int {
+	return xxx_messageInfo_Peer.Size(m)
+}
+func (m *Peer) XXX_DiscardUnknown() {
+	xxx_messageInfo_Peer.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Peer proto.InternalMessageInfo
+
+func (m *Peer) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+type SubscriptionRequest struct {
+	Topic                string   `protobuf:"bytes,1,opt,name=Topic,proto3" json:"Topic,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SubscriptionRequest) Reset()         { *m = SubscriptionRequest{} }
+func (m *SubscriptionRequest) String() string { return proto.CompactTextString(m) }
+func (*SubscriptionRequest) ProtoMessage()    {}
+func (*SubscriptionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{2}
+}
+
+func (m *SubscriptionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SubscriptionRequest.Unmarshal(m, b)
+}
+func (m *SubscriptionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SubscriptionRequest.Marshal(b, m, deterministic)
+}
+func (m *SubscriptionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubscriptionRequest.Merge(m, src)
+}
+func (m *SubscriptionRequest) XXX_Size() int {
+	return xxx_messageInfo_SubscriptionRequest.Size(m)
+}
+func (m *SubscriptionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SubscriptionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SubscriptionRequest proto.InternalMessageInfo
+
+func (m *SubscriptionRequest) GetTopic() string {
+	if m != nil {
+		return m.Topic
+	}
+	return ""
+}
+
+type Subscription struct {
+	ID                   uint64   `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Subscription) Reset()         { *m = Subscription{} }
+func (m *Subscription) String() string { return proto.CompactTextString(m) }
+func (*Subscription) ProtoMessage()    {}
+func (*Subscription) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{3}
+}
+
+func (m *Subscription) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Subscription.Unmarshal(m, b)
+}
+func (m *Subscription) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Subscription.Marshal(b, m, deterministic)
+}
+func (m *Subscription) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Subscription.Merge(m, src)
+}
+func (m *Subscription) XXX_Size() int {
+	return xxx_messageInfo_Subscription.Size(m)
+}
+func (m *Subscription) XXX_DiscardUnknown() {
+	xxx_messageInfo_Subscription.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Subscription proto.InternalMessageInfo
+
+func (m *Subscription) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+type GetPeersResponse struct {
+	Peers                []*Peer  `protobuf:"bytes,1,rep,name=Peers,proto3" json:"Peers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetPeersResponse) Reset()         { *m = GetPeersResponse{} }
+func (m *GetPeersResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPeersResponse) ProtoMessage()    {}
+func (*GetPeersResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{4}
+}
+
+func (m *GetPeersResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetPeersResponse.Unmarshal(m, b)
+}
+func (m *GetPeersResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetPeersResponse.Marshal(b, m, deterministic)
+}
+func (m *GetPeersResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPeersResponse.Merge(m, src)
+}
+func (m *GetPeersResponse) XXX_Size() int {
+	return xxx_messageInfo_GetPeersResponse.Size(m)
+}
+func (m *GetPeersResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPeersResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPeersResponse proto.InternalMessageInfo
+
+func (m *GetPeersResponse) GetPeers() []*Peer {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
+type Message struct {
+	Data                 []byte   `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Message) Reset()         { *m = Message{} }
+func (m *Message) String() string { return proto.CompactTextString(m) }
+func (*Message) ProtoMessage()    {}
+func (*Message) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{5}
+}
+
+func (m *Message) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Message.Unmarshal(m, b)
+}
+func (m *Message) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Message.Marshal(b, m, deterministic)
+}
+func (m *Message) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Message.Merge(m, src)
+}
+func (m *Message) XXX_Size() int {
+	return xxx_messageInfo_Message.Size(m)
+}
+func (m *Message) XXX_DiscardUnknown() {
+	xxx_messageInfo_Message.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Message proto.InternalMessageInfo
+
+func (m *Message) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+type MessageAndTopic struct {
+	Data                 []byte   `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
+	Topic                string   `protobuf:"bytes,2,opt,name=Topic,proto3" json:"Topic,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *MessageAndTopic) Reset()         { *m = MessageAndTopic{} }
+func (m *MessageAndTopic) String() string { return proto.CompactTextString(m) }
+func (*MessageAndTopic) ProtoMessage()    {}
+func (*MessageAndTopic) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{6}
+}
+
+func (m *MessageAndTopic) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MessageAndTopic.Unmarshal(m, b)
+}
+func (m *MessageAndTopic) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MessageAndTopic.Marshal(b, m, deterministic)
+}
+func (m *MessageAndTopic) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageAndTopic.Merge(m, src)
+}
+func (m *MessageAndTopic) XXX_Size() int {
+	return xxx_messageInfo_MessageAndTopic.Size(m)
+}
+func (m *MessageAndTopic) XXX_DiscardUnknown() {
+	xxx_messageInfo_MessageAndTopic.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MessageAndTopic proto.InternalMessageInfo
+
+func (m *MessageAndTopic) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (m *MessageAndTopic) GetTopic() string {
+	if m != nil {
+		return m.Topic
+	}
+	return ""
+}
+
+type Peers struct {
+	Peers                []*Peer  `protobuf:"bytes,1,rep,name=Peers,proto3" json:"Peers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Peers) Reset()         { *m = Peers{} }
+func (m *Peers) String() string { return proto.CompactTextString(m) }
+func (*Peers) ProtoMessage()    {}
+func (*Peers) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{7}
+}
+
+func (m *Peers) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Peers.Unmarshal(m, b)
+}
+func (m *Peers) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Peers.Marshal(b, m, deterministic)
+}
+func (m *Peers) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Peers.Merge(m, src)
+}
+func (m *Peers) XXX_Size() int {
+	return xxx_messageInfo_Peers.Size(m)
+}
+func (m *Peers) XXX_DiscardUnknown() {
+	xxx_messageInfo_Peers.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Peers proto.InternalMessageInfo
+
+func (m *Peers) GetPeers() []*Peer {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
+type ConnectResponse struct {
+	Success              bool     `protobuf:"varint,1,opt,name=Success,proto3" json:"Success,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConnectResponse) Reset()         { *m = ConnectResponse{} }
+func (m *ConnectResponse) String() string { return proto.CompactTextString(m) }
+func (*ConnectResponse) ProtoMessage()    {}
+func (*ConnectResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{8}
+}
+
+func (m *ConnectResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConnectResponse.Unmarshal(m, b)
+}
+func (m *ConnectResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConnectResponse.Marshal(b, m, deterministic)
+}
+func (m *ConnectResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectResponse.Merge(m, src)
+}
+func (m *ConnectResponse) XXX_Size() int {
+	return xxx_messageInfo_ConnectResponse.Size(m)
+}
+func (m *ConnectResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConnectResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConnectResponse proto.InternalMessageInfo
+
+func (m *ConnectResponse) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
+type DisconnectResponse struct {
+	Success              bool     `protobuf:"varint,1,opt,name=Success,proto3" json:"Success,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DisconnectResponse) Reset()         { *m = DisconnectResponse{} }
+func (m *DisconnectResponse) String() string { return proto.CompactTextString(m) }
+func (*DisconnectResponse) ProtoMessage()    {}
+func (*DisconnectResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{9}
+}
+
+func (m *DisconnectResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DisconnectResponse.Unmarshal(m, b)
+}
+func (m *DisconnectResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DisconnectResponse.Marshal(b, m, deterministic)
+}
+func (m *DisconnectResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DisconnectResponse.Merge(m, src)
+}
+func (m *DisconnectResponse) XXX_Size() int {
+	return xxx_messageInfo_DisconnectResponse.Size(m)
+}
+func (m *DisconnectResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DisconnectResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DisconnectResponse proto.InternalMessageInfo
+
+func (m *DisconnectResponse) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
+type P2PSettings struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *P2PSettings) Reset()         { *m = P2PSettings{} }
+func (m *P2PSettings) String() string { return proto.CompactTextString(m) }
+func (*P2PSettings) ProtoMessage()    {}
+func (*P2PSettings) Descriptor() ([]byte, []int) {
+	return fileDescriptor_77a6da22d6a3feb1, []int{10}
+}
+
+func (m *P2PSettings) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_P2PSettings.Unmarshal(m, b)
+}
+func (m *P2PSettings) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_P2PSettings.Marshal(b, m, deterministic)
+}
+func (m *P2PSettings) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_P2PSettings.Merge(m, src)
+}
+func (m *P2PSettings) XXX_Size() int {
+	return xxx_messageInfo_P2PSettings.Size(m)
+}
+func (m *P2PSettings) XXX_DiscardUnknown() {
+	xxx_messageInfo_P2PSettings.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_P2PSettings proto.InternalMessageInfo
 
 type GetSlotAndShardAssignmentRequest struct {
 	ValidatorID          uint32   `protobuf:"varint,1,opt,name=ValidatorID,proto3" json:"ValidatorID,omitempty"`
@@ -89,7 +488,7 @@ func (m *GetSlotAndShardAssignmentRequest) Reset()         { *m = GetSlotAndShar
 func (m *GetSlotAndShardAssignmentRequest) String() string { return proto.CompactTextString(m) }
 func (*GetSlotAndShardAssignmentRequest) ProtoMessage()    {}
 func (*GetSlotAndShardAssignmentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{1}
+	return fileDescriptor_77a6da22d6a3feb1, []int{11}
 }
 
 func (m *GetSlotAndShardAssignmentRequest) XXX_Unmarshal(b []byte) error {
@@ -130,7 +529,7 @@ func (m *SlotAndShardAssignment) Reset()         { *m = SlotAndShardAssignment{}
 func (m *SlotAndShardAssignment) String() string { return proto.CompactTextString(m) }
 func (*SlotAndShardAssignment) ProtoMessage()    {}
 func (*SlotAndShardAssignment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{2}
+	return fileDescriptor_77a6da22d6a3feb1, []int{12}
 }
 
 func (m *SlotAndShardAssignment) XXX_Unmarshal(b []byte) error {
@@ -183,7 +582,7 @@ func (m *SubmitBlockRequest) Reset()         { *m = SubmitBlockRequest{} }
 func (m *SubmitBlockRequest) String() string { return proto.CompactTextString(m) }
 func (*SubmitBlockRequest) ProtoMessage()    {}
 func (*SubmitBlockRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{3}
+	return fileDescriptor_77a6da22d6a3feb1, []int{13}
 }
 
 func (m *SubmitBlockRequest) XXX_Unmarshal(b []byte) error {
@@ -222,7 +621,7 @@ func (m *SubmitBlockResponse) Reset()         { *m = SubmitBlockResponse{} }
 func (m *SubmitBlockResponse) String() string { return proto.CompactTextString(m) }
 func (*SubmitBlockResponse) ProtoMessage()    {}
 func (*SubmitBlockResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{4}
+	return fileDescriptor_77a6da22d6a3feb1, []int{14}
 }
 
 func (m *SubmitBlockResponse) XXX_Unmarshal(b []byte) error {
@@ -261,7 +660,7 @@ func (m *SlotNumberResponse) Reset()         { *m = SlotNumberResponse{} }
 func (m *SlotNumberResponse) String() string { return proto.CompactTextString(m) }
 func (*SlotNumberResponse) ProtoMessage()    {}
 func (*SlotNumberResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{5}
+	return fileDescriptor_77a6da22d6a3feb1, []int{15}
 }
 
 func (m *SlotNumberResponse) XXX_Unmarshal(b []byte) error {
@@ -300,7 +699,7 @@ func (m *GetBlockHashRequest) Reset()         { *m = GetBlockHashRequest{} }
 func (m *GetBlockHashRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBlockHashRequest) ProtoMessage()    {}
 func (*GetBlockHashRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{6}
+	return fileDescriptor_77a6da22d6a3feb1, []int{16}
 }
 
 func (m *GetBlockHashRequest) XXX_Unmarshal(b []byte) error {
@@ -339,7 +738,7 @@ func (m *GetBlockHashResponse) Reset()         { *m = GetBlockHashResponse{} }
 func (m *GetBlockHashResponse) String() string { return proto.CompactTextString(m) }
 func (*GetBlockHashResponse) ProtoMessage()    {}
 func (*GetBlockHashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{7}
+	return fileDescriptor_77a6da22d6a3feb1, []int{17}
 }
 
 func (m *GetBlockHashResponse) XXX_Unmarshal(b []byte) error {
@@ -385,7 +784,7 @@ func (m *ValidatorResponse) Reset()         { *m = ValidatorResponse{} }
 func (m *ValidatorResponse) String() string { return proto.CompactTextString(m) }
 func (*ValidatorResponse) ProtoMessage()    {}
 func (*ValidatorResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{8}
+	return fileDescriptor_77a6da22d6a3feb1, []int{18}
 }
 
 func (m *ValidatorResponse) XXX_Unmarshal(b []byte) error {
@@ -473,7 +872,7 @@ func (m *GetValidatorAtIndexRequest) Reset()         { *m = GetValidatorAtIndexR
 func (m *GetValidatorAtIndexRequest) String() string { return proto.CompactTextString(m) }
 func (*GetValidatorAtIndexRequest) ProtoMessage()    {}
 func (*GetValidatorAtIndexRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{9}
+	return fileDescriptor_77a6da22d6a3feb1, []int{19}
 }
 
 func (m *GetValidatorAtIndexRequest) XXX_Unmarshal(b []byte) error {
@@ -512,7 +911,7 @@ func (m *GetValidatorAtIndexResponse) Reset()         { *m = GetValidatorAtIndex
 func (m *GetValidatorAtIndexResponse) String() string { return proto.CompactTextString(m) }
 func (*GetValidatorAtIndexResponse) ProtoMessage()    {}
 func (*GetValidatorAtIndexResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{10}
+	return fileDescriptor_77a6da22d6a3feb1, []int{20}
 }
 
 func (m *GetValidatorAtIndexResponse) XXX_Unmarshal(b []byte) error {
@@ -552,7 +951,7 @@ func (m *GetCommitteeValidatorsRequest) Reset()         { *m = GetCommitteeValid
 func (m *GetCommitteeValidatorsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetCommitteeValidatorsRequest) ProtoMessage()    {}
 func (*GetCommitteeValidatorsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{11}
+	return fileDescriptor_77a6da22d6a3feb1, []int{21}
 }
 
 func (m *GetCommitteeValidatorsRequest) XXX_Unmarshal(b []byte) error {
@@ -598,7 +997,7 @@ func (m *GetCommitteeValidatorsResponse) Reset()         { *m = GetCommitteeVali
 func (m *GetCommitteeValidatorsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetCommitteeValidatorsResponse) ProtoMessage()    {}
 func (*GetCommitteeValidatorsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{12}
+	return fileDescriptor_77a6da22d6a3feb1, []int{22}
 }
 
 func (m *GetCommitteeValidatorsResponse) XXX_Unmarshal(b []byte) error {
@@ -643,7 +1042,7 @@ func (m *Block) Reset()         { *m = Block{} }
 func (m *Block) String() string { return proto.CompactTextString(m) }
 func (*Block) ProtoMessage()    {}
 func (*Block) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{13}
+	return fileDescriptor_77a6da22d6a3feb1, []int{23}
 }
 
 func (m *Block) XXX_Unmarshal(b []byte) error {
@@ -725,7 +1124,7 @@ func (m *Special) Reset()         { *m = Special{} }
 func (m *Special) String() string { return proto.CompactTextString(m) }
 func (*Special) ProtoMessage()    {}
 func (*Special) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{14}
+	return fileDescriptor_77a6da22d6a3feb1, []int{24}
 }
 
 func (m *Special) XXX_Unmarshal(b []byte) error {
@@ -778,7 +1177,7 @@ func (m *Attestation) Reset()         { *m = Attestation{} }
 func (m *Attestation) String() string { return proto.CompactTextString(m) }
 func (*Attestation) ProtoMessage()    {}
 func (*Attestation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{15}
+	return fileDescriptor_77a6da22d6a3feb1, []int{25}
 }
 
 func (m *Attestation) XXX_Unmarshal(b []byte) error {
@@ -871,7 +1270,7 @@ func (m *AttestationSignedData) Reset()         { *m = AttestationSignedData{} }
 func (m *AttestationSignedData) String() string { return proto.CompactTextString(m) }
 func (*AttestationSignedData) ProtoMessage()    {}
 func (*AttestationSignedData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_77a6da22d6a3feb1, []int{16}
+	return fileDescriptor_77a6da22d6a3feb1, []int{26}
 }
 
 func (m *AttestationSignedData) XXX_Unmarshal(b []byte) error {
@@ -936,7 +1335,17 @@ func (m *AttestationSignedData) GetJustifiedSlot() uint64 {
 
 func init() {
 	proto.RegisterEnum("pb.Role", Role_name, Role_value)
-	proto.RegisterType((*Empty)(nil), "pb.Empty")
+	proto.RegisterType((*ConnectionStatus)(nil), "pb.ConnectionStatus")
+	proto.RegisterType((*Peer)(nil), "pb.Peer")
+	proto.RegisterType((*SubscriptionRequest)(nil), "pb.SubscriptionRequest")
+	proto.RegisterType((*Subscription)(nil), "pb.Subscription")
+	proto.RegisterType((*GetPeersResponse)(nil), "pb.GetPeersResponse")
+	proto.RegisterType((*Message)(nil), "pb.Message")
+	proto.RegisterType((*MessageAndTopic)(nil), "pb.MessageAndTopic")
+	proto.RegisterType((*Peers)(nil), "pb.Peers")
+	proto.RegisterType((*ConnectResponse)(nil), "pb.ConnectResponse")
+	proto.RegisterType((*DisconnectResponse)(nil), "pb.DisconnectResponse")
+	proto.RegisterType((*P2PSettings)(nil), "pb.P2PSettings")
 	proto.RegisterType((*GetSlotAndShardAssignmentRequest)(nil), "pb.GetSlotAndShardAssignmentRequest")
 	proto.RegisterType((*SlotAndShardAssignment)(nil), "pb.SlotAndShardAssignment")
 	proto.RegisterType((*SubmitBlockRequest)(nil), "pb.SubmitBlockRequest")
@@ -958,67 +1367,87 @@ func init() {
 func init() { proto.RegisterFile("rpc.proto", fileDescriptor_77a6da22d6a3feb1) }
 
 var fileDescriptor_77a6da22d6a3feb1 = []byte{
-	// 949 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0x5f, 0x73, 0xdb, 0x44,
-	0x10, 0xc7, 0x7f, 0xe3, 0xac, 0xed, 0x36, 0xbd, 0x34, 0x41, 0x98, 0x92, 0x9a, 0x9b, 0x0e, 0x78,
-	0x32, 0x4c, 0x06, 0x9c, 0xe6, 0x95, 0x19, 0x25, 0x31, 0xa1, 0x0c, 0x43, 0x3c, 0xe7, 0x90, 0x3e,
-	0x31, 0xcc, 0xd9, 0x5a, 0x6c, 0x4d, 0x65, 0xc9, 0xd5, 0x9d, 0x4b, 0xc3, 0x77, 0xe2, 0x81, 0x4f,
-	0xc1, 0x13, 0x5f, 0x81, 0xcf, 0xd2, 0xb9, 0xd5, 0x59, 0x96, 0x23, 0xb9, 0xed, 0x9b, 0xf6, 0xb7,
-	0x7f, 0xb4, 0xf7, 0xdb, 0xbd, 0xdd, 0x83, 0xdd, 0x78, 0x31, 0x39, 0x59, 0xc4, 0x91, 0x8e, 0x58,
-	0x79, 0x31, 0xe6, 0x3b, 0x50, 0x1b, 0xcc, 0x17, 0xfa, 0x8e, 0x5f, 0x42, 0xf7, 0x0a, 0xf5, 0x28,
-	0x88, 0xb4, 0x1b, 0x7a, 0xa3, 0x99, 0x8c, 0x3d, 0x57, 0x29, 0x7f, 0x1a, 0xce, 0x31, 0xd4, 0x02,
-	0x5f, 0x2f, 0x51, 0x69, 0xd6, 0x85, 0xe6, 0xad, 0x0c, 0x7c, 0x4f, 0xea, 0x28, 0x7e, 0x71, 0xe9,
-	0x94, 0xba, 0xa5, 0x5e, 0x5b, 0x64, 0x21, 0xee, 0xc1, 0x61, 0x71, 0x08, 0xe6, 0xc0, 0x0e, 0x41,
-	0xa9, 0xdf, 0x4a, 0x64, 0x0c, 0xaa, 0xc6, 0xc7, 0x29, 0x77, 0x4b, 0xbd, 0xaa, 0xa0, 0x6f, 0xf6,
-	0x04, 0xaa, 0x22, 0x0a, 0xd0, 0xa9, 0x74, 0x4b, 0xbd, 0x07, 0xfd, 0xc6, 0xc9, 0x62, 0x7c, 0x62,
-	0x64, 0x41, 0x28, 0x3f, 0x03, 0x36, 0x5a, 0x8e, 0xe7, 0xbe, 0x3e, 0x0f, 0xa2, 0xc9, 0xab, 0x55,
-	0x76, 0x4f, 0xa1, 0x46, 0x32, 0xc5, 0x6f, 0xf6, 0x77, 0x8d, 0x53, 0x62, 0x90, 0xe0, 0xfc, 0x14,
-	0xf6, 0x37, 0xdc, 0xd4, 0x22, 0x0a, 0x15, 0xb2, 0x27, 0xb0, 0x4b, 0xc0, 0x8f, 0x52, 0xcd, 0xc8,
-	0xb7, 0x25, 0xd6, 0x00, 0x7f, 0x0e, 0xcc, 0x64, 0xf4, 0xcb, 0x72, 0x3e, 0xc6, 0x38, 0xf5, 0x39,
-	0x02, 0x58, 0xa3, 0xe4, 0x54, 0x15, 0x19, 0x84, 0x9f, 0xc1, 0xfe, 0x15, 0xea, 0x34, 0xca, 0x2a,
-	0xc5, 0x0f, 0xb9, 0x1d, 0xc3, 0xe3, 0x4d, 0x37, 0xfb, 0x3b, 0x06, 0xd5, 0x4c, 0x76, 0xf4, 0xcd,
-	0xff, 0x2e, 0xc3, 0xa3, 0x94, 0xfa, 0xd4, 0xf2, 0x10, 0xea, 0xc3, 0xe5, 0xf8, 0x15, 0xde, 0x59,
-	0x96, 0xad, 0xc4, 0xbe, 0x81, 0x47, 0x2f, 0x7d, 0x3d, 0xf3, 0x62, 0xf9, 0xa7, 0x0c, 0x5c, 0xcf,
-	0x8b, 0x51, 0x29, 0x62, 0xbc, 0x25, 0xf2, 0x8a, 0x4d, 0xeb, 0x55, 0xd9, 0x2a, 0x14, 0x30, 0xaf,
-	0x60, 0xc7, 0xb0, 0x27, 0x64, 0xe8, 0xc9, 0xe8, 0x22, 0x9a, 0xcf, 0x7d, 0x6d, 0xca, 0xed, 0x54,
-	0x29, 0x74, 0x0e, 0x5f, 0xdb, 0xfe, 0x2c, 0x95, 0xbe, 0x98, 0xc9, 0x70, 0x8a, 0x4e, 0x8d, 0x78,
-	0xc8, 0xe1, 0xa6, 0x65, 0xce, 0x65, 0x20, 0xc3, 0x09, 0x3a, 0x75, 0x32, 0x59, 0x89, 0xe6, 0x94,
-	0x23, 0x2d, 0xf5, 0x52, 0x39, 0x3b, 0xc9, 0x29, 0x13, 0x89, 0x75, 0xa0, 0x31, 0x78, 0xeb, 0x53,
-	0x17, 0x3b, 0x0d, 0x72, 0x49, 0x65, 0xde, 0x87, 0xce, 0x15, 0xea, 0x94, 0x31, 0x57, 0xbf, 0x08,
-	0x3d, 0x7c, 0xbb, 0xaa, 0xcc, 0x63, 0xa8, 0x91, 0x6c, 0x69, 0x4b, 0x04, 0x2e, 0xe0, 0xf3, 0x42,
-	0x1f, 0x4b, 0xf6, 0x29, 0xec, 0xa6, 0x3a, 0xdb, 0x75, 0x07, 0xa6, 0xeb, 0x72, 0x65, 0x11, 0x6b,
-	0x3b, 0xfe, 0x2b, 0x7c, 0x71, 0x85, 0x3a, 0xa1, 0x44, 0x23, 0xa6, 0x0a, 0xf5, 0x91, 0x4d, 0x62,
-	0x52, 0x25, 0xe6, 0xa9, 0x7c, 0x6d, 0x91, 0x08, 0xfc, 0x25, 0x1c, 0x6d, 0x0b, 0x6b, 0xb3, 0x3d,
-	0x03, 0x58, 0xa3, 0x4e, 0xa9, 0x5b, 0xd9, 0x9e, 0x6e, 0xc6, 0x90, 0xff, 0x53, 0xb6, 0xf7, 0xea,
-	0x83, 0x89, 0x71, 0x68, 0x25, 0x35, 0x14, 0xf8, 0x06, 0x65, 0x60, 0xdb, 0x6b, 0x03, 0x63, 0x5f,
-	0xc1, 0x03, 0x37, 0x9c, 0xa0, 0xd2, 0x51, 0x6c, 0xba, 0x18, 0x95, 0x53, 0xe9, 0x56, 0x7a, 0x2d,
-	0x71, 0x0f, 0x65, 0x3d, 0x78, 0xe8, 0x4e, 0xb4, 0xff, 0x06, 0x4d, 0x65, 0x51, 0x44, 0xd1, 0xaa,
-	0xa5, 0xee, 0xc3, 0xec, 0x39, 0x1c, 0x5c, 0xc4, 0x77, 0x4a, 0xcb, 0x20, 0xf0, 0xff, 0x42, 0x6f,
-	0x6d, 0x5f, 0x23, 0xfb, 0x62, 0x25, 0x3b, 0x85, 0x96, 0xab, 0x35, 0x2a, 0x2d, 0xb5, 0x1f, 0x85,
-	0xca, 0xa9, 0x13, 0x1d, 0x0f, 0x0d, 0x1d, 0x19, 0x5c, 0x6c, 0x18, 0xb1, 0xaf, 0xa1, 0x31, 0x5a,
-	0xe0, 0xc4, 0x97, 0x81, 0x69, 0x3c, 0xe3, 0xd0, 0x34, 0x0e, 0x16, 0x13, 0xa9, 0x92, 0x7f, 0x07,
-	0x3b, 0xf6, 0xdb, 0x5c, 0xdd, 0x9b, 0xbb, 0x05, 0xda, 0xbe, 0xa2, 0x6f, 0x83, 0x5d, 0x4a, 0x2d,
-	0x9d, 0x32, 0x1d, 0x9d, 0xbe, 0xf9, 0xbf, 0x65, 0x68, 0x66, 0x7e, 0x96, 0x4e, 0xc5, 0x52, 0x66,
-	0x2a, 0x66, 0x66, 0x68, 0x79, 0x73, 0x86, 0x3e, 0x83, 0xf6, 0x4f, 0x4b, 0xa5, 0xfd, 0x3f, 0x7c,
-	0xf4, 0xc8, 0xad, 0x42, 0x6e, 0x9b, 0x20, 0x3b, 0x01, 0x96, 0x02, 0xeb, 0x91, 0x97, 0xf0, 0x5a,
-	0xa0, 0x31, 0xc5, 0xa2, 0x1f, 0xac, 0x6d, 0x13, 0x4e, 0xef, 0xa1, 0xec, 0x5b, 0xd8, 0xbf, 0x1e,
-	0x07, 0xfe, 0xeb, 0x25, 0x0e, 0x65, 0x8c, 0xa1, 0xb6, 0x95, 0xad, 0xd3, 0xf1, 0x8a, 0x54, 0x66,
-	0x0c, 0x24, 0x87, 0xc5, 0xf8, 0xdc, 0xd7, 0x3f, 0xf8, 0x18, 0x78, 0x74, 0x95, 0x5b, 0x22, 0x87,
-	0x9b, 0xac, 0xdd, 0xe9, 0x34, 0xc6, 0xa9, 0xd4, 0x38, 0xf2, 0xa7, 0xa1, 0xd4, 0xcb, 0x18, 0xe9,
-	0x7a, 0xb7, 0x44, 0x81, 0x86, 0xff, 0x57, 0x82, 0x83, 0x0c, 0x93, 0x46, 0x81, 0x9e, 0xe1, 0xd8,
-	0xf0, 0x77, 0x8b, 0xb1, 0xf2, 0xa3, 0x70, 0xb5, 0x83, 0xac, 0x58, 0xb8, 0x83, 0xd2, 0x7b, 0x56,
-	0xc9, 0xdc, 0x33, 0xd3, 0xe4, 0x1b, 0x87, 0xac, 0xd2, 0x21, 0x37, 0xb0, 0x8f, 0xe6, 0x2d, 0x57,
-	0xb5, 0x7a, 0x41, 0xd5, 0x8e, 0x79, 0xb2, 0x0b, 0x59, 0x0b, 0x1a, 0xee, 0xcd, 0xcd, 0x60, 0x74,
-	0x33, 0x10, 0x7b, 0x9f, 0x18, 0x69, 0x28, 0xae, 0x87, 0xd7, 0xa3, 0x81, 0xd8, 0x2b, 0xf5, 0xff,
-	0xaf, 0x40, 0x9b, 0xe2, 0x4e, 0x66, 0xd2, 0x0f, 0xc5, 0xf0, 0x82, 0x7d, 0x0f, 0xcd, 0xcc, 0xb2,
-	0x63, 0x87, 0xd4, 0xa8, 0xb9, 0xa5, 0xd9, 0xf9, 0x34, 0x87, 0xdb, 0x69, 0xd1, 0x87, 0xb6, 0x7d,
-	0x0f, 0xd8, 0xdb, 0x4d, 0xfb, 0x94, 0xde, 0x0a, 0x9d, 0x24, 0x58, 0x7e, 0x2b, 0xba, 0xd0, 0xca,
-	0xae, 0x2f, 0x46, 0xc1, 0x0b, 0xf6, 0x60, 0xc7, 0xc9, 0x2b, 0x6c, 0x88, 0xdf, 0xe0, 0xb3, 0xad,
-	0xcf, 0x10, 0xf6, 0xcc, 0xba, 0xbd, 0xf7, 0x95, 0xd2, 0xe9, 0xac, 0xb2, 0x2b, 0x88, 0x70, 0x4b,
-	0x7b, 0xf9, 0xfe, 0x40, 0x67, 0x47, 0x36, 0xf0, 0x96, 0xed, 0xd0, 0x79, 0xba, 0x55, 0x6f, 0xd3,
-	0xfe, 0x1d, 0x0e, 0x8b, 0xa7, 0x2f, 0xfb, 0xd2, 0xba, 0x6e, 0x1f, 0xf8, 0x1d, 0xfe, 0x3e, 0x93,
-	0xe4, 0x07, 0xe3, 0x3a, 0x3d, 0xd9, 0x4e, 0xdf, 0x05, 0x00, 0x00, 0xff, 0xff, 0xbf, 0xeb, 0x13,
-	0x77, 0xbf, 0x09, 0x00, 0x00,
+	// 1269 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x57, 0xef, 0x72, 0xd3, 0x46,
+	0x10, 0xaf, 0xff, 0xc4, 0x7f, 0xd6, 0x0e, 0x31, 0x17, 0x48, 0x55, 0x01, 0xc1, 0xbd, 0x61, 0x4a,
+	0x0a, 0x1d, 0x43, 0x1d, 0x68, 0x99, 0xe9, 0x4c, 0x3b, 0x8e, 0x13, 0x52, 0x3a, 0xb4, 0x78, 0xce,
+	0x01, 0x3e, 0x75, 0x3a, 0x67, 0x69, 0x71, 0x34, 0xc8, 0x92, 0xd1, 0x9d, 0x29, 0xe9, 0x3b, 0xf5,
+	0x43, 0x9f, 0xa2, 0x1f, 0x3a, 0x7d, 0x92, 0xbe, 0x44, 0xe7, 0x4e, 0x27, 0x59, 0xb6, 0x64, 0xe0,
+	0x9b, 0xf6, 0xb7, 0x7f, 0x6e, 0x6f, 0x77, 0x6f, 0x77, 0x05, 0xcd, 0x68, 0xee, 0xf4, 0xe6, 0x51,
+	0x28, 0x43, 0x52, 0x9e, 0x4f, 0xec, 0x6b, 0xd3, 0x30, 0x9c, 0xfa, 0x78, 0x4f, 0x23, 0x93, 0xc5,
+	0xab, 0x7b, 0x38, 0x9b, 0xcb, 0x8b, 0x58, 0x80, 0xde, 0x87, 0xce, 0x30, 0x0c, 0x02, 0x74, 0xa4,
+	0x17, 0x06, 0x63, 0xc9, 0xe5, 0x42, 0x90, 0xeb, 0xd0, 0x34, 0x18, 0xba, 0x56, 0xa9, 0x5b, 0x3a,
+	0x68, 0xb0, 0x25, 0x40, 0xbb, 0x50, 0x1d, 0x21, 0x46, 0xc4, 0x82, 0xfa, 0xc0, 0x75, 0x23, 0x14,
+	0x42, 0xcb, 0x34, 0x59, 0x42, 0xd2, 0xbb, 0xb0, 0x3b, 0x5e, 0x4c, 0x84, 0x13, 0x79, 0x73, 0x65,
+	0x95, 0xe1, 0x9b, 0x05, 0x0a, 0x49, 0xae, 0xc0, 0xd6, 0x59, 0x38, 0xf7, 0x1c, 0x23, 0x1e, 0x13,
+	0x74, 0x1f, 0xda, 0x59, 0x61, 0x72, 0x09, 0xca, 0x4f, 0x8e, 0xb5, 0x48, 0x95, 0x95, 0x9f, 0x1c,
+	0xd3, 0x3e, 0x74, 0x4e, 0x51, 0xaa, 0x13, 0x05, 0x43, 0x31, 0x0f, 0x03, 0x81, 0x64, 0x1f, 0xb6,
+	0x34, 0x60, 0x95, 0xba, 0x95, 0x83, 0x56, 0xbf, 0xd1, 0x9b, 0x4f, 0x7a, 0x0a, 0x60, 0x31, 0x4c,
+	0x6f, 0x40, 0xfd, 0x67, 0x14, 0x82, 0x4f, 0x91, 0x10, 0xa8, 0x1e, 0x73, 0xc9, 0xb5, 0xc1, 0x36,
+	0xd3, 0xdf, 0xf4, 0x3b, 0xd8, 0x31, 0xec, 0x41, 0xe0, 0x6a, 0x2f, 0x8a, 0xc4, 0x96, 0xfe, 0x96,
+	0xb3, 0xfe, 0xde, 0x36, 0x67, 0x7f, 0xd0, 0x89, 0xbb, 0xb0, 0x63, 0x82, 0x96, 0xfa, 0x6d, 0x41,
+	0x7d, 0xbc, 0x70, 0x9c, 0x24, 0x64, 0x0d, 0x96, 0x90, 0xb4, 0x07, 0xe4, 0xd8, 0x13, 0xce, 0x47,
+	0xcb, 0x6f, 0x43, 0x6b, 0xd4, 0x1f, 0x8d, 0x51, 0x4a, 0x2f, 0x98, 0x0a, 0x7a, 0x0c, 0xdd, 0x53,
+	0x94, 0x63, 0x3f, 0x94, 0x83, 0xc0, 0x1d, 0x9f, 0xf3, 0xc8, 0x1d, 0x08, 0xe1, 0x4d, 0x83, 0x19,
+	0x06, 0x32, 0x09, 0x7f, 0x17, 0x5a, 0x2f, 0xb8, 0xef, 0xb9, 0x5c, 0x86, 0x91, 0x89, 0xf0, 0x36,
+	0xcb, 0x42, 0xd4, 0x85, 0xbd, 0x62, 0x13, 0xda, 0x11, 0x05, 0xa5, 0x7a, 0x09, 0xa9, 0x02, 0xa7,
+	0x74, 0x74, 0x8c, 0xaa, 0x4c, 0x7f, 0x93, 0xeb, 0x50, 0x65, 0xa1, 0x8f, 0x56, 0xa5, 0x5b, 0x3a,
+	0xb8, 0x14, 0x07, 0x46, 0xd1, 0x4c, 0xa3, 0xf4, 0x21, 0x90, 0xf1, 0x62, 0x32, 0xf3, 0xe4, 0x91,
+	0x1f, 0x3a, 0xaf, 0x13, 0xef, 0x6e, 0xc2, 0x96, 0xa6, 0xb5, 0xfd, 0x56, 0xbf, 0xa9, 0x94, 0x62,
+	0x81, 0x18, 0xa7, 0x87, 0xba, 0xa8, 0x96, 0x6a, 0x26, 0x44, 0xd7, 0xa1, 0xa9, 0x81, 0x1f, 0xb9,
+	0x38, 0x37, 0xd9, 0x5b, 0x02, 0xf4, 0x01, 0x10, 0xe5, 0xd1, 0x2f, 0x8b, 0xd9, 0x04, 0xa3, 0x4c,
+	0xf9, 0xc0, 0x12, 0x35, 0xa5, 0x96, 0x41, 0xe8, 0x43, 0xd8, 0x3d, 0x45, 0x99, 0x5a, 0x49, 0x5c,
+	0xfc, 0x90, 0xda, 0x1d, 0xb8, 0xb2, 0xaa, 0x66, 0x8e, 0x23, 0x50, 0xcd, 0x78, 0xa7, 0xbf, 0xe9,
+	0x9f, 0x65, 0xb8, 0x9c, 0x86, 0x3e, 0x95, 0xdc, 0x83, 0xda, 0x68, 0x31, 0x79, 0x8d, 0x17, 0x26,
+	0xca, 0x86, 0x22, 0x5f, 0xc1, 0xe5, 0x97, 0x9e, 0x3c, 0x77, 0x23, 0xfe, 0x3b, 0xf7, 0x93, 0x47,
+	0x57, 0xd6, 0xe6, 0xf2, 0x8c, 0x55, 0xe9, 0x24, 0x6d, 0x15, 0x6d, 0x30, 0xcf, 0x20, 0x77, 0xa0,
+	0xc3, 0x78, 0xe0, 0xf2, 0x70, 0x18, 0xce, 0x66, 0x9e, 0x54, 0xe9, 0xb6, 0xaa, 0xda, 0x74, 0x0e,
+	0x5f, 0xca, 0x3e, 0xe5, 0x42, 0x0e, 0xcf, 0x79, 0x30, 0x45, 0x6b, 0x4b, 0xc7, 0x21, 0x87, 0xab,
+	0x92, 0x39, 0xe2, 0x3e, 0x0f, 0x1c, 0xb4, 0x6a, 0x5a, 0x24, 0x21, 0xd5, 0x2d, 0xe3, 0x46, 0x63,
+	0xd5, 0xe3, 0x5b, 0x9a, 0xb6, 0x63, 0x43, 0xe3, 0xe4, 0x9d, 0xa7, 0xab, 0xd8, 0x6a, 0x68, 0x95,
+	0x94, 0xa6, 0x7d, 0xb0, 0x4f, 0x51, 0xa6, 0x11, 0x1b, 0xc8, 0x27, 0x81, 0x8b, 0xef, 0x32, 0x9d,
+	0x45, 0xd3, 0x26, 0x6c, 0x31, 0x41, 0x19, 0x5c, 0x2b, 0xd4, 0x31, 0xc1, 0x3e, 0x84, 0x66, 0xca,
+	0x33, 0x55, 0x77, 0x55, 0x55, 0x5d, 0x2e, 0x2d, 0x6c, 0x29, 0x47, 0x9f, 0xc3, 0x8d, 0x53, 0x94,
+	0x71, 0x48, 0x24, 0x62, 0xca, 0x10, 0x1f, 0x59, 0x24, 0xca, 0x55, 0x1d, 0x79, 0x9d, 0xbe, 0x6d,
+	0x16, 0x13, 0xf4, 0x25, 0xec, 0x6f, 0x32, 0x6b, 0xbc, 0x7d, 0x08, 0xb0, 0x44, 0x4d, 0xcb, 0xd9,
+	0xe0, 0x6e, 0x46, 0x90, 0xfe, 0x55, 0x36, 0xef, 0xea, 0x83, 0x8e, 0x51, 0x68, 0xc7, 0x39, 0x64,
+	0xf8, 0x16, 0xb9, 0x6f, 0xca, 0x6b, 0x05, 0x23, 0x5f, 0xc0, 0xa5, 0x41, 0xe0, 0xa0, 0x90, 0x61,
+	0xa4, 0xaa, 0x18, 0x85, 0x55, 0xe9, 0x56, 0x0e, 0xda, 0x6c, 0x0d, 0x25, 0x07, 0xb0, 0x33, 0x70,
+	0xa4, 0xf7, 0x16, 0x55, 0x66, 0x91, 0x85, 0x61, 0x52, 0x52, 0xeb, 0x30, 0x79, 0x00, 0x57, 0x87,
+	0xd1, 0x85, 0x90, 0xdc, 0xf7, 0xbd, 0x3f, 0xd0, 0x5d, 0xca, 0x6f, 0x69, 0xf9, 0x62, 0x26, 0x39,
+	0x84, 0xf6, 0x40, 0x4a, 0x14, 0x92, 0xab, 0x91, 0x21, 0xac, 0x9a, 0x0e, 0xc7, 0x8e, 0x0a, 0x47,
+	0x06, 0x67, 0x2b, 0x42, 0xe4, 0x36, 0x34, 0xc6, 0x73, 0x74, 0x3c, 0xee, 0xab, 0xc2, 0x53, 0x0a,
+	0x2d, 0xa5, 0x60, 0x30, 0x96, 0x32, 0xe9, 0xd7, 0x50, 0x37, 0xdf, 0xea, 0xe9, 0x9e, 0x5d, 0xcc,
+	0xd1, 0xd4, 0x95, 0xfe, 0x4e, 0x47, 0x45, 0x59, 0x5f, 0x3d, 0x9e, 0x28, 0x7f, 0x97, 0xa1, 0x95,
+	0x39, 0x2c, 0xed, 0x8a, 0xa5, 0x4c, 0x57, 0xcc, 0xf4, 0xd0, 0xf2, 0x6a, 0x0f, 0xbd, 0x05, 0xdb,
+	0x3f, 0x2d, 0x84, 0xf4, 0x5e, 0x79, 0xe8, 0x6a, 0xb5, 0x8a, 0x56, 0x5b, 0x05, 0x49, 0x0f, 0x48,
+	0x0a, 0x2c, 0x5b, 0x5e, 0x1c, 0xd7, 0x02, 0x8e, 0x4a, 0x96, 0x3e, 0x60, 0x29, 0x1b, 0xc7, 0x74,
+	0x0d, 0x25, 0xf7, 0x61, 0xf7, 0xd9, 0xc4, 0xf7, 0xde, 0x2c, 0x70, 0xc4, 0x23, 0x0c, 0xa4, 0xc9,
+	0x6c, 0x4d, 0x5f, 0xaf, 0x88, 0xa5, 0xda, 0x40, 0x7c, 0x59, 0x8c, 0x8e, 0x3c, 0xf9, 0xd8, 0x43,
+	0xdf, 0xd5, 0x4f, 0xb9, 0xcd, 0x72, 0xb8, 0xf2, 0x7a, 0x30, 0x9d, 0x46, 0x38, 0xe5, 0x12, 0xc7,
+	0xde, 0x34, 0xe0, 0x72, 0x11, 0xa1, 0x7e, 0xde, 0x6d, 0x56, 0xc0, 0xa1, 0xff, 0x96, 0xe0, 0x6a,
+	0x26, 0x92, 0x8a, 0x81, 0xae, 0x1e, 0xc7, 0x16, 0xd4, 0x5f, 0x60, 0x24, 0xbc, 0x30, 0x48, 0x66,
+	0x90, 0x21, 0x0b, 0x67, 0x50, 0xfa, 0xce, 0x2a, 0x99, 0x77, 0xa6, 0x8a, 0x7c, 0xe5, 0x92, 0x55,
+	0x7d, 0xc9, 0x15, 0xec, 0xa3, 0xe3, 0x96, 0xcb, 0x5a, 0xad, 0x20, 0x6b, 0x77, 0x68, 0x3c, 0x0b,
+	0x49, 0x1b, 0x1a, 0x83, 0xb3, 0xb3, 0x93, 0xf1, 0xd9, 0x09, 0xeb, 0x7c, 0xa2, 0xa8, 0x11, 0x7b,
+	0x36, 0x7a, 0x36, 0x3e, 0x61, 0x9d, 0x52, 0xff, 0xbf, 0x0a, 0x6c, 0x6b, 0xbb, 0xce, 0x39, 0xf7,
+	0x02, 0x36, 0x1a, 0x92, 0xef, 0xa1, 0x95, 0x19, 0x76, 0x64, 0x4f, 0x17, 0x6a, 0x6e, 0x68, 0xda,
+	0x9f, 0xe6, 0x70, 0xd3, 0x2d, 0x7e, 0x80, 0x6d, 0xb3, 0x0f, 0x98, 0xd7, 0xbd, 0xd7, 0x8b, 0x97,
+	0xc0, 0x5e, 0xb2, 0x04, 0xf6, 0x4e, 0xd4, 0x12, 0x68, 0xc7, 0x96, 0xf3, 0x23, 0x72, 0x00, 0xed,
+	0xec, 0x2c, 0x23, 0xfa, 0xa4, 0x82, 0xa1, 0x68, 0x5b, 0x79, 0x86, 0x31, 0xf1, 0x2b, 0x7c, 0xb6,
+	0x71, 0x27, 0x21, 0xb7, 0x8c, 0xda, 0x7b, 0x57, 0x16, 0xdb, 0x4e, 0xbc, 0x2b, 0xb0, 0xf0, 0x42,
+	0x0f, 0xe9, 0xf5, 0xee, 0x4e, 0xf6, 0x8d, 0xe1, 0x0d, 0xa3, 0xc2, 0xbe, 0xb9, 0x91, 0x6f, 0xdc,
+	0xfe, 0x0d, 0xf6, 0x8a, 0x5b, 0x31, 0xf9, 0xdc, 0xa8, 0x6e, 0xee, 0xfe, 0x36, 0x7d, 0x9f, 0x48,
+	0x7c, 0x40, 0xff, 0x9f, 0x0a, 0xd4, 0x46, 0xfd, 0x91, 0x4a, 0xf3, 0x50, 0xdf, 0x21, 0xb7, 0x7f,
+	0x6f, 0x4a, 0xd6, 0x15, 0x65, 0x3d, 0x27, 0xfd, 0x08, 0x1a, 0xc9, 0x82, 0xfc, 0x7e, 0xcd, 0xdc,
+	0x1a, 0xfd, 0x0d, 0x34, 0xcd, 0xea, 0x3d, 0x41, 0x92, 0xd4, 0xd2, 0xfa, 0xda, 0x6e, 0x77, 0xd6,
+	0x19, 0xe4, 0x01, 0x5c, 0x7e, 0xea, 0x09, 0x89, 0xc1, 0xe3, 0x30, 0x32, 0x8b, 0xb4, 0x20, 0x39,
+	0x31, 0x5b, 0xb7, 0x57, 0xc3, 0xbf, 0x5f, 0x22, 0xdf, 0x42, 0xeb, 0x79, 0x20, 0xd2, 0xf3, 0xf2,
+	0xf2, 0x1b, 0x9c, 0x27, 0x5f, 0x42, 0xdd, 0x5c, 0x9a, 0x34, 0x93, 0x25, 0x5b, 0xd8, 0xbb, 0x99,
+	0x60, 0x64, 0x6e, 0xd4, 0x52, 0x45, 0x65, 0xd6, 0xe2, 0x8d, 0xe1, 0xd0, 0x93, 0x22, 0xb3, 0x3f,
+	0x93, 0x47, 0xd0, 0x3c, 0x8a, 0x42, 0xee, 0x3a, 0x5c, 0x48, 0xb2, 0x9b, 0xf1, 0x3b, 0xf9, 0x41,
+	0xd8, 0xe4, 0xdc, 0xa4, 0xa6, 0xe9, 0xc3, 0xff, 0x03, 0x00, 0x00, 0xff, 0xff, 0x42, 0x54, 0xff,
+	0x51, 0x74, 0x0d, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1034,7 +1463,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type BlockchainRPCClient interface {
 	SubmitBlock(ctx context.Context, in *SubmitBlockRequest, opts ...grpc.CallOption) (*SubmitBlockResponse, error)
-	GetSlotNumber(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SlotNumberResponse, error)
+	GetSlotNumber(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SlotNumberResponse, error)
 	GetBlockHash(ctx context.Context, in *GetBlockHashRequest, opts ...grpc.CallOption) (*GetBlockHashResponse, error)
 	GetSlotAndShardAssignment(ctx context.Context, in *GetSlotAndShardAssignmentRequest, opts ...grpc.CallOption) (*SlotAndShardAssignment, error)
 	GetValidatorAtIndex(ctx context.Context, in *GetValidatorAtIndexRequest, opts ...grpc.CallOption) (*GetValidatorAtIndexResponse, error)
@@ -1058,7 +1487,7 @@ func (c *blockchainRPCClient) SubmitBlock(ctx context.Context, in *SubmitBlockRe
 	return out, nil
 }
 
-func (c *blockchainRPCClient) GetSlotNumber(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SlotNumberResponse, error) {
+func (c *blockchainRPCClient) GetSlotNumber(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SlotNumberResponse, error) {
 	out := new(SlotNumberResponse)
 	err := c.cc.Invoke(ctx, "/pb.BlockchainRPC/GetSlotNumber", in, out, opts...)
 	if err != nil {
@@ -1106,7 +1535,7 @@ func (c *blockchainRPCClient) GetCommitteeValidators(ctx context.Context, in *Ge
 // BlockchainRPCServer is the server API for BlockchainRPC service.
 type BlockchainRPCServer interface {
 	SubmitBlock(context.Context, *SubmitBlockRequest) (*SubmitBlockResponse, error)
-	GetSlotNumber(context.Context, *Empty) (*SlotNumberResponse, error)
+	GetSlotNumber(context.Context, *empty.Empty) (*SlotNumberResponse, error)
 	GetBlockHash(context.Context, *GetBlockHashRequest) (*GetBlockHashResponse, error)
 	GetSlotAndShardAssignment(context.Context, *GetSlotAndShardAssignmentRequest) (*SlotAndShardAssignment, error)
 	GetValidatorAtIndex(context.Context, *GetValidatorAtIndexRequest) (*GetValidatorAtIndexResponse, error)
@@ -1136,7 +1565,7 @@ func _BlockchainRPC_SubmitBlock_Handler(srv interface{}, ctx context.Context, de
 }
 
 func _BlockchainRPC_GetSlotNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1148,7 +1577,7 @@ func _BlockchainRPC_GetSlotNumber_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: "/pb.BlockchainRPC/GetSlotNumber",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BlockchainRPCServer).GetSlotNumber(ctx, req.(*Empty))
+		return srv.(BlockchainRPCServer).GetSlotNumber(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1255,5 +1684,328 @@ var _BlockchainRPC_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
+	Metadata: "rpc.proto",
+}
+
+// P2PRPCClient is the client API for P2PRPC service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type P2PRPCClient interface {
+	GetConnectionStatus(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ConnectionStatus, error)
+	GetPeers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetPeersResponse, error)
+	Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (*Subscription, error)
+	ListenForMessages(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (P2PRPC_ListenForMessagesClient, error)
+	Unsubscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*empty.Empty, error)
+	Connect(ctx context.Context, in *Peers, opts ...grpc.CallOption) (*ConnectResponse, error)
+	GetSettings(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*P2PSettings, error)
+	Broadcast(ctx context.Context, in *MessageAndTopic, opts ...grpc.CallOption) (*empty.Empty, error)
+}
+
+type p2PRPCClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewP2PRPCClient(cc *grpc.ClientConn) P2PRPCClient {
+	return &p2PRPCClient{cc}
+}
+
+func (c *p2PRPCClient) GetConnectionStatus(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ConnectionStatus, error) {
+	out := new(ConnectionStatus)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/GetConnectionStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) GetPeers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetPeersResponse, error) {
+	out := new(GetPeersResponse)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/GetPeers", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (*Subscription, error) {
+	out := new(Subscription)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Subscribe", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) ListenForMessages(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (P2PRPC_ListenForMessagesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_P2PRPC_serviceDesc.Streams[0], "/pb.P2PRPC/ListenForMessages", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &p2PRPCListenForMessagesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type P2PRPC_ListenForMessagesClient interface {
+	Recv() (*Message, error)
+	grpc.ClientStream
+}
+
+type p2PRPCListenForMessagesClient struct {
+	grpc.ClientStream
+}
+
+func (x *p2PRPCListenForMessagesClient) Recv() (*Message, error) {
+	m := new(Message)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *p2PRPCClient) Unsubscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Unsubscribe", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) Connect(ctx context.Context, in *Peers, opts ...grpc.CallOption) (*ConnectResponse, error) {
+	out := new(ConnectResponse)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Connect", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) GetSettings(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*P2PSettings, error) {
+	out := new(P2PSettings)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/GetSettings", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) Broadcast(ctx context.Context, in *MessageAndTopic, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Broadcast", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// P2PRPCServer is the server API for P2PRPC service.
+type P2PRPCServer interface {
+	GetConnectionStatus(context.Context, *empty.Empty) (*ConnectionStatus, error)
+	GetPeers(context.Context, *empty.Empty) (*GetPeersResponse, error)
+	Subscribe(context.Context, *SubscriptionRequest) (*Subscription, error)
+	ListenForMessages(*Subscription, P2PRPC_ListenForMessagesServer) error
+	Unsubscribe(context.Context, *Subscription) (*empty.Empty, error)
+	Connect(context.Context, *Peers) (*ConnectResponse, error)
+	GetSettings(context.Context, *empty.Empty) (*P2PSettings, error)
+	Broadcast(context.Context, *MessageAndTopic) (*empty.Empty, error)
+}
+
+func RegisterP2PRPCServer(s *grpc.Server, srv P2PRPCServer) {
+	s.RegisterService(&_P2PRPC_serviceDesc, srv)
+}
+
+func _P2PRPC_GetConnectionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).GetConnectionStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/GetConnectionStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).GetConnectionStatus(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_GetPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).GetPeers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/GetPeers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).GetPeers(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_Subscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Subscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Subscribe",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Subscribe(ctx, req.(*SubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_ListenForMessages_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Subscription)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(P2PRPCServer).ListenForMessages(m, &p2PRPCListenForMessagesServer{stream})
+}
+
+type P2PRPC_ListenForMessagesServer interface {
+	Send(*Message) error
+	grpc.ServerStream
+}
+
+type p2PRPCListenForMessagesServer struct {
+	grpc.ServerStream
+}
+
+func (x *p2PRPCListenForMessagesServer) Send(m *Message) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _P2PRPC_Unsubscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Subscription)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Unsubscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Unsubscribe",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Unsubscribe(ctx, req.(*Subscription))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_Connect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Peers)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Connect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Connect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Connect(ctx, req.(*Peers))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_GetSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).GetSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/GetSettings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).GetSettings(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_Broadcast_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MessageAndTopic)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Broadcast(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Broadcast",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Broadcast(ctx, req.(*MessageAndTopic))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _P2PRPC_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pb.P2PRPC",
+	HandlerType: (*P2PRPCServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetConnectionStatus",
+			Handler:    _P2PRPC_GetConnectionStatus_Handler,
+		},
+		{
+			MethodName: "GetPeers",
+			Handler:    _P2PRPC_GetPeers_Handler,
+		},
+		{
+			MethodName: "Subscribe",
+			Handler:    _P2PRPC_Subscribe_Handler,
+		},
+		{
+			MethodName: "Unsubscribe",
+			Handler:    _P2PRPC_Unsubscribe_Handler,
+		},
+		{
+			MethodName: "Connect",
+			Handler:    _P2PRPC_Connect_Handler,
+		},
+		{
+			MethodName: "GetSettings",
+			Handler:    _P2PRPC_GetSettings_Handler,
+		},
+		{
+			MethodName: "Broadcast",
+			Handler:    _P2PRPC_Broadcast_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ListenForMessages",
+			Handler:       _P2PRPC_ListenForMessages_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "rpc.proto",
 }

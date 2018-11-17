@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/pb"
@@ -74,7 +75,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 	for {
 		<-t.C
 
-		b, err := vm.rpc.GetSlotNumber(context.Background(), &pb.Empty{})
+		b, err := vm.rpc.GetSlotNumber(context.Background(), &empty.Empty{})
 		if err != nil {
 			return err
 		}

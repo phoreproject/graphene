@@ -11,3 +11,9 @@ This is loosely based on the Ethereum sharding system.
 - implement BLS sigs
 - implement serialization of active/crystallized states into merkle roots
 - registration logic
+
+## Service Port List
+
+- `11781` - P2P network default port
+- `11782` - beacon chain RPC port
+- `11783` - P2P service RPC port

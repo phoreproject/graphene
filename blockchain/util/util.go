@@ -15,13 +15,14 @@ import (
 var randaoSecret = chainhash.HashH([]byte("randao"))
 var zeroHash = chainhash.Hash{}
 
-func SetupBlockchain() (*blockchain.Blockchain, error) {
+// SetupBlockchain sets up a blockchain with a certain number of initial validators
+func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockchain.Blockchain, error) {
 
 	randaoCommitment := chainhash.HashH(randaoSecret[:])
 
 	validators := []blockchain.InitialValidatorEntry{}
 
-	for i := 0; i <= 100000; i++ {
+	for i := 0; i <= initialValidators; i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
 			PubKey:            bls.PublicKey{},
 			ProofOfPossession: bls.Signature{},
@@ -31,7 +32,7 @@ func SetupBlockchain() (*blockchain.Blockchain, error) {
 		})
 	}
 
-	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), &blockchain.MainNetConfig, validators)
+	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), config, validators)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +40,7 @@ func SetupBlockchain() (*blockchain.Blockchain, error) {
 	return b, nil
 }
 
+// MineBlockWithSpecialsAndAttestations mines a block with the given specials and attestations.
 func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (*primitives.Block, error) {
 	lastBlock, err := b.LastBlock()
 	if err != nil {
@@ -63,6 +65,7 @@ func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []t
 	return &block1, nil
 }
 
+// GenerateFakeAttestations generates a bunch of fake attestations.
 func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestation, error) {
 	lb, err := b.LastBlock()
 	if err != nil {
@@ -101,8 +104,9 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 	return attestations, nil
 }
 
+// SetBit sets a bit in a bitfield.
 func SetBit(bitfield []byte, id uint32) ([]byte, error) {
-	if uint32(len(bitfield)*8) < id {
+	if uint32(len(bitfield)*8) <= id {
 		return nil, fmt.Errorf("bitfield is too short")
 	}
 
@@ -111,6 +115,7 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 	return bitfield, nil
 }
 
+// MineBlockWithFullAttestations generates attestations to include in a block and mines it.
 func MineBlockWithFullAttestations(b *blockchain.Blockchain) (*primitives.Block, error) {
 	atts, err := GenerateFakeAttestations(b)
 	if err != nil {

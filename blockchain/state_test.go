@@ -15,7 +15,7 @@ import (
 )
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+1, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 }
 
 func TestStateInitialization(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+1, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 }
 
 func TestAttestationValidation(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(16448, &blockchain.MainNetConfig) // committee size of 257 (% 8 = 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,6 +212,8 @@ func TestAttestationValidation(t *testing.T) {
 	}
 
 	assignment := b.GetState().Crystallized.ShardAndCommitteeForSlots[lb.SlotNumber][0]
+
+	committeeSize := len(assignment.Committee)
 
 	attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
 
@@ -283,10 +285,54 @@ func TestAttestationValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("did not catch invalid shard ID")
 	}
+
+	att = &transaction.Attestation{
+		Slot:                lb.SlotNumber,
+		ShardID:             assignment.ShardID,
+		JustifiedSlot:       0,
+		JustifiedBlockHash:  b0,
+		ObliqueParentHashes: []chainhash.Hash{},
+		AttesterBitField:    append(attesterBitfield, byte(0x00)),
+		AggregateSignature:  bls.Signature{},
+	}
+
+	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	if err == nil {
+		t.Fatal("did not catch invalid attester bitfield (too many bytes)")
+	}
+
+	for bitToSet := uint32(0); bitToSet <= 6; bitToSet++ {
+
+		// t.Logf("attester bitfield length: %d, max validators: %d, validator: %d\n", len(attesterBitfield), len(attesterBitfield)*8, uint32(committeeSize)+bitToSet)
+
+		newAttesterBitField := make([]byte, len(attesterBitfield))
+		copy(newAttesterBitField, attesterBitfield)
+
+		modifiedAttesterBitfield, err := util.SetBit(newAttesterBitField, uint32(committeeSize)+bitToSet)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		att = &transaction.Attestation{
+			Slot:                lb.SlotNumber,
+			ShardID:             assignment.ShardID,
+			JustifiedSlot:       0,
+			JustifiedBlockHash:  b0,
+			ObliqueParentHashes: []chainhash.Hash{},
+			AttesterBitField:    modifiedAttesterBitfield,
+			AggregateSignature:  bls.Signature{},
+		}
+
+		err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+		if err == nil {
+			t.Fatal("did not catch invalid attester bitfield (not enough 0s at end)")
+		}
+		// t.Log(err)
+	}
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	b, err := util.SetupBlockchain()
+	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+5, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

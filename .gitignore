@@ -1,2 +1,4 @@
 *.prof
 *.test
+synapsebeacon
+synapsevalidator

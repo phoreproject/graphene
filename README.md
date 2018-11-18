@@ -17,3 +17,22 @@ This is loosely based on the Ethereum sharding system.
 - `11781` - P2P network default port
 - `11782` - beacon chain RPC port
 - `11783` - P2P service RPC port
+
+## Testing
+
+```bash
+make test
+```
+
+## Building
+
+```bash
+make build
+```
+
+## Installing pre-commit checks
+
+```bash
+pip install precommit
+precommit install
+```

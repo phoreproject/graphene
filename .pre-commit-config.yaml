@@ -1,0 +1,19 @@
+- repo: git://github.com/dnephin/pre-commit-golang
+  sha: e587f762e2c8884f9033d6b608a5e5a75fa805e1
+  hooks:
+    - id: go-fmt
+    - id: go-vet
+    - id: go-lint
+    - id: validate-toml
+    - id: no-go-testing
+    - id: go-unit-tests
+- repo: git://github.com/pre-commit/pre-commit-hooks
+  sha: v0.7.1
+  hooks:
+    - id: check-merge-conflict
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+- repo: https://github.com/troian/pre-commit-golang
+  sha: ab57c5db44bbeeae1031a2e9c2889367f8387d59
+  hooks:
+    - id: go-build

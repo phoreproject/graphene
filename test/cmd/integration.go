@@ -8,6 +8,7 @@ import (
 	test "github.com/phoreproject/synapse/test"
 )
 
+// Command is an integration test command.
 type Command struct {
 	Command string
 	Args    []string
@@ -74,7 +75,7 @@ func main() {
 			panic(err)
 		}
 
-		log15.Info("tests succeded")
+		log15.Info("tests succeeded")
 
 		for _, c := range cmds {
 			err := c.Process.Kill()

@@ -46,13 +46,12 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 			return 0, err
 		}
 		return uint64(binary.BigEndian.Uint32(i2)), nil
-	} else {
-		i2, err := ReadBytes(r, 8)
-		if err != nil {
-			return 0, err
-		}
-		return uint64(binary.BigEndian.Uint64(i2)), nil
 	}
+	i2, err := ReadBytes(r, 8)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(binary.BigEndian.Uint64(i2)), nil
 }
 
 // WriteVarInt will get the binary representation of a varint.
@@ -67,11 +66,10 @@ func WriteVarInt(i uint64) []byte {
 		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, uint32(i))
 		return append([]byte{'\xfe'}, b...)
-	} else {
-		b := make([]byte, 8)
-		binary.BigEndian.PutUint64(b, uint64(i))
-		return append([]byte{'\xff'}, b...)
 	}
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(i))
+	return append([]byte{'\xff'}, b...)
 }
 
 // ReadByteArray reads a byte array from a reader encoded as

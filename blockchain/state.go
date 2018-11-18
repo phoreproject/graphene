@@ -208,7 +208,7 @@ func MinEmptyValidator(validators []primitives.Validator) int {
 func AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64, status uint8, con *Config) ([]primitives.Validator, uint32, error) {
 	verifies, err := bls.VerifySig(&pubkey, pubkey.Hash(), &proofOfPossession)
 	if err != nil || !verifies {
-		return nil, 0, errors.New("validator proof of possesion does not verify")
+		return nil, 0, errors.New("validator proof of possession does not verify")
 	}
 
 	rec := primitives.Validator{
@@ -532,6 +532,7 @@ func hasVoted(bitfield []byte, index int) bool {
 	return bitfield[index/8]&(128>>uint(index%8)) != 0
 }
 
+// RepeatHash repeats a hash n times.
 func RepeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	for n > 0 {
 		h = chainhash.HashH(h[:])

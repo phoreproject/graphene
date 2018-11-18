@@ -22,6 +22,7 @@ func DeserializeSignature([]byte) (Signature, error) {
 // SecretKey used in the BLS scheme.
 type SecretKey struct{}
 
+// DerivePublicKey derives a public key from a secret key.
 func (s SecretKey) DerivePublicKey() *PublicKey {
 	return &PublicKey{}
 }

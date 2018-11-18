@@ -88,7 +88,7 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterP2PRPCServer(s, p2p.NewP2PRPCServer(&network))
+	pb.RegisterP2PRPCServer(s, p2p.NewRPCServer(&network))
 	reflection.Register(s)
 	err = s.Serve(lis)
 	if err != nil {

@@ -29,8 +29,7 @@ before_script:
 script:
   - golangci-lint run --disable megacheck      # run a bunch of code checkers/linters in parallel
   - go test -v -race ./... -coverprofile=coverage.txt -covermode=atomic # Run all the tests with the race detector enabled
-  - go build -o integration_tests test/cmd/integration.go
-  - ./integration_tests
+  - make integrationtest
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)

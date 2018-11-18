@@ -14,7 +14,6 @@ type Command struct {
 }
 
 func main() {
-
 	tests := []struct {
 		Test     func() error
 		Commands []Command

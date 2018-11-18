@@ -11,8 +11,10 @@ $(BINARY_NAME): $(SRC)
 	go build cmd/beacon/synapsebeacon.go
 	go build cmd/validator/synapsevalidator.go
 	go build cmd/p2p/synapsep2p.go
-test: synapsep2p
+test: unittest integrationtest
+unittest:
 	go test -v ./...
+integrationtest: synapsep2p
 	go build -o integration_tests test/cmd/integration.go
 	./integration_tests
 clean:

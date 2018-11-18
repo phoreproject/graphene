@@ -1,4 +1,8 @@
 *.prof
 *.test
+
+# binaries
 synapsebeacon
 synapsevalidator
+synapsep2p
+integration_tests

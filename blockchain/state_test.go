@@ -170,7 +170,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 
 	_, err = blockchain.ShardCommitteeByShardID(9, committees)
 	if err == nil {
-		t.Fatal("did not error on non-existant shard ID")
+		t.Fatal("did not error on non-existent shard ID")
 	}
 
 	shardAndCommitteeForSlots := [][]primitives.ShardAndCommittee{committees}

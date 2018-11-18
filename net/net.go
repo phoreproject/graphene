@@ -57,14 +57,17 @@ func (n *NetworkingService) RegisterHandler(topic string, handler func([]byte) e
 	return s, nil
 }
 
+// Broadcast broadcasts a message to the network for a topic.
 func (n *NetworkingService) Broadcast(topic string, data []byte) error {
 	return n.gossipSub.Publish(topic, data)
 }
 
+// CancelHandler cancels a subscription to a topic.
 func (n *NetworkingService) CancelHandler(subscription *pubsub.Subscription) {
 	subscription.Cancel()
 }
 
+// GetPeers gets the multiaddrs for all of the peers.
 func (n *NetworkingService) GetPeers() []multiaddr.Multiaddr {
 	peers := n.host.Peerstore().PeersWithAddrs()
 	addrs := []multiaddr.Multiaddr{}
@@ -77,6 +80,8 @@ func (n *NetworkingService) GetPeers() []multiaddr.Multiaddr {
 	return addrs
 }
 
+// IsConnected checks if the networking service is connected
+// to any peers.
 func (n *NetworkingService) IsConnected() bool {
 	return n.host.Peerstore().Peers().Len() > 0
 }

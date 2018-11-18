@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+// TestP2PModuleCommunication tests to make sure the P2P
+// modules can communicate with each other.
 func TestP2PModuleCommunication() error {
 	conn, err := grpc.Dial("127.0.0.1:11883", grpc.WithInsecure())
 	if err != nil {

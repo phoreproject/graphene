@@ -1,7 +1,9 @@
-package main
+package integration_test
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -9,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func main() {
+func TestP2PModuleCommunication() error {
 	conn, err := grpc.Dial("127.0.0.1:11883", grpc.WithInsecure())
 	if err != nil {
 		panic(err)
@@ -58,7 +60,7 @@ func main() {
 		panic(err)
 	}
 
-	doneChan := make(chan struct{})
+	doneChan := make(chan error)
 
 	go func() {
 		msg, err := stream.Recv()
@@ -66,22 +68,24 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Printf("peer 0 returned message from topic cow: %s\n", msg)
+		if !bytes.Equal(msg.Data, []byte("I'm a cow")) {
+			doneChan <- errors.New("received incorrect message")
+		}
 
-		doneChan <- struct{}{}
+		doneChan <- nil
 	}()
 
 	fmt.Println("peer 1 sending message to topic cow: I'm a cow")
 
-	_, err = client1.Broadcast(context.Background(), &pb.MessageAndTopic{Data: []byte("I'm a cow"), Topic: "cows"})
-	if err != nil {
-		panic(err)
-	}
-
 	_, err = client1.Broadcast(context.Background(), &pb.MessageAndTopic{Data: []byte("I'm not a cow"), Topic: "not-cows"})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	<-doneChan
+	_, err = client1.Broadcast(context.Background(), &pb.MessageAndTopic{Data: []byte("I'm a cow"), Topic: "cows"})
+	if err != nil {
+		return err
+	}
+
+	return <-doneChan
 }

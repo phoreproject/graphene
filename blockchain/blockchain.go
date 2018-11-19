@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/db"
 	"github.com/phoreproject/synapse/primitives"
@@ -93,7 +93,7 @@ const (
 func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 	b.chain.lock.Lock()
 	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
-		logger.Debug("updating blockchain head", "hash", n.Hash(), "height", n.SlotNumber)
+		logger.WithField("hash", n.Hash()).WithField("height", n.SlotNumber).Debug("updating blockchain head")
 		b.chain.lock.Unlock()
 		err := b.SetTip(n)
 		if err != nil {

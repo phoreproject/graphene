@@ -17,7 +17,7 @@ import (
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/db"
 
-	logger "github.com/inconshreveable/log15"
+	logger "github.com/sirupsen/logrus"
 )
 
 const clientVersion = "0.0.1"
@@ -27,7 +27,7 @@ func main() {
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	flag.Parse()
 
-	logger.Info("initializing client", "version", clientVersion)
+	logger.WithField("version", clientVersion).Info("initializing client")
 
 	logger.Info("initializing database")
 	database := db.NewInMemoryDB()
@@ -49,7 +49,7 @@ func main() {
 		})
 	}
 
-	logger.Info("initializing blockchain with validators", "numValidators", len(validators))
+	logger.WithField("numValidators", len(validators)).Info("initializing blockchain with validators")
 
 	blockchain, err := blockchain.NewBlockchainWithInitialValidators(database, &c, validators)
 	if err != nil {

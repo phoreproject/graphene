@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	logger "github.com/inconshreveable/log15"
 	host "github.com/libp2p/go-libp2p-host"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
+	logger "github.com/sirupsen/logrus"
 )
 
 // Discovery interval for multicast DNS querying.
@@ -44,14 +44,14 @@ func (d *discovery) HandlePeerFound(pi ps.PeerInfo) {
 		}
 	}
 
-	logger.Debug("attempting to connect to a peer", "addrs", pi.Addrs, "id", pi.ID)
+	logger.WithField("addrs", pi.Addrs).WithField("id", pi.ID).Debug("attempting to connect to a peer")
 
 	if err := d.host.Connect(d.ctx, pi); err != nil {
-		logger.Warn("failed to connect to peer", "error", err)
+		logger.WithField("error", err).Warn("failed to connect to peer")
 		return
 	}
 
 	d.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, ps.PermanentAddrTTL)
 
-	logger.Debug("peers updated", "peers", d.host.Peerstore().Peers())
+	logger.WithField("peers", d.host.Peerstore().Peers()).Debug("peers updated")
 }

@@ -10,12 +10,12 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
+	logger "github.com/sirupsen/logrus"
 )
 
 // ActiveState is state that can change every block.
@@ -460,7 +460,7 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
-	logger.Debug("adding block to cache and updating head if needed", "hash", block.Hash())
+	logger.WithField("hash", block.Hash()).Debug("adding block to cache and updating head if needed")
 	err := b.UpdateChainHead(block)
 	if err != nil {
 		return err

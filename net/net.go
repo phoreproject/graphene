@@ -8,7 +8,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-peerstore"
 
-	logger "github.com/inconshreveable/log15"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/multiformats/go-multiaddr"
 
@@ -43,13 +43,13 @@ func (n *NetworkingService) RegisterHandler(topic string, handler func([]byte) e
 		for {
 			msg, err := s.Next(n.ctx)
 			if err != nil {
-				logger.Warn("error when getting next topic message", "error", err)
+				logger.WithField("error", err).Warn("error when getting next topic message")
 				return
 			}
 
 			err = handler(msg.Data)
 			if err != nil {
-				logger.Warn("error when handling message", "topic", topic, "error", err)
+				logger.WithField("topic", topic).WithField("error", err).Warn("error when handling message")
 			}
 		}
 	}()
@@ -97,7 +97,7 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 	)
 
 	for _, a := range host.Addrs() {
-		logger.Debug("binding to port", "address", a.String())
+		logger.WithField("address", a.String()).Debug("binding to port")
 	}
 
 	if err != nil {

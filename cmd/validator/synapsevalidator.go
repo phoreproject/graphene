@@ -6,14 +6,13 @@ import (
 	"strings"
 
 	"github.com/phoreproject/synapse/validator"
+	"github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
-
-	"github.com/inconshreveable/log15"
 )
 
 func main() {
-	log15.Info("Starting validator manager")
+	logrus.Info("Starting validator manager")
 	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
 	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
 	flag.Parse()
@@ -46,7 +45,7 @@ func main() {
 		}
 	}
 
-	log15.Debug("running with validators", "validators", *validators)
+	logrus.WithField("validators", *validators).Debug("running with validators")
 
 	conn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
 	if err != nil {

@@ -3,9 +3,9 @@ package validator
 import (
 	"context"
 
-	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
+	"github.com/sirupsen/logrus"
 )
 
 // Validator is a single validator to keep track of
@@ -16,14 +16,14 @@ type Validator struct {
 	slot      uint64
 	shard     uint32
 	proposer  bool
-	logger    log15.Logger
+	logger    *logrus.Logger
 	newSlot   chan uint64
 	newCycle  chan bool
 }
 
 // NewValidator gets a validator
 func NewValidator(key *bls.SecretKey, rpc pb.BlockchainRPCClient, id uint32, newSlot chan uint64, newCycle chan bool) *Validator {
-	return &Validator{secretKey: key, rpc: rpc, id: id, logger: log15.New("validator", id), newSlot: newSlot, newCycle: newCycle}
+	return &Validator{secretKey: key, rpc: rpc, id: id, logger: logrus.New(), newSlot: newSlot, newCycle: newCycle}
 }
 
 // GetSlotAssignment receives the slot assignment from the rpc.
@@ -75,11 +75,11 @@ func (v *Validator) RunValidator() error {
 }
 
 func (v *Validator) proposeBlock() error {
-	v.logger.Debug("proposing block", "block", v.slot, "shard", v.shard)
+	v.logger.WithField("block", v.slot).WithField("shard", v.shard).Debug("proposing block")
 	return nil
 }
 
 func (v *Validator) attestBlock() error {
-	v.logger.Debug("attesting block", "block", v.slot, "shard", v.shard)
+	v.logger.WithField("block", v.slot).WithField("shard", v.shard).Debug("attesting block")
 	return nil
 }

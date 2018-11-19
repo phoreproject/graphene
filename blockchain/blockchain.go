@@ -193,9 +193,9 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint
 					continue
 				}
 				if j == 0 && v == i%len(committee.Committee) {
-					return committee.ShardID, uint64(i), RoleProposer, nil
+					return committee.ShardID, uint64(i + earliestSlotInArray), RoleProposer, nil
 				}
-				return committee.ShardID, uint64(i), RoleAttester, nil
+				return committee.ShardID, uint64(i + earliestSlotInArray), RoleAttester, nil
 			}
 		}
 	}

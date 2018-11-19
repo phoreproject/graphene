@@ -52,10 +52,10 @@ func (m *Mempool) ProcessAttestation(a *transaction.Attestation) error {
 
 // ProcessNewTransaction processes raw bytes received from the network
 // and adds it to the mempool if needed.
-func (m *Mempool) ProcessNewTransaction(transactionRaw *Message) error {
-	tx := rpc.Special{}
+func (m *Mempool) ProcessNewTransaction(transactionRaw []byte) error {
+	tx := pb.Special{}
 
-	err := proto.Unmarshal(transactionRaw.Data, &tx)
+	err := proto.Unmarshal(transactionRaw, &tx)
 	if err != nil {
 		return err
 	}
@@ -65,16 +65,19 @@ func (m *Mempool) ProcessNewTransaction(transactionRaw *Message) error {
 		return err
 	}
 
-	m.ProcessTransaction(t)
+	err = m.ProcessTransaction(t)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // ProcessNewAttestation processes raw bytes received from the network
 // and adds it to the mempool if needed.
-func (m *Mempool) ProcessNewAttestation(attestationRaw *Message) error {
-	att := rpc.Attestation{}
+func (m *Mempool) ProcessNewAttestation(attestationRaw []byte) error {
+	att := pb.Attestation{}
 
-	err := proto.Unmarshal(attestationRaw.Data, &att)
+	err := proto.Unmarshal(attestationRaw, &att)
 	if err != nil {
 		return err
 	}
@@ -84,20 +87,20 @@ func (m *Mempool) ProcessNewAttestation(attestationRaw *Message) error {
 		return err
 	}
 
-	m.ProcessAttestation(a)
-	return nil
+	return m.ProcessAttestation(a)
 }
 
 // RegisterNetworkListeners registers listeners for mempool transactions
 // and attestations.
 func (m *Mempool) RegisterNetworkListeners(n *NetworkingService) error {
-	err := n.RegisterHandler("tx", func(msg Message) error {
-		return m.ProcessNewTransaction(&msg)
+	_, err := n.RegisterHandler("tx", func(msg []byte) error {
+		return m.ProcessNewTransaction(msg)
 	})
 	if err != nil {
 		return err
 	}
-	return n.RegisterHandler("att", func(msg Message) error {
-		return m.ProcessNewAttestation(&msg)
+	_, err = n.RegisterHandler("att", func(msg []byte) error {
+		return m.ProcessNewAttestation(msg)
 	})
+	return err
 }

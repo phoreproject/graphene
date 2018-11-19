@@ -186,7 +186,10 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 
 	b.stateLock.Unlock()
 
-	b.AddBlock(&block0)
+	err := b.AddBlock(&block0)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -205,7 +208,7 @@ func MinEmptyValidator(validators []primitives.Validator) int {
 func AddValidator(currentValidators []primitives.Validator, pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalShard uint32, withdrawalAddress serialization.Address, randaoCommitment chainhash.Hash, currentSlot uint64, status uint8, con *Config) ([]primitives.Validator, uint32, error) {
 	verifies, err := bls.VerifySig(&pubkey, pubkey.Hash(), &proofOfPossession)
 	if err != nil || !verifies {
-		return nil, 0, errors.New("validator proof of possesion does not verify")
+		return nil, 0, errors.New("validator proof of possession does not verify")
 	}
 
 	rec := primitives.Validator{
@@ -327,28 +330,25 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 // zeros in provided byte.
 func checkTrailingZeros(a byte, numZeros uint8) bool {
 	i := uint8(a)
-	if i/128 == 1 && numZeros == 0 {
+	if (i%128)/64 == 1 && numZeros == 7 {
 		return false
 	}
-	if (i%128)/64 == 1 && numZeros <= 1 {
+	if (i%64)/32 == 1 && numZeros >= 6 {
 		return false
 	}
-	if (i%64)/32 == 1 && numZeros <= 2 {
+	if (i%32)/16 == 1 && numZeros >= 5 {
 		return false
 	}
-	if (i%32)/16 == 1 && numZeros <= 3 {
+	if (i%16)/8 == 1 && numZeros >= 4 {
 		return false
 	}
-	if (i%16)/8 == 1 && numZeros <= 4 {
+	if (i%8)/4 == 1 && numZeros >= 3 {
 		return false
 	}
-	if (i%8)/4 == 1 && numZeros <= 5 {
+	if (i%4)/2 == 1 && numZeros >= 2 {
 		return false
 	}
-	if (i%4)/2 == 1 && numZeros <= 6 {
-		return false
-	}
-	if (i%2) == 1 && numZeros <= 7 {
+	if (i%2) == 1 && numZeros >= 1 {
 		return false
 	}
 	return true
@@ -407,8 +407,8 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 		return fmt.Errorf("attestation bitfield length does not match number of validators in committee")
 	}
 
-	trailingZeros := uint8(len(attestationIndices.Committee) % 8)
-	if !checkTrailingZeros(attestation.AttesterBitField[len(attestation.AttesterBitField)-1], trailingZeros) {
+	trailingZeros := 8 - uint8(len(attestationIndices.Committee)%8)
+	if trailingZeros != 8 && !checkTrailingZeros(attestation.AttesterBitField[len(attestation.AttesterBitField)-1], trailingZeros) {
 		return fmt.Errorf("expected %d bits at the end empty", trailingZeros)
 	}
 
@@ -466,7 +466,10 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 		return err
 	}
 
-	b.db.SetBlock(*block)
+	err = b.db.SetBlock(*block)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -529,22 +532,13 @@ func hasVoted(bitfield []byte, index int) bool {
 	return bitfield[index/8]&(128>>uint(index%8)) != 0
 }
 
-func repeatHash(h chainhash.Hash, n int) chainhash.Hash {
+// RepeatHash repeats a hash n times.
+func RepeatHash(h chainhash.Hash, n int) chainhash.Hash {
 	for n > 0 {
 		h = chainhash.HashH(h[:])
 		n--
 	}
 	return h
-}
-
-func (b *Blockchain) getTotalActiveValidatorBalance() uint64 {
-	total := uint64(0)
-	for _, v := range b.state.Crystallized.Validators {
-		if v.Status == Active {
-			total += v.Balance
-		}
-	}
-	return total
 }
 
 // totalValidatingBalance is the sum of the balances of active validators.
@@ -607,28 +601,24 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 
 	// validate parent block proposer
 	if newBlock.SlotNumber != 0 {
-		attestations := []transaction.Attestation{}
-		for _, a := range newBlock.Attestations {
-			attestations = append(attestations, a)
-		}
-		if len(attestations) == 0 {
+		if len(newBlock.Attestations) == 0 {
 			return errors.New("invalid parent block proposer")
 		}
 
-		attestation := attestations[0]
+		attestation := newBlock.Attestations[0]
 		if attestation.ShardID != shardAndCommittee.ShardID || attestation.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitField, proposerIndex) {
 			return errors.New("invalid parent block proposer")
 		}
 	}
 
-	validator := b.state.Crystallized.Validators[proposerIndex]
+	// TODO: fix tests with this
+	// validator := b.state.Crystallized.Validators[proposerIndex]
 
-	expected := repeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
+	// expected := RepeatHash(newBlock.RandaoReveal, int((newBlock.SlotNumber-validator.RandaoLastChange)/uint64(b.config.RandaoSlotsPerLayer)+1))
 
-	if expected != validator.RandaoCommitment {
-		// TODO: fix this
-		// return errors.New("randao does not match commitment")
-	}
+	// if expected != validator.RandaoCommitment {
+	// 	return errors.New("randao does not match commitment")
+	// }
 
 	for i := range b.state.Active.RandaoMix {
 		b.state.Active.RandaoMix[i] ^= newBlock.RandaoReveal[i]

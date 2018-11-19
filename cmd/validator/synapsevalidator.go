@@ -21,7 +21,7 @@ func main() {
 	validatorsStrings := strings.Split(*validators, ",")
 	validatorIndices := []uint32{}
 	for _, s := range validatorsStrings {
-		if strings.IndexRune(s, '-') < 0 {
+		if !strings.ContainsRune(s, '-') {
 			i, err := strconv.Atoi(s)
 			if err != nil {
 				panic("invalid validators parameter")
@@ -46,7 +46,7 @@ func main() {
 		}
 	}
 
-	log15.Debug("running with validators", "validators", validatorIndices)
+	log15.Debug("running with validators", "validators", *validators)
 
 	conn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
 	if err != nil {

@@ -32,16 +32,19 @@ func TestStoreRetrieve(t *testing.T) {
 				Slot:    0,
 				ShardID: 1,
 				ObliqueParentHashes: []chainhash.Hash{
-					chainhash.Hash{},
-					chainhash.Hash{},
-					chainhash.Hash{},
-					chainhash.Hash{},
+					{},
+					{},
+					{},
+					{},
 				},
 			},
 		},
 	}
 
-	db.SetBlock(b)
+	err := db.SetBlock(b)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	b1, err := db.GetBlockForHash(b.Hash())
 	if err != nil {

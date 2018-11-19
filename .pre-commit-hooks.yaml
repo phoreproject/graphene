@@ -1,0 +1,6 @@
+-   id: go-build
+    name: 'go-build'
+    entry: go build ../...
+    files: '\.go$'
+    language: 'script'
+    description: "Runs `go build`, requires golang"

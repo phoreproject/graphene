@@ -4,8 +4,8 @@ import (
 	"crypto/sha256"
 	"errors"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/golangcrypto/ripemd160"
+	"github.com/phoreproject/synapse/bls"
 
 	"github.com/btcsuite/btcutil/base58"
 )
@@ -25,11 +25,11 @@ func (a Address) ToString() string {
 func DecodeAddress(addr string) (*Address, error) {
 	var out Address
 	res, ver, err := base58.CheckDecode(addr)
-	if ver != AddressVersion {
-		return nil, errors.New("address is not Phore address")
-	}
 	if err != nil {
 		return nil, err
+	}
+	if ver != AddressVersion {
+		return nil, errors.New("address is not Phore address")
 	}
 	if len(res) != 20 {
 		return nil, errors.New("address is not in pubkey-hash format")
@@ -46,9 +46,9 @@ func Hash160(in []byte) []byte {
 }
 
 // NewAddress gets an address from a public key.
-func NewAddress(pubkey *btcec.PublicKey) *Address {
-	compressedPubKey := pubkey.SerializeCompressed()
-	h := Hash160(compressedPubKey)
+func NewAddress(pubkey *bls.PublicKey) *Address {
+	pkHash := pubkey.Hash()
+	h := Hash160(pkHash)
 	var out Address
 	copy(out[:], h)
 	return &out

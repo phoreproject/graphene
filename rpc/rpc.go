@@ -5,6 +5,7 @@ package rpc
 import (
 	"net"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
 
@@ -32,7 +33,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 	return &pb.SubmitBlockResponse{BlockHash: h[:]}, err
 }
 
-func (s *server) GetSlotNumber(ctx context.Context, in *pb.Empty) (*pb.SlotNumberResponse, error) {
+func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNumberResponse, error) {
 	return &pb.SlotNumberResponse{SlotNumber: uint64(s.chain.Height())}, nil
 }
 

@@ -11,7 +11,7 @@ import (
 // Validator is a single validator to keep track of
 type Validator struct {
 	secretKey *bls.SecretKey
-	rpc       rpc.BlockchainRPCClient
+	rpc       pb.BlockchainRPCClient
 	id        uint32
 	slot      uint64
 	shard     uint32
@@ -22,13 +22,13 @@ type Validator struct {
 }
 
 // NewValidator gets a validator
-func NewValidator(key *bls.SecretKey, rpc rpc.BlockchainRPCClient, id uint32, newSlot chan uint64, newCycle chan bool) *Validator {
+func NewValidator(key *bls.SecretKey, rpc pb.BlockchainRPCClient, id uint32, newSlot chan uint64, newCycle chan bool) *Validator {
 	return &Validator{secretKey: key, rpc: rpc, id: id, logger: log15.New("validator", id), newSlot: newSlot, newCycle: newCycle}
 }
 
 // GetSlotAssignment receives the slot assignment from the rpc.
 func (v *Validator) GetSlotAssignment() error {
-	slotAssignment, err := v.rpc.GetSlotAndShardAssignment(context.Background(), &rpc.GetSlotAndShardAssignmentRequest{ValidatorID: v.id})
+	slotAssignment, err := v.rpc.GetSlotAndShardAssignment(context.Background(), &pb.GetSlotAndShardAssignmentRequest{ValidatorID: v.id})
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (v *Validator) GetSlotAssignment() error {
 	v.shard = slotAssignment.ShardID
 	v.slot = slotAssignment.Slot
 	v.proposer = true
-	if slotAssignment.Role == rpc.Role_ATTESTER {
+	if slotAssignment.Role == pb.Role_ATTESTER {
 		v.proposer = false
 	}
 
@@ -45,11 +45,10 @@ func (v *Validator) GetSlotAssignment() error {
 
 // RunValidator keeps track of assignments and creates/signs attestations as needed.
 func (v *Validator) RunValidator() error {
-	v.logger.Info("running validator", "validator", v.id)
-
-	v.GetSlotAssignment()
-
-	v.logger.Info("got slot assignment", "slot", v.slot, "shard", v.shard, "proposer?", v.proposer)
+	err := v.GetSlotAssignment()
+	if err != nil {
+		return err
+	}
 
 	for {
 		currentSlot := <-v.newSlot
@@ -67,7 +66,10 @@ func (v *Validator) RunValidator() error {
 
 			<-v.newCycle
 
-			v.GetSlotAssignment()
+			err = v.GetSlotAssignment()
+			if err != nil {
+				return err
+			}
 		}
 	}
 }

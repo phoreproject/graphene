@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/pb"
+	"github.com/sirupsen/logrus"
 )
 
 // RPCClient is a P2P module RPC client.
@@ -39,13 +39,13 @@ func (r *RPCClient) Subscribe(topic string, handler func([]byte) error) (uint64,
 			break
 		}
 		if err != nil {
-			log15.Warn("unhandled error while receiving messages from P2P RPC", "error", err)
+			logrus.WithField("error", err).Warn("unhandled error while receiving messages from P2P RPC")
 			return 0, err
 		}
 
 		err = handler(msg.Data)
 		if err != nil {
-			log15.Warn("unhandled error while running handler from P2P RPC", "error", err)
+			logrus.WithField("error", err).Warn("unhandled error while running handler from P2P RPC")
 		}
 	}
 

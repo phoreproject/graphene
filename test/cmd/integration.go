@@ -4,8 +4,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/inconshreveable/log15"
 	test "github.com/phoreproject/synapse/test"
+	"github.com/sirupsen/logrus"
 )
 
 // Command is an integration test command.
@@ -37,7 +37,7 @@ func main() {
 	for _, t := range tests {
 		cmds := make([]*exec.Cmd, len(t.Commands))
 		for i, c := range t.Commands {
-			log15.Info("running command", "cmd", c.Command, "args", c.Args)
+			logrus.WithField("cmd", c.Command).WithField("args", c.Args).Info("running command")
 
 			cmd := exec.Command(c.Command, c.Args...)
 			b := make([]byte, 1)
@@ -46,14 +46,14 @@ func main() {
 				panic(err)
 			}
 
-			log15.Debug("starting command")
+			logrus.Debug("starting command")
 
 			err = cmd.Start()
 			if err != nil {
 				panic(err)
 			}
 
-			log15.Debug("waiting for first byte printed to stdout")
+			logrus.Debug("waiting for first byte printed to stdout")
 
 			_, err = w.Read(b)
 			if err != nil {
@@ -63,19 +63,19 @@ func main() {
 			cmds[i] = cmd
 		}
 
-		log15.Debug("waiting 2 seconds")
+		logrus.Debug("waiting 2 seconds")
 
 		timer := time.NewTimer(2 * time.Second)
 		<-timer.C
 
-		log15.Info("running test")
+		logrus.Info("running test")
 
 		err := t.Test()
 		if err != nil {
 			panic(err)
 		}
 
-		log15.Info("tests succeeded")
+		logrus.Info("tests succeeded")
 
 		for _, c := range cmds {
 			err := c.Process.Kill()

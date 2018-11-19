@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/pb"
+	"github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
 )
@@ -84,7 +84,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 			continue
 		}
 
-		log15.Debug("heard new slot", "slot", b.SlotNumber)
+		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
 
 		currentSlot = int64(b.SlotNumber)
 

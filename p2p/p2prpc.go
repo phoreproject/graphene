@@ -6,10 +6,10 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/inconshreveable/log15"
 	iaddr "github.com/ipfs/go-ipfs-addr"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-pubsub"
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/net"
 	"github.com/phoreproject/synapse/pb"
@@ -73,7 +73,7 @@ func (p RPCServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenFo
 		return fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
-	log15.Debug("listening to new messages on sub", "subID", in.ID)
+	logrus.WithField("subID", in.ID).Debug("listening to new messages on sub")
 
 	for {
 		select {
@@ -94,7 +94,7 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 	subID := *p.currentSubID
 	*p.currentSubID++
 
-	log15.Debug("subscribed to new messages", "topic", in.Topic, "subID", subID)
+	logrus.WithField("topic", in.Topic).WithField("subID", subID).Debug("subscribed to new messages")
 
 	p.subChannels[subID] = make(chan []byte)
 	p.cancelChannels[subID] = make(chan bool)
@@ -122,7 +122,7 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 		return nil, fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
-	log15.Debug("unsubscribed to subID", "subID", in.ID)
+	logrus.WithField("subID", in.ID).Debug("unsubscribed to subID")
 
 	// either send it or not. we don't really care if it works.
 	// this is dependent on whether the channel is being listened on
@@ -154,7 +154,7 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 		err = p.service.Connect(pInfo)
 		if err != nil {
 			success = false
-			log15.Warn("could not connect to peer", "addr", peer.Address)
+			logrus.WithField("addr", peer.Address).Warn("could not connect to peer")
 			continue
 		}
 	}

@@ -6,8 +6,8 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/primitives"
 
@@ -56,7 +56,11 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 		r = pb.Role_PROPOSER
 	}
 
-	log15.Debug("slot shard assignment", "validatorID", in.ValidatorID, "shardID", shardID, "slot", slot, "role", r)
+	logrus.WithFields(logrus.Fields{
+		"validatorID": in.ValidatorID,
+		"shardID":     shardID,
+		"slot":        slot,
+		"role":        r}).Debug("slot shard assignment")
 
 	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
 }

@@ -2,10 +2,10 @@ package net
 
 import (
 	"github.com/gogo/protobuf/proto"
-	logger "github.com/inconshreveable/log15"
 	"github.com/phoreproject/synapse/blockchain"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/transaction"
+	logger "github.com/sirupsen/logrus"
 )
 
 // Mempool stores transactions to be included in a block

@@ -11,11 +11,11 @@ import (
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 
-	logger "github.com/inconshreveable/log15"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	network "github.com/phoreproject/synapse/net"
+	logger "github.com/sirupsen/logrus"
 )
 
 func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
@@ -55,7 +55,7 @@ func main() {
 
 	sourceMultiAddr, err := multiaddr.NewMultiaddr(*listen)
 	if err != nil {
-		logger.Crit("address is invalid", "addr", *listen)
+		logger.WithField("addr", *listen).Fatal("address is invalid")
 		return
 	}
 

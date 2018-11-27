@@ -38,14 +38,14 @@ func NewVoteCache() *VoteCache {
 }
 
 // CalculateNewVoteCache tallies votes for attestations in each block.
-func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
+func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
 	for _, a := range block.Attestations {
-		parentHashes, err := s.Active.getSignedParentHashes(block, &a, c)
+		parentHashes, err := s.getSignedParentHashes(block, &a, c)
 		if err != nil {
 			return err
 		}
 
-		attesterIndices, err := s.Crystallized.GetAttesterIndices(&a, c)
+		attesterIndices, err := s.GetAttesterIndices(&a, c)
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 				if _, found := cache[h].validatorIndices[attester]; found {
 					continue
 				}
-				cache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
+				cache[h].totalDeposit += s.Validators[attester].Balance
 				cache[h].validatorIndices[attester] = true
 			}
 		}
@@ -83,8 +83,8 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 	return nil
 }
 
-func (a *ActiveState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {
-	recentHashes := a.RecentBlockHashes
+func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {
+	recentHashes := s.RecentBlockHashes
 	obliqueParentHashes := att.ObliqueParentHashes
 	earliestSlot := int(block.SlotNumber) - len(recentHashes)
 

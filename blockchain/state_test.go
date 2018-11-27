@@ -61,15 +61,16 @@ func TestStateInitialization(t *testing.T) {
 
 	s := b.GetState()
 
-	if len(s.Crystallized.ShardAndCommitteeForSlots[0]) == 0 {
+	if len(s.ShardAndCommitteeForSlots[0]) == 0 {
 		t.Errorf("invalid initial validator entries")
 	}
 
-	if len(s.Crystallized.ShardAndCommitteeForSlots) != blockchain.MainNetConfig.CycleLength*2 {
-		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.Crystallized.ShardAndCommitteeForSlots), blockchain.MainNetConfig.CycleLength)
+	if len(s.ShardAndCommitteeForSlots) != blockchain.MainNetConfig.CycleLength*2 {
+		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), blockchain.MainNetConfig.CycleLength)
 	}
 }
 
+/*
 func TestCrystallizedStateCopy(t *testing.T) {
 	c := blockchain.CrystallizedState{
 		Crosslinks: []primitives.Crosslink{
@@ -131,31 +132,32 @@ func TestCrystallizedStateCopy(t *testing.T) {
 		return
 	}
 }
+*/
 
 func TestShardCommitteeByShardID(t *testing.T) {
 	committees := []primitives.ShardAndCommittee{
 		{
-			ShardID:   0,
+			Shard:     0,
 			Committee: []uint32{0, 1, 2, 3},
 		},
 		{
-			ShardID:   1,
+			Shard:     1,
 			Committee: []uint32{4, 5, 6, 7},
 		},
 		{
-			ShardID:   2,
+			Shard:     2,
 			Committee: []uint32{0, 1, 2, 3},
 		},
 		{
-			ShardID:   3,
+			Shard:     3,
 			Committee: []uint32{99, 100, 101, 102, 103},
 		},
 		{
-			ShardID:   4,
+			Shard:     4,
 			Committee: []uint32{0, 1, 2, 3},
 		},
 		{
-			ShardID:   5,
+			Shard:     5,
 			Committee: []uint32{4, 5, 6, 7},
 		},
 	}
@@ -183,9 +185,9 @@ func TestShardCommitteeByShardID(t *testing.T) {
 		t.Fatal("did not find correct shard")
 	}
 
-	cState := blockchain.CrystallizedState{
-		LastStateRecalculation:    64,
-		ShardAndCommitteeForSlots: shardAndCommitteeForSlots,
+	cState := blockchain.BeaconState{
+		LastStateRecalculationSlot: 64,
+		ShardAndCommitteeForSlots:  shardAndCommitteeForSlots,
 	}
 
 	att, err := cState.GetAttesterIndices(&transaction.Attestation{
@@ -211,7 +213,7 @@ func TestAttestationValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assignment := b.GetState().Crystallized.ShardAndCommitteeForSlots[lb.SlotNumber][0]
+	assignment := b.GetState().ShardAndCommitteeForSlots[lb.SlotNumber][0]
 
 	committeeSize := len(assignment.Committee)
 
@@ -228,7 +230,7 @@ func TestAttestationValidation(t *testing.T) {
 
 	att := &transaction.Attestation{
 		Slot:                lb.SlotNumber,
-		ShardID:             assignment.ShardID,
+		ShardID:             assignment.Shard,
 		JustifiedSlot:       0,
 		JustifiedBlockHash:  b0,
 		ObliqueParentHashes: []chainhash.Hash{},
@@ -243,7 +245,7 @@ func TestAttestationValidation(t *testing.T) {
 
 	att = &transaction.Attestation{
 		Slot:                lb.SlotNumber + 1,
-		ShardID:             assignment.ShardID,
+		ShardID:             assignment.Shard,
 		JustifiedSlot:       0,
 		JustifiedBlockHash:  b0,
 		ObliqueParentHashes: []chainhash.Hash{},
@@ -258,7 +260,7 @@ func TestAttestationValidation(t *testing.T) {
 
 	att = &transaction.Attestation{
 		Slot:                lb.SlotNumber,
-		ShardID:             assignment.ShardID,
+		ShardID:             assignment.Shard,
 		JustifiedSlot:       10,
 		JustifiedBlockHash:  b0,
 		ObliqueParentHashes: []chainhash.Hash{},
@@ -288,7 +290,7 @@ func TestAttestationValidation(t *testing.T) {
 
 	att = &transaction.Attestation{
 		Slot:                lb.SlotNumber,
-		ShardID:             assignment.ShardID,
+		ShardID:             assignment.Shard,
 		JustifiedSlot:       0,
 		JustifiedBlockHash:  b0,
 		ObliqueParentHashes: []chainhash.Hash{},
@@ -315,7 +317,7 @@ func TestAttestationValidation(t *testing.T) {
 
 		att = &transaction.Attestation{
 			Slot:                lb.SlotNumber,
-			ShardID:             assignment.ShardID,
+			ShardID:             assignment.Shard,
 			JustifiedSlot:       0,
 			JustifiedBlockHash:  b0,
 			ObliqueParentHashes: []chainhash.Hash{},
@@ -337,7 +339,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	firstValidator := b.GetState().Crystallized.ShardAndCommitteeForSlots[0][0].Committee[0]
+	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
 	for i := uint64(0); i < uint64(b.GetConfig().CycleLength)+b.GetConfig().MinimumValidatorSetChangeInterval; i++ {
 		blk, err := util.MineBlockWithFullAttestations(b)
@@ -349,7 +351,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		}
 	}
 
-	firstValidator2 := b.GetState().Crystallized.ShardAndCommitteeForSlots[0][0].Committee[0]
+	firstValidator2 := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 	if firstValidator == firstValidator2 {
 		t.Fatal("validators were not shuffled")
 	}

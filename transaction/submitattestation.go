@@ -9,7 +9,7 @@ import (
 // Attestation is a signed attestation of a shard block.
 type Attestation struct {
 	Slot                uint64
-	ShardID             uint32
+	ShardID             uint64
 	JustifiedSlot       uint64
 	JustifiedBlockHash  chainhash.Hash
 	ShardBlockHash      chainhash.Hash
@@ -76,12 +76,20 @@ func (a *Attestation) ToProto() *pb.Attestation {
 
 // AttestationSignedData is the part of the attestation that is signed.
 type AttestationSignedData struct {
-	Version        uint32
-	Slot           uint64
-	Shard          uint32
-	ParentHashes   []chainhash.Hash
+	// Slot number
+	Slot uint64
+	// Shard number
+	Shard uint64
+	// CYCLE_LENGTH parent hashes
+	ParentHashes []chainhash.Hash
+	// Shard block hash
 	ShardBlockHash chainhash.Hash
-	JustifiedSlot  uint64
+	// Last crosslink hash
+	LastCrosslinkHash chainhash.Hash
+	// Root of data between last hash and this one
+	ShardBlockCombinedDataRoot chainhash.Hash
+	// Slot of last justified beacon block referenced in the attestation
+	JustifiedSlot uint64
 }
 
 // ToProto gets the protobuf representation of the data.
@@ -92,7 +100,6 @@ func (a *AttestationSignedData) ToProto() *pb.AttestationSignedData {
 	}
 
 	return &pb.AttestationSignedData{
-		Version:        a.Version,
 		Slot:           a.Slot,
 		Shard:          a.Shard,
 		ShardBlockHash: a.ShardBlockHash[:],

@@ -24,11 +24,11 @@ func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockch
 
 	for i := 0; i <= initialValidators; i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
-			PubKey:            bls.PublicKey{},
-			ProofOfPossession: bls.Signature{},
-			WithdrawalShard:   1,
-			WithdrawalAddress: serialization.Address{},
-			RandaoCommitment:  randaoCommitment,
+			PubKey:                bls.PublicKey{},
+			ProofOfPossession:     bls.Signature{},
+			WithdrawalShard:       1,
+			WithdrawalCredentials: serialization.Address{},
+			RandaoCommitment:      randaoCommitment,
 		})
 	}
 
@@ -84,20 +84,20 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
 		}
 
-		slotHash, err := b.GetNodeByHeight(b.GetState().Crystallized.LastJustifiedSlot)
+		slotHash, err := b.GetNodeByHeight(b.GetState().LastJustifiedSlot)
 		if err != nil {
 			return nil, err
 		}
 
 		attestations[i] = transaction.Attestation{
 			Slot:                lb.SlotNumber,
-			ShardID:             assignment.ShardID,
-			JustifiedSlot:       b.GetState().Crystallized.LastJustifiedSlot,
+			ShardID:             assignment.Shard,
+			JustifiedSlot:       b.GetState().LastJustifiedSlot,
 			JustifiedBlockHash:  slotHash,
 			ObliqueParentHashes: []chainhash.Hash{},
 			AttesterBitField:    attesterBitfield,
 			AggregateSignature:  bls.Signature{},
-			ShardBlockHash:      chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.ShardID, lb.SlotNumber))),
+			ShardBlockHash:      chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.Shard, lb.SlotNumber))),
 		}
 	}
 

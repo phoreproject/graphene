@@ -27,7 +27,6 @@ before_script:
 # failing test, we want to see both. Configure golangci-lint with a
 # .golangci.yml file at the top level of your repo.
 script:
-  - golangci-lint run --disable megacheck      # run a bunch of code checkers/linters in parallel
   - go test -v -race ./... -coverprofile=coverage.txt -covermode=atomic # Run all the tests with the race detector enabled
   - make integrationtest
 

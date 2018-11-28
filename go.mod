@@ -18,7 +18,6 @@ require (
 	github.com/gxed/eventfd v0.0.0-20160916113412-80a92cca79a8 // indirect
 	github.com/gxed/hashland v0.0.0-20180221191214-d9f6b97f8db2 // indirect
 	github.com/huin/goupnp v1.0.0 // indirect
-	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/ipfs/go-ipfs-addr v0.1.25
 	github.com/ipfs/go-ipfs-util v1.2.8 // indirect
 	github.com/ipfs/go-log v1.5.7 // indirect
@@ -69,6 +68,7 @@ require (
 	github.com/multiformats/go-multihash v1.0.8 // indirect
 	github.com/multiformats/go-multistream v0.3.9 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
+	github.com/sirupsen/logrus v1.2.0
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc // indirect
 	github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f // indirect

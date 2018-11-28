@@ -52,7 +52,6 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-
 			logrus.Debug("waiting for first byte printed to stderr")
 
 			_, err = w.Read(b)

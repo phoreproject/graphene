@@ -41,7 +41,7 @@ func main() {
 
 			cmd := exec.Command(c.Command, c.Args...)
 			b := make([]byte, 1)
-			w, err := cmd.StdoutPipe()
+			w, err := cmd.StderrPipe()
 			if err != nil {
 				panic(err)
 			}
@@ -53,7 +53,7 @@ func main() {
 				panic(err)
 			}
 
-			logrus.Debug("waiting for first byte printed to stdout")
+			logrus.Debug("waiting for first byte printed to stderr")
 
 			_, err = w.Read(b)
 			if err != nil {

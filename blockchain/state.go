@@ -87,33 +87,6 @@ type CandidatePoWReceiptRootRecord struct {
 	Votes uint64
 }
 
-/*
-// Copy returns a copy of the crystallized state.
-func (c CrystallizedState) Copy() CrystallizedState {
-	newC := c
-	newC.Crosslinks = make([]primitives.Crosslink, len(c.Crosslinks))
-	for i, n := range c.Crosslinks {
-		newC.Crosslinks[i] = n
-	}
-	newC.Validators = make([]primitives.Validator, len(c.Validators))
-	for i, n := range c.Validators {
-		newC.Validators[i] = n
-	}
-	newC.ShardAndCommitteeForSlots = make([][]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots))
-	for i, n := range c.ShardAndCommitteeForSlots {
-		newC.ShardAndCommitteeForSlots[i] = make([]primitives.ShardAndCommittee, len(c.ShardAndCommitteeForSlots[i]))
-		for a, b := range n {
-			newC.ShardAndCommitteeForSlots[i][a] = b
-		}
-	}
-	newC.DepositsPenalizedInPeriod = make([]uint64, len(c.DepositsPenalizedInPeriod))
-	for i, n := range c.DepositsPenalizedInPeriod {
-		newC.DepositsPenalizedInPeriod[i] = n
-	}
-	return newC
-}
-*/
-
 // ShardCommitteeByShardID gets the shards committee from a list of committees/shards
 // in a list.
 func ShardCommitteeByShardID(shardID uint64, shardCommittees []primitives.ShardAndCommittee) ([]uint32, error) {
@@ -427,16 +400,14 @@ func (b *Blockchain) validateAttestationJustifiedBlock(attestation *transaction.
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
-	/*
-		justifiedBlockHash, err := b.chain.GetBlock(int(attestation.Data.JustifiedSlot))
-		if err != nil {
-			return errors.New("justified block not in index")
-		}
+	justifiedBlockHash, err := b.chain.GetBlock(int(attestation.Data.JustifiedSlot))
+	if err != nil {
+		return errors.New("justified block not in index")
+	}
 
-			if !justifiedBlockHash.IsEqual(&attestation.JustifiedBlockHash) {
-				return errors.New("justified block hash does not match block at slot")
-			}
-	*/
+	if !justifiedBlockHash.IsEqual(&attestation.Data.ShardBlockHash) {
+		return errors.New("justified block hash does not match block at slot")
+	}
 
 	return nil
 }

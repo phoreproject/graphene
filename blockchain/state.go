@@ -724,32 +724,7 @@ func removeProcessedAttestations(attestations []transaction.Attestation, lastSta
 	return attestationsf
 }
 
-type dataOfApplyBlockCrystallizedStateChanges struct {
-	slotNumber               uint64
-	totalBalance             uint64
-	totalBalanceInCoins      uint64
-	rewardQuotient           uint64
-	quadraticPenaltyQuotient uint64
-	timeSinceFinality        uint64
-}
-
-func (b *Blockchain) calculateBlockCrystallizedStateChangesData(slotNumber uint64) *dataOfApplyBlockCrystallizedStateChanges {
-	totalBalance := b.state.Crystallized.totalValidatingBalance()
-	totalBalanceInCoins := totalBalance / UnitInCoin
-	rewardQuotient := b.config.BaseRewardQuotient * uint64(math.Sqrt(float64(totalBalanceInCoins)))
-	quadraticPenaltyQuotient := b.config.SqrtEDropTime * b.config.SqrtEDropTime
-	timeSinceFinality := slotNumber - b.state.Crystallized.LastFinalizedSlot
-
-	return &dataOfApplyBlockCrystallizedStateChanges{
-		slotNumber:               slotNumber,
-		totalBalance:             totalBalance,
-		totalBalanceInCoins:      totalBalanceInCoins,
-		rewardQuotient:           rewardQuotient,
-		quadraticPenaltyQuotient: quadraticPenaltyQuotient,
-		timeSinceFinality:        timeSinceFinality}
-}
-
-func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(data *dataOfApplyBlockCrystallizedStateChanges) {
+func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(totalBalance uint64, rewardQuotient uint64, quadraticPenaltyQuotient uint64, timeSinceFinality uint64) {
 	lastStateRecalculationSlotCycleBack := uint64(0)
 	if b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
 		lastStateRecalculationSlotCycleBack = b.state.Crystallized.LastStateRecalculation - uint64(b.config.CycleLength)
@@ -765,7 +740,7 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(data *dataOfA
 
 		voteCache := b.voteCache[blockHash]
 
-		if 3*voteCache.totalDeposit >= 2*data.totalBalance {
+		if 3*voteCache.totalDeposit >= 2*totalBalance {
 			if slot > b.state.Crystallized.LastJustifiedSlot {
 				b.state.Crystallized.LastJustifiedSlot = slot
 			}
@@ -781,14 +756,14 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(data *dataOfA
 		}
 
 		// adjust rewards
-		if data.timeSinceFinality <= uint64(3*b.config.CycleLength) {
+		if timeSinceFinality <= uint64(3*b.config.CycleLength) {
 			for _, validatorID := range activeValidators {
 				_, voted := voteCache.validatorIndices[validatorID]
 				if voted {
 					balance := b.state.Crystallized.Validators[validatorID].Balance
-					b.state.Crystallized.Validators[validatorID].Balance += balance / data.rewardQuotient * (2*voteCache.totalDeposit - data.totalBalance) / data.totalBalance
+					b.state.Crystallized.Validators[validatorID].Balance += balance / rewardQuotient * (2*voteCache.totalDeposit - totalBalance) / totalBalance
 				} else {
-					b.state.Crystallized.Validators[validatorID].Balance -= b.state.Crystallized.Validators[validatorID].Balance / data.rewardQuotient
+					b.state.Crystallized.Validators[validatorID].Balance -= b.state.Crystallized.Validators[validatorID].Balance / rewardQuotient
 				}
 			}
 		} else {
@@ -796,7 +771,7 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(data *dataOfA
 				_, voted := voteCache.validatorIndices[validatorID]
 				if !voted {
 					balance := b.state.Crystallized.Validators[validatorID].Balance
-					b.state.Crystallized.Validators[validatorID].Balance -= balance/data.rewardQuotient + balance*data.timeSinceFinality/data.quadraticPenaltyQuotient
+					b.state.Crystallized.Validators[validatorID].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
 				}
 			}
 		}
@@ -804,7 +779,7 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(data *dataOfA
 	}
 }
 
-func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingAttestations(data *dataOfApplyBlockCrystallizedStateChanges) error {
+func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingAttestations(slotNumber uint64, rewardQuotient uint64, quadraticPenaltyQuotient uint64) error {
 	for _, a := range b.state.Active.PendingAttestations {
 		indices, err := b.state.Crystallized.GetAttesterIndices(&a, b.config)
 		if err != nil {
@@ -822,7 +797,7 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingAttestations(
 			totalBalance += b.state.Crystallized.Validators[validatorIndex].Balance
 		}
 
-		timeSinceLastConfirmations := data.slotNumber - b.state.Crystallized.Crosslinks[a.ShardID].Slot
+		timeSinceLastConfirmations := slotNumber - b.state.Crystallized.Crosslinks[a.ShardID].Slot
 
 		// if this is a super-majority, set up a cross-link
 		if 3*totalVotingBalance >= 2*totalBalance && !b.state.Crystallized.Crosslinks[a.ShardID].RecentlyChanged {
@@ -838,10 +813,10 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingAttestations(
 				checkBit := hasVoted(a.AttesterBitField, int(validatorIndex))
 				if checkBit {
 					balance := b.state.Crystallized.Validators[validatorIndex].Balance
-					b.state.Crystallized.Validators[validatorIndex].Balance += balance / data.rewardQuotient * (2*totalVotingBalance - totalBalance) / totalBalance
+					b.state.Crystallized.Validators[validatorIndex].Balance += balance / rewardQuotient * (2*totalVotingBalance - totalBalance) / totalBalance
 				} else {
 					balance := b.state.Crystallized.Validators[validatorIndex].Balance
-					b.state.Crystallized.Validators[validatorIndex].Balance += balance/data.rewardQuotient + balance*timeSinceLastConfirmations/data.quadraticPenaltyQuotient
+					b.state.Crystallized.Validators[validatorIndex].Balance += balance/rewardQuotient + balance*timeSinceLastConfirmations/quadraticPenaltyQuotient
 				}
 			}
 		}
@@ -850,11 +825,11 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingAttestations(
 	return nil
 }
 
-func (b *Blockchain) updateBlockCrystallizedStateChangesDataPenalizedValidators(data *dataOfApplyBlockCrystallizedStateChanges) {
+func (b *Blockchain) updateBlockCrystallizedStateChangesDataPenalizedValidators(rewardQuotient uint64, quadraticPenaltyQuotient uint64, timeSinceFinality uint64) {
 	for i := range b.state.Crystallized.Validators {
 		if b.state.Crystallized.Validators[i].Status == Penalized {
 			balance := b.state.Crystallized.Validators[i].Balance
-			b.state.Crystallized.Validators[i].Balance -= balance/data.rewardQuotient + balance*data.timeSinceFinality/data.quadraticPenaltyQuotient
+			b.state.Crystallized.Validators[i].Balance -= balance/rewardQuotient + balance*timeSinceFinality/quadraticPenaltyQuotient
 		}
 	}
 }
@@ -875,7 +850,7 @@ func getValidatorsInBothSourceAndDestination(t transaction.CasperSlashingTransac
 	return validatorsInBoth
 }
 
-func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingActions(data *dataOfApplyBlockCrystallizedStateChanges) {
+func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingActions(slotNumber uint64) {
 	for _, a := range b.state.Active.PendingActions {
 		if t, success := a.Data.(transaction.LogoutTransaction); success {
 			verified, err := bls.VerifySig(&b.state.Crystallized.Validators[t.From].Pubkey, []byte("LOGOUT"), &t.Signature)
@@ -888,7 +863,7 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingActions(data 
 				continue
 			}
 
-			b.state.Crystallized.exitValidator(t.From, false, data.slotNumber, b.config)
+			b.state.Crystallized.exitValidator(t.From, false, slotNumber, b.config)
 		}
 		if t, success := a.Data.(transaction.CasperSlashingTransaction); success {
 			// TODO: verify signatures 1 + 2
@@ -917,7 +892,7 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingActions(data 
 
 			for _, v := range validatorsInBoth {
 				if b.state.Crystallized.Validators[v].Status != Penalized {
-					b.state.Crystallized.exitValidator(v, true, data.slotNumber, b.config)
+					b.state.Crystallized.exitValidator(v, true, slotNumber, b.config)
 				}
 			}
 		}
@@ -927,10 +902,10 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingActions(data 
 	}
 }
 
-func (b *Blockchain) updateBlockCrystallizedStateChangesDataInsufficientBalance(data *dataOfApplyBlockCrystallizedStateChanges) {
+func (b *Blockchain) updateBlockCrystallizedStateChangesDataInsufficientBalance(slotNumber uint64) {
 	for i, v := range b.state.Crystallized.Validators {
 		if v.Status == Active && v.Balance < b.config.MinimumDepositSize {
-			b.state.Crystallized.exitValidator(uint32(i), false, data.slotNumber, b.config)
+			b.state.Crystallized.exitValidator(uint32(i), false, slotNumber, b.config)
 		}
 	}
 }
@@ -940,20 +915,24 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataInsufficientBalance(
 func (b *Blockchain) applyBlockCrystallizedStateChanges(slotNumber uint64) error {
 	// go through each cycle needed to get up to the specified slot number
 	for slotNumber-b.state.Crystallized.LastStateRecalculation >= uint64(b.config.CycleLength) {
-		data := b.calculateBlockCrystallizedStateChangesData(slotNumber)
+		totalBalance := b.state.Crystallized.totalValidatingBalance()
+		totalBalanceInCoins := totalBalance / UnitInCoin
+		rewardQuotient := b.config.BaseRewardQuotient * uint64(math.Sqrt(float64(totalBalanceInCoins)))
+		quadraticPenaltyQuotient := b.config.SqrtEDropTime * b.config.SqrtEDropTime
+		timeSinceFinality := slotNumber - b.state.Crystallized.LastFinalizedSlot
 
-		b.updateBlockCrystallizedStateChangesDataReward(data)
+		b.updateBlockCrystallizedStateChangesDataReward(totalBalance, rewardQuotient, quadraticPenaltyQuotient, timeSinceFinality)
 
-		err := b.updateBlockCrystallizedStateChangesDataPendingAttestations(data)
+		err := b.updateBlockCrystallizedStateChangesDataPendingAttestations(slotNumber, rewardQuotient, quadraticPenaltyQuotient)
 		if err != nil {
 			return err
 		}
 
-		b.updateBlockCrystallizedStateChangesDataPenalizedValidators(data)
+		b.updateBlockCrystallizedStateChangesDataPenalizedValidators(rewardQuotient, quadraticPenaltyQuotient, timeSinceFinality)
 
-		b.updateBlockCrystallizedStateChangesDataPendingActions(data)
+		b.updateBlockCrystallizedStateChangesDataPendingActions(slotNumber)
 
-		b.updateBlockCrystallizedStateChangesDataInsufficientBalance(data)
+		b.updateBlockCrystallizedStateChangesDataInsufficientBalance(slotNumber)
 
 		b.state.Crystallized.LastStateRecalculation += uint64(b.config.CycleLength)
 

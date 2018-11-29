@@ -225,77 +225,102 @@ func TestAttestationValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	att := &transaction.Attestation{
-		Slot:                lb.SlotNumber,
-		ShardID:             assignment.Shard,
-		JustifiedSlot:       0,
-		JustifiedBlockHash:  b0,
-		ObliqueParentHashes: []chainhash.Hash{},
-		AttesterBitField:    attesterBitfield,
-		AggregateSignature:  bls.Signature{},
+	att := &transaction.AttestationRecord{
+		Data: transaction.AttestationSignedData{
+			Slot:                       lb.SlotNumber,
+			Shard:                      assignment.Shard,
+			ParentHashes:               []chainhash.Hash{},
+			ShardBlockHash:             chainhash.Hash{},
+			LastCrosslinkHash:          chainhash.Hash{},
+			ShardBlockCombinedDataRoot: chainhash.Hash{},
+			JustifiedSlot:              0,
+		},
+		AttesterBitfield: attesterBitfield,
+		PoCBitfield:      []uint8{},
+		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	att = &transaction.Attestation{
-		Slot:                lb.SlotNumber + 1,
-		ShardID:             assignment.Shard,
-		JustifiedSlot:       0,
-		JustifiedBlockHash:  b0,
-		ObliqueParentHashes: []chainhash.Hash{},
-		AttesterBitField:    attesterBitfield,
-		AggregateSignature:  bls.Signature{},
+	att = &transaction.AttestationRecord{
+		Data: transaction.AttestationSignedData{
+			Slot:                       lb.SlotNumber + 1,
+			Shard:                      assignment.Shard,
+			ParentHashes:               []chainhash.Hash{},
+			ShardBlockHash:             chainhash.Hash{},
+			LastCrosslinkHash:          chainhash.Hash{},
+			ShardBlockCombinedDataRoot: chainhash.Hash{},
+			JustifiedSlot:              0,
+		},
+		AttesterBitfield: attesterBitfield,
+		PoCBitfield:      []uint8{},
+		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch slot number being too high")
 	}
 
-	att = &transaction.Attestation{
-		Slot:                lb.SlotNumber,
-		ShardID:             assignment.Shard,
-		JustifiedSlot:       10,
-		JustifiedBlockHash:  b0,
-		ObliqueParentHashes: []chainhash.Hash{},
-		AttesterBitField:    attesterBitfield,
-		AggregateSignature:  bls.Signature{},
+	att = &transaction.AttestationRecord{
+		Data: transaction.AttestationSignedData{
+			Slot:                       lb.SlotNumber,
+			Shard:                      assignment.Shard,
+			ParentHashes:               []chainhash.Hash{},
+			ShardBlockHash:             b0,
+			LastCrosslinkHash:          chainhash.Hash{},
+			ShardBlockCombinedDataRoot: chainhash.Hash{},
+			JustifiedSlot:              10,
+		},
+		AttesterBitfield: attesterBitfield,
+		PoCBitfield:      []uint8{},
+		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch slot number being out of bounds")
 	}
 
-	att = &transaction.Attestation{
-		Slot:                lb.SlotNumber,
-		ShardID:             100,
-		JustifiedSlot:       0,
-		JustifiedBlockHash:  b0,
-		ObliqueParentHashes: []chainhash.Hash{},
-		AttesterBitField:    attesterBitfield,
-		AggregateSignature:  bls.Signature{},
+	att = &transaction.AttestationRecord{
+		Data: transaction.AttestationSignedData{
+			Slot:                       lb.SlotNumber,
+			Shard:                      100,
+			ParentHashes:               []chainhash.Hash{},
+			ShardBlockHash:             b0,
+			LastCrosslinkHash:          chainhash.Hash{},
+			ShardBlockCombinedDataRoot: chainhash.Hash{},
+			JustifiedSlot:              0,
+		},
+		AttesterBitfield: attesterBitfield,
+		PoCBitfield:      []uint8{},
+		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch invalid shard ID")
 	}
 
-	att = &transaction.Attestation{
-		Slot:                lb.SlotNumber,
-		ShardID:             assignment.Shard,
-		JustifiedSlot:       0,
-		JustifiedBlockHash:  b0,
-		ObliqueParentHashes: []chainhash.Hash{},
-		AttesterBitField:    append(attesterBitfield, byte(0x00)),
-		AggregateSignature:  bls.Signature{},
+	att = &transaction.AttestationRecord{
+		Data: transaction.AttestationSignedData{
+			Slot:                       lb.SlotNumber,
+			Shard:                      assignment.Shard,
+			ParentHashes:               []chainhash.Hash{},
+			ShardBlockHash:             b0,
+			LastCrosslinkHash:          chainhash.Hash{},
+			ShardBlockCombinedDataRoot: chainhash.Hash{},
+			JustifiedSlot:              0,
+		},
+		AttesterBitfield: append(attesterBitfield, byte(0x00)),
+		PoCBitfield:      []uint8{},
+		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch invalid attester bitfield (too many bytes)")
 	}
@@ -312,17 +337,22 @@ func TestAttestationValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		att = &transaction.Attestation{
-			Slot:                lb.SlotNumber,
-			ShardID:             assignment.Shard,
-			JustifiedSlot:       0,
-			JustifiedBlockHash:  b0,
-			ObliqueParentHashes: []chainhash.Hash{},
-			AttesterBitField:    modifiedAttesterBitfield,
-			AggregateSignature:  bls.Signature{},
+		att = &transaction.AttestationRecord{
+			Data: transaction.AttestationSignedData{
+				Slot:                       lb.SlotNumber,
+				Shard:                      assignment.Shard,
+				ParentHashes:               []chainhash.Hash{},
+				ShardBlockHash:             b0,
+				LastCrosslinkHash:          chainhash.Hash{},
+				ShardBlockCombinedDataRoot: chainhash.Hash{},
+				JustifiedSlot:              0,
+			},
+			AttesterBitfield: modifiedAttesterBitfield,
+			PoCBitfield:      []uint8{},
+			AggregateSig:     bls.Signature{},
 		}
 
-		err = b.ValidateAttestation(att, lb, &blockchain.MainNetConfig)
+		err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
 		if err == nil {
 			t.Fatal("did not catch invalid attester bitfield (not enough 0s at end)")
 		}

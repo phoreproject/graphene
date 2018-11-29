@@ -157,17 +157,6 @@ message Special {
     repeated bytes Data = 2;
 }
 
-message Attestation {
-    uint64 Slot = 1;
-    uint64 ShardID = 2;
-    uint64 JustifiedSlot = 3;
-    bytes JustifiedBlockHash = 4;
-    bytes ShardBlockHash = 5;
-    repeated bytes ObliqueParentHashes = 6;
-    bytes AttesterBitField = 7;
-    bytes AggregateSignature = 8;
-}
-
 message AttestationSignedData {
     uint32 Version = 1;
     uint64 Slot = 2;

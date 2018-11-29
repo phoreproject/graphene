@@ -409,64 +409,66 @@ func checkTrailingZeros(a byte, numZeros uint8) bool {
 	return true
 }
 
-func validateAttestationSlot(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
-	if attestation.Slot > parentBlock.SlotNumber {
+func validateAttestationSlot(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
+	if attestation.Data.Slot > parentBlock.SlotNumber {
 		return errors.New("attestation slot number too high")
 	}
 
 	// verify attestation slot >= max(parent.slot - CYCLE_LENGTH + 1, 0)
-	if attestation.Slot < uint64(math.Max(float64(int64(parentBlock.SlotNumber)-int64(c.CycleLength)+1), 0)) {
+	if attestation.Data.Slot < uint64(math.Max(float64(int64(parentBlock.SlotNumber)-int64(c.CycleLength)+1), 0)) {
 		return errors.New("attestation slot number too low")
 	}
 
 	return nil
 }
 
-func (b *Blockchain) validateAttestationJustifiedBlock(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
-	if attestation.JustifiedSlot > b.state.JustificationSource {
+func (b *Blockchain) validateAttestationJustifiedBlock(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
+	if attestation.Data.JustifiedSlot > b.state.JustificationSource {
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
-	justifiedBlockHash, err := b.chain.GetBlock(int(attestation.JustifiedSlot))
-	if err != nil {
-		return errors.New("justified block not in index")
-	}
+	/*
+		justifiedBlockHash, err := b.chain.GetBlock(int(attestation.Data.JustifiedSlot))
+		if err != nil {
+			return errors.New("justified block not in index")
+		}
 
-	if !justifiedBlockHash.IsEqual(&attestation.JustifiedBlockHash) {
-		return errors.New("justified block hash does not match block at slot")
-	}
+			if !justifiedBlockHash.IsEqual(&attestation.JustifiedBlockHash) {
+				return errors.New("justified block hash does not match block at slot")
+			}
+	*/
 
 	return nil
 }
 
-func (b *Blockchain) findAttestationPublicKey(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) (*bls.PublicKey, error) {
-	attestationIndicesForShards := b.GetShardsAndCommitteesForSlot(attestation.Slot)
+func (b *Blockchain) findAttestationPublicKey(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) (*bls.PublicKey, error) {
+	attestationIndicesForShards := b.GetShardsAndCommitteesForSlot(attestation.Data.Slot)
 	var attestationIndices primitives.ShardAndCommittee
 	found := false
 	for _, s := range attestationIndicesForShards {
-		if s.Shard == attestation.ShardID {
+		if s.Shard == attestation.Data.Shard {
 			attestationIndices = s
 			found = true
 		}
 	}
 
 	if !found {
-		return nil, fmt.Errorf("could not find shard id %d", attestation.ShardID)
+		return nil, fmt.Errorf("could not find shard id %d", attestation.Data.Shard)
 	}
 
-	if len(attestation.AttesterBitField) != (len(attestationIndices.Committee)+7)/8 {
+	if len(attestation.AttesterBitfield) != (len(attestationIndices.Committee)+7)/8 {
 		return nil, fmt.Errorf("attestation bitfield length does not match number of validators in committee")
 	}
 
 	trailingZeros := 8 - uint8(len(attestationIndices.Committee)%8)
-	if trailingZeros != 8 && !checkTrailingZeros(attestation.AttesterBitField[len(attestation.AttesterBitField)-1], trailingZeros) {
+	if trailingZeros != 8 && !checkTrailingZeros(attestation.AttesterBitfield[len(attestation.AttesterBitfield)-1], trailingZeros) {
 		return nil, fmt.Errorf("expected %d bits at the end empty", trailingZeros)
 	}
 
 	var pubkey bls.PublicKey
 	pubkeySet := false
 	for bit := 0; bit < len(attestationIndices.Committee); bit++ {
-		set := (attestation.AttesterBitField[bit/8]>>uint(7-(bit%8)))%2 == 1
+		set := (attestation.AttesterBitfield[bit/8]>>uint(7-(bit%8)))%2 == 1
 		if set {
 			if !pubkeySet {
 				pubkey = b.state.Validators[attestationIndices.Committee[bit]].Pubkey
@@ -484,7 +486,7 @@ func (b *Blockchain) findAttestationPublicKey(attestation *transaction.Attestati
 	return &pubkey, nil
 }
 
-func (b *Blockchain) validateAttestationSignature(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
+func (b *Blockchain) validateAttestationSignature(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
 	pubkey, err := b.findAttestationPublicKey(attestation, parentBlock, c)
 	if err != nil {
 		return err
@@ -495,10 +497,11 @@ func (b *Blockchain) validateAttestationSignature(attestation *transaction.Attes
 	//forkVersion = b.state.PostForkVersion
 	//}
 
-	hashes := make([]chainhash.Hash, b.config.CycleLength-len(attestation.ObliqueParentHashes))
+	obliqueParentHashesLen := len(attestation.Data.ParentHashes)
+	hashes := make([]chainhash.Hash, b.config.CycleLength-obliqueParentHashesLen)
 
-	for i := 1; i < b.config.CycleLength-len(attestation.ObliqueParentHashes)+1; i++ {
-		h, err := b.chain.GetBlock(int(attestation.Slot) - b.config.CycleLength + i)
+	for i := 1; i < b.config.CycleLength-obliqueParentHashesLen+1; i++ {
+		h, err := b.chain.GetBlock(int(attestation.Data.Slot) - b.config.CycleLength + i)
 		if err != nil {
 			continue
 		}
@@ -507,18 +510,18 @@ func (b *Blockchain) validateAttestationSignature(attestation *transaction.Attes
 	}
 
 	asd := transaction.AttestationSignedData{
-		Slot:           attestation.Slot,
-		Shard:          attestation.ShardID,
+		Slot:           attestation.Data.Slot,
+		Shard:          attestation.Data.Shard,
 		ParentHashes:   hashes,
-		ShardBlockHash: attestation.ShardBlockHash,
-		JustifiedSlot:  attestation.JustifiedSlot,
+		ShardBlockHash: attestation.Data.ShardBlockHash,
+		JustifiedSlot:  attestation.Data.JustifiedSlot,
 	}
 
 	bs, err := proto.Marshal(asd.ToProto())
 	if err != nil {
 		return err
 	}
-	valid, err := bls.VerifySig(pubkey, bs, &attestation.AggregateSignature)
+	valid, err := bls.VerifySig(pubkey, bs, &attestation.AggregateSig)
 
 	if err != nil || !valid {
 		return errors.New("bls signature did not validate")
@@ -527,8 +530,8 @@ func (b *Blockchain) validateAttestationSignature(attestation *transaction.Attes
 	return nil
 }
 
-// ValidateAttestation checks attestation invariants and the BLS signature.
-func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
+// ValidateAttestationRecord checks attestation invariants and the BLS signature.
+func (b *Blockchain) ValidateAttestationRecord(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
 	err := validateAttestationSlot(attestation, parentBlock, c)
 	if err != nil {
 		return err
@@ -543,28 +546,6 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	if err != nil {
 		return err
 	}
-
-	return nil
-}
-
-// ValidateAttestationRecord checks attestation invariants and the BLS signature.
-func (b *Blockchain) ValidateAttestationRecord(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
-	/*
-		err := validateAttestationSlot(attestation, parentBlock, c)
-		if err != nil {
-			return err
-		}
-
-		err = b.validateAttestationJustifiedBlock(attestation, parentBlock, c)
-		if err != nil {
-			return err
-		}
-
-		err = b.validateAttestationSignature(attestation, parentBlock, c)
-		if err != nil {
-			return err
-		}
-	*/
 
 	return nil
 }

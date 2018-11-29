@@ -101,7 +101,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 			},
 			AttesterBitfield: attesterBitfield,
 			PoCBitfield:      make([]uint8, 32),
-			AggregateSig:     0,
+			AggregateSig:     bls.Signature{},
 		}
 	}
 

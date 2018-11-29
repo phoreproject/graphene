@@ -52,14 +52,12 @@ func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[c
 
 		for _, h := range parentHashes {
 			skip := false
-			/*
-				for _, o := range a.ObliqueParentHashes {
-					if o.IsEqual(&h) {
-						// skip if part of oblique parent hashes
-						skip = true
-					}
+			for _, o := range a.Data.ParentHashes {
+				if o.IsEqual(&h) {
+					// skip if part of oblique parent hashes
+					skip = true
 				}
-			*/
+			}
 			if skip {
 				continue
 			}
@@ -87,12 +85,11 @@ func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[c
 
 func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transaction.AttestationRecord, c *Config) ([]chainhash.Hash, error) {
 	recentHashes := s.RecentBlockHashes
-	//obliqueParentHashes := att.ObliqueParentHashes
+	obliqueParentHashes := att.Data.ParentHashes
 	earliestSlot := int(block.SlotNumber) - len(recentHashes)
 
 	startIdx := int(att.Data.Slot) - earliestSlot - int(c.CycleLength) + 1
-	//endIdx := startIdx - len(att.ObliqueParentHashes) + int(c.CycleLength)
-	endIdx := startIdx + int(c.CycleLength)
+	endIdx := startIdx - len(att.Data.ParentHashes) + int(c.CycleLength)
 
 	if startIdx < 0 || endIdx > len(recentHashes) || endIdx <= startIdx {
 		return nil, fmt.Errorf("attempt to fetch recent blockhashes from %d to %d invalid", startIdx, endIdx)
@@ -103,9 +100,9 @@ func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transa
 		hashes = append(hashes, recentHashes[i])
 	}
 
-	//for i := 0; i < len(obliqueParentHashes); i++ {
-	//	hashes = append(hashes, obliqueParentHashes[i])
-	//}
+	for i := 0; i < len(obliqueParentHashes); i++ {
+		hashes = append(hashes, obliqueParentHashes[i])
+	}
 
 	return hashes, nil
 }

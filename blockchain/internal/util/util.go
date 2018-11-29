@@ -84,7 +84,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
 		}
 
-		slotHash, err := b.GetNodeByHeight(b.GetState().LastJustifiedSlot)
+		slotHash, err := b.GetNodeByHeight(b.GetState().JustificationSource)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 		attestations[i] = transaction.Attestation{
 			Slot:                lb.SlotNumber,
 			ShardID:             assignment.Shard,
-			JustifiedSlot:       b.GetState().LastJustifiedSlot,
+			JustifiedSlot:       b.GetState().JustificationSource,
 			JustifiedBlockHash:  slotHash,
 			ObliqueParentHashes: []chainhash.Hash{},
 			AttesterBitField:    attesterBitfield,

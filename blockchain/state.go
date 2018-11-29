@@ -16,6 +16,16 @@ import (
 	logger "github.com/sirupsen/logrus"
 )
 
+// ForkData represents the fork information
+type ForkData struct {
+	// Previous fork version
+	PreForkVersion uint64
+	// Post fork version
+	PostForkVersion uint64
+	// Fork slot number
+	ForkSlotNumber uint64
+}
+
 // BeaconState is the state of a beacon block
 type BeaconState struct {
 	// Slot of last validator set change
@@ -29,10 +39,11 @@ type BeaconState struct {
 	LastStateRecalculationSlot uint64
 	// Last finalized slot
 	LastFinalizedSlot uint64
-	// Last justified slot
-	LastJustifiedSlot uint64
-	// Number of consecutive justified slots
-	JustifiedStreak uint64
+	// Justification source
+	JustificationSource          uint64
+	PrevCycleJustificationSource uint64
+	// Recent justified slot bitmask
+	JustifiedSlotBitfield uint64
 	// Committee members and their assigned shard, per slot
 	ShardAndCommitteeForSlots [][]primitives.ShardAndCommittee
 	// Persistent shard committees
@@ -48,14 +59,9 @@ type BeaconState struct {
 	CurrentExitSeq uint64
 	// Genesis time
 	GenesisTime uint64
-	// PoW receipt root
-	ProcessedPowReceiptRoot  chainhash.Hash
-	CandidatePowReceiptRoots []CandidatePoWReceiptRootRecord
 	// Parameters relevant to hard forks / versioning.
 	// Should be updated only by hard forks.
-	PreForkVersion  uint64
-	PostForkVersion uint64
-	ForkSlotNumber  uint64
+	ForkData ForkData
 	// Attestations not yet processed
 	PendingAttestations []transaction.Attestation
 	RecentBlockHashes   []chainhash.Hash
@@ -203,17 +209,19 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		Crosslinks:                  crosslinks,
 		LastStateRecalculationSlot:  0,
 		LastFinalizedSlot:           0,
-		LastJustifiedSlot:           0,
-		JustifiedStreak:             0,
+		JustificationSource:         0,
+		JustifiedSlotBitfield:       0,
 		ShardAndCommitteeForSlots:   append(x, x...),
 		DepositsPenalizedInPeriod:   []uint64{0},
 		ValidatorSetDeltaHashChange: zeroHash,
-		PreForkVersion:              InitialForkVersion,
-		PostForkVersion:             InitialForkVersion,
-		ForkSlotNumber:              0,
-		PendingAttestations:         []transaction.Attestation{},
-		RecentBlockHashes:           recentBlockHashes,
-		RandaoMix:                   zeroHash,
+		ForkData: ForkData{
+			PreForkVersion:  InitialForkVersion,
+			PostForkVersion: InitialForkVersion,
+			ForkSlotNumber:  0,
+		},
+		PendingAttestations: []transaction.Attestation{},
+		RecentBlockHashes:   recentBlockHashes,
+		RandaoMix:           zeroHash,
 	}
 
 	ancestorHashes := make([]chainhash.Hash, 32)
@@ -414,7 +422,7 @@ func validateAttestationSlot(attestation *transaction.Attestation, parentBlock *
 }
 
 func (b *Blockchain) validateAttestationJustifiedBlock(attestation *transaction.Attestation, parentBlock *primitives.Block, c *Config) error {
-	if attestation.JustifiedSlot > b.state.LastJustifiedSlot {
+	if attestation.JustifiedSlot > b.state.JustificationSource {
 		return errors.New("last justified slot should be less than or equal to the crystallized slot")
 	}
 
@@ -772,16 +780,23 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(totalBalance 
 
 		voteCache := b.voteCache[blockHash]
 
+		// TODO: need to change according to the spec
+		// but currently there is obvious errors in the spec, i.e, in section Adjust justified slots and crosslink status, commit 7359b369642c4ee72e07a9745fc5dd253b7ca061
+		// "If 3 * prev_cycle_boundary_attesting_balance >= 2 * total_balance then set state.justified_slot_bitfield &= 2 (ie. flip the second lowest bit to 1) and new_justification_source = s - CYCLE_LENGTH."
+		// "state.justified_slot_bitfield &= 2" makes the bitfield either 2 or 0 and discard all other bits...
+		// It should be "state.justified_slot_bitfield |= 2"
+		//b.state.JustifiedSlotBitfield <<= 1
 		if 3*voteCache.totalDeposit >= 2*totalBalance {
-			if slot > b.state.LastJustifiedSlot {
-				b.state.LastJustifiedSlot = slot
+			if slot > b.state.JustificationSource {
+				b.state.JustificationSource = slot
 			}
-			b.state.JustifiedStreak++
+			//b.state.JustificationSource &= 2
+			b.state.JustificationSource++
 		} else {
-			b.state.JustifiedStreak = 0
+			b.state.JustificationSource = 0
 		}
 
-		if b.state.JustifiedStreak >= uint64(b.config.CycleLength+1) {
+		if b.state.JustificationSource >= uint64(b.config.CycleLength+1) {
 			if b.state.LastFinalizedSlot < slot-uint64(b.config.CycleLength-1) {
 				b.state.LastFinalizedSlot = slot - uint64(b.config.CycleLength-1)
 			}

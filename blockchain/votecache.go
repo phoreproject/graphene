@@ -45,19 +45,21 @@ func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[c
 			return err
 		}
 
-		attesterIndices, err := s.GetAttesterIndices(&a, c)
+		attesterIndices, err := s.GetAttesterIndices(a.Data.Slot, a.Data.Shard, c)
 		if err != nil {
 			return err
 		}
 
 		for _, h := range parentHashes {
 			skip := false
-			for _, o := range a.ObliqueParentHashes {
-				if o.IsEqual(&h) {
-					// skip if part of oblique parent hashes
-					skip = true
+			/*
+				for _, o := range a.ObliqueParentHashes {
+					if o.IsEqual(&h) {
+						// skip if part of oblique parent hashes
+						skip = true
+					}
 				}
-			}
+			*/
 			if skip {
 				continue
 			}
@@ -67,7 +69,7 @@ func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[c
 			}
 
 			for i, attester := range attesterIndices {
-				if !hasVoted(a.AttesterBitField, i) {
+				if !hasVoted(a.AttesterBitfield, i) {
 					continue
 				}
 
@@ -83,13 +85,14 @@ func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[c
 	return nil
 }
 
-func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {
+func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transaction.AttestationRecord, c *Config) ([]chainhash.Hash, error) {
 	recentHashes := s.RecentBlockHashes
-	obliqueParentHashes := att.ObliqueParentHashes
+	//obliqueParentHashes := att.ObliqueParentHashes
 	earliestSlot := int(block.SlotNumber) - len(recentHashes)
 
-	startIdx := int(att.Slot) - earliestSlot - int(c.CycleLength) + 1
-	endIdx := startIdx - len(att.ObliqueParentHashes) + int(c.CycleLength)
+	startIdx := int(att.Data.Slot) - earliestSlot - int(c.CycleLength) + 1
+	//endIdx := startIdx - len(att.ObliqueParentHashes) + int(c.CycleLength)
+	endIdx := startIdx + int(c.CycleLength)
 
 	if startIdx < 0 || endIdx > len(recentHashes) || endIdx <= startIdx {
 		return nil, fmt.Errorf("attempt to fetch recent blockhashes from %d to %d invalid", startIdx, endIdx)
@@ -100,9 +103,9 @@ func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transa
 		hashes = append(hashes, recentHashes[i])
 	}
 
-	for i := 0; i < len(obliqueParentHashes); i++ {
-		hashes = append(hashes, obliqueParentHashes[i])
-	}
+	//for i := 0; i < len(obliqueParentHashes); i++ {
+	//	hashes = append(hashes, obliqueParentHashes[i])
+	//}
 
 	return hashes, nil
 }

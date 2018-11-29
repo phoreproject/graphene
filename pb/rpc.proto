@@ -148,7 +148,7 @@ message Block {
     repeated bytes AncestorHashes = 3;
     bytes ActiveStateRoot = 4;
     bytes CrystallizedStateRoot = 5;
-    repeated Attestation Attestations = 6;
+    repeated AttestationRecord Attestations = 6;
     repeated Special Specials = 7;
 }
 
@@ -175,4 +175,11 @@ message AttestationSignedData {
     repeated bytes ParentHashes = 4;
     bytes ShardBlockHash = 5;
     uint64 JustifiedSlot = 6;
+}
+
+message AttestationRecord {
+    AttestationSignedData Data = 1;
+    bytes AttesterBitfield = 2;
+    bytes PoCBitfield = 3;
+    bytes AggregateSig = 4;
 }

@@ -92,6 +92,53 @@ type AttestationSignedData struct {
 	JustifiedSlot uint64
 }
 
+// AttestationRecord is a signed attestation of a shard block.
+type AttestationRecord struct {
+	// Signed data
+	Data AttestationSignedData
+	// Attester participation bitfield
+	AttesterBitfield []uint8
+	// Proof of custody bitfield
+	PoCBitfield []uint8
+	// BLS aggregate signature
+	// TODO: replace the type with BLS
+	AggregateSig int
+}
+
+// NewAttestationRecordFromProto gets a new attestation from a protobuf attestation message.
+func NewAttestationRecordFromProto(att *pb.AttestationRecord) (*AttestationRecord, error) {
+	var data AttestationSignedData
+	data.FromProto(att.Data)
+	return &AttestationRecord{
+		Data:             data,
+		AttesterBitfield: att.AttesterBitfield[:],
+		PoCBitfield:      att.PoCBitfield[:],
+		AggregateSig:     0,
+	}, nil
+}
+
+// ToProto gets the protobuf representation of the attestation
+func (a *AttestationRecord) ToProto() *pb.AttestationRecord {
+	var att pb.AttestationRecord
+	att.Data = a.Data.ToProto()
+	att.AttesterBitfield = a.AttesterBitfield[:]
+	att.PoCBitfield = a.PoCBitfield[:]
+	//att.AggregateSig = a.AggregateSig
+	return &att
+}
+
+// ProcessedAttestation is the processed attestation
+type ProcessedAttestation struct {
+	// Signed data
+	Data AttestationSignedData
+	// Attester participation bitfield
+	AttesterBitfield []uint8
+	// Proof of custody bitfield
+	PoCBitfield []uint8
+	// Slot in which it was included
+	SlotIncluded uint64
+}
+
 // ToProto gets the protobuf representation of the data.
 func (a *AttestationSignedData) ToProto() *pb.AttestationSignedData {
 	parentHashes := make([][]byte, len(a.ParentHashes))
@@ -106,4 +153,16 @@ func (a *AttestationSignedData) ToProto() *pb.AttestationSignedData {
 		ParentHashes:   parentHashes,
 		JustifiedSlot:  a.JustifiedSlot,
 	}
+}
+
+// FromProto constructs from proto
+func (a *AttestationSignedData) FromProto(att *pb.AttestationSignedData) {
+	a.ParentHashes = make([]chainhash.Hash, len(att.ParentHashes))
+	for i := range att.ParentHashes {
+		a.ParentHashes[i].SetBytes(att.ParentHashes[i])
+	}
+	a.Slot = att.Slot
+	a.Shard = att.Shard
+	a.ShardBlockHash.SetBytes(att.ShardBlockHash)
+	a.JustifiedSlot = att.JustifiedSlot
 }

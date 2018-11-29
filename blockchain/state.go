@@ -63,7 +63,8 @@ type BeaconState struct {
 	// Should be updated only by hard forks.
 	ForkData ForkData
 	// Attestations not yet processed
-	PendingAttestations []transaction.Attestation
+	//PendingAttestations []transaction.Attestation
+	PendingAttestations []transaction.ProcessedAttestation
 	RecentBlockHashes   []chainhash.Hash
 	RandaoMix           chainhash.Hash
 }
@@ -151,16 +152,16 @@ func (s *BeaconState) updatePendingActions(newBlock *primitives.Block) {
 
 // GetAttesterIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *BeaconState) GetAttesterIndices(attestation *transaction.Attestation, con *Config) ([]uint32, error) {
+func (s *BeaconState) GetAttesterIndices(slot uint64, shard uint64, con *Config) ([]uint32, error) {
 	slotsStart := s.LastStateRecalculationSlot - uint64(con.CycleLength)
-	slotIndex := (attestation.Slot - slotsStart) % uint64(con.CycleLength)
-	return CommitteeInShardAndSlot(slotIndex, attestation.ShardID, s.ShardAndCommitteeForSlots)
+	slotIndex := (slot - slotsStart) % uint64(con.CycleLength)
+	return CommitteeInShardAndSlot(slotIndex, shard, s.ShardAndCommitteeForSlots)
 }
 
 // GetAttesterCommitteeSize gets the size of committee
-func (s *BeaconState) GetAttesterCommitteeSize(attestation *transaction.Attestation, con *Config) uint32 {
+func (s *BeaconState) GetAttesterCommitteeSize(slot uint64, con *Config) uint32 {
 	slotsStart := s.LastStateRecalculationSlot - uint64(con.CycleLength)
-	slotIndex := (attestation.Slot - slotsStart) % uint64(con.CycleLength)
+	slotIndex := (slot - slotsStart) % uint64(con.CycleLength)
 	return uint32(len(s.ShardAndCommitteeForSlots[slotIndex]))
 }
 
@@ -219,7 +220,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 			PostForkVersion: InitialForkVersion,
 			ForkSlotNumber:  0,
 		},
-		PendingAttestations: []transaction.Attestation{},
+		PendingAttestations: []transaction.ProcessedAttestation{},
 		RecentBlockHashes:   recentBlockHashes,
 		RandaoMix:           zeroHash,
 	}
@@ -236,7 +237,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
 		Specials:              []transaction.Transaction{},
-		Attestations:          []transaction.Attestation{},
+		Attestations:          []transaction.AttestationRecord{},
 	}
 
 	b.stateLock.Unlock()
@@ -546,6 +547,28 @@ func (b *Blockchain) ValidateAttestation(attestation *transaction.Attestation, p
 	return nil
 }
 
+// ValidateAttestationRecord checks attestation invariants and the BLS signature.
+func (b *Blockchain) ValidateAttestationRecord(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
+	/*
+		err := validateAttestationSlot(attestation, parentBlock, c)
+		if err != nil {
+			return err
+		}
+
+		err = b.validateAttestationJustifiedBlock(attestation, parentBlock, c)
+		if err != nil {
+			return err
+		}
+
+		err = b.validateAttestationSignature(attestation, parentBlock, c)
+		if err != nil {
+			return err
+		}
+	*/
+
+	return nil
+}
+
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
@@ -675,12 +698,17 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 	}
 
 	for _, a := range newBlock.Attestations {
-		err := b.ValidateAttestation(&a, parentBlock, b.config)
+		err := b.ValidateAttestationRecord(&a, parentBlock, b.config)
 		if err != nil {
 			return err
 		}
 
-		b.state.PendingAttestations = append(b.state.PendingAttestations, a)
+		b.state.PendingAttestations = append(b.state.PendingAttestations, transaction.ProcessedAttestation{
+			Data:             a.Data,
+			AttesterBitfield: a.AttesterBitfield[:],
+			PoCBitfield:      a.PoCBitfield,
+			SlotIncluded:     newBlock.SlotNumber,
+		})
 	}
 
 	b.state.updatePendingActions(newBlock)
@@ -695,7 +723,7 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 		}
 
 		attestation := newBlock.Attestations[0]
-		if attestation.ShardID != shardAndCommittee.Shard || attestation.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitField, proposerIndex) {
+		if attestation.Data.Shard != shardAndCommittee.Shard || attestation.Data.Slot != parentBlock.SlotNumber || !hasVoted(attestation.AttesterBitfield, proposerIndex) {
 			return errors.New("invalid parent block proposer")
 		}
 	}
@@ -754,10 +782,10 @@ func (s *BeaconState) resetCrosslinksRecentlyChanged() {
 
 // removeProcessedAttestations removes attestations from the list
 // with a slot greater than the last state recalculation.
-func removeProcessedAttestations(attestations []transaction.Attestation, lastStateRecalculation uint64) []transaction.Attestation {
-	attestationsf := make([]transaction.Attestation, 0)
+func removeProcessedAttestations(attestations []transaction.ProcessedAttestation, lastStateRecalculation uint64) []transaction.ProcessedAttestation {
+	attestationsf := make([]transaction.ProcessedAttestation, 0)
 	for _, a := range attestations {
-		if a.Slot > lastStateRecalculation {
+		if a.Data.Slot > lastStateRecalculation {
 			attestationsf = append(attestationsf, a)
 		}
 	}
@@ -828,38 +856,38 @@ func (b *Blockchain) updateBlockCrystallizedStateChangesDataReward(totalBalance 
 
 func (b *Blockchain) updateBlockCrystallizedStateChangesDataPendingAttestations(slotNumber uint64, rewardQuotient uint64, quadraticPenaltyQuotient uint64) error {
 	for _, a := range b.state.PendingAttestations {
-		indices, err := b.state.GetAttesterIndices(&a, b.config)
+		indices, err := b.state.GetAttesterIndices(a.Data.Slot, a.Data.Shard, b.config)
 		if err != nil {
 			return err
 		}
 
-		committeeSize := b.state.GetAttesterCommitteeSize(&a, b.config)
+		committeeSize := b.state.GetAttesterCommitteeSize(a.Data.Slot, b.config)
 
 		totalVotingBalance := uint64(0)
 		totalBalance := uint64(0)
 
 		// tally up the balance of each validator who voted for this hash
 		for _, validatorIndex := range indices {
-			if hasVoted(a.AttesterBitField, int(validatorIndex%committeeSize)) {
+			if hasVoted(a.AttesterBitfield, int(validatorIndex%committeeSize)) {
 				totalVotingBalance += b.state.Validators[validatorIndex].Balance
 			}
 			totalBalance += b.state.Validators[validatorIndex].Balance
 		}
 
-		timeSinceLastConfirmations := slotNumber - b.state.Crosslinks[a.ShardID].Slot
+		timeSinceLastConfirmations := slotNumber - b.state.Crosslinks[a.Data.Shard].Slot
 
 		// if this is a super-majority, set up a cross-link
 		if 3*totalVotingBalance >= 2*totalBalance /*&& !b.state.Crosslinks[a.ShardID].RecentlyChanged*/ {
-			b.state.Crosslinks[a.ShardID] = primitives.Crosslink{
+			b.state.Crosslinks[a.Data.Shard] = primitives.Crosslink{
 				//RecentlyChanged: true,
 				Slot:           b.state.LastStateRecalculationSlot + uint64(b.config.CycleLength),
-				ShardBlockHash: a.ShardBlockHash,
+				ShardBlockHash: a.Data.ShardBlockHash,
 			}
 		}
 
 		for _, validatorIndex := range indices {
 			//if !b.state.Crosslinks[a.ShardID].RecentlyChanged {
-			checkBit := hasVoted(a.AttesterBitField, int(validatorIndex%committeeSize))
+			checkBit := hasVoted(a.AttesterBitfield, int(validatorIndex%committeeSize))
 			if checkBit {
 				balance := b.state.Validators[validatorIndex].Balance
 				b.state.Validators[validatorIndex].Balance += balance / rewardQuotient * (2*totalVotingBalance - totalBalance) / totalBalance

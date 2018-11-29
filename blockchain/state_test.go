@@ -190,10 +190,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 		ShardAndCommitteeForSlots:  shardAndCommitteeForSlots,
 	}
 
-	att, err := cState.GetAttesterIndices(&transaction.Attestation{
-		Slot:    64,
-		ShardID: 3,
-	}, &blockchain.MainNetConfig)
+	att, err := cState.GetAttesterIndices(64, 3, &blockchain.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +344,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 			t.Error(err)
 		}
 		for _, a := range blk.Attestations {
-			fmt.Printf("block %d including shard attestation %d\n", a.Slot, a.ShardID)
+			fmt.Printf("block %d including shard attestation %d\n", a.Data.Slot, a.Data.Shard)
 		}
 	}
 

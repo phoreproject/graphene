@@ -17,7 +17,7 @@ type BlockHeader struct {
 	// Slot number
 	SlotNumber uint64
 	// What shard is it on
-	ShardID uint32
+	ShardID uint64
 	// Parent block hash
 	ParentHash chainhash.Hash
 	// Beacon chain block
@@ -70,9 +70,9 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 		return fmt.Errorf("Slot of shard block must not be larger than beacon block")
 	}
 
-	// TODO: get the CrystallizedState from beaconRefBlock.CrystallizedStateRoot
-	var crystallizedState *blockchain.CrystallizedState
-	committeeIndices, err := crystallizedState.GetCommitteeIndices(header.SlotNumber, header.ShardID, b.config)
+	// TODO: get the beaconState from beaconRefBlock
+	var beaconState *blockchain.BeaconState
+	committeeIndices, err := beaconState.GetCommitteeIndices(header.SlotNumber, header.ShardID, b.config)
 	if err != nil {
 		return err
 	}
@@ -81,16 +81,14 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 		return fmt.Errorf("Attestation has incorrect bitfield length")
 	}
 
-	// TODO: get the ActiveState from parentBlock.StateRoot
 	// Spec: Let curblock_proposer_index = hash(state.randao_mix + bytes8(shard_id) + bytes8(slot)) % len(validators).
 	// Let parent_proposer_index be the same value calculated for the parent block.
 	// Make sure that the parent_proposer_index'th bit in the attester_bitfield is set to 1.
-	var parentActiveState *blockchain.ActiveState
 	parentSlotNumberIDBuffer := make([]byte, 8)
 	parentShardIDBuffer := make([]byte, 8)
 	binary.BigEndian.PutUint64(parentSlotNumberIDBuffer, parentBlock.SlotNumber)
-	binary.BigEndian.PutUint32(parentShardIDBuffer, parentBlock.ShardID)
-	concatedBuffer := append(parentActiveState.RandaoMix.CloneBytes(), append(parentShardIDBuffer, parentSlotNumberIDBuffer...)...)
+	binary.BigEndian.PutUint64(parentShardIDBuffer, parentBlock.ShardID)
+	concatedBuffer := append(beaconState.RandaoMix.CloneBytes(), append(parentShardIDBuffer, parentSlotNumberIDBuffer...)...)
 	concatedBufferHash := chainhash.HashB(concatedBuffer)
 	var a, c, m big.Int
 	a.SetBytes(concatedBufferHash)

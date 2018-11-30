@@ -11,7 +11,7 @@ import (
 // Mempool stores transactions to be included in a block
 type Mempool struct {
 	transactions []*transaction.Transaction
-	attestations []*transaction.Attestation
+	attestations []*transaction.AttestationRecord
 	blockchain   *blockchain.Blockchain
 }
 
@@ -19,7 +19,7 @@ type Mempool struct {
 func NewMempool(b *blockchain.Blockchain) Mempool {
 	return Mempool{
 		transactions: []*transaction.Transaction{},
-		attestations: []*transaction.Attestation{},
+		attestations: []*transaction.AttestationRecord{},
 		blockchain:   b,
 	}
 }
@@ -36,13 +36,13 @@ func (m *Mempool) ProcessTransaction(t *transaction.Transaction) error {
 
 // ProcessAttestation validates an attestation and adds it to the
 // mempool.
-func (m *Mempool) ProcessAttestation(a *transaction.Attestation) error {
+func (m *Mempool) ProcessAttestation(a *transaction.AttestationRecord) error {
 	logger.Debug("received new attestation")
 	lb, err := m.blockchain.LastBlock()
 	if err != nil {
 		return err
 	}
-	err = m.blockchain.ValidateAttestation(a, lb, m.blockchain.GetConfig())
+	err = m.blockchain.ValidateAttestationRecord(a, lb, m.blockchain.GetConfig())
 	if err != nil {
 		return err
 	}
@@ -75,14 +75,14 @@ func (m *Mempool) ProcessNewTransaction(transactionRaw []byte) error {
 // ProcessNewAttestation processes raw bytes received from the network
 // and adds it to the mempool if needed.
 func (m *Mempool) ProcessNewAttestation(attestationRaw []byte) error {
-	att := pb.Attestation{}
+	att := pb.AttestationRecord{}
 
 	err := proto.Unmarshal(attestationRaw, &att)
 	if err != nil {
 		return err
 	}
 
-	a, err := transaction.NewAttestationFromProto(&att)
+	a, err := transaction.NewAttestationRecordFromProto(&att)
 	if err != nil {
 		return err
 	}

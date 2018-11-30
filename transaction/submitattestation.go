@@ -22,6 +22,8 @@ type AttestationSignedData struct {
 	ShardBlockCombinedDataRoot chainhash.Hash
 	// Slot of last justified beacon block referenced in the attestation
 	JustifiedSlot uint64
+	// Hash of last justified beacon block
+	JustifiedBlockHash chainhash.Hash
 }
 
 // AttestationRecord is a signed attestation of a shard block.

@@ -405,9 +405,14 @@ func (b *Blockchain) validateAttestationJustifiedBlock(attestation *transaction.
 		return errors.New("justified block not in index")
 	}
 
-	if !justifiedBlockHash.IsEqual(&attestation.Data.ShardBlockHash) {
+	// suppress unused variable warning
+	if justifiedBlockHash == nil {
+	}
+	/* spec is not completed, no spec on how to calculate JustifiedBlockHash
+	if !justifiedBlockHash.IsEqual(&attestation.Data.JustifiedBlockHash) {
 		return errors.New("justified block hash does not match block at slot")
 	}
+	*/
 
 	return nil
 }

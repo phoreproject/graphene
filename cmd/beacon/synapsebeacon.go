@@ -41,11 +41,11 @@ func main() {
 
 	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
-			PubKey:            bls.PublicKey{},
-			ProofOfPossession: bls.Signature{},
-			WithdrawalShard:   1,
-			WithdrawalAddress: serialization.Address{},
-			RandaoCommitment:  randaoCommitment,
+			PubKey:                bls.PublicKey{},
+			ProofOfPossession:     bls.Signature{},
+			WithdrawalShard:       1,
+			WithdrawalCredentials: serialization.Address{},
+			RandaoCommitment:      randaoCommitment,
 		})
 	}
 

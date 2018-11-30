@@ -25,7 +25,8 @@ type Block struct {
 	ActiveStateRoot       chainhash.Hash
 	CrystallizedStateRoot chainhash.Hash
 	Specials              []transaction.Transaction
-	Attestations          []transaction.Attestation
+	//Attestations          []transaction.Attestation
+	Attestations []transaction.AttestationRecord
 }
 
 // Hash gets the hash of the block header
@@ -74,10 +75,10 @@ func BlockFromProto(blockProto *pb.Block) (*Block, error) {
 		specials[i] = *tx
 	}
 
-	attestations := make([]transaction.Attestation, len(blockProto.Attestations))
+	attestations := make([]transaction.AttestationRecord, len(blockProto.Attestations))
 	for i := range blockProto.Attestations {
 		a := blockProto.Attestations[i]
-		att, err := transaction.NewAttestationFromProto(a)
+		att, err := transaction.NewAttestationRecordFromProto(a)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +109,7 @@ func (b *Block) ToProto() *pb.Block {
 		specials[i] = s
 	}
 
-	attestations := make([]*pb.Attestation, len(b.Attestations))
+	attestations := make([]*pb.AttestationRecord, len(b.Attestations))
 	for i := range attestations {
 		attestations[i] = b.Attestations[i].ToProto()
 	}

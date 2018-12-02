@@ -38,21 +38,21 @@ func NewVoteCache() *VoteCache {
 }
 
 // CalculateNewVoteCache tallies votes for attestations in each block.
-func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
+func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
 	for _, a := range block.Attestations {
-		parentHashes, err := s.Active.getSignedParentHashes(block, &a, c)
+		parentHashes, err := s.getSignedParentHashes(block, &a, c)
 		if err != nil {
 			return err
 		}
 
-		attesterIndices, err := s.Crystallized.GetAttesterIndices(&a, c)
+		attesterIndices, err := s.GetAttesterIndices(a.Data.Slot, a.Data.Shard, c)
 		if err != nil {
 			return err
 		}
 
 		for _, h := range parentHashes {
 			skip := false
-			for _, o := range a.ObliqueParentHashes {
+			for _, o := range a.Data.ParentHashes {
 				if o.IsEqual(&h) {
 					// skip if part of oblique parent hashes
 					skip = true
@@ -67,14 +67,14 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 			}
 
 			for i, attester := range attesterIndices {
-				if !hasVoted(a.AttesterBitField, i) {
+				if !hasVoted(a.AttesterBitfield, i) {
 					continue
 				}
 
 				if _, found := cache[h].validatorIndices[attester]; found {
 					continue
 				}
-				cache[h].totalDeposit += s.Crystallized.Validators[attester].Balance
+				cache[h].totalDeposit += s.Validators[attester].Balance
 				cache[h].validatorIndices[attester] = true
 			}
 		}
@@ -83,13 +83,13 @@ func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainha
 	return nil
 }
 
-func (a *ActiveState) getSignedParentHashes(block *primitives.Block, att *transaction.Attestation, c *Config) ([]chainhash.Hash, error) {
-	recentHashes := a.RecentBlockHashes
-	obliqueParentHashes := att.ObliqueParentHashes
+func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transaction.AttestationRecord, c *Config) ([]chainhash.Hash, error) {
+	recentHashes := s.RecentBlockHashes
+	obliqueParentHashes := att.Data.ParentHashes
 	earliestSlot := int(block.SlotNumber) - len(recentHashes)
 
-	startIdx := int(att.Slot) - earliestSlot - int(c.CycleLength) + 1
-	endIdx := startIdx - len(att.ObliqueParentHashes) + int(c.CycleLength)
+	startIdx := int(att.Data.Slot) - earliestSlot - int(c.CycleLength) + 1
+	endIdx := startIdx - len(att.Data.ParentHashes) + int(c.CycleLength)
 
 	if startIdx < 0 || endIdx > len(recentHashes) || endIdx <= startIdx {
 		return nil, fmt.Errorf("attempt to fetch recent blockhashes from %d to %d invalid", startIdx, endIdx)

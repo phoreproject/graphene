@@ -117,13 +117,12 @@ message GetBlockHashResponse {
 
 message ValidatorResponse {
     uint32 Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
-    bytes WithdrawalAddress = 2;
-    uint32 WithdrawalShardID = 3;
+    bytes WithdrawalCredentials = 2;
     bytes RandaoCommitment = 4;
     uint64 RandaoLastChange = 5;
     uint64 Balance = 6;
     uint32 Status = 7;
-    uint64 ExitSlot = 8;
+    uint64 ExitSeq = 8;
 }
 
 message GetValidatorAtIndexRequest {
@@ -149,7 +148,7 @@ message Block {
     repeated bytes AncestorHashes = 3;
     bytes ActiveStateRoot = 4;
     bytes CrystallizedStateRoot = 5;
-    repeated Attestation Attestations = 6;
+    repeated AttestationRecord Attestations = 6;
     repeated Special Specials = 7;
 }
 
@@ -158,22 +157,18 @@ message Special {
     repeated bytes Data = 2;
 }
 
-message Attestation {
-    uint64 Slot = 1;
-    uint32 ShardID = 2;
-    uint64 JustifiedSlot = 3;
-    bytes JustifiedBlockHash = 4;
-    bytes ShardBlockHash = 5;
-    repeated bytes ObliqueParentHashes = 6;
-    bytes AttesterBitField = 7;
-    bytes AggregateSignature = 8;
-}
-
 message AttestationSignedData {
     uint32 Version = 1;
     uint64 Slot = 2;
-    uint32 Shard = 3;
+    uint64 Shard = 3;
     repeated bytes ParentHashes = 4;
     bytes ShardBlockHash = 5;
     uint64 JustifiedSlot = 6;
+}
+
+message AttestationRecord {
+    AttestationSignedData Data = 1;
+    bytes AttesterBitfield = 2;
+    bytes PoCBitfield = 3;
+    bytes AggregateSig = 4;
 }

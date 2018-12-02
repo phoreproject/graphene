@@ -24,11 +24,11 @@ func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockch
 
 	for i := 0; i <= initialValidators; i++ {
 		validators = append(validators, blockchain.InitialValidatorEntry{
-			PubKey:            bls.PublicKey{},
-			ProofOfPossession: bls.Signature{},
-			WithdrawalShard:   1,
-			WithdrawalAddress: serialization.Address{},
-			RandaoCommitment:  randaoCommitment,
+			PubKey:                bls.PublicKey{},
+			ProofOfPossession:     bls.Signature{},
+			WithdrawalShard:       1,
+			WithdrawalCredentials: serialization.Address{},
+			RandaoCommitment:      randaoCommitment,
 		})
 	}
 
@@ -41,7 +41,7 @@ func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockch
 }
 
 // MineBlockWithSpecialsAndAttestations mines a block with the given specials and attestations.
-func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.Attestation) (*primitives.Block, error) {
+func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.AttestationRecord) (*primitives.Block, error) {
 	lastBlock, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []t
 }
 
 // GenerateFakeAttestations generates a bunch of fake attestations.
-func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestation, error) {
+func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.AttestationRecord, error) {
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 
 	assignments := b.GetShardsAndCommitteesForSlot(lb.SlotNumber)
 
-	attestations := make([]transaction.Attestation, len(assignments))
+	attestations := make([]transaction.AttestationRecord, len(assignments))
 
 	for i, assignment := range assignments {
 
@@ -84,20 +84,24 @@ func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.Attestati
 			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
 		}
 
-		slotHash, err := b.GetNodeByHeight(b.GetState().Crystallized.LastJustifiedSlot)
+		slotHash, err := b.GetNodeByHeight(b.GetState().JustificationSource)
 		if err != nil {
 			return nil, err
 		}
 
-		attestations[i] = transaction.Attestation{
-			Slot:                lb.SlotNumber,
-			ShardID:             assignment.ShardID,
-			JustifiedSlot:       b.GetState().Crystallized.LastJustifiedSlot,
-			JustifiedBlockHash:  slotHash,
-			ObliqueParentHashes: []chainhash.Hash{},
-			AttesterBitField:    attesterBitfield,
-			AggregateSignature:  bls.Signature{},
-			ShardBlockHash:      chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.ShardID, lb.SlotNumber))),
+		attestations[i] = transaction.AttestationRecord{
+			Data: transaction.AttestationSignedData{
+				Slot:                       lb.SlotNumber,
+				Shard:                      assignment.Shard,
+				ParentHashes:               []chainhash.Hash{},
+				ShardBlockHash:             chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.Shard, lb.SlotNumber))),
+				LastCrosslinkHash:          chainhash.Hash{},
+				ShardBlockCombinedDataRoot: slotHash,
+				JustifiedSlot:              b.GetState().JustificationSource,
+			},
+			AttesterBitfield: attesterBitfield,
+			PoCBitfield:      make([]uint8, 32),
+			AggregateSig:     bls.Signature{},
 		}
 	}
 

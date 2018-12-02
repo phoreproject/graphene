@@ -62,7 +62,7 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 		"slot":        slot,
 		"role":        r}).Debug("slot shard assignment")
 
-	return &pb.SlotAndShardAssignment{ShardID: shardID, Slot: slot, Role: r}, nil
+	return &pb.SlotAndShardAssignment{ShardID: uint32(shardID), Slot: slot, Role: r}, nil
 }
 
 func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
@@ -74,7 +74,7 @@ func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtI
 }
 
 func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, in.Shard)
+	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, uint64(in.Shard))
 	if err != nil {
 		return nil, err
 	}

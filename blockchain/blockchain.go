@@ -41,7 +41,7 @@ type Blockchain struct {
 	chain     blockchainView
 	db        db.Database
 	config    *Config
-	state     State
+	state     BeaconState
 	stateLock *sync.Mutex
 	voteCache map[chainhash.Hash]*VoteCache
 }
@@ -69,11 +69,11 @@ func NewBlockchainWithInitialValidators(db db.Database, config *Config, validato
 // InitialValidatorEntry is the validator entry to be added
 // at the beginning of a blockchain.
 type InitialValidatorEntry struct {
-	PubKey            bls.PublicKey
-	ProofOfPossession bls.Signature
-	WithdrawalShard   uint32
-	WithdrawalAddress serialization.Address
-	RandaoCommitment  chainhash.Hash
+	PubKey                bls.PublicKey
+	ProofOfPossession     bls.Signature
+	WithdrawalShard       uint32
+	WithdrawalCredentials serialization.Address
+	RandaoCommitment      chainhash.Hash
 }
 
 const (
@@ -181,21 +181,21 @@ func (b *Blockchain) GetConfig() *Config {
 
 // GetSlotAndShardAssignment gets the shard and slot assignment for a specific
 // validator.
-func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint64, int, error) {
-	earliestSlotInArray := int(b.state.Crystallized.LastStateRecalculation) - b.config.CycleLength
+func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
+	earliestSlotInArray := int(b.state.LastStateRecalculationSlot) - b.config.CycleLength
 	if earliestSlotInArray < 0 {
 		earliestSlotInArray = 0
 	}
-	for i, slot := range b.state.Crystallized.ShardAndCommitteeForSlots {
+	for i, slot := range b.state.ShardAndCommitteeForSlots {
 		for j, committee := range slot {
 			for v, validator := range committee.Committee {
 				if uint32(validator) != validatorID {
 					continue
 				}
 				if j == 0 && v == i%len(committee.Committee) {
-					return committee.ShardID, uint64(i + earliestSlotInArray), RoleProposer, nil
+					return committee.Shard, uint64(i + earliestSlotInArray), RoleProposer, nil
 				}
-				return committee.ShardID, uint64(i + earliestSlotInArray), RoleAttester, nil
+				return committee.Shard, uint64(i + earliestSlotInArray), RoleAttester, nil
 			}
 		}
 	}
@@ -204,14 +204,14 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint32, uint
 
 // GetValidatorAtIndex gets the validator at index
 func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
-	if index >= uint32(len(b.state.Crystallized.Validators)) {
+	if index >= uint32(len(b.state.Validators)) {
 		return nil, fmt.Errorf("Index out of bounds")
 	}
 
-	return &b.state.Crystallized.Validators[index], nil
+	return &b.state.Validators[index], nil
 }
 
 // GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID
-func (b *Blockchain) GetCommitteeValidatorIndices(slot uint64, shardID uint32) ([]uint32, error) {
-	return b.state.Crystallized.GetCommitteeIndices(slot, shardID, b.config)
+func (b *Blockchain) GetCommitteeValidatorIndices(slot uint64, shardID uint64) ([]uint32, error) {
+	return b.state.GetCommitteeIndices(slot, shardID, b.config)
 }

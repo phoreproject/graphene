@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/transaction"
 
 	"github.com/phoreproject/synapse/db"
@@ -27,16 +28,25 @@ func TestStoreRetrieve(t *testing.T) {
 		ActiveStateRoot:       chainhash.Hash{},
 		CrystallizedStateRoot: chainhash.Hash{},
 		Specials:              []transaction.Transaction{},
-		Attestations: []transaction.Attestation{
+		Attestations: []transaction.AttestationRecord{
 			{
-				Slot:    0,
-				ShardID: 1,
-				ObliqueParentHashes: []chainhash.Hash{
-					{},
-					{},
-					{},
-					{},
+				Data: transaction.AttestationSignedData{
+					Slot:  0,
+					Shard: 1,
+					ParentHashes: []chainhash.Hash{
+						{},
+						{},
+						{},
+						{},
+					},
+					ShardBlockHash:             chainhash.Hash{},
+					LastCrosslinkHash:          chainhash.Hash{},
+					ShardBlockCombinedDataRoot: chainhash.Hash{},
+					JustifiedSlot:              0,
 				},
+				AttesterBitfield: []uint8{},
+				PoCBitfield:      []uint8{},
+				AggregateSig:     bls.Signature{},
 			},
 		},
 	}

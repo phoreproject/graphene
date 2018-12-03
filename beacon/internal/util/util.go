@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
@@ -15,14 +16,14 @@ var randaoSecret = chainhash.HashH([]byte("randao"))
 var zeroHash = chainhash.Hash{}
 
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
-func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockchain.Blockchain, error) {
+func SetupBlockchain(initialValidators int, config *beacon.Config) (*beacon.Blockchain, error) {
 
 	randaoCommitment := chainhash.HashH(randaoSecret[:])
 
-	validators := []blockchain.InitialValidatorEntry{}
+	validators := []beacon.InitialValidatorEntry{}
 
 	for i := 0; i <= initialValidators; i++ {
-		validators = append(validators, blockchain.InitialValidatorEntry{
+		validators = append(validators, beacon.InitialValidatorEntry{
 			PubKey:                bls.PublicKey{},
 			ProofOfPossession:     bls.Signature{},
 			WithdrawalShard:       1,
@@ -31,7 +32,7 @@ func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockch
 		})
 	}
 
-	b, err := blockchain.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), config, validators)
+	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), config, validators)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +41,7 @@ func SetupBlockchain(initialValidators int, config *blockchain.Config) (*blockch
 }
 
 // MineBlockWithSpecialsAndAttestations mines a block with the given specials and attestations.
-func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []transaction.Transaction, attestations []transaction.AttestationRecord) (*primitives.Block, error) {
+func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, specials []transaction.Transaction, attestations []transaction.AttestationRecord) (*primitives.Block, error) {
 	lastBlock, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []t
 	block1 := primitives.Block{
 		SlotNumber:            lastBlock.SlotNumber + 1,
 		RandaoReveal:          chainhash.HashH([]byte(fmt.Sprintf("test test %d", lastBlock.SlotNumber))),
-		AncestorHashes:        blockchain.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
+		AncestorHashes:        beacon.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
 		ActiveStateRoot:       zeroHash,
 		CrystallizedStateRoot: zeroHash,
 		Specials:              specials,
@@ -65,7 +66,7 @@ func MineBlockWithSpecialsAndAttestations(b *blockchain.Blockchain, specials []t
 }
 
 // GenerateFakeAttestations generates a bunch of fake attestations.
-func GenerateFakeAttestations(b *blockchain.Blockchain) ([]transaction.AttestationRecord, error) {
+func GenerateFakeAttestations(b *beacon.Blockchain) ([]transaction.AttestationRecord, error) {
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -119,7 +120,7 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 }
 
 // MineBlockWithFullAttestations generates attestations to include in a block and mines it.
-func MineBlockWithFullAttestations(b *blockchain.Blockchain) (*primitives.Block, error) {
+func MineBlockWithFullAttestations(b *beacon.Blockchain) (*primitives.Block, error) {
 	atts, err := GenerateFakeAttestations(b)
 	if err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-package blockchain
+package beacon
 
 // Config is the config for the blockchain.
 type Config struct {

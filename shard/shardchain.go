@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	blockchain "github.com/phoreproject/synapse/blockchain"
-	"github.com/phoreproject/synapse/db"
-	beacondb "github.com/phoreproject/synapse/db"
+	beacon "github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/db"
+	beacondb "github.com/phoreproject/synapse/beacon/db"
 )
 
 // BlockHeader represents a single shard chain block header.
@@ -53,7 +53,7 @@ type blockchainView struct {
 type Blockchain struct {
 	chain  blockchainView
 	db     db.Database
-	config *blockchain.Config
+	config *beacon.Config
 }
 
 func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, beaconDB beacondb.Database) error {
@@ -71,7 +71,7 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 	}
 
 	// TODO: get the beaconState from beaconRefBlock
-	var beaconState *blockchain.BeaconState
+	var beaconState *beacon.BeaconState
 	committeeIndices, err := beaconState.GetCommitteeIndices(header.SlotNumber, header.ShardID, b.config)
 	if err != nil {
 		return err

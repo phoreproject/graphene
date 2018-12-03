@@ -1,4 +1,4 @@
-package blockchain
+package beacon
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	logger "github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/db"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/db"
+	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/serialization"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"

@@ -8,8 +8,8 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/transaction"
 
-	"github.com/phoreproject/synapse/db"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/primitives"
+	"github.com/phoreproject/synapse/beacon/db"
 )
 
 func TestStoreRetrieve(t *testing.T) {

@@ -1,17 +1,16 @@
-package blockchain_test
+package beacon_test
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/phoreproject/synapse/blockchain/internal/util"
+	"github.com/phoreproject/synapse/beacon/internal/util"
 	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/transaction"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/blockchain"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/primitives"
 )
 
 func TestLastBlockOnInitialSetup(t *testing.T) {

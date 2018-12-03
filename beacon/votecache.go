@@ -1,10 +1,10 @@
-package blockchain
+package beacon
 
 import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/transaction"
 )
 

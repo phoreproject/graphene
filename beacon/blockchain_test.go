@@ -1,4 +1,4 @@
-package blockchain_test
+package beacon_test
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"

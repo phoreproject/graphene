@@ -7,15 +7,15 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/rpc"
 	"github.com/phoreproject/synapse/serialization"
 	"google.golang.org/grpc"
 
-	"github.com/phoreproject/synapse/blockchain"
-	"github.com/phoreproject/synapse/db"
+	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/db"
 
 	logger "github.com/sirupsen/logrus"
 )
@@ -31,16 +31,16 @@ func main() {
 
 	logger.Info("initializing database")
 	database := db.NewInMemoryDB()
-	c := blockchain.MainNetConfig
+	c := beacon.MainNetConfig
 
 	logger.Info("initializing blockchain")
 
-	validators := []blockchain.InitialValidatorEntry{}
+	validators := []beacon.InitialValidatorEntry{}
 
 	randaoCommitment := chainhash.HashH([]byte("test"))
 
 	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
-		validators = append(validators, blockchain.InitialValidatorEntry{
+		validators = append(validators, beacon.InitialValidatorEntry{
 			PubKey:                bls.PublicKey{},
 			ProofOfPossession:     bls.Signature{},
 			WithdrawalShard:       1,
@@ -51,7 +51,7 @@ func main() {
 
 	logger.WithField("numValidators", len(validators)).Info("initializing blockchain with validators")
 
-	blockchain, err := blockchain.NewBlockchainWithInitialValidators(database, &c, validators)
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
 	if err != nil {
 		panic(err)
 	}

@@ -1,4 +1,4 @@
-package blockchain
+package beacon
 
 import (
 	"encoding/binary"
@@ -9,8 +9,8 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/serialization"
 	"github.com/phoreproject/synapse/transaction"
 	logger "github.com/sirupsen/logrus"

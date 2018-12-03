@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/primitives"
 )
 
 // InMemoryDB is a very basic block database.

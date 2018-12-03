@@ -6,10 +6,10 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/phoreproject/synapse/blockchain"
+	"github.com/phoreproject/synapse/beacon"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/primitives"
 
 	"github.com/phoreproject/synapse/pb"
 	"golang.org/x/net/context"
@@ -19,7 +19,7 @@ import (
 
 // server is used to implement rpc.BlockchainRPCServer.
 type server struct {
-	chain *blockchain.Blockchain
+	chain *beacon.Blockchain
 }
 
 // SubmitBlock submits a block to the network after verifying it
@@ -52,7 +52,7 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 	}
 
 	r := pb.Role_ATTESTER
-	if role == blockchain.RoleProposer {
+	if role == beacon.RoleProposer {
 		r = pb.Role_PROPOSER
 	}
 
@@ -93,7 +93,7 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 }
 
 // Serve serves the RPC server
-func Serve(listenAddr string, b *blockchain.Blockchain) error {
+func Serve(listenAddr string, b *beacon.Blockchain) error {
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err

@@ -2,7 +2,7 @@ package db
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/beacon/primitives"
 )
 
 // Database is a very basic interface for pluggable

@@ -2,7 +2,7 @@ package net
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/phoreproject/synapse/blockchain"
+	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/transaction"
 	logger "github.com/sirupsen/logrus"
@@ -12,11 +12,11 @@ import (
 type Mempool struct {
 	transactions []*transaction.Transaction
 	attestations []*transaction.AttestationRecord
-	blockchain   *blockchain.Blockchain
+	blockchain   *beacon.Blockchain
 }
 
 // NewMempool creates a new mempool
-func NewMempool(b *blockchain.Blockchain) Mempool {
+func NewMempool(b *beacon.Blockchain) Mempool {
 	return Mempool{
 		transactions: []*transaction.Transaction{},
 		attestations: []*transaction.AttestationRecord{},

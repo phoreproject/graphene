@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/internal/util"
 	"github.com/phoreproject/synapse/bls"
 
@@ -14,7 +15,7 @@ import (
 )
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
-	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+1, &blockchain.MainNetConfig)
+	b, err := util.SetupBlockchain(beacon.MainNetConfig.ShardCount*beacon.MainNetConfig.MinCommitteeSize*2+1, &beacon.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 }
 
 func TestStateInitialization(t *testing.T) {
-	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+1, &blockchain.MainNetConfig)
+	b, err := util.SetupBlockchain(beacon.MainNetConfig.ShardCount*beacon.MainNetConfig.MinCommitteeSize*2+1, &beacon.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,14 +65,14 @@ func TestStateInitialization(t *testing.T) {
 		t.Errorf("invalid initial validator entries")
 	}
 
-	if len(s.ShardAndCommitteeForSlots) != blockchain.MainNetConfig.CycleLength*2 {
-		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), blockchain.MainNetConfig.CycleLength)
+	if len(s.ShardAndCommitteeForSlots) != beacon.MainNetConfig.CycleLength*2 {
+		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), beacon.MainNetConfig.CycleLength)
 	}
 }
 
 /*
 func TestCrystallizedStateCopy(t *testing.T) {
-	c := blockchain.CrystallizedState{
+	c := beacon.CrystallizedState{
 		Crosslinks: []primitives.Crosslink{
 			{
 				RecentlyChanged: false,
@@ -161,7 +162,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 		},
 	}
 
-	s, err := blockchain.ShardCommitteeByShardID(3, committees)
+	s, err := beacon.ShardCommitteeByShardID(3, committees)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,14 +170,14 @@ func TestShardCommitteeByShardID(t *testing.T) {
 		t.Fatal("did not find correct shard")
 	}
 
-	_, err = blockchain.ShardCommitteeByShardID(9, committees)
+	_, err = beacon.ShardCommitteeByShardID(9, committees)
 	if err == nil {
 		t.Fatal("did not error on non-existent shard ID")
 	}
 
 	shardAndCommitteeForSlots := [][]primitives.ShardAndCommittee{committees}
 
-	s, err = blockchain.CommitteeInShardAndSlot(0, 3, shardAndCommitteeForSlots)
+	s, err = beacon.CommitteeInShardAndSlot(0, 3, shardAndCommitteeForSlots)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,12 +185,12 @@ func TestShardCommitteeByShardID(t *testing.T) {
 		t.Fatal("did not find correct shard")
 	}
 
-	cState := blockchain.BeaconState{
+	cState := beacon.BeaconState{
 		LastStateRecalculationSlot: 64,
 		ShardAndCommitteeForSlots:  shardAndCommitteeForSlots,
 	}
 
-	att, err := cState.GetAttesterIndices(64, 3, &blockchain.MainNetConfig)
+	att, err := cState.GetAttesterIndices(64, 3, &beacon.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +200,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 }
 
 func TestAttestationValidation(t *testing.T) {
-	b, err := util.SetupBlockchain(16448, &blockchain.MainNetConfig) // committee size of 257 (% 8 = 1)
+	b, err := util.SetupBlockchain(16448, &beacon.MainNetConfig) // committee size of 257 (% 8 = 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +240,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +260,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch slot number being too high")
 	}
@@ -279,7 +280,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch slot number being out of bounds")
 	}
@@ -299,7 +300,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch invalid shard ID")
 	}
@@ -319,7 +320,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
 	if err == nil {
 		t.Fatal("did not catch invalid attester bitfield (too many bytes)")
 	}
@@ -351,7 +352,7 @@ func TestAttestationValidation(t *testing.T) {
 			AggregateSig:     bls.Signature{},
 		}
 
-		err = b.ValidateAttestationRecord(att, lb, &blockchain.MainNetConfig)
+		err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
 		if err == nil {
 			t.Fatal("did not catch invalid attester bitfield (not enough 0s at end)")
 		}
@@ -360,7 +361,7 @@ func TestAttestationValidation(t *testing.T) {
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	b, err := util.SetupBlockchain(blockchain.MainNetConfig.ShardCount*blockchain.MainNetConfig.MinCommitteeSize*2+5, &blockchain.MainNetConfig)
+	b, err := util.SetupBlockchain(beacon.MainNetConfig.ShardCount*beacon.MainNetConfig.MinCommitteeSize*2+5, &beacon.MainNetConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -111,7 +111,7 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 		return NetworkingService{}, err
 	}
 
-	err = startDiscovery(ctx, host)
+	err = startDiscovery(ctx, host, NewDiscoveryOptions())
 	if err != nil {
 		cancel()
 		return NetworkingService{}, err

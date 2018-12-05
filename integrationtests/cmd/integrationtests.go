@@ -9,17 +9,6 @@ import (
 	"github.com/phoreproject/synapse/integrationtests"
 )
 
-type entry struct {
-	// name is case insensitive
-	name    string
-	creator func() integrationtests.IntegrationTest
-}
-
-var entryList = []entry{
-	entry{name: "sample", creator: func() integrationtests.IntegrationTest { return integrationtests.SampleTest{} }},
-	entry{name: "SynapseP2p", creator: func() integrationtests.IntegrationTest { return integrationtests.SynapseP2pTest{} }},
-}
-
 type multipleFlags []string
 
 func (i *multipleFlags) String() string {
@@ -36,9 +25,9 @@ func main() {
 	flag.Var(&flagTest, "test", "Specify the test name, can't multiple.")
 	flag.Parse()
 
-	var entries []entry
+	var entries []integrationtests.Entry
 	if len(flagTest) == 0 {
-		for _, entry := range entryList {
+		for _, entry := range integrationtests.EntryList {
 			entries = append(entries, entry)
 		}
 	} else {
@@ -49,9 +38,12 @@ func main() {
 
 	errorCount := 0
 	for _, entry := range entries {
-		fmt.Printf("Running %s\n\n", entry.name)
-		test := entry.creator()
-		err := test.Execute()
+		fmt.Printf("Running %s\n\n", entry.Name)
+		test := entry.Creator()
+		service := integrationtests.TestService{
+			EntryArgs: entry.EntryArgs,
+		}
+		err := test.Execute(&service)
 		if err != nil {
 			errorCount++
 			fmt.Println(err)
@@ -64,9 +56,9 @@ func main() {
 	os.Exit(errorCount)
 }
 
-func findEntryByName(name string) entry {
-	for _, entry := range entryList {
-		if strings.EqualFold(entry.name, name) {
+func findEntryByName(name string) integrationtests.Entry {
+	for _, entry := range integrationtests.EntryList {
+		if strings.EqualFold(entry.Name, name) {
 			return entry
 		}
 	}

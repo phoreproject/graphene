@@ -39,7 +39,7 @@ require (
 	github.com/libp2p/go-libp2p-metrics v2.1.7+incompatible // indirect
 	github.com/libp2p/go-libp2p-nat v0.8.8 // indirect
 	github.com/libp2p/go-libp2p-net v3.0.15+incompatible // indirect
-	github.com/libp2p/go-libp2p-peer v2.4.0+incompatible // indirect
+	github.com/libp2p/go-libp2p-peer v2.4.0+incompatible
 	github.com/libp2p/go-libp2p-peerstore v2.0.6+incompatible
 	github.com/libp2p/go-libp2p-protocol v1.0.0 // indirect
 	github.com/libp2p/go-libp2p-pubsub v0.10.2

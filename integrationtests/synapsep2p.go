@@ -2,7 +2,6 @@ package integrationtests
 
 import (
 	"crypto/rand"
-	"flag"
 	"net"
 
 	"google.golang.org/grpc"
@@ -44,23 +43,22 @@ func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 }
 
 // Execute implements IntegrationTest
-func (test SynapseP2pTest) Execute() error {
-	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
-	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
-	rpcConnect := flag.String("rpclisten", "127.0.0.1:11783", "host and port for RPC server to listen on")
-	flag.Parse()
+func (test SynapseP2pTest) Execute(service *TestService) error {
+	listen := service.GetArgString("listen", "/ip4/0.0.0.0/tcp/11781")
+	initialConnections := service.GetArgString("connect", "")
+	rpcConnect := service.GetArgString("rpclisten", "127.0.0.1:11783")
 
 	logger.Debug("starting p2p service")
 
 	logger.Info("initializing net")
-	ps, err := parseInitialConnections(*initialConnections)
+	ps, err := parseInitialConnections(initialConnections)
 	if err != nil {
 		return err
 	}
 
-	sourceMultiAddr, err := multiaddr.NewMultiaddr(*listen)
+	sourceMultiAddr, err := multiaddr.NewMultiaddr(listen)
 	if err != nil {
-		logger.WithField("addr", *listen).Fatal("address is invalid")
+		logger.WithField("addr", listen).Fatal("address is invalid")
 		return err
 	}
 
@@ -87,7 +85,7 @@ func (test SynapseP2pTest) Execute() error {
 	}
 
 	logger.Info("starting P2P RPC service")
-	lis, err := net.Listen("tcp", *rpcConnect)
+	lis, err := net.Listen("tcp", rpcConnect)
 	if err != nil {
 		return err
 	}

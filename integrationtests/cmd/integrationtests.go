@@ -10,15 +10,14 @@ import (
 )
 
 type entry struct {
+	// name is case insensitive
 	name    string
 	creator func() integrationtests.IntegrationTest
 }
 
 var entryList = []entry{
-	entry{
-		name:    "sample",
-		creator: func() integrationtests.IntegrationTest { return integrationtests.SampleTest{} },
-	},
+	entry{name: "sample", creator: func() integrationtests.IntegrationTest { return integrationtests.SampleTest{} }},
+	entry{name: "SynapseP2p", creator: func() integrationtests.IntegrationTest { return integrationtests.SynapseP2pTest{} }},
 }
 
 type multipleFlags []string
@@ -50,14 +49,14 @@ func main() {
 
 	errorCount := 0
 	for _, entry := range entries {
-		fmt.Printf("Running %s\n", entry.name)
+		fmt.Printf("Running %s\n\n", entry.name)
 		test := entry.creator()
 		err := test.Execute()
 		if err != nil {
 			errorCount++
 			fmt.Println(err)
 		}
-		fmt.Printf("\n")
+		fmt.Printf("\n\n")
 	}
 
 	fmt.Printf("All done\n")

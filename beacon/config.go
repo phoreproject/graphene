@@ -36,6 +36,21 @@ var MainNetConfig = Config{
 	MaxValidatorChurnQuotient:         32,
 }
 
+// RegtestConfig is the config used for unit tests
+var RegtestConfig = Config{
+	CycleLength:                       4,
+	DepositSize:                       100 * UnitInCoin,
+	MinCommitteeSize:                  4,
+	ShardCount:                        4,
+	RandaoSlotsPerLayer:               4192,
+	BaseRewardQuotient:                85000,
+	SqrtEDropTime:                     65536,
+	WithdrawalPeriod:                  524288,
+	MinimumDepositSize:                50 * UnitInCoin,
+	MinimumValidatorSetChangeInterval: 32,
+	MaxValidatorChurnQuotient:         32,
+}
+
 const (
 	// PendingActivation is when the validator is queued to be
 	// added to the validator set.

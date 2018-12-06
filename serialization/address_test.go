@@ -10,9 +10,31 @@ import (
 	"github.com/phoreproject/synapse/serialization"
 )
 
+type xorshift struct {
+	state uint64
+}
+
+func newXORShift(state uint64) *xorshift {
+	return &xorshift{state}
+}
+
+func (xor *xorshift) Read(b []byte) (int, error) {
+	for i := range b {
+		x := xor.state
+		x ^= x << 13
+		x ^= x >> 7
+		x ^= x << 17
+		b[i] = uint8(x)
+		xor.state = x
+	}
+	return len(b), nil
+}
+
 func TestEncodeDecode(t *testing.T) {
-	pub := bls.PublicKey{}
-	addr := serialization.NewAddress(&pub)
+	x := newXORShift(29)
+	key, _ := bls.RandSecretKey(x)
+	pub := key.DerivePublicKey()
+	addr := serialization.NewAddress(pub)
 	addr2, err := serialization.DecodeAddress(addr.ToString())
 	if err != nil {
 		t.Fatal(err)

@@ -62,9 +62,9 @@ func DeserializeCasperSlashingTransaction(b [][]byte) (*CasperSlashingTransactio
 	return &CasperSlashingTransaction{
 		SourceValidators:              sv,
 		SourceDataSigned:              b[1],
-		SourceAggregateSignature:      sas,
+		SourceAggregateSignature:      *sas,
 		DestinationValidators:         dv,
 		DestinationDataSigned:         b[2],
-		DestinationAggregateSignature: das,
+		DestinationAggregateSignature: *das,
 	}, nil
 }

@@ -41,5 +41,5 @@ func DeserializeRegisterTransaction(b [][]byte) (*RegisterTransaction, error) {
 		return nil, err
 	}
 
-	return &RegisterTransaction{From: fromAddr, Signature: sig}, nil
+	return &RegisterTransaction{From: fromAddr, Signature: *sig}, nil
 }

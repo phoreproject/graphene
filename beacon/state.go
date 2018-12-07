@@ -26,8 +26,8 @@ type ForkData struct {
 	ForkSlotNumber uint64
 }
 
-// BeaconState is the state of a beacon block
-type BeaconState struct {
+// State is the state of a beacon block
+type State struct {
 	// Slot of last validator set change
 	ValidatorSetChangeSlot uint64
 	// List of validators
@@ -107,7 +107,7 @@ func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [
 	return ShardCommitteeByShardID(shardID, shardCommittee)
 }
 
-func (s *BeaconState) updatePendingActions(newBlock *primitives.Block) {
+func (s *State) updatePendingActions(newBlock *primitives.Block) {
 	/*
 		for _, tx := range newBlock.Specials {
 			if _, success := tx.Data.(transaction.LoginTransaction); success {
@@ -125,14 +125,14 @@ func (s *BeaconState) updatePendingActions(newBlock *primitives.Block) {
 
 // GetAttesterIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *BeaconState) GetAttesterIndices(slot uint64, shard uint64, con *Config) ([]uint32, error) {
+func (s *State) GetAttesterIndices(slot uint64, shard uint64, con *Config) ([]uint32, error) {
 	slotsStart := s.LastStateRecalculationSlot - uint64(con.CycleLength)
 	slotIndex := (slot - slotsStart) % uint64(con.CycleLength)
 	return CommitteeInShardAndSlot(slotIndex, shard, s.ShardAndCommitteeForSlots)
 }
 
 // GetAttesterCommitteeSize gets the size of committee
-func (s *BeaconState) GetAttesterCommitteeSize(slot uint64, con *Config) uint32 {
+func (s *State) GetAttesterCommitteeSize(slot uint64, con *Config) uint32 {
 	slotsStart := s.LastStateRecalculationSlot - uint64(con.CycleLength)
 	slotIndex := (slot - slotsStart) % uint64(con.CycleLength)
 	return uint32(len(s.ShardAndCommitteeForSlots[slotIndex]))
@@ -140,7 +140,7 @@ func (s *BeaconState) GetAttesterCommitteeSize(slot uint64, con *Config) uint32 
 
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *BeaconState) GetCommitteeIndices(slot uint64, shardID uint64, con *Config) ([]uint32, error) {
+func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *Config) ([]uint32, error) {
 	slotsStart := s.LastStateRecalculationSlot - uint64(con.CycleLength)
 	slotIndex := (slot - slotsStart) % uint64(con.CycleLength)
 	return CommitteeInShardAndSlot(slotIndex, shardID, s.ShardAndCommitteeForSlots)
@@ -177,7 +177,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry) 
 		recentBlockHashes[i] = zeroHash
 	}
 
-	b.state = BeaconState{
+	b.state = State{
 		Validators:                  validators,
 		ValidatorSetChangeSlot:      0,
 		Crosslinks:                  crosslinks,
@@ -441,25 +441,15 @@ func (b *Blockchain) findAttestationPublicKey(attestation *transaction.Attestati
 		return nil, fmt.Errorf("expected %d bits at the end empty", trailingZeros)
 	}
 
-	var pubkey bls.PublicKey
-	pubkeySet := false
-	for bit := 0; bit < len(attestationIndices.Committee); bit++ {
+	pubkey := bls.NewAggregatePublicKey()
+	for bit, n := range attestationIndices.Committee {
 		set := (attestation.AttesterBitfield[bit/8]>>uint(7-(bit%8)))%2 == 1
 		if set {
-			if !pubkeySet {
-				pubkey = b.state.Validators[attestationIndices.Committee[bit]].Pubkey
-				pubkeySet = true
-			} else {
-				p, err := bls.AggregatePubKeys([]*bls.PublicKey{&pubkey, &b.state.Validators[attestationIndices.Committee[bit]].Pubkey})
-				if err != nil {
-					return nil, err
-				}
-				pubkey = *p
-			}
+			pubkey.AggregatePubKey(&b.state.Validators[n].Pubkey)
 		}
 	}
 
-	return &pubkey, nil
+	return pubkey, nil
 }
 
 func (b *Blockchain) validateAttestationSignature(attestation *transaction.AttestationRecord, parentBlock *primitives.Block, c *Config) error {
@@ -485,13 +475,7 @@ func (b *Blockchain) validateAttestationSignature(attestation *transaction.Attes
 		hashes[i-1] = *h
 	}
 
-	asd := transaction.AttestationSignedData{
-		Slot:           attestation.Data.Slot,
-		Shard:          attestation.Data.Shard,
-		ParentHashes:   hashes,
-		ShardBlockHash: attestation.Data.ShardBlockHash,
-		JustifiedSlot:  attestation.Data.JustifiedSlot,
-	}
+	asd := attestation.Data
 
 	bs, err := proto.Marshal(asd.ToProto())
 	if err != nil {
@@ -611,7 +595,7 @@ func RepeatHash(h chainhash.Hash, n int) chainhash.Hash {
 }
 
 // totalValidatingBalance is the sum of the balances of active validators.
-func (s *BeaconState) totalValidatingBalance() uint64 {
+func (s *State) totalValidatingBalance() uint64 {
 	total := uint64(0)
 	for _, v := range s.Validators {
 		total += v.Balance
@@ -706,7 +690,7 @@ func (b *Blockchain) applyBlockActiveStateChanges(newBlock *primitives.Block) er
 
 // addValidatorSetChangeRecord adds a validator addition/removal to the
 // validator set hash change.
-func (s *BeaconState) addValidatorSetChangeRecord(index uint32, pubkey []byte, flag uint8) {
+func (s *State) addValidatorSetChangeRecord(index uint32, pubkey []byte, flag uint8) {
 	var indexBytes [4]byte
 	binary.BigEndian.PutUint32(indexBytes[:], index)
 	s.ValidatorSetDeltaHashChange = chainhash.HashH(serialization.AppendAll(s.ValidatorSetDeltaHashChange[:], indexBytes[:], pubkey, []byte{flag}))
@@ -714,7 +698,7 @@ func (s *BeaconState) addValidatorSetChangeRecord(index uint32, pubkey []byte, f
 
 // exitValidator exits a validator from being active to either
 // penalized or pending an exit.
-func (s *BeaconState) exitValidator(index uint32, penalize bool, currentSlot uint64, con *Config) {
+func (s *State) exitValidator(index uint32, penalize bool, currentSlot uint64, con *Config) {
 	validator := &s.Validators[index]
 	validator.ExitSeq = currentSlot
 	if penalize {
@@ -998,7 +982,7 @@ const (
 	ValidatorExit
 )
 
-func getActiveValidatorsTotalBalance(validators []primitives.Validator, state *BeaconState) uint64 {
+func getActiveValidatorsTotalBalance(validators []primitives.Validator, state *State) uint64 {
 	activeValidators := GetActiveValidatorIndices(validators)
 
 	totalBalance := uint64(0)
@@ -1115,7 +1099,7 @@ func (b *Blockchain) ApplyBlock(newBlock *primitives.Block) error {
 }
 
 // GetState gets a copy of the current state of the blockchain.
-func (b *Blockchain) GetState() BeaconState {
+func (b *Blockchain) GetState() State {
 	b.stateLock.Lock()
 	state := b.state
 	b.stateLock.Unlock()

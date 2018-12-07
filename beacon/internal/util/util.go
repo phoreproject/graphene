@@ -3,6 +3,10 @@ package util
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+
+	"github.com/phoreproject/synapse/validator"
+
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -16,16 +20,26 @@ var randaoSecret = chainhash.HashH([]byte("randao"))
 var zeroHash = chainhash.Hash{}
 
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
-func SetupBlockchain(initialValidators int, config *beacon.Config) (*beacon.Blockchain, error) {
+func SetupBlockchain(initialValidators int, config *beacon.Config) (*beacon.Blockchain, validator.Keystore, error) {
 
 	randaoCommitment := chainhash.HashH(randaoSecret[:])
+
+	keystore := validator.FakeKeyStore{}
 
 	validators := []beacon.InitialValidatorEntry{}
 
 	for i := 0; i <= initialValidators; i++ {
+		key := keystore.GetKeyForValidator(uint32(i))
+		pub := key.DerivePublicKey()
+		// fmt.Println(pub)
+		hashPub := pub.Hash()
+		proofOfPossession, err := bls.Sign(key, hashPub)
+		if err != nil {
+			return nil, nil, err
+		}
 		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                bls.PublicKey{},
-			ProofOfPossession:     bls.Signature{},
+			PubKey:                *pub,
+			ProofOfPossession:     *proofOfPossession,
 			WithdrawalShard:       1,
 			WithdrawalCredentials: serialization.Address{},
 			RandaoCommitment:      randaoCommitment,
@@ -34,10 +48,10 @@ func SetupBlockchain(initialValidators int, config *beacon.Config) (*beacon.Bloc
 
 	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), config, validators)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return b, nil
+	return b, &keystore, nil
 }
 
 // MineBlockWithSpecialsAndAttestations mines a block with the given specials and attestations.
@@ -66,7 +80,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, specials []trans
 }
 
 // GenerateFakeAttestations generates a bunch of fake attestations.
-func GenerateFakeAttestations(b *beacon.Blockchain) ([]transaction.AttestationRecord, error) {
+func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]transaction.AttestationRecord, error) {
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -77,31 +91,41 @@ func GenerateFakeAttestations(b *beacon.Blockchain) ([]transaction.AttestationRe
 	attestations := make([]transaction.AttestationRecord, len(assignments))
 
 	for i, assignment := range assignments {
-
-		attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
-
-		for i := range assignment.Committee {
-			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
-		}
-
 		slotHash, err := b.GetNodeByHeight(b.GetState().JustificationSource)
 		if err != nil {
 			return nil, err
 		}
 
+		dataToSign := transaction.AttestationSignedData{
+			Slot:                       lb.SlotNumber,
+			Shard:                      assignment.Shard,
+			ParentHashes:               []chainhash.Hash{},
+			ShardBlockHash:             chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.Shard, lb.SlotNumber))),
+			LastCrosslinkHash:          chainhash.Hash{},
+			ShardBlockCombinedDataRoot: slotHash,
+			JustifiedSlot:              b.GetState().JustificationSource,
+		}
+
+		data, _ := proto.Marshal(dataToSign.ToProto())
+
+		attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
+		aggregateSig := bls.NewAggregateSignature()
+
+		for i, n := range assignment.Committee {
+			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
+			key := keys.GetKeyForValidator(n)
+			sig, err := bls.Sign(key, data)
+			if err != nil {
+				return nil, err
+			}
+			aggregateSig.AggregateSig(sig)
+		}
+
 		attestations[i] = transaction.AttestationRecord{
-			Data: transaction.AttestationSignedData{
-				Slot:                       lb.SlotNumber,
-				Shard:                      assignment.Shard,
-				ParentHashes:               []chainhash.Hash{},
-				ShardBlockHash:             chainhash.HashH([]byte(fmt.Sprintf("shard %d slot %d", assignment.Shard, lb.SlotNumber))),
-				LastCrosslinkHash:          chainhash.Hash{},
-				ShardBlockCombinedDataRoot: slotHash,
-				JustifiedSlot:              b.GetState().JustificationSource,
-			},
+			Data:             dataToSign,
 			AttesterBitfield: attesterBitfield,
 			PoCBitfield:      make([]uint8, 32),
-			AggregateSig:     bls.Signature{},
+			AggregateSig:     *aggregateSig,
 		}
 	}
 
@@ -120,8 +144,8 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 }
 
 // MineBlockWithFullAttestations generates attestations to include in a block and mines it.
-func MineBlockWithFullAttestations(b *beacon.Blockchain) (*primitives.Block, error) {
-	atts, err := GenerateFakeAttestations(b)
+func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keystore) (*primitives.Block, error) {
+	atts, err := GenerateFakeAttestations(b, keystore)
 	if err != nil {
 		return nil, err
 	}

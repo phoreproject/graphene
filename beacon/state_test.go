@@ -2,6 +2,7 @@ package beacon_test
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"testing"
 
 	"github.com/phoreproject/synapse/beacon"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
-	b, err := util.SetupBlockchain(beacon.MainNetConfig.ShardCount*beacon.MainNetConfig.MinCommitteeSize*2+1, &beacon.MainNetConfig)
+	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+1, &beacon.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 		t.Fatal("invalid last block for initial chain")
 	}
 
-	_, err = util.MineBlockWithFullAttestations(b)
+	_, err = util.MineBlockWithFullAttestations(b, keys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,12 +50,12 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 }
 
 func TestStateInitialization(t *testing.T) {
-	b, err := util.SetupBlockchain(beacon.MainNetConfig.ShardCount*beacon.MainNetConfig.MinCommitteeSize*2+1, &beacon.MainNetConfig)
+	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+1, &beacon.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = util.MineBlockWithFullAttestations(b)
+	_, err = util.MineBlockWithFullAttestations(b, keys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,8 +66,8 @@ func TestStateInitialization(t *testing.T) {
 		t.Errorf("invalid initial validator entries")
 	}
 
-	if len(s.ShardAndCommitteeForSlots) != beacon.MainNetConfig.CycleLength*2 {
-		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), beacon.MainNetConfig.CycleLength)
+	if len(s.ShardAndCommitteeForSlots) != beacon.RegtestConfig.CycleLength*2 {
+		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), beacon.RegtestConfig.CycleLength)
 	}
 }
 
@@ -185,12 +186,12 @@ func TestShardCommitteeByShardID(t *testing.T) {
 		t.Fatal("did not find correct shard")
 	}
 
-	cState := beacon.BeaconState{
+	cState := beacon.State{
 		LastStateRecalculationSlot: 64,
 		ShardAndCommitteeForSlots:  shardAndCommitteeForSlots,
 	}
 
-	att, err := cState.GetAttesterIndices(64, 3, &beacon.MainNetConfig)
+	att, err := cState.GetAttesterIndices(64, 3, &beacon.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +201,7 @@ func TestShardCommitteeByShardID(t *testing.T) {
 }
 
 func TestAttestationValidation(t *testing.T) {
-	b, err := util.SetupBlockchain(16448, &beacon.MainNetConfig) // committee size of 257 (% 8 = 1)
+	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+5, &beacon.RegtestConfig) // committee size of 257 (% 8 = 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,10 +215,32 @@ func TestAttestationValidation(t *testing.T) {
 
 	committeeSize := len(assignment.Committee)
 
-	attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
+	attestationSignedData := transaction.AttestationSignedData{
+		Slot:                       lb.SlotNumber,
+		Shard:                      assignment.Shard,
+		ParentHashes:               []chainhash.Hash{},
+		ShardBlockHash:             chainhash.Hash{},
+		LastCrosslinkHash:          chainhash.Hash{},
+		ShardBlockCombinedDataRoot: chainhash.Hash{},
+		JustifiedSlot:              0,
+	}
 
-	for i := range assignment.Committee {
+	attestationSignedDataBytes, err := proto.Marshal(attestationSignedData.ToProto())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
+	aggregateSig := bls.NewAggregateSignature()
+
+	for i, n := range assignment.Committee {
 		attesterBitfield, _ = util.SetBit(attesterBitfield, uint32(i))
+		key := keys.GetKeyForValidator(n)
+		sig, err := bls.Sign(key, attestationSignedDataBytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		aggregateSig.AggregateSig(sig)
 	}
 
 	b0, err := b.GetNodeByHeight(0)
@@ -226,21 +249,13 @@ func TestAttestationValidation(t *testing.T) {
 	}
 
 	att := &transaction.AttestationRecord{
-		Data: transaction.AttestationSignedData{
-			Slot:                       lb.SlotNumber,
-			Shard:                      assignment.Shard,
-			ParentHashes:               []chainhash.Hash{},
-			ShardBlockHash:             chainhash.Hash{},
-			LastCrosslinkHash:          chainhash.Hash{},
-			ShardBlockCombinedDataRoot: chainhash.Hash{},
-			JustifiedSlot:              0,
-		},
+		Data:             attestationSignedData,
 		AttesterBitfield: attesterBitfield,
 		PoCBitfield:      []uint8{},
-		AggregateSig:     bls.Signature{},
+		AggregateSig:     *aggregateSig,
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +275,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
 	if err == nil {
 		t.Fatal("did not catch slot number being too high")
 	}
@@ -280,7 +295,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
 	if err == nil {
 		t.Fatal("did not catch slot number being out of bounds")
 	}
@@ -288,7 +303,7 @@ func TestAttestationValidation(t *testing.T) {
 	att = &transaction.AttestationRecord{
 		Data: transaction.AttestationSignedData{
 			Slot:                       lb.SlotNumber,
-			Shard:                      100,
+			Shard:                      5,
 			ParentHashes:               []chainhash.Hash{},
 			ShardBlockHash:             b0,
 			LastCrosslinkHash:          chainhash.Hash{},
@@ -300,7 +315,7 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
 	if err == nil {
 		t.Fatal("did not catch invalid shard ID")
 	}
@@ -320,15 +335,12 @@ func TestAttestationValidation(t *testing.T) {
 		AggregateSig:     bls.Signature{},
 	}
 
-	err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
+	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
 	if err == nil {
 		t.Fatal("did not catch invalid attester bitfield (too many bytes)")
 	}
 
-	for bitToSet := uint32(0); bitToSet <= 6; bitToSet++ {
-
-		// t.Logf("attester bitfield length: %d, max validators: %d, validator: %d\n", len(attesterBitfield), len(attesterBitfield)*8, uint32(committeeSize)+bitToSet)
-
+	for bitToSet := uint32(0); bitToSet <= 3; bitToSet++ {
 		newAttesterBitField := make([]byte, len(attesterBitfield))
 		copy(newAttesterBitField, attesterBitfield)
 
@@ -352,7 +364,7 @@ func TestAttestationValidation(t *testing.T) {
 			AggregateSig:     bls.Signature{},
 		}
 
-		err = b.ValidateAttestationRecord(att, lb, &beacon.MainNetConfig)
+		err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
 		if err == nil {
 			t.Fatal("did not catch invalid attester bitfield (not enough 0s at end)")
 		}
@@ -361,7 +373,7 @@ func TestAttestationValidation(t *testing.T) {
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	b, err := util.SetupBlockchain(beacon.MainNetConfig.ShardCount*beacon.MainNetConfig.MinCommitteeSize*2+5, &beacon.MainNetConfig)
+	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+5, &beacon.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +381,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
 	for i := uint64(0); i < uint64(b.GetConfig().CycleLength)+b.GetConfig().MinimumValidatorSetChangeInterval; i++ {
-		blk, err := util.MineBlockWithFullAttestations(b)
+		blk, err := util.MineBlockWithFullAttestations(b, keys)
 		if err != nil {
 			t.Error(err)
 		}

@@ -87,6 +87,111 @@ func TestAggregateSignatures(t *testing.T) {
 	}
 }
 
+func TestVerifyAggregate(t *testing.T) {
+	r := NewXORShift(1)
+
+	s0, nil := bls.RandSecretKey(r)
+	s1, nil := bls.RandSecretKey(r)
+	s2, nil := bls.RandSecretKey(r)
+
+	p0 := s0.DerivePublicKey()
+	p1 := s1.DerivePublicKey()
+	p2 := s2.DerivePublicKey()
+
+	msg0 := []byte("test!")
+	msg1 := []byte("test! 1")
+	msg2 := []byte("test! 2")
+
+	sig0, err := bls.Sign(s0, msg0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig1, err := bls.Sign(s1, msg1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig2, err := bls.Sign(s2, msg2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	aggregateSig, err := bls.AggregateSigs([]*bls.Signature{sig0, sig1, sig2})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	valid := bls.VerifyAggregate([]*bls.PublicKey{p0, p1, p2}, [][]byte{msg0, msg1, msg2}, aggregateSig)
+	if !valid {
+		t.Fatal("aggregate signature was not valid")
+	}
+}
+
+func TestVerifyAggregateSeparate(t *testing.T) {
+	r := NewXORShift(1)
+
+	s0, nil := bls.RandSecretKey(r)
+	s1, nil := bls.RandSecretKey(r)
+	s2, nil := bls.RandSecretKey(r)
+
+	p0 := s0.DerivePublicKey()
+	p1 := s1.DerivePublicKey()
+	p2 := s2.DerivePublicKey()
+
+	msg0 := []byte("test!")
+
+	sig0, err := bls.Sign(s0, msg0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig1, err := bls.Sign(s1, msg0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig2, err := bls.Sign(s2, msg0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	aggregateSig, err := bls.AggregateSigs([]*bls.Signature{sig0, sig1, sig2})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	aggPk := bls.NewAggregatePublicKey()
+	aggPk.AggregatePubKey(p0)
+	aggPk.AggregatePubKey(p1)
+	aggPk.AggregatePubKey(p2)
+
+	valid, err := bls.VerifySig(aggPk, msg0, aggregateSig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal("aggregate signature was not valid")
+	}
+
+	aggPk = bls.AggregatePubKeys([]*bls.PublicKey{p0, p1, p2})
+	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal("aggregate signature was not valid")
+	}
+
+	aggregateSig = bls.NewAggregateSignature()
+	aggregateSig.AggregateSig(sig0)
+	aggregateSig.AggregateSig(sig1)
+	aggregateSig.AggregateSig(sig2)
+	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal("aggregate signature was not valid")
+	}
+}
+
 func TestSerializeDeserializeSignature(t *testing.T) {
 	r := NewXORShift(1)
 

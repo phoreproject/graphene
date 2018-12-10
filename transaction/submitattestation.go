@@ -40,10 +40,12 @@ type AttestationRecord struct {
 
 // NewAttestationRecordFromProto gets a new attestation from a protobuf attestation message.
 func NewAttestationRecordFromProto(att *pb.AttestationRecord) (*AttestationRecord, error) {
-	var data AttestationSignedData
-	data.FromProto(att.Data)
+	data, err := AttestationSignedDataFromProto(att.Data)
+	if err != nil {
+		return nil, err
+	}
 	return &AttestationRecord{
-		Data:             data,
+		Data:             *data,
 		AttesterBitfield: att.AttesterBitfield[:],
 		PoCBitfield:      att.PoCBitfield[:],
 		AggregateSig:     bls.Signature{},
@@ -72,30 +74,51 @@ type ProcessedAttestation struct {
 	SlotIncluded uint64
 }
 
-// ToProto gets the protobuf representation of the data.
-func (a *AttestationSignedData) ToProto() *pb.AttestationSignedData {
-	parentHashes := make([][]byte, len(a.ParentHashes))
+// ToProto converts the attestation signed data into protobuf form.
+func (asd *AttestationSignedData) ToProto() *pb.AttestationSignedData {
+	parentHashes := make([][]byte, len(asd.ParentHashes))
 	for i := range parentHashes {
-		parentHashes[i] = a.ParentHashes[i][:]
+		parentHashes[i] = asd.ParentHashes[i][:]
 	}
 
 	return &pb.AttestationSignedData{
-		Slot:           a.Slot,
-		Shard:          a.Shard,
-		ShardBlockHash: a.ShardBlockHash[:],
-		ParentHashes:   parentHashes,
-		JustifiedSlot:  a.JustifiedSlot,
+		Slot:                       asd.Slot,
+		Shard:                      asd.Shard,
+		ParentHashes:               parentHashes,
+		ShardBlockHash:             asd.ShardBlockHash[:],
+		LastCrosslinkHash:          asd.LastCrosslinkHash[:],
+		ShardBlockCombinedDataRoot: asd.ShardBlockCombinedDataRoot[:],
+		JustifiedSlot:              asd.JustifiedSlot,
+		JustifiedBlockHash:         asd.JustifiedBlockHash[:],
 	}
 }
 
-// FromProto constructs from proto
-func (a *AttestationSignedData) FromProto(att *pb.AttestationSignedData) {
+// AttestationSignedDataFromProto constructs an attestation signed data from
+// the protobuf representation.
+func AttestationSignedDataFromProto(att *pb.AttestationSignedData) (*AttestationSignedData, error) {
+	a := &AttestationSignedData{}
 	a.ParentHashes = make([]chainhash.Hash, len(att.ParentHashes))
 	for i := range att.ParentHashes {
 		a.ParentHashes[i].SetBytes(att.ParentHashes[i])
 	}
 	a.Slot = att.Slot
 	a.Shard = att.Shard
-	a.ShardBlockHash.SetBytes(att.ShardBlockHash)
+	err := a.ShardBlockHash.SetBytes(att.ShardBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	err = a.LastCrosslinkHash.SetBytes(att.LastCrosslinkHash)
+	if err != nil {
+		return nil, err
+	}
+	err = a.ShardBlockCombinedDataRoot.SetBytes(att.ShardBlockCombinedDataRoot)
+	if err != nil {
+		return nil, err
+	}
+	err = a.JustifiedBlockHash.SetBytes(att.JustifiedBlockHash)
+	if err != nil {
+		return nil, err
+	}
 	a.JustifiedSlot = att.JustifiedSlot
+	return a, nil
 }

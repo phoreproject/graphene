@@ -165,6 +165,9 @@ message AttestationSignedData {
     repeated bytes ParentHashes = 4;
     bytes ShardBlockHash = 5;
     uint64 JustifiedSlot = 6;
+    bytes ShardBlockCombinedDataRoot = 7;
+    bytes LastCrosslinkHash = 8;
+    bytes JustifiedBlockHash = 9;
 }
 
 message AttestationRecord {

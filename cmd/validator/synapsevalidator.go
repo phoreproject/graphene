@@ -14,6 +14,7 @@ import (
 func main() {
 	logrus.Info("Starting validator manager")
 	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
+	p2pHost := flag.String("beaconhost", ":11783", "the address to connect to the p2p node")
 	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
 	flag.Parse()
 
@@ -47,12 +48,17 @@ func main() {
 
 	logrus.WithField("validators", *validators).Debug("running with validators")
 
-	conn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
+	connBeacon, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
 
-	vm, err := validator.NewManager(conn, validatorIndices, &validator.FakeKeyStore{})
+	connP2P, err := grpc.Dial(*p2pHost, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+
+	vm, err := validator.NewManager(connBeacon, connP2P, validatorIndices, &validator.FakeKeyStore{})
 	if err != nil {
 		panic(err)
 	}

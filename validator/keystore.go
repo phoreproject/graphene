@@ -37,6 +37,8 @@ func (f *FakeKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
 	return s
 }
 
+// GetRandaoSecretForValidatorAndSlot gets the randao commitment for a validator
+// and slot.
 func (f *FakeKeyStore) GetRandaoSecretForValidatorAndSlot(v uint32, s uint64) chainhash.Hash {
 	return chainhash.HashH([]byte(fmt.Sprintf("validator %d %d", v, s)))
 }

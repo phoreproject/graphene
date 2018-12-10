@@ -12,6 +12,7 @@ import (
 type Validator struct {
 	secretKey *bls.SecretKey
 	rpc       pb.BlockchainRPCClient
+	p2p       pb.P2PRPCClient
 	id        uint32
 	slot      uint64
 	shard     uint32
@@ -22,8 +23,8 @@ type Validator struct {
 }
 
 // NewValidator gets a validator
-func NewValidator(key *bls.SecretKey, rpc pb.BlockchainRPCClient, id uint32, newSlot chan uint64, newCycle chan bool) *Validator {
-	return &Validator{secretKey: key, rpc: rpc, id: id, logger: logrus.New(), newSlot: newSlot, newCycle: newCycle}
+func NewValidator(key *bls.SecretKey, rpc pb.BlockchainRPCClient, p2p pb.P2PRPCClient, id uint32, newSlot chan uint64, newCycle chan bool) *Validator {
+	return &Validator{secretKey: key, rpc: rpc, p2p: p2p, id: id, logger: logrus.New(), newSlot: newSlot, newCycle: newCycle}
 }
 
 // GetSlotAssignment receives the slot assignment from the rpc.

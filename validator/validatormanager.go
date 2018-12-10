@@ -37,14 +37,17 @@ func (n *Notifier) SendNewCycle() {
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
 	rpc        pb.BlockchainRPCClient
+	p2p        pb.P2PRPCClient
 	validators []*Validator
 	keystore   Keystore
 	notifiers  []*Notifier
 }
 
 // NewManager creates a new validator manager to manage some validators.
-func NewManager(conn *grpc.ClientConn, validators []uint32, keystore Keystore) (*Manager, error) {
-	r := pb.NewBlockchainRPCClient(conn)
+func NewManager(connBeacon *grpc.ClientConn, connP2P *grpc.ClientConn, validators []uint32, keystore Keystore) (*Manager, error) {
+	beaconRPC := pb.NewBlockchainRPCClient(connBeacon)
+
+	p2pRPC := pb.NewP2PRPCClient(connP2P)
 
 	validatorObjs := make([]*Validator, len(validators))
 
@@ -54,11 +57,12 @@ func NewManager(conn *grpc.ClientConn, validators []uint32, keystore Keystore) (
 	}
 
 	for i := range validatorObjs {
-		validatorObjs[i] = NewValidator(keystore.GetKeyForValidator(validators[i]), r, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
+		validatorObjs[i] = NewValidator(keystore.GetKeyForValidator(validators[i]), beaconRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
 	}
 
 	return &Manager{
-		rpc:        r,
+		rpc:        beaconRPC,
+		p2p:        p2pRPC,
 		validators: validatorObjs,
 		keystore:   keystore,
 		notifiers:  notifiers,

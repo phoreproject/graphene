@@ -41,6 +41,8 @@ type Manager struct {
 	validators []*Validator
 	keystore   Keystore
 	notifiers  []*Notifier
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 // NewManager creates a new validator manager to manage some validators.
@@ -56,8 +58,10 @@ func NewManager(connBeacon *grpc.ClientConn, connP2P *grpc.ClientConn, validator
 		notifiers[i] = NewNotifier()
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	for i := range validatorObjs {
-		validatorObjs[i] = NewValidator(keystore.GetKeyForValidator(validators[i]), beaconRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
+		validatorObjs[i] = NewValidator(ctx, keystore.GetKeyForValidator(validators[i]), beaconRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
 	}
 
 	return &Manager{
@@ -66,6 +70,8 @@ func NewManager(connBeacon *grpc.ClientConn, connP2P *grpc.ClientConn, validator
 		validators: validatorObjs,
 		keystore:   keystore,
 		notifiers:  notifiers,
+		ctx:        ctx,
+		cancel:     cancel,
 	}, nil
 }
 

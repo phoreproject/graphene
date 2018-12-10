@@ -41,5 +41,5 @@ func DeserializeLoginTransaction(b [][]byte) (*LoginTransaction, error) {
 		return nil, err
 	}
 
-	return &LoginTransaction{From: from, Signature: sig}, nil
+	return &LoginTransaction{From: from, Signature: *sig}, nil
 }

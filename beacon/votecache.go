@@ -38,7 +38,7 @@ func NewVoteCache() *VoteCache {
 }
 
 // CalculateNewVoteCache tallies votes for attestations in each block.
-func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
+func (s *State) CalculateNewVoteCache(block *primitives.Block, cache map[chainhash.Hash]*VoteCache, c *Config) error {
 	for _, a := range block.Attestations {
 		parentHashes, err := s.getSignedParentHashes(block, &a, c)
 		if err != nil {
@@ -83,7 +83,7 @@ func (s *BeaconState) CalculateNewVoteCache(block *primitives.Block, cache map[c
 	return nil
 }
 
-func (s *BeaconState) getSignedParentHashes(block *primitives.Block, att *transaction.AttestationRecord, c *Config) ([]chainhash.Hash, error) {
+func (s *State) getSignedParentHashes(block *primitives.Block, att *transaction.AttestationRecord, c *Config) ([]chainhash.Hash, error) {
 	recentHashes := s.RecentBlockHashes
 	obliqueParentHashes := att.Data.ParentHashes
 	earliestSlot := int(block.SlotNumber) - len(recentHashes)

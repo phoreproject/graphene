@@ -41,7 +41,7 @@ type Blockchain struct {
 	chain     blockchainView
 	db        db.Database
 	config    *Config
-	state     BeaconState
+	state     State
 	stateLock *sync.Mutex
 	voteCache map[chainhash.Hash]*VoteCache
 }

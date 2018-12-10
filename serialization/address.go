@@ -47,8 +47,8 @@ func Hash160(in []byte) []byte {
 
 // NewAddress gets an address from a public key.
 func NewAddress(pubkey *bls.PublicKey) *Address {
-	pkHash := pubkey.Hash()
-	h := Hash160(pkHash)
+	pkHash := pubkey
+	h := pkHash.Hash()
 	var out Address
 	copy(out[:], h)
 	return &out

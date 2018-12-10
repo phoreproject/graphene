@@ -26,16 +26,46 @@ type Validator struct {
 	ExitSeq uint64
 }
 
-// ToProto creates a ProtoBuf ValidatorResponse from a Validator
-func (v *Validator) ToProto() *pb.ValidatorResponse {
+// ToProtoResponse creates a ProtoBuf ValidatorResponse from a Validator including the
+// ID.
+func (v *Validator) ToProtoResponse(id int32) *pb.ValidatorResponse {
 	return &pb.ValidatorResponse{
-		Pubkey:                0, //v.Pubkey,
+		Pubkey:                v.Pubkey.Serialize(),
 		WithdrawalCredentials: v.WithdrawalCredentials[:],
 		RandaoCommitment:      v.RandaoCommitment[:],
 		RandaoLastChange:      v.RandaoLastChange,
 		Balance:               v.Balance,
 		Status:                uint32(v.Status),
-		ExitSeq:               v.ExitSeq}
+		ExitSeq:               v.ExitSeq,
+		ID:                    id,
+	}
+}
+
+// ValidatorFromProto converts a validator response to a validator
+// record.
+func ValidatorFromProto(vr *pb.ValidatorResponse) (*Validator, error) {
+	pub, err := bls.DeserializePubKey(vr.Pubkey)
+	if err != nil {
+		return nil, err
+	}
+
+	var addr serialization.Address
+	copy(addr[:], vr.WithdrawalCredentials)
+
+	ch, err := chainhash.NewHash(vr.RandaoCommitment)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Validator{
+		Pubkey:                *pub,
+		WithdrawalCredentials: addr,
+		RandaoCommitment:      *ch,
+		RandaoLastChange:      vr.RandaoLastChange,
+		Balance:               vr.Balance,
+		Status:                uint8(vr.Status),
+		ExitSeq:               vr.ExitSeq,
+	}, nil
 }
 
 // Crosslink goes in a collation to represent the last crystallized beacon block.

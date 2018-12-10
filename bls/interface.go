@@ -69,6 +69,21 @@ func (p PublicKey) Hash() []byte {
 	return chainhash.HashB(p.p.Serialize())
 }
 
+// Serialize serializes a pubkey to bytes
+func (p PublicKey) Serialize() []byte {
+	return p.p.Serialize()
+}
+
+// DeserializePubKey deserializes a public key from bytes.
+func DeserializePubKey(b []byte) (*PublicKey, error) {
+	pub, err := bls.DeserializePublicKey(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PublicKey{p: *pub}, nil
+}
+
 // Sign a message using a secret key - in a beacon/validator client,
 // this key will come from and be unlocked from the account keystore.
 func Sign(sec *SecretKey, msg []byte) (*Signature, error) {

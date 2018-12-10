@@ -70,7 +70,7 @@ func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtI
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetValidatorAtIndexResponse{Validator: validator.ToProto()}, nil
+	return &pb.GetValidatorAtIndexResponse{Validator: validator.ToProtoResponse(int32(in.Index))}, nil
 }
 
 func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
@@ -86,7 +86,7 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 		if err != nil {
 			return nil, err
 		}
-		validatorList = append(validatorList, validator.ToProto())
+		validatorList = append(validatorList, validator.ToProtoResponse(int32(indice)))
 	}
 
 	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil

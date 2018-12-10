@@ -116,13 +116,14 @@ message GetBlockHashResponse {
 }
 
 message ValidatorResponse {
-    uint32 Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
+    bytes Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
     bytes WithdrawalCredentials = 2;
     bytes RandaoCommitment = 4;
     uint64 RandaoLastChange = 5;
     uint64 Balance = 6;
     uint32 Status = 7;
     uint64 ExitSeq = 8;
+    int32 ID = 9;
 }
 
 message GetValidatorAtIndexRequest {

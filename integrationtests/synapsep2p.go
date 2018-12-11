@@ -1,4 +1,4 @@
-package integrationtests
+package testcase
 
 import (
 	"crypto/rand"
@@ -6,6 +6,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"github.com/phoreproject/synapse/integrationtests/framework"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
@@ -43,7 +45,7 @@ func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 }
 
 // Execute implements IntegrationTest
-func (test SynapseP2pTest) Execute(service *TestService) error {
+func (test SynapseP2pTest) Execute(service *testframework.TestService) error {
 	listen := service.GetArgString("listen", "/ip4/0.0.0.0/tcp/11781")
 	initialConnections := service.GetArgString("connect", "")
 	rpcConnect := service.GetArgString("rpclisten", "127.0.0.1:11783")

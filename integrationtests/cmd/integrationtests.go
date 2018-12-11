@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/phoreproject/synapse/integrationtests"
+	"github.com/phoreproject/synapse/integrationtests/framework"
 )
 
 type multipleFlags []string
@@ -25,9 +26,9 @@ func main() {
 	flag.Var(&flagTest, "test", "Specify the test name, can't multiple.")
 	flag.Parse()
 
-	var entries []integrationtests.Entry
+	var entries []testframework.Entry
 	if len(flagTest) == 0 {
-		for _, entry := range integrationtests.EntryList {
+		for _, entry := range testcase.EntryList {
 			entries = append(entries, entry)
 		}
 	} else {
@@ -36,14 +37,15 @@ func main() {
 		}
 	}
 
+	service := testframework.NewTestService()
+	defer service.CleanUp()
+
 	errorCount := 0
 	for _, entry := range entries {
 		fmt.Printf("Running %s\n\n", entry.Name)
 		test := entry.Creator()
-		service := integrationtests.TestService{
-			EntryArgs: entry.EntryArgs,
-		}
-		err := test.Execute(&service)
+		service.BindEntryArgs(entry.EntryArgs)
+		err := test.Execute(service)
 		if err != nil {
 			errorCount++
 			fmt.Println(err)
@@ -56,8 +58,8 @@ func main() {
 	os.Exit(errorCount)
 }
 
-func findEntryByName(name string) integrationtests.Entry {
-	for _, entry := range integrationtests.EntryList {
+func findEntryByName(name string) testframework.Entry {
+	for _, entry := range testcase.EntryList {
 		if strings.EqualFold(entry.Name, name) {
 			return entry
 		}

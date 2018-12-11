@@ -1,27 +1,17 @@
-package integrationtests
+package testcase
 
 import (
-	"flag"
 	"fmt"
+
+	"github.com/phoreproject/synapse/integrationtests/framework"
 )
 
 // SampleTest implements IntegrationTest
 type SampleTest struct {
 }
 
-// GetCommandLineFlag gets the flag
-func GetCommandLineFlag(name string, defaultValue string) string {
-	result := defaultValue
-	flag.VisitAll(func(f *flag.Flag) {
-		if f.Name == name {
-			result = f.Value.String()
-		}
-	})
-	return result
-}
-
 // Execute implements IntegrationTest
-func (test SampleTest) Execute(service *TestService) error {
+func (test SampleTest) Execute(service *testframework.TestService) error {
 	arg := service.GetArgString("arg", "n/a")
 	fmt.Printf("This is sample test, arg = " + arg)
 	return nil

@@ -1,10 +1,7 @@
-package net
-
-// TODO: this file is to be removed
+package p2p
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -12,7 +9,6 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 
-	host "github.com/libp2p/go-libp2p-host"
 	peer "github.com/libp2p/go-libp2p-peer"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
@@ -83,17 +79,17 @@ var mDNSTag = mdns.ServiceTag
 // DNS peer discovery.
 //
 // TODO(287): add other discovery protocols such as DHT, etc.
-func StartDiscovery(ctx context.Context, host host.Host, options *DiscoveryOptions) error {
+func startDiscovery(node *HostNode, options *DiscoveryOptions) error {
 	if len(options.PeerAddresses) > 0 {
-		go discoverFromPeerInfos(ctx, host, options.PeerAddresses)
+		go discoverFromPeerInfos(node, options.PeerAddresses)
 	}
 
 	if len(options.AddressFileNames) > 0 {
-		go discoverFromFiles(ctx, host, options.AddressFileNames)
+		go discoverFromFiles(node, options.AddressFileNames)
 	}
 
 	if options.UseMDNS {
-		err := discoverFromMDNS(ctx, host)
+		err := discoverFromMDNS(node)
 		if err != nil {
 			return err
 		}
@@ -102,7 +98,7 @@ func StartDiscovery(ctx context.Context, host host.Host, options *DiscoveryOptio
 	return nil
 }
 
-func discoverFromFiles(ctx context.Context, host host.Host, fileNames []string) {
+func discoverFromFiles(node *HostNode, fileNames []string) {
 	for _, fileName := range fileNames {
 		file, err := os.Open(fileName)
 		if err != nil {
@@ -117,7 +113,7 @@ func discoverFromFiles(ctx context.Context, host host.Host, fileNames []string) 
 			if err != nil {
 				logger.Error(err)
 			} else {
-				processFoundPeer(ctx, host, peerInfo)
+				processFoundPeer(node, peerInfo)
 			}
 		}
 
@@ -127,31 +123,31 @@ func discoverFromFiles(ctx context.Context, host host.Host, fileNames []string) 
 	}
 }
 
-func discoverFromPeerInfos(ctx context.Context, host host.Host, peerInfoList []ps.PeerInfo) {
+func discoverFromPeerInfos(node *HostNode, peerInfoList []ps.PeerInfo) {
 }
 
-func discoverFromLines(ctx context.Context, host host.Host, lines []string) {
+func discoverFromLines(node *HostNode, lines []string) {
 	for _, a := range lines {
 		peerInfo, err := lineToPeerInfo(a)
 		if err == nil {
-			processFoundPeer(ctx, host, peerInfo)
+			processFoundPeer(node, peerInfo)
 		}
 	}
 }
 
-func discoverFromMDNS(ctx context.Context, host host.Host) error {
-	mdnsService, err := mdns.NewMdnsService(ctx, host, discoveryInterval, mDNSTag)
+func discoverFromMDNS(node *HostNode) error {
+	mdnsService, err := mdns.NewMdnsService(node.GetContext(), node.GetHost(), discoveryInterval, mDNSTag)
 	if err != nil {
 		return err
 	}
 
-	mdnsService.RegisterNotifee(&discovery{ctx, host})
+	mdnsService.RegisterNotifee(&discovery{node})
 
 	return nil
 }
 
-func processFoundPeer(ctx context.Context, host host.Host, pi *ps.PeerInfo) {
-	for _, p := range host.Peerstore().PeersWithAddrs() {
+func processFoundPeer(node *HostNode, pi *ps.PeerInfo) {
+	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
 		if p == pi.ID {
 			return
 		}
@@ -159,23 +155,22 @@ func processFoundPeer(ctx context.Context, host host.Host, pi *ps.PeerInfo) {
 
 	logger.WithField("addrs", pi.Addrs).WithField("id", pi.ID).Debug("attempting to connect to a peer")
 
-	if err := host.Connect(ctx, *pi); err != nil {
+	if err := node.GetHost().Connect(node.GetContext(), *pi); err != nil {
 		logger.WithField("error", err).Warn("failed to connect to peer")
 		return
 	}
 
-	host.Peerstore().AddAddrs(pi.ID, pi.Addrs, ps.PermanentAddrTTL)
+	node.GetHost().Peerstore().AddAddrs(pi.ID, pi.Addrs, ps.PermanentAddrTTL)
 
-	logger.WithField("peers", host.Peerstore().Peers()).Debug("peers updated")
+	logger.WithField("peers", node.GetHost().Peerstore().Peers()).Debug("peers updated")
 }
 
 // Discovery implements mDNS notifee interface.
 type discovery struct {
-	ctx  context.Context
-	host host.Host
+	node *HostNode
 }
 
 // HandlePeerFound registers the peer with the host.
 func (d *discovery) HandlePeerFound(pi ps.PeerInfo) {
-	processFoundPeer(d.ctx, d.host, &pi)
+	processFoundPeer(d.node, &pi)
 }

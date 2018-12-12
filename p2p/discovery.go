@@ -113,7 +113,7 @@ func discoverFromFiles(node *HostNode, fileNames []string) {
 			if err != nil {
 				logger.Error(err)
 			} else {
-				processFoundPeer(node, peerInfo)
+				node.Connect(peerInfo)
 			}
 		}
 
@@ -130,7 +130,7 @@ func discoverFromLines(node *HostNode, lines []string) {
 	for _, a := range lines {
 		peerInfo, err := lineToPeerInfo(a)
 		if err == nil {
-			processFoundPeer(node, peerInfo)
+			node.Connect(peerInfo)
 		}
 	}
 }
@@ -146,25 +146,6 @@ func discoverFromMDNS(node *HostNode) error {
 	return nil
 }
 
-func processFoundPeer(node *HostNode, pi *ps.PeerInfo) {
-	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
-		if p == pi.ID {
-			return
-		}
-	}
-
-	logger.WithField("addrs", pi.Addrs).WithField("id", pi.ID).Debug("attempting to connect to a peer")
-
-	if err := node.GetHost().Connect(node.GetContext(), *pi); err != nil {
-		logger.WithField("error", err).Warn("failed to connect to peer")
-		return
-	}
-
-	node.GetHost().Peerstore().AddAddrs(pi.ID, pi.Addrs, ps.PermanentAddrTTL)
-
-	logger.WithField("peers", node.GetHost().Peerstore().Peers()).Debug("peers updated")
-}
-
 // Discovery implements mDNS notifee interface.
 type discovery struct {
 	node *HostNode
@@ -172,5 +153,5 @@ type discovery struct {
 
 // HandlePeerFound registers the peer with the host.
 func (d *discovery) HandlePeerFound(pi ps.PeerInfo) {
-	processFoundPeer(d.node, &pi)
+	d.node.Connect(&pi)
 }

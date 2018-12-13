@@ -64,6 +64,8 @@ func lineToPeerInfo(line string) (*ps.PeerInfo, error) {
 		addr, err := multiaddr.NewMultiaddr(a)
 		if err == nil {
 			peerInfo.Addrs = append(peerInfo.Addrs, addr)
+		} else {
+			logger.Warn(err)
 		}
 	}
 	return &peerInfo, nil

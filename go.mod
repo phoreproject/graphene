@@ -41,7 +41,7 @@ require (
 	github.com/libp2p/go-libp2p-loggables v1.1.24 // indirect
 	github.com/libp2p/go-libp2p-metrics v2.1.7+incompatible // indirect
 	github.com/libp2p/go-libp2p-nat v0.8.8 // indirect
-	github.com/libp2p/go-libp2p-net v3.0.15+incompatible // indirect
+	github.com/libp2p/go-libp2p-net v3.0.15+incompatible
 	github.com/libp2p/go-libp2p-peer v2.4.0+incompatible
 	github.com/libp2p/go-libp2p-peerstore v2.0.6+incompatible
 	github.com/libp2p/go-libp2p-protocol v1.0.0 // indirect
@@ -66,7 +66,7 @@ require (
 	github.com/mr-tron/base58 v1.1.0 // indirect
 	github.com/multiformats/go-multiaddr v1.3.0
 	github.com/multiformats/go-multiaddr-dns v0.2.5 // indirect
-	github.com/multiformats/go-multiaddr-net v1.6.3 // indirect
+	github.com/multiformats/go-multiaddr-net v1.6.3
 	github.com/multiformats/go-multihash v1.0.8 // indirect
 	github.com/multiformats/go-multistream v0.3.9 // indirect
 	github.com/onsi/ginkgo v1.7.0 // indirect

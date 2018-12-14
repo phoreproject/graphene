@@ -13,6 +13,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ps "github.com/libp2p/go-libp2p-peerstore"
+	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	logger "github.com/sirupsen/logrus"
@@ -31,6 +32,8 @@ type HostNode struct {
 	streamCh   chan inet.Stream
 	readWriter *bufio.ReadWriter
 }
+
+var protocolID = protocol.ID("/grpc/0.0.1")
 
 // NewHostNode creates a host node
 func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
@@ -75,7 +78,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		//readWriter: bufio.NewReadWriter(bufio.NewReader(inet.Stream(stream)), bufio.NewWriter(inet.Stream(stream))),
 	}
 
-	host.SetStreamHandler("/grpc/0.0.1", hostNode.HandleStream)
+	host.SetStreamHandler(protocolID, hostNode.HandleStream)
 
 	return &hostNode, nil
 }
@@ -100,14 +103,14 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 	//err := node.host.Connect(ctx, *peerInfo)
 
 	if err != nil {
-		logger.WithField("error", err).Warn("failed to connect to peer")
+		logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to connect to peer")
 		return nil, err
 	}
 
-	stream, err := node.host.NewStream(context.Background(), peerInfo.ID, "")
+	stream, err := node.host.NewStream(context.Background(), peerInfo.ID, protocolID)
 
 	if err != nil {
-		logger.WithField("error", err).Warn("failed to open stream")
+		logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to open stream")
 		return nil, err
 	}
 
@@ -161,7 +164,7 @@ func (node *HostNode) GetDialOption(ctx context.Context) grpc.DialOption {
 			return nil, err
 		}
 
-		stream, err := node.host.NewStream(ctx, id, "/grpc/0.0.1")
+		stream, err := node.host.NewStream(ctx, id, protocolID)
 		if err != nil {
 			logger.WithField("Function", "GetDialOption").Warn(err)
 			return nil, err

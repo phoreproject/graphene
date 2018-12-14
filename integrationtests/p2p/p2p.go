@@ -31,8 +31,10 @@ func (test P2pTest) Execute(service *testframework.TestService) error {
 		logger.Warn(err)
 	}
 
-	connectToPeer(hostNode0, 1)
-	connectToPeer(hostNode1, 0)
+	connectToPeer(hostNode0, hostNode1)
+	connectToPeer(hostNode1, hostNode0)
+
+	select {}
 
 	return nil
 }
@@ -64,19 +66,15 @@ func createHostNode(index int) (*p2p.HostNode, error) {
 	return hostNode, nil
 }
 
-func connectToPeer(hostNode *p2p.HostNode, index int) *p2p.PeerNode {
-	addr := createNodeAddress(index)
-
-	info, err := peerstore.InfoFromP2pAddr(addr)
-	if err != nil {
-		logger.WithField("Function", "connectToPeer").Warn(err)
-		return nil
-	}
+func connectToPeer(hostNode *p2p.HostNode, target *p2p.HostNode) *p2p.PeerNode {
+	addrs := target.GetHost().Addrs()
 
 	peerInfo := peerstore.PeerInfo{
-		ID:    info.ID,
-		Addrs: []ma.Multiaddr{addr},
+		ID:    target.GetHost().ID(),
+		Addrs: addrs,
 	}
+
+	logger.WithField("Function", "connectToPeer").Warn(peerInfo.ID.Pretty())
 
 	node, err := hostNode.Connect(&peerInfo)
 	if err != nil {

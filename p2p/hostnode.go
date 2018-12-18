@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"bufio"
 	"context"
 	"net"
 	"time"
@@ -16,6 +15,7 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	multiaddr "github.com/multiformats/go-multiaddr"
+	pb "github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -30,7 +30,7 @@ type HostNode struct {
 	cancel     context.CancelFunc
 	grpcServer *grpc.Server
 	streamCh   chan inet.Stream
-	readWriter *bufio.ReadWriter
+	peerList   []*PeerNode
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -75,12 +75,22 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		cancel:     cancel,
 		grpcServer: grpcServer,
 		streamCh:   stream,
-		//readWriter: bufio.NewReadWriter(bufio.NewReader(inet.Stream(stream)), bufio.NewWriter(inet.Stream(stream))),
 	}
 
-	host.SetStreamHandler(protocolID, hostNode.HandleStream)
+	host.SetStreamHandler(protocolID, hostNode.handleStream)
+
+	pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer())
 
 	return &hostNode, nil
+}
+
+// handleStream handles an incoming stream.
+func (node *HostNode) handleStream(stream inet.Stream) {
+	select {
+	case <-node.ctx.Done():
+		return
+	case node.streamCh <- stream:
+	}
 }
 
 // Connect connects to a peer
@@ -98,9 +108,7 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 
 	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
 
-	// grpcConn
-	_, err := node.Dial(ctx, peerInfo.ID, grpc.WithInsecure(), grpc.WithBlock())
-	//err := node.host.Connect(ctx, *peerInfo)
+	grpcConn, err := node.Dial(ctx, peerInfo.ID, grpc.WithInsecure(), grpc.WithBlock())
 
 	if err != nil {
 		logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to connect to peer")
@@ -114,14 +122,16 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	readWriter := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+	client := pb.NewMainRPCClient(grpcConn)
 
-	peerNode := PeerNode{
-		stream:     stream,
-		readWriter: readWriter,
+	peerNode := &PeerNode{
+		stream: stream,
+		client: client,
 	}
 
-	return &peerNode, err
+	node.peerList = append(node.peerList, peerNode)
+
+	return peerNode, err
 }
 
 // Run runs the main loop of the host node
@@ -132,15 +142,6 @@ func (node *HostNode) Run() {
 // GetGRPCServer returns the grpc server.
 func (node *HostNode) GetGRPCServer() *grpc.Server {
 	return node.grpcServer
-}
-
-// HandleStream handles an incoming stream.
-func (node *HostNode) HandleStream(stream inet.Stream) {
-	select {
-	case <-node.ctx.Done():
-		return
-	case node.streamCh <- stream:
-	}
 }
 
 // GetDialOption returns the WithDialer option to dial via libp2p.
@@ -194,6 +195,11 @@ func (node *HostNode) GetContext() context.Context {
 // GetHost returns the host
 func (node *HostNode) GetHost() host.Host {
 	return node.host
+}
+
+// GetPeerList returns the peer list
+func (node *HostNode) GetPeerList() []*PeerNode {
+	return node.peerList
 }
 
 // Discover discovers the peers

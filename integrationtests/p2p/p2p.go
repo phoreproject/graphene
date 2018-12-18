@@ -3,6 +3,9 @@ package testcase
 import (
 	"crypto/rand"
 	"fmt"
+	"time"
+
+	"github.com/phoreproject/synapse/pb"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -16,6 +19,11 @@ import (
 
 // P2pTest implements IntegrationTest
 type P2pTest struct {
+}
+
+type testNode struct {
+	*p2p.HostNode
+	nodeID int
 }
 
 // Execute implements IntegrationTest
@@ -34,7 +42,16 @@ func (test P2pTest) Execute(service *testframework.TestService) error {
 	connectToPeer(hostNode0, hostNode1)
 	connectToPeer(hostNode1, hostNode0)
 
-	select {}
+	peer1 := hostNode0.GetPeerList()[0]
+
+	for i := 0; i < 10; i++ {
+		message := fmt.Sprintf("Test message of %d", i)
+		fmt.Printf("Request: %s\n", message)
+		response, _ := peer1.GetClient().Test(hostNode0.GetContext(), &pb.TestMessage{Message: message})
+		fmt.Printf("Response: %s\n", response)
+
+		time.Sleep(500 * time.Millisecond)
+	}
 
 	return nil
 }
@@ -48,7 +65,7 @@ func createNodeAddress(index int) ma.Multiaddr {
 	return addr
 }
 
-func createHostNode(index int) (*p2p.HostNode, error) {
+func createHostNode(index int) (*testNode, error) {
 	privateKey, publicKey, err := crypto.GenerateSecp256k1Key(rand.Reader)
 	if err != nil {
 		logger.WithField("Function", "createHostNode").Warn(err)
@@ -61,12 +78,17 @@ func createHostNode(index int) (*p2p.HostNode, error) {
 		return nil, err
 	}
 
-	hostNode.Run()
+	node := &testNode{
+		HostNode: hostNode,
+		nodeID:   index,
+	}
 
-	return hostNode, nil
+	node.Run()
+
+	return node, nil
 }
 
-func connectToPeer(hostNode *p2p.HostNode, target *p2p.HostNode) *p2p.PeerNode {
+func connectToPeer(hostNode *testNode, target *testNode) *p2p.PeerNode {
 	addrs := target.GetHost().Addrs()
 
 	peerInfo := peerstore.PeerInfo{
@@ -74,7 +96,7 @@ func connectToPeer(hostNode *p2p.HostNode, target *p2p.HostNode) *p2p.PeerNode {
 		Addrs: addrs,
 	}
 
-	logger.WithField("Function", "connectToPeer").Warn(peerInfo.ID.Pretty())
+	logger.WithField("Function", "connectToPeer").Trace(peerInfo.ID.Pretty())
 
 	node, err := hostNode.Connect(&peerInfo)
 	if err != nil {

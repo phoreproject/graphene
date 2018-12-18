@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 
+	logger "github.com/sirupsen/logrus"
+
 	inet "github.com/libp2p/go-libp2p-net"
 	mnet "github.com/multiformats/go-multiaddr-net"
 )
@@ -50,6 +52,8 @@ func newGrpcListener(hostNode *HostNode) net.Listener {
 
 // Accept implements net.Listener.
 func (listener *grpcListener) Accept() (net.Conn, error) {
+	logger.Debug("grpcListener: Accepted new connection")
+
 	select {
 	case <-listener.listenerCtx.Done():
 		return nil, io.EOF

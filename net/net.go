@@ -1,5 +1,8 @@
 package net
 
+// TODO: this file is to be removed
+// It will be replaced by HostNode and PeerNode
+
 import (
 	"context"
 	"time"

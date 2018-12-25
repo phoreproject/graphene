@@ -301,3 +301,13 @@ message ValidatorRegistryDeltaBlock {
     bytes Pubkey = 3;
     uint64 Flag = 4;
 }
+
+message TestMessage {
+    string message = 1;
+}
+
+// This will be renamed to P2PRPC later
+service MainRPC {
+    rpc Test(TestMessage) returns (TestMessage);
+}
+

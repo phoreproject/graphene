@@ -72,7 +72,7 @@ func createHostNode(index int) (*testNode, error) {
 		return nil, err
 	}
 
-	hostNode, err := p2p.NewHostNode(createNodeAddress(index), publicKey, privateKey)
+	hostNode, err := p2p.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer())
 	if err != nil {
 		logger.WithField("Function", "createHostNode").Warn(err)
 		return nil, err

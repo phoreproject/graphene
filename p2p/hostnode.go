@@ -36,7 +36,7 @@ type HostNode struct {
 var protocolID = protocol.ID("/grpc/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, server pb.MainRPCServer) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
@@ -79,7 +79,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
 
-	pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer())
+	pb.RegisterMainRPCServer(grpcServer, server)
 
 	return &hostNode, nil
 }

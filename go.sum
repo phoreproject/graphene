@@ -163,7 +163,7 @@ github.com/multiformats/go-multiaddr-dns v0.2.5 h1:crSx6SJfKB1tHracH472jVXlMuw+J
 github.com/multiformats/go-multiaddr-dns v0.2.5/go.mod h1:IGZKFM4G96cYgdMcUmHx5gtJxiHmvZLTQ9rdWXMKJyo=
 github.com/multiformats/go-multiaddr-net v1.6.3 h1:Who/zy46KcaQjgGqT8hXEtBHnWAWHk33eqqQte+nhW8=
 github.com/multiformats/go-multiaddr-net v1.6.3/go.mod h1:AO4WqKzxLt+paJ0N0kufj6teQ2R6fZbnItDvGTwilmk=
-github.com/multiformats/go-multihash v1.0.8 h1:pyowaBSivNxBr137ZjYkr0q4o41MKSJVPKuO7F7AAfY=
+github.com/multiformats/go-multihash v1.0.8 h1:v/1HVWH2gq7IZGnFXrTsjoG2I5XIsU5gXiGH5SH915k=
 github.com/multiformats/go-multihash v1.0.8/go.mod h1:sT17phG+xVgnrZc8ht/ZoCIV0sKRwvmZkXk46UfSxM4=
 github.com/multiformats/go-multistream v0.3.9 h1:ZqVaUxtVzjRUCGaO3596vk/rj9UXheIGAdKXXo/VKUA=
 github.com/multiformats/go-multistream v0.3.9/go.mod h1:fJTiDfXJVmItycydCnNx4+wSzZ5NwG2FEVAI30fiovg=

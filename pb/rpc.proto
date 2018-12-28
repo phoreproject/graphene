@@ -179,5 +179,17 @@ message TestMessage {
 // This will be renamed to P2PRPC later
 service MainRPC {
     rpc Test(TestMessage) returns (TestMessage);
+
+    rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
+
+    rpc GetSlotNumber(google.protobuf.Empty) returns (SlotNumberResponse);
+
+    rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
+
+    rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
+
+    rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
+
+    rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
 }
 

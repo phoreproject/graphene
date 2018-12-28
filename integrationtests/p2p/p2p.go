@@ -5,7 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/db"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/serialization"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -72,7 +77,22 @@ func createHostNode(index int) (*testNode, error) {
 		return nil, err
 	}
 
-	hostNode, err := p2p.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer())
+	database := db.NewInMemoryDB()
+	c := beacon.MainNetConfig
+	validators := []beacon.InitialValidatorEntry{}
+	randaoCommitment := chainhash.HashH([]byte("test"))
+	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
+		validators = append(validators, beacon.InitialValidatorEntry{
+			PubKey:                bls.PublicKey{},
+			ProofOfPossession:     bls.Signature{},
+			WithdrawalShard:       1,
+			WithdrawalCredentials: serialization.Address{},
+			RandaoCommitment:      randaoCommitment,
+		})
+	}
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
+
+	hostNode, err := p2p.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain))
 	if err != nil {
 		logger.WithField("Function", "createHostNode").Warn(err)
 		return nil, err

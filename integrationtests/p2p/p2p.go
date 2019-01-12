@@ -19,7 +19,8 @@ import (
 	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/integrationtests/framework"
-	p2p "github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/net"
+	"github.com/phoreproject/synapse/p2p"
 )
 
 // P2pTest implements IntegrationTest
@@ -27,7 +28,7 @@ type P2pTest struct {
 }
 
 type testNode struct {
-	*p2p.HostNode
+	*net.HostNode
 	nodeID int
 }
 
@@ -38,16 +39,18 @@ func (test P2pTest) Execute(service *testframework.TestService) error {
 	hostNode0, err := createHostNode(0)
 	if err != nil {
 		logger.Warn(err)
+		return err
 	}
 	hostNode1, err := createHostNode(1)
 	if err != nil {
 		logger.Warn(err)
+		return err
 	}
 
 	connectToPeer(hostNode0, hostNode1)
 	connectToPeer(hostNode1, hostNode0)
 
-	peer1 := hostNode0.GetPeerList()[0]
+	peer1 := hostNode0.GetPeerList()[0].(p2p.P2pPeerNode)
 
 	for i := 0; i < 10; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
@@ -62,7 +65,7 @@ func (test P2pTest) Execute(service *testframework.TestService) error {
 }
 
 func createNodeAddress(index int) ma.Multiaddr {
-	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", 9000+index))
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", 19000+index))
 	if err != nil {
 		logger.WithField("Function", "createNodeAddress").Warn(err)
 		return nil
@@ -92,7 +95,7 @@ func createHostNode(index int) (*testNode, error) {
 	}
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
 
-	hostNode, err := p2p.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain))
+	hostNode, err := net.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.PeerNodeHandler{})
 	if err != nil {
 		logger.WithField("Function", "createHostNode").Warn(err)
 		return nil, err
@@ -108,7 +111,7 @@ func createHostNode(index int) (*testNode, error) {
 	return node, nil
 }
 
-func connectToPeer(hostNode *testNode, target *testNode) *p2p.PeerNode {
+func connectToPeer(hostNode *testNode, target *testNode) net.PeerNode {
 	addrs := target.GetHost().Addrs()
 
 	peerInfo := peerstore.PeerInfo{

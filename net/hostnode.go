@@ -1,4 +1,4 @@
-package p2p
+package net
 
 import (
 	"context"
@@ -20,6 +20,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+// HostNodeAbstract simulates abstract class in other modern languages such as Java/C++
+type HostNodeAbstract interface {
+	CreatePeerNode(stream inet.Stream, grpcConn *grpc.ClientConn) PeerNode
+}
+
 // HostNode is the node for host
 type HostNode struct {
 	publicKey  crypto.PubKey
@@ -30,13 +35,19 @@ type HostNode struct {
 	cancel     context.CancelFunc
 	grpcServer *grpc.Server
 	streamCh   chan inet.Stream
-	peerList   []*PeerNode
+	peerList   []PeerNode
+	abstract   HostNodeAbstract
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, server pb.MainRPCServer) (*HostNode, error) {
+func NewHostNode(
+	listenAddress multiaddr.Multiaddr,
+	publicKey crypto.PubKey,
+	privateKey crypto.PrivKey,
+	server pb.MainRPCServer,
+	abstract HostNodeAbstract) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
@@ -75,6 +86,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		cancel:     cancel,
 		grpcServer: grpcServer,
 		streamCh:   stream,
+		abstract:   abstract,
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
@@ -94,7 +106,7 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 // Connect connects to a peer
-func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
+func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (PeerNode, error) {
 	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
 		if p == peerInfo.ID {
 			return nil, nil
@@ -122,12 +134,7 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	client := pb.NewMainRPCClient(grpcConn)
-
-	peerNode := &PeerNode{
-		stream: stream,
-		client: client,
-	}
+	peerNode := node.abstract.CreatePeerNode(stream, grpcConn)
 
 	node.peerList = append(node.peerList, peerNode)
 
@@ -198,13 +205,8 @@ func (node *HostNode) GetHost() host.Host {
 }
 
 // GetPeerList returns the peer list
-func (node *HostNode) GetPeerList() []*PeerNode {
+func (node *HostNode) GetPeerList() []PeerNode {
 	return node.peerList
-}
-
-// Discover discovers the peers
-func (node *HostNode) Discover(options *DiscoveryOptions) error {
-	return startDiscovery(node, options)
 }
 
 // GetConnectedPeerCount returns the connected peer count

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/net"
 
 	peer "github.com/libp2p/go-libp2p-peer"
 	ps "github.com/libp2p/go-libp2p-peerstore"
@@ -81,7 +82,7 @@ var mDNSTag = mdns.ServiceTag
 // DNS peer discovery.
 //
 // TODO(287): add other discovery protocols such as DHT, etc.
-func startDiscovery(node *HostNode, options *DiscoveryOptions) error {
+func StartDiscovery(node *net.HostNode, options *DiscoveryOptions) error {
 	if len(options.PeerAddresses) > 0 {
 		go discoverFromPeerInfos(node, options.PeerAddresses)
 	}
@@ -100,7 +101,7 @@ func startDiscovery(node *HostNode, options *DiscoveryOptions) error {
 	return nil
 }
 
-func discoverFromFiles(node *HostNode, fileNames []string) {
+func discoverFromFiles(node *net.HostNode, fileNames []string) {
 	for _, fileName := range fileNames {
 		file, err := os.Open(fileName)
 		if err != nil {
@@ -125,10 +126,10 @@ func discoverFromFiles(node *HostNode, fileNames []string) {
 	}
 }
 
-func discoverFromPeerInfos(node *HostNode, peerInfoList []ps.PeerInfo) {
+func discoverFromPeerInfos(node *net.HostNode, peerInfoList []ps.PeerInfo) {
 }
 
-func discoverFromLines(node *HostNode, lines []string) {
+func discoverFromLines(node *net.HostNode, lines []string) {
 	for _, a := range lines {
 		peerInfo, err := lineToPeerInfo(a)
 		if err == nil {
@@ -137,7 +138,7 @@ func discoverFromLines(node *HostNode, lines []string) {
 	}
 }
 
-func discoverFromMDNS(node *HostNode) error {
+func discoverFromMDNS(node *net.HostNode) error {
 	mdnsService, err := mdns.NewMdnsService(node.GetContext(), node.GetHost(), discoveryInterval, mDNSTag)
 	if err != nil {
 		return err
@@ -150,7 +151,7 @@ func discoverFromMDNS(node *HostNode) error {
 
 // Discovery implements mDNS notifee interface.
 type discovery struct {
-	node *HostNode
+	node *net.HostNode
 }
 
 // HandlePeerFound registers the peer with the host.

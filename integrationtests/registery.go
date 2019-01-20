@@ -21,6 +21,11 @@ var EntryList = []testframework.Entry{
 	},
 
 	testframework.Entry{
+		Name:    "directmessage",
+		Creator: func() testframework.IntegrationTest { return testcase.DirectMessageTest{} },
+	},
+
+	testframework.Entry{
 		Name:    "SynapseP2p",
 		Creator: func() testframework.IntegrationTest { return SynapseP2pTest{} },
 		EntryArgs: testframework.EntryArgList{

@@ -1,4 +1,4 @@
-package net
+package rpc
 
 import (
 	"context"
@@ -36,15 +36,15 @@ func (c *streamConn) RemoteAddr() net.Addr {
 
 // grpcListener implements the net.Listener interface.
 type grpcListener struct {
-	*HostNode
+	*RpcHostNode
 	listenerCtx       context.Context
 	listenerCtxCancel context.CancelFunc
 }
 
 // newGrpcListener creates a new GRPC listener.
-func newGrpcListener(hostNode *HostNode) net.Listener {
+func newGrpcListener(hostNode *RpcHostNode) net.Listener {
 	listener := &grpcListener{
-		HostNode: hostNode,
+		RpcHostNode: hostNode,
 	}
 	listener.listenerCtx, listener.listenerCtxCancel = context.WithCancel(hostNode.ctx)
 	return listener

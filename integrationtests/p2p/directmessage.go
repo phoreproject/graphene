@@ -10,7 +10,6 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/rpc"
 	"github.com/phoreproject/synapse/serialization"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
@@ -21,42 +20,44 @@ import (
 
 	"github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/rpc"
 )
 
-// P2pTest implements IntegrationTest
-type P2pTest struct {
+// DirectMessageTest implements IntegrationTest
+type DirectMessageTest struct {
 }
 
-type testNode struct {
+type testNodeDirectMessage struct {
 	*rpc.RpcHostNode
 	nodeID int
 }
 
 // Execute implements IntegrationTest
-func (test P2pTest) Execute(service *testframework.TestService) error {
+func (test DirectMessageTest) Execute(service *testframework.TestService) error {
 	logger.SetLevel(logger.TraceLevel)
 
-	hostNode0, err := createHostNode(0)
+	hostNode0, err := createHostNodeForDirectMessage(0)
 	if err != nil {
 		logger.Warn(err)
 		return err
 	}
-	hostNode1, err := createHostNode(1)
+	hostNode1, err := createHostNodeForDirectMessage(1)
 	if err != nil {
 		logger.Warn(err)
 		return err
 	}
 
-	connectToPeer(hostNode0, hostNode1)
-	connectToPeer(hostNode1, hostNode0)
+	connectToPeerForDirectMessage(hostNode0, hostNode1)
+	connectToPeerForDirectMessage(hostNode1, hostNode0)
 
 	peer1 := hostNode0.GetPeerList()[0].(p2p.P2pPeerNode)
 
 	for i := 0; i < 10; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
 		fmt.Printf("Request: %s\n", message)
-		response, _ := peer1.GetClient().Test(hostNode0.GetContext(), &pb.TestMessage{Message: message})
-		fmt.Printf("Response: %s\n", response)
+		//response, _ := peer1.GetClient().Test(hostNode0.GetContext(), &pb.TestMessage{Message: message})
+		//fmt.Printf("Response: %s\n", response)
+		rpc.SendMessage(peer1, &pb.TestMessage{Message: message})
 
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -64,19 +65,19 @@ func (test P2pTest) Execute(service *testframework.TestService) error {
 	return nil
 }
 
-func createNodeAddress(index int) ma.Multiaddr {
+func createNodeAddressForDirectMessage(index int) ma.Multiaddr {
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", 19000+index))
 	if err != nil {
-		logger.WithField("Function", "createNodeAddress").Warn(err)
+		logger.WithField("Function", "createNodeAddressForDirectMessage").Warn(err)
 		return nil
 	}
 	return addr
 }
 
-func createHostNode(index int) (*testNode, error) {
+func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 	privateKey, publicKey, err := crypto.GenerateSecp256k1Key(rand.Reader)
 	if err != nil {
-		logger.WithField("Function", "createHostNode").Warn(err)
+		logger.WithField("Function", "createHostNodeForDirectMessage").Warn(err)
 		return nil, err
 	}
 
@@ -95,13 +96,13 @@ func createHostNode(index int) (*testNode, error) {
 	}
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
 
-	hostNode, err := rpc.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.PeerNodeHandler{})
+	hostNode, err := rpc.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.PeerNodeHandler{})
 	if err != nil {
-		logger.WithField("Function", "createHostNode").Warn(err)
+		logger.WithField("Function", "createHostNodeForDirectMessage").Warn(err)
 		return nil, err
 	}
 
-	node := &testNode{
+	node := &testNodeDirectMessage{
 		RpcHostNode: hostNode,
 		nodeID:      index,
 	}
@@ -111,7 +112,7 @@ func createHostNode(index int) (*testNode, error) {
 	return node, nil
 }
 
-func connectToPeer(hostNode *testNode, target *testNode) rpc.RpcPeerNode {
+func connectToPeerForDirectMessage(hostNode *testNodeDirectMessage, target *testNodeDirectMessage) rpc.RpcPeerNode {
 	addrs := target.GetHost().Addrs()
 
 	peerInfo := peerstore.PeerInfo{
@@ -119,11 +120,11 @@ func connectToPeer(hostNode *testNode, target *testNode) rpc.RpcPeerNode {
 		Addrs: addrs,
 	}
 
-	logger.WithField("Function", "connectToPeer").Trace(peerInfo.ID.Pretty())
+	logger.WithField("Function", "connectToPeerForDirectMessage").Trace(peerInfo.ID.Pretty())
 
 	node, err := hostNode.Connect(&peerInfo)
 	if err != nil {
-		logger.WithField("Function", "connectToPeer").Warn(err)
+		logger.WithField("Function", "connectToPeerForDirectMessage").Warn(err)
 		return nil
 	}
 	return node

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -23,6 +24,7 @@ func NewMainRPCServer(chain *beacon.Blockchain) pb.MainRPCServer {
 }
 
 func (s mainRPCServer) Test(ctx context.Context, message *pb.TestMessage) (*pb.TestMessage, error) {
+	fmt.Printf("Received test message: %s\n", message.Message)
 	return &pb.TestMessage{
 		Message: message.Message + " === this is response",
 	}, nil

@@ -1,4 +1,4 @@
-package net
+package rpc
 
 import (
 	"context"
@@ -20,13 +20,13 @@ import (
 	"google.golang.org/grpc"
 )
 
-// HostNodeAbstract simulates abstract class in other modern languages such as Java/C++
-type HostNodeAbstract interface {
-	CreatePeerNode(stream inet.Stream, grpcConn *grpc.ClientConn) PeerNode
+// RpcHostNodeAbstract simulates abstract class in other modern languages such as Java/C++
+type RpcHostNodeAbstract interface {
+	CreatePeerNode(stream inet.Stream, grpcConn *grpc.ClientConn) RpcPeerNode
 }
 
-// HostNode is the node for host
-type HostNode struct {
+// RpcHostNode is the node for host
+type RpcHostNode struct {
 	publicKey  crypto.PubKey
 	privateKey crypto.PrivKey
 	host       host.Host
@@ -35,8 +35,8 @@ type HostNode struct {
 	cancel     context.CancelFunc
 	grpcServer *grpc.Server
 	streamCh   chan inet.Stream
-	peerList   []PeerNode
-	abstract   HostNodeAbstract
+	peerList   []RpcPeerNode
+	abstract   RpcHostNodeAbstract
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -47,7 +47,7 @@ func NewHostNode(
 	publicKey crypto.PubKey,
 	privateKey crypto.PrivKey,
 	server pb.MainRPCServer,
-	abstract HostNodeAbstract) (*HostNode, error) {
+	abstract RpcHostNodeAbstract) (*RpcHostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
@@ -77,7 +77,7 @@ func NewHostNode(
 
 	grpcServer := grpc.NewServer()
 	stream := make(chan inet.Stream)
-	hostNode := HostNode{
+	hostNode := RpcHostNode{
 		publicKey:  publicKey,
 		privateKey: privateKey,
 		host:       host,
@@ -97,7 +97,7 @@ func NewHostNode(
 }
 
 // handleStream handles an incoming stream.
-func (node *HostNode) handleStream(stream inet.Stream) {
+func (node *RpcHostNode) handleStream(stream inet.Stream) {
 	select {
 	case <-node.ctx.Done():
 		return
@@ -106,7 +106,7 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 // Connect connects to a peer
-func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (PeerNode, error) {
+func (node *RpcHostNode) Connect(peerInfo *peerstore.PeerInfo) (RpcPeerNode, error) {
 	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
 		if p == peerInfo.ID {
 			return nil, nil
@@ -142,18 +142,18 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (PeerNode, error) {
 }
 
 // Run runs the main loop of the host node
-func (node *HostNode) Run() {
+func (node *RpcHostNode) Run() {
 	go node.grpcServer.Serve(newGrpcListener(node))
 }
 
 // GetGRPCServer returns the grpc server.
-func (node *HostNode) GetGRPCServer() *grpc.Server {
+func (node *RpcHostNode) GetGRPCServer() *grpc.Server {
 	return node.grpcServer
 }
 
 // GetDialOption returns the WithDialer option to dial via libp2p.
 // note: ctx should be the root context.
-func (node *HostNode) GetDialOption(ctx context.Context) grpc.DialOption {
+func (node *RpcHostNode) GetDialOption(ctx context.Context) grpc.DialOption {
 	return grpc.WithDialer(func(peerIdStr string, timeout time.Duration) (net.Conn, error) {
 		subCtx, subCtxCancel := context.WithTimeout(ctx, timeout)
 		defer subCtxCancel()
@@ -184,43 +184,43 @@ func (node *HostNode) GetDialOption(ctx context.Context) grpc.DialOption {
 
 // Dial attempts to open a GRPC connection over libp2p to a peer.
 // Note that the context is used as the **stream context** not just the dial context.
-func (node *HostNode) Dial(ctx context.Context, peerID peer.ID, dialOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (node *RpcHostNode) Dial(ctx context.Context, peerID peer.ID, dialOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	dialOpsPrepended := append([]grpc.DialOption{node.GetDialOption(ctx)}, dialOpts...)
 	return grpc.DialContext(ctx, peerID.Pretty(), dialOpsPrepended...)
 }
 
 // GetPublicKey returns the public key
-func (node *HostNode) GetPublicKey() *crypto.PubKey {
+func (node *RpcHostNode) GetPublicKey() *crypto.PubKey {
 	return &node.publicKey
 }
 
 // GetContext returns the context
-func (node *HostNode) GetContext() context.Context {
+func (node *RpcHostNode) GetContext() context.Context {
 	return node.ctx
 }
 
 // GetHost returns the host
-func (node *HostNode) GetHost() host.Host {
+func (node *RpcHostNode) GetHost() host.Host {
 	return node.host
 }
 
 // GetPeerList returns the peer list
-func (node *HostNode) GetPeerList() []PeerNode {
+func (node *RpcHostNode) GetPeerList() []RpcPeerNode {
 	return node.peerList
 }
 
 // GetConnectedPeerCount returns the connected peer count
-func (node *HostNode) GetConnectedPeerCount() int {
+func (node *RpcHostNode) GetConnectedPeerCount() int {
 	return node.host.Peerstore().Peers().Len()
 }
 
 // Broadcast broadcasts a message to the network for a topic.
-func (node *HostNode) Broadcast(topic string, data []byte) error {
+func (node *RpcHostNode) Broadcast(topic string, data []byte) error {
 	return node.gossipSub.Publish(topic, data)
 }
 
 // SubscribeMessage registers a handler for a network topic.
-func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
+func (node *RpcHostNode) SubscribeMessage(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
 	subscription, err := node.gossipSub.Subscribe(topic)
 	if err != nil {
 		return nil, err
@@ -245,6 +245,6 @@ func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error)
 }
 
 // UnsubscribeMessage cancels a subscription to a topic.
-func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
+func (node *RpcHostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
 	subscription.Cancel()
 }

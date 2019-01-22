@@ -20,7 +20,6 @@ import (
 
 	"github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/rpc"
 )
 
 // DirectMessageTest implements IntegrationTest
@@ -28,7 +27,7 @@ type DirectMessageTest struct {
 }
 
 type testNodeDirectMessage struct {
-	*rpc.RpcHostNode
+	*p2p.P2pHostNode
 	nodeID int
 }
 
@@ -50,14 +49,14 @@ func (test DirectMessageTest) Execute(service *testframework.TestService) error 
 	connectToPeerForDirectMessage(hostNode0, hostNode1)
 	connectToPeerForDirectMessage(hostNode1, hostNode0)
 
-	peer1 := hostNode0.GetPeerList()[0].(p2p.P2pPeerNode)
+	peer1 := hostNode0.GetPeerList()[0]
 
 	for i := 0; i < 10; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
 		fmt.Printf("Request: %s\n", message)
 		//response, _ := peer1.GetClient().Test(hostNode0.GetContext(), &pb.TestMessage{Message: message})
 		//fmt.Printf("Response: %s\n", response)
-		rpc.SendMessage(peer1, &pb.TestMessage{Message: message})
+		peer1.SendMessage(&pb.TestMessage{Message: message})
 
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -96,14 +95,14 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 	}
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
 
-	hostNode, err := rpc.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.PeerNodeHandler{})
+	hostNode, err := p2p.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain))
 	if err != nil {
 		logger.WithField("Function", "createHostNodeForDirectMessage").Warn(err)
 		return nil, err
 	}
 
 	node := &testNodeDirectMessage{
-		RpcHostNode: hostNode,
+		P2pHostNode: hostNode,
 		nodeID:      index,
 	}
 
@@ -112,7 +111,7 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 	return node, nil
 }
 
-func connectToPeerForDirectMessage(hostNode *testNodeDirectMessage, target *testNodeDirectMessage) rpc.RpcPeerNode {
+func connectToPeerForDirectMessage(hostNode *testNodeDirectMessage, target *testNodeDirectMessage) *p2p.P2pPeerNode {
 	addrs := target.GetHost().Addrs()
 
 	peerInfo := peerstore.PeerInfo{

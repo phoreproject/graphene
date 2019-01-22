@@ -50,7 +50,7 @@ func (test P2pTest) Execute(service *testframework.TestService) error {
 	connectToPeer(hostNode0, hostNode1)
 	connectToPeer(hostNode1, hostNode0)
 
-	peer1 := hostNode0.GetPeerList()[0].(p2p.P2pPeerNode)
+	peer1 := hostNode0.GetPeerList()[0].(p2p.LocalPeerNode)
 
 	for i := 0; i < 10; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
@@ -95,7 +95,7 @@ func createHostNode(index int) (*testNode, error) {
 	}
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
 
-	hostNode, err := rpc.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.PeerNodeHandler{})
+	hostNode, err := rpc.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.LocalPeerNodeHandler{})
 	if err != nil {
 		logger.WithField("Function", "createHostNode").Warn(err)
 		return nil, err

@@ -6,7 +6,7 @@ SRC=$(shell find . -name "*.go")
 ifeq ($(OS),Windows_NT)
 EXE=.exe
 else
-EXE=.exe
+EXE=
 endif
 
 all: deps $(BINARY_NAME)

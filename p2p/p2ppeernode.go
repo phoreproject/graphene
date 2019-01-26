@@ -21,7 +21,7 @@ func NewP2pPeerNode(stream inet.Stream) P2pPeerNode {
 	}
 }
 
-// SendMessage sends a protobuf message
+// SendMessage sends a protobuf message to this peer
 func (node *P2pPeerNode) SendMessage(message proto.Message) {
 	writeMessage(message, node.writer)
 }

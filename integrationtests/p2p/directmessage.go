@@ -2,6 +2,7 @@ package testcase
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/serialization"
 
+	proto "github.com/golang/protobuf/proto"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -29,6 +31,11 @@ type DirectMessageTest struct {
 type testNodeDirectMessage struct {
 	*p2p.P2pHostNode
 	nodeID int
+}
+
+func keyToString(key crypto.Key) string {
+	data, _ := key.Bytes()
+	return hex.EncodeToString(data)
 }
 
 // Execute implements IntegrationTest
@@ -49,14 +56,11 @@ func (test DirectMessageTest) Execute(service *testframework.TestService) error 
 	connectToPeerForDirectMessage(hostNode0, hostNode1)
 	connectToPeerForDirectMessage(hostNode1, hostNode0)
 
-	peer1 := hostNode0.GetPeerList()[0]
-
 	for i := 0; i < 10; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
 		fmt.Printf("Request: %s\n", message)
-		//response, _ := peer1.GetClient().Test(hostNode0.GetContext(), &pb.TestMessage{Message: message})
-		//fmt.Printf("Response: %s\n", response)
-		peer1.SendMessage(&pb.TestMessage{Message: message})
+		hostNode0.GetPeerList()[0].SendMessage(&pb.TestMessage{Message: "Node0 " + message})
+		hostNode1.GetPeerList()[0].SendMessage(&pb.TestMessage{Message: "Node1 " + message})
 
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -105,6 +109,10 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 		P2pHostNode: hostNode,
 		nodeID:      index,
 	}
+
+	node.RegisterMessageHandler("pb.TestMessage", func(node *p2p.P2pHostNode, message proto.Message) {
+		logger.Debugf("Node %s received message %s ", keyToString(node.GetPublicKey()), proto.MessageName(message))
+	})
 
 	node.Run()
 

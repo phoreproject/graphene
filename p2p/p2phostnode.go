@@ -3,6 +3,7 @@ package p2p
 import (
 	"context"
 
+	proto "github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
@@ -17,16 +18,20 @@ import (
 	"google.golang.org/grpc"
 )
 
+// P2pMessageHandler is the message hander
+type P2pMessageHandler func(node *P2pHostNode, message proto.Message)
+
 // P2pHostNode is the node for host
 type P2pHostNode struct {
-	publicKey  crypto.PubKey
-	privateKey crypto.PrivKey
-	host       host.Host
-	gossipSub  *pubsub.PubSub
-	ctx        context.Context
-	cancel     context.CancelFunc
-	grpcServer *grpc.Server
-	peerList   []P2pPeerNode
+	publicKey         crypto.PubKey
+	privateKey        crypto.PrivKey
+	host              host.Host
+	gossipSub         *pubsub.PubSub
+	ctx               context.Context
+	cancel            context.CancelFunc
+	grpcServer        *grpc.Server
+	peerList          []P2pPeerNode
+	messageHandlerMap map[string]P2pMessageHandler
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -67,13 +72,14 @@ func NewHostNode(
 
 	grpcServer := grpc.NewServer()
 	hostNode := P2pHostNode{
-		publicKey:  publicKey,
-		privateKey: privateKey,
-		host:       host,
-		gossipSub:  g,
-		ctx:        ctx,
-		cancel:     cancel,
-		grpcServer: grpcServer,
+		publicKey:         publicKey,
+		privateKey:        privateKey,
+		host:              host,
+		gossipSub:         g,
+		ctx:               ctx,
+		cancel:            cancel,
+		grpcServer:        grpcServer,
+		messageHandlerMap: make(map[string]P2pMessageHandler),
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
@@ -85,7 +91,19 @@ func NewHostNode(
 
 // handleStream handles an incoming stream.
 func (node *P2pHostNode) handleStream(stream inet.Stream) {
-	go processMessages(stream)
+	go processMessages(stream, node.handleMessage)
+}
+
+func (node *P2pHostNode) handleMessage(message proto.Message) {
+	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
+	if ok {
+		handler(node, message)
+	}
+}
+
+// RegisterMessageHandler registers a message handler
+func (node *P2pHostNode) RegisterMessageHandler(messageName string, handler P2pMessageHandler) {
+	node.messageHandlerMap[messageName] = handler
 }
 
 // Connect connects to a peer
@@ -108,7 +126,7 @@ func (node *P2pHostNode) Connect(peerInfo *peerstore.PeerInfo) (*P2pPeerNode, er
 		return nil, err
 	}
 
-	go processMessages(stream)
+	go processMessages(stream, node.handleMessage)
 
 	peerNode := NewP2pPeerNode(stream)
 
@@ -127,8 +145,8 @@ func (node *P2pHostNode) GetGRPCServer() *grpc.Server {
 }
 
 // GetPublicKey returns the public key
-func (node *P2pHostNode) GetPublicKey() *crypto.PubKey {
-	return &node.publicKey
+func (node *P2pHostNode) GetPublicKey() crypto.PubKey {
+	return node.publicKey
 }
 
 // GetContext returns the context

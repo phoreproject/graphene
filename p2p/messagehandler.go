@@ -86,7 +86,7 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 	return message, nil
 }
 
-func processMessages(stream inet.Stream) {
+func processMessages(stream inet.Stream, handler func(message proto.Message)) {
 	const stateReadHeader = 1
 	const stateReadMessage = 2
 
@@ -108,7 +108,7 @@ func processMessages(stream inet.Stream) {
 			if streamReader.Read(messageBuffer) {
 				state = stateReadHeader
 				message, _ := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
-				logger.Debug("Received message: " + proto.MessageName(message))
+				handler(message)
 			}
 			break
 		}

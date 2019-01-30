@@ -7,9 +7,9 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	logger "github.com/sirupsen/logrus"
 
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
-	"github.com/phoreproject/synapse/serialization"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
@@ -40,15 +40,14 @@ func (bv *blockchainView) Height() int {
 type Blockchain struct {
 	chain     blockchainView
 	db        db.Database
-	config    *Config
-	state     State
+	config    *config.Config
+	state     primitives.State
 	stateLock *sync.Mutex
-	voteCache map[chainhash.Hash]*VoteCache
 }
 
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
-func NewBlockchainWithInitialValidators(db db.Database, config *Config, validators []InitialValidatorEntry) (*Blockchain, error) {
+func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry) (*Blockchain, error) {
 	b := &Blockchain{
 		db:     db,
 		config: config,
@@ -57,9 +56,8 @@ func NewBlockchainWithInitialValidators(db db.Database, config *Config, validato
 			lock:  &sync.Mutex{},
 		},
 		stateLock: &sync.Mutex{},
-		voteCache: make(map[chainhash.Hash]*VoteCache),
 	}
-	err := b.InitializeState(validators)
+	err := b.InitializeState(validators, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +70,10 @@ type InitialValidatorEntry struct {
 	PubKey                bls.PublicKey
 	ProofOfPossession     bls.Signature
 	WithdrawalShard       uint32
-	WithdrawalCredentials serialization.Address
+	WithdrawalCredentials chainhash.Hash
 	RandaoCommitment      chainhash.Hash
+	PoCCommitment         chainhash.Hash
+	DepositSize           uint64
 }
 
 const (
@@ -126,7 +126,7 @@ func (b *Blockchain) SetTip(n *primitives.Block) error {
 
 	for current != nil && b.chain.chain[current.SlotNumber] != current.Hash() {
 		b.chain.chain[n.SlotNumber] = n.Hash()
-		nextBlock, err := b.db.GetBlockForHash(n.AncestorHashes[0])
+		nextBlock, err := b.db.GetBlockForHash(n.ParentRoot)
 		if err != nil {
 			nextBlock = nil
 		}
@@ -175,14 +175,14 @@ func (b *Blockchain) LastBlock() (*primitives.Block, error) {
 }
 
 // GetConfig returns the config used by this blockchain
-func (b *Blockchain) GetConfig() *Config {
+func (b *Blockchain) GetConfig() *config.Config {
 	return b.config
 }
 
 // GetSlotAndShardAssignment gets the shard and slot assignment for a specific
 // validator.
 func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	earliestSlotInArray := int(b.state.LastStateRecalculationSlot) - b.config.CycleLength
+	earliestSlotInArray := b.state.Slot%b.config.EpochLength - b.config.EpochLength
 	if earliestSlotInArray < 0 {
 		earliestSlotInArray = 0
 	}
@@ -193,9 +193,9 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint
 					continue
 				}
 				if j == 0 && v == i%len(committee.Committee) {
-					return committee.Shard, uint64(i + earliestSlotInArray), RoleProposer, nil
+					return committee.Shard, uint64(i) + earliestSlotInArray, RoleProposer, nil
 				}
-				return committee.Shard, uint64(i + earliestSlotInArray), RoleAttester, nil
+				return committee.Shard, uint64(i) + earliestSlotInArray, RoleAttester, nil
 			}
 		}
 	}
@@ -204,11 +204,11 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint
 
 // GetValidatorAtIndex gets the validator at index
 func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
-	if index >= uint32(len(b.state.Validators)) {
+	if index >= uint32(len(b.state.ValidatorRegistry)) {
 		return nil, fmt.Errorf("Index out of bounds")
 	}
 
-	return &b.state.Validators[index], nil
+	return &b.state.ValidatorRegistry[index], nil
 }
 
 // GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID

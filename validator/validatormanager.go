@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/sirupsen/logrus"
 
@@ -90,7 +90,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 
 		newCycle := false
 
-		if b.SlotNumber%uint64(beacon.MainNetConfig.CycleLength) == 0 {
+		if b.SlotNumber%uint64(config.MainNetConfig.EpochLength) == 0 {
 			newCycle = true
 		}
 

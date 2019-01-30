@@ -39,7 +39,7 @@ func main() {
 
 	randaoCommitment := chainhash.HashH([]byte("test"))
 
-	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
+	for i := 0; i <= c.EpochLength*(c.MinCommitteeSize*2); i++ {
 		validators = append(validators, beacon.InitialValidatorEntry{
 			PubKey:                bls.PublicKey{},
 			ProofOfPossession:     bls.Signature{},

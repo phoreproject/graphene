@@ -6,10 +6,9 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/transaction"
 
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/beacon/db"
+	"github.com/phoreproject/synapse/beacon/primitives"
 )
 
 func TestStoreRetrieve(t *testing.T) {

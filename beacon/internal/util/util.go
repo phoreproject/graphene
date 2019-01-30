@@ -9,18 +9,17 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/serialization"
-	"github.com/phoreproject/synapse/transaction"
 )
 
 var randaoSecret = chainhash.HashH([]byte("randao"))
 var zeroHash = chainhash.Hash{}
 
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
-func SetupBlockchain(initialValidators int, config *beacon.Config) (*beacon.Blockchain, validator.Keystore, error) {
+func SetupBlockchain(initialValidators int, config *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
 
 	randaoCommitment := chainhash.HashH(randaoSecret[:])
 
@@ -41,7 +40,7 @@ func SetupBlockchain(initialValidators int, config *beacon.Config) (*beacon.Bloc
 			PubKey:                *pub,
 			ProofOfPossession:     *proofOfPossession,
 			WithdrawalShard:       1,
-			WithdrawalCredentials: serialization.Address{},
+			WithdrawalCredentials: chainhash.Hash{},
 			RandaoCommitment:      randaoCommitment,
 		})
 	}

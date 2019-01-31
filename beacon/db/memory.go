@@ -33,7 +33,11 @@ func (imdb *InMemoryDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, er
 // SetBlock adds the block to storage
 func (imdb *InMemoryDB) SetBlock(b primitives.Block) error {
 	imdb.lock.Lock()
-	imdb.DB[b.Hash()] = b
+	blockHash, err := b.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
+	imdb.DB[blockHash] = b
 	imdb.lock.Unlock()
 	return nil
 }

@@ -332,7 +332,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	}
 
 	beaconProposerIndex := newState.GetBeaconProposerIndex()
-	bls.VerifySig(newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot.Hash())
+	bls.VerifySig(newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot.Tree())
 	b.state = newState
 	return nil
 }

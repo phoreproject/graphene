@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -78,11 +79,15 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	b.state.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
 
 	sig := bls.EmptySignature.Copy()
+	stateRoot, err := b.state.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
 
 	block0 := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
 			SlotNumber:   0,
-			StateRoot:    b.state.Hash(),
+			StateRoot:    stateRoot,
 			ParentRoot:   zeroHash,
 			RandaoReveal: zeroHash,
 			Signature:    *sig,
@@ -98,7 +103,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 
 	b.stateLock.Unlock()
 
-	err := b.AddBlock(&block0)
+	err = b.AddBlock(&block0)
 	if err != nil {
 		return err
 	}
@@ -281,8 +286,12 @@ func (b *Blockchain) findAttestationPublicKey(attestation *primitives.Attestatio
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
-	logger.WithField("hash", block.Hash()).Debug("adding block to cache and updating head if needed")
-	err := b.UpdateChainHead(block)
+	blockHash, err := block.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
+	logger.WithField("hash", blockHash).Debug("adding block to cache and updating head if needed")
+	err = b.UpdateChainHead(block)
 	if err != nil {
 		return err
 	}
@@ -293,6 +302,13 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 	}
 
 	return nil
+}
+
+func repeatHash(data []byte, n uint64) []byte {
+	if n == 0 {
+		return data
+	}
+	return repeatHash(chainhash.HashB(data), n-1)
 }
 
 // ApplyBlock tries to apply a block to the state.
@@ -323,16 +339,44 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 
 	blockWithoutSignature := block.Copy()
 	blockWithoutSignature.Signature = *bls.EmptySignature
-	blockWithoutSignatureRoot := blockWithoutSignature.Hash()
-
-	proposalRoot := primitives.ProposalSignedData{
-		Slot: newState.Slot,
-		Shard: b.config.BeaconShardNumber,
-		BlockHash: blockWithoutSignatureRoot
+	blockWithoutSignatureRoot, err := blockWithoutSignature.TreeHashSSZ()
+	if err != nil {
+		return err
 	}
 
-	beaconProposerIndex := newState.GetBeaconProposerIndex()
-	bls.VerifySig(newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot.Tree())
+	proposal := primitives.ProposalSignedData{
+		Slot:      newState.Slot,
+		Shard:     b.config.BeaconShardNumber,
+		BlockHash: blockWithoutSignatureRoot,
+	}
+
+	proposalRoot, err := proposal.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
+
+	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, b.config)
+	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.Signature)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("block had invalid signature")
+	}
+
+	proposer := &newState.ValidatorRegistry[beaconProposerIndex]
+	expectedRandaoCommitment := repeatHash(block.RandaoReveal[:], proposer.RandaoSkips)
+
+	if !bytes.Equal(expectedRandaoCommitment, proposer.RandaoCommitment[:]) {
+		return errors.New("randao commitment does not match")
+	}
+
+	for i := range newState.RandaoMix {
+		newState.RandaoMix[i] ^= block.RandaoReveal[i]
+	}
+
+	proposer.RandaoCommitment = block.RandaoReveal
+	proposer.RandaoSkips = 0
 	b.state = newState
 	return nil
 }

@@ -22,14 +22,14 @@ func TestStoreRetrieve(t *testing.T) {
 	}
 
 	b := primitives.Block{
-		{
+		BlockHeader: primitives.BlockHeader{
 			SlotNumber:   0,
 			ParentRoot:   chainhash.Hash{},
 			StateRoot:    chainhash.Hash{},
 			RandaoReveal: chainhash.Hash{},
 			Signature:    *bls.EmptySignature,
 		},
-		{
+		BlockBody: primitives.BlockBody{
 			Attestations:      []primitives.Attestation{},
 			ProposerSlashings: []primitives.ProposerSlashing{},
 			CasperSlashings:   []primitives.CasperSlashing{},
@@ -58,7 +58,7 @@ func TestStoreRetrieve(t *testing.T) {
 	}
 
 	if blockHash != blockHashAfter {
-		t.Fatalf("block hashes do not match (expected: %x, returned: %x)", b.Hash(), b1.Hash())
+		t.Fatalf("block hashes do not match (expected: %x, returned: %x)", blockHash, blockHashAfter)
 	}
 
 	_, err = db.GetBlockForHash(chainhash.Hash{})

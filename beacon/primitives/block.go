@@ -96,8 +96,8 @@ func (bb *BlockBody) Copy() BlockBody {
 	}
 }
 
-// Hash gets the hash of the block header
-func (b *Block) Hash() chainhash.Hash {
+// TreeHashSSZ gets the hash of the block header
+func (b *Block) TreeHashSSZ() (chainhash.Hash, error) {
 	m, _ := proto.Marshal(b.ToProto())
-	return chainhash.HashH(m)
+	return chainhash.HashH(m), nil
 }

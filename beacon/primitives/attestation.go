@@ -2,6 +2,7 @@ package primitives
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/golang/protobuf/proto"
 	"github.com/phoreproject/synapse/bls"
 	pb "github.com/phoreproject/synapse/pb"
 )
@@ -155,4 +156,24 @@ func PendingAttestationFromProto(pa *pb.PendingAttestation) (*PendingAttestation
 		SlotIncluded:          pa.SlotIncluded,
 		Data:                  *data,
 	}, nil
+}
+
+// AttestationDataAndCustodyBit is an attestation data and custody bit.
+type AttestationDataAndCustodyBit struct {
+	Data   AttestationData
+	PoCBit bool
+}
+
+// ToProto gets the protobuf representation of the data and bit.
+func (ad *AttestationDataAndCustodyBit) ToProto() *pb.AttestationDataAndCustodyBit {
+	return &pb.AttestationDataAndCustodyBit{
+		Data:   ad.Data.ToProto(),
+		PoCBit: ad.PoCBit,
+	}
+}
+
+// TreeHashSSZ gets the hash of the psd
+func (ad *AttestationDataAndCustodyBit) TreeHashSSZ() (chainhash.Hash, error) {
+	m, _ := proto.Marshal(ad.ToProto())
+	return chainhash.HashH(m), nil
 }

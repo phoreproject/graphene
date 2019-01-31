@@ -158,6 +158,7 @@ func (s *State) GetEffectiveBalance(index uint32, c *config.Config) uint64 {
 
 // GetNewValidatorRegistryDeltaChainTip gets the new delta chain tip hash.
 func GetNewValidatorRegistryDeltaChainTip(currentValidatorRegistryDeltaChainTip chainhash.Hash, validatorIndex uint32, pubkey bls.PublicKey, flag uint64) chainhash.Hash {
+	// TODO: fix me!
 	p := &pb.ValidatorRegistryDeltaBlock{
 		LatestRegistryDeltaRoot: currentValidatorRegistryDeltaChainTip[:],
 		ValidatorIndex:          validatorIndex,
@@ -389,12 +390,12 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 	return uint32(index), nil
 }
 
-// Hash calculates the state hash for a certain state
-func (s *State) Hash() chainhash.Hash {
+// TreeHashSSZ calculates the state hash for a certain state
+func (s *State) TreeHashSSZ() (chainhash.Hash, error) {
 	// TODO: fix me
 	var slotBytes [8]byte
 	binary.BigEndian.PutUint64(slotBytes[:], s.Slot)
-	return chainhash.HashH(slotBytes[:])
+	return chainhash.HashH(slotBytes[:]), nil
 }
 
 // ShardReassignmentRecord is the record of shard reassignment

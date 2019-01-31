@@ -2,14 +2,13 @@ package beacon_test
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/internal/util"
 	"github.com/phoreproject/synapse/bls"
-
-	"github.com/phoreproject/synapse/transaction"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon/primitives"
@@ -66,8 +65,8 @@ func TestStateInitialization(t *testing.T) {
 		t.Errorf("invalid initial validator entries")
 	}
 
-	if len(s.ShardAndCommitteeForSlots) != beacon.RegtestConfig.CycleLength*2 {
-		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), beacon.RegtestConfig.CycleLength)
+	if len(s.ShardAndCommitteeForSlots) != beacon.RegtestConfig.EpochLength*2 {
+		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), beacon.RegtestConfig.EpochLength)
 	}
 }
 
@@ -380,7 +379,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := uint64(0); i < uint64(b.GetConfig().CycleLength)+b.GetConfig().MinimumValidatorSetChangeInterval; i++ {
+	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)+b.GetConfig().MinimumValidatorSetChangeInterval; i++ {
 		blk, err := util.MineBlockWithFullAttestations(b, keys)
 		if err != nil {
 			t.Error(err)

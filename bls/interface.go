@@ -18,6 +18,12 @@ func (s Signature) Serialize() []byte {
 	return s.s.Serialize()
 }
 
+// Copy returns a copy of the signature.
+func (s Signature) Copy() *Signature {
+	c := s.s.Copy()
+	return &Signature{*c}
+}
+
 // DeserializeSignature deserializes a binary signature
 // into the actual signature.
 func DeserializeSignature(b []byte) (*Signature, error) {
@@ -28,6 +34,9 @@ func DeserializeSignature(b []byte) (*Signature, error) {
 
 	return &Signature{s: *s}, nil
 }
+
+// EmptySignature is an empty signature.
+var EmptySignature, _ = DeserializeSignature(make([]byte, 48))
 
 // SecretKey used in the BLS scheme.
 type SecretKey struct {
@@ -57,6 +66,25 @@ func (p PublicKey) String() string {
 // PublicKey corresponding to secret key used in the BLS scheme.
 type PublicKey struct {
 	p bls.PublicKey
+}
+
+// Serialize serializes a public key to bytes.
+func (p PublicKey) Serialize() []byte {
+	return p.p.Serialize()
+}
+
+// Equals checks if two public keys are equal.
+func (p PublicKey) Equals(other PublicKey) bool {
+	return p.p.Equals(other.p)
+}
+
+// DeserializePublicKey deserialies a public key from the provided bytes.
+func DeserializePublicKey(b []byte) (*PublicKey, error) {
+	p, err := bls.DeserializePublicKey(b)
+	if err != nil {
+		return nil, err
+	}
+	return &PublicKey{*p}, nil
 }
 
 // Copy returns a copy of the public key

@@ -2,6 +2,7 @@ package primitives
 
 import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/golang/protobuf/proto"
 	"github.com/phoreproject/synapse/pb"
 )
 
@@ -19,15 +20,16 @@ func (psd *ProposalSignedData) Copy() ProposalSignedData {
 }
 
 // ToProto gets the protobuf representation of a proposal signed data object
-func (psd *ProposalSignedData) ToProto() pb.ProposalSignedData {
-	return pb.ProposalSignedData{
+func (psd *ProposalSignedData) ToProto() *pb.ProposalSignedData {
+	return &pb.ProposalSignedData{
 		Slot:      psd.Slot,
 		Shard:     psd.Shard,
 		BlockHash: psd.BlockHash[:],
 	}
 }
 
-// Hash gets the hash of the psd
-func (psd *ProposalSignedData) Hash() chainhash.Hash {
-	return chainhash.Hash{} // TODO: fixme
+// TreeHashSSZ gets the hash of the psd
+func (psd *ProposalSignedData) TreeHashSSZ() (chainhash.Hash, error) {
+	m, _ := proto.Marshal(psd.ToProto())
+	return chainhash.HashH(m), nil
 }

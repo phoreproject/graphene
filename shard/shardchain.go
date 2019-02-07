@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 	beacon "github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/db"
 	beacondb "github.com/phoreproject/synapse/beacon/db"

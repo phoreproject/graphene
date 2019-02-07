@@ -41,10 +41,10 @@ require (
 	github.com/libp2p/go-libp2p-loggables v1.1.24 // indirect
 	github.com/libp2p/go-libp2p-metrics v2.1.7+incompatible // indirect
 	github.com/libp2p/go-libp2p-nat v0.8.8 // indirect
-	github.com/libp2p/go-libp2p-net v3.0.15+incompatible // indirect
-	github.com/libp2p/go-libp2p-peer v2.4.0+incompatible // indirect
+	github.com/libp2p/go-libp2p-net v3.0.15+incompatible
+	github.com/libp2p/go-libp2p-peer v2.4.0+incompatible
 	github.com/libp2p/go-libp2p-peerstore v2.0.6+incompatible
-	github.com/libp2p/go-libp2p-protocol v1.0.0 // indirect
+	github.com/libp2p/go-libp2p-protocol v1.0.0
 	github.com/libp2p/go-libp2p-pubsub v0.10.2
 	github.com/libp2p/go-libp2p-secio v2.0.17+incompatible // indirect
 	github.com/libp2p/go-libp2p-swarm v3.0.22+incompatible // indirect
@@ -66,13 +66,14 @@ require (
 	github.com/mr-tron/base58 v1.1.0 // indirect
 	github.com/multiformats/go-multiaddr v1.3.0
 	github.com/multiformats/go-multiaddr-dns v0.2.5 // indirect
-	github.com/multiformats/go-multiaddr-net v1.6.3 // indirect
+	github.com/multiformats/go-multiaddr-net v1.6.3
 	github.com/multiformats/go-multihash v1.0.8 // indirect
 	github.com/multiformats/go-multistream v0.3.9 // indirect
 	github.com/onsi/ginkgo v1.7.0 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
 	github.com/phoreproject/bls v0.0.0-20181203232606-7814fb05e1a4
+	github.com/prysmaticlabs/prysm v0.0.0-20190201212252-3acffd878c8d
 	github.com/sirupsen/logrus v1.2.0
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc // indirect

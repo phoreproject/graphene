@@ -1,10 +1,12 @@
 package primitives
 
 import (
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/golang/protobuf/proto"
+	"io"
+
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	pb "github.com/phoreproject/synapse/pb"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // AttestationData is the part of the attestation that is signed.
@@ -36,6 +38,104 @@ func (a *AttestationData) Equals(other *AttestationData) bool {
 // Copy returns a copy of the data.
 func (a *AttestationData) Copy() AttestationData {
 	return *a
+}
+
+// EncodeSSZ implements Encodable
+func (a AttestationData) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, a.Slot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.Shard); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.BeaconBlockHash); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.EpochBoundaryHash); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.ShardBlockHash); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.LatestCrosslinkHash); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.JustifiedSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.JustifiedBlockHash); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (a AttestationData) EncodeSSZSize() (uint32, error) {
+	var sizeOfSlot, sizeOShard, sizeOfBeaconBlockHash, sizeOfEpochBoundaryHash,
+		sizeOfShardBlockHash, sizeOfLatestCrosslinkHash, sizeOfJustifiedSlot, sizeOfJustifiedBlockHash uint32
+	var err error
+	if sizeOfSlot, err = ssz.EncodeSize(a.Slot); err != nil {
+		return 0, err
+	}
+	if sizeOShard, err = ssz.EncodeSize(a.Shard); err != nil {
+		return 0, err
+	}
+	if sizeOfBeaconBlockHash, err = ssz.EncodeSize(a.BeaconBlockHash); err != nil {
+		return 0, err
+	}
+	if sizeOfEpochBoundaryHash, err = ssz.EncodeSize(a.EpochBoundaryHash); err != nil {
+		return 0, err
+	}
+	if sizeOfShardBlockHash, err = ssz.EncodeSize(a.ShardBlockHash); err != nil {
+		return 0, err
+	}
+	if sizeOfLatestCrosslinkHash, err = ssz.EncodeSize(a.LatestCrosslinkHash); err != nil {
+		return 0, err
+	}
+	if sizeOfJustifiedSlot, err = ssz.EncodeSize(a.JustifiedSlot); err != nil {
+		return 0, err
+	}
+	if sizeOfJustifiedBlockHash, err = ssz.EncodeSize(a.JustifiedBlockHash); err != nil {
+		return 0, err
+	}
+	return sizeOfSlot + sizeOShard + sizeOfBeaconBlockHash + sizeOfEpochBoundaryHash +
+		sizeOfShardBlockHash + sizeOfLatestCrosslinkHash + sizeOfJustifiedSlot + sizeOfJustifiedBlockHash, nil
+}
+
+// DecodeSSZ implements Decodable
+func (a AttestationData) DecodeSSZ(reader io.Reader) error {
+	if err := ssz.Decode(reader, a.Slot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, a.Shard); err != nil {
+		return err
+	}
+	a.BeaconBlockHash = chainhash.Hash{}
+	if err := ssz.Decode(reader, a.BeaconBlockHash); err != nil {
+		return err
+	}
+	a.EpochBoundaryHash = chainhash.Hash{}
+	if err := ssz.Decode(reader, a.EpochBoundaryHash); err != nil {
+		return err
+	}
+	a.ShardBlockHash = chainhash.Hash{}
+	if err := ssz.Decode(reader, a.ShardBlockHash); err != nil {
+		return err
+	}
+	a.LatestCrosslinkHash = chainhash.Hash{}
+	if err := ssz.Decode(reader, a.LatestCrosslinkHash); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, a.JustifiedSlot); err != nil {
+		return err
+	}
+	a.JustifiedBlockHash = chainhash.Hash{}
+	if err := ssz.Decode(reader, a.JustifiedBlockHash); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // AttestationDataFromProto converts the protobuf representation to an attestationdata
@@ -94,6 +194,63 @@ type Attestation struct {
 	AggregateSig bls.Signature
 }
 
+// EncodeSSZ implements Encodable
+func (a Attestation) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, a.Data); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.ParticipationBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.CustodyBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.AggregateSig); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (a Attestation) EncodeSSZSize() (uint32, error) {
+	var sizeOfdata, sizeOfparticipationBitfield, sizeOfcustodyBitfield, sizeOfaggregateSig uint32
+	var err error
+	if sizeOfdata, err = ssz.EncodeSize(a.Data); err != nil {
+		return 0, err
+	}
+	if sizeOfparticipationBitfield, err = ssz.EncodeSize(a.ParticipationBitfield); err != nil {
+		return 0, err
+	}
+	if sizeOfcustodyBitfield, err = ssz.EncodeSize(a.CustodyBitfield); err != nil {
+		return 0, err
+	}
+	if sizeOfaggregateSig, err = ssz.EncodeSize(a.AggregateSig); err != nil {
+		return 0, err
+	}
+	return sizeOfdata + sizeOfparticipationBitfield + sizeOfcustodyBitfield + sizeOfaggregateSig, nil
+}
+
+// DecodeSSZ implements Decodable
+func (a Attestation) DecodeSSZ(reader io.Reader) error {
+	a.Data = AttestationData{}
+	if err := ssz.Decode(reader, a.Data); err != nil {
+		return err
+	}
+	a.ParticipationBitfield = []uint8{}
+	if err := ssz.Decode(reader, a.ParticipationBitfield); err != nil {
+		return err
+	}
+	a.CustodyBitfield = []uint8{}
+	if err := ssz.Decode(reader, a.CustodyBitfield); err != nil {
+		return err
+	}
+	a.AggregateSig = bls.Signature{}
+	if err := ssz.Decode(reader, a.AggregateSig); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Copy returns a copy of the attestation
 func (a *Attestation) Copy() Attestation {
 	sig := a.AggregateSig.Copy()
@@ -137,6 +294,64 @@ type PendingAttestation struct {
 	SlotIncluded          uint64
 }
 
+// EncodeSSZ implements Encodable
+func (pa PendingAttestation) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, pa.Data); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, pa.ParticipationBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, pa.CustodyBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, pa.SlotIncluded); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (pa PendingAttestation) EncodeSSZSize() (uint32, error) {
+	var sizeOfData, sizeOfParticipationBitfield, sizeOfCustodyBitfield, sizeOfSlotIncluded uint32
+	var err error
+	if sizeOfData, err = ssz.EncodeSize(pa.Data); err != nil {
+		return 0, err
+	}
+	if sizeOfParticipationBitfield, err = ssz.EncodeSize(pa.ParticipationBitfield); err != nil {
+		return 0, err
+	}
+	if sizeOfCustodyBitfield, err = ssz.EncodeSize(pa.CustodyBitfield); err != nil {
+		return 0, err
+	}
+	if sizeOfSlotIncluded, err = ssz.EncodeSize(pa.SlotIncluded); err != nil {
+		return 0, err
+	}
+	return sizeOfData + sizeOfParticipationBitfield + sizeOfCustodyBitfield + sizeOfSlotIncluded, nil
+}
+
+// DecodeSSZ implements Decodable
+func (pa PendingAttestation) DecodeSSZ(reader io.Reader) error {
+	pa.Data = AttestationData{}
+	if err := ssz.Decode(reader, pa.Data); err != nil {
+		return err
+	}
+	pa.ParticipationBitfield = []byte{}
+	if err := ssz.Decode(reader, pa.ParticipationBitfield); err != nil {
+		return err
+	}
+	pa.CustodyBitfield = []byte{}
+	if err := ssz.Decode(reader, pa.CustodyBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, pa.SlotIncluded); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Copy copies a pending attestation
 func (pa *PendingAttestation) Copy() PendingAttestation {
 	newPa := *pa
@@ -168,24 +383,4 @@ func PendingAttestationFromProto(pa *pb.PendingAttestation) (*PendingAttestation
 		SlotIncluded:          pa.SlotIncluded,
 		Data:                  *data,
 	}, nil
-}
-
-// AttestationDataAndCustodyBit is an attestation data and custody bit.
-type AttestationDataAndCustodyBit struct {
-	Data   AttestationData
-	PoCBit bool
-}
-
-// ToProto gets the protobuf representation of the data and bit.
-func (ad *AttestationDataAndCustodyBit) ToProto() *pb.AttestationDataAndCustodyBit {
-	return &pb.AttestationDataAndCustodyBit{
-		Data:   ad.Data.ToProto(),
-		PoCBit: ad.PoCBit,
-	}
-}
-
-// TreeHashSSZ gets the hash of the psd
-func (ad *AttestationDataAndCustodyBit) TreeHashSSZ() (chainhash.Hash, error) {
-	m, _ := proto.Marshal(ad.ToProto())
-	return chainhash.HashH(m), nil
 }

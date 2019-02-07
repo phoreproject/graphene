@@ -80,52 +80,6 @@ func (f ForkData) DecodeSSZ(reader io.Reader) error {
 	return nil
 }
 
-// EncodeSSZ implements Encodable
-func (f ForkData) EncodeSSZ(writer io.Writer) error {
-	if err := ssz.Encode(writer, f.PreForkVersion); err != nil {
-		return err
-	}
-	if err := ssz.Encode(writer, f.PostForkVersion); err != nil {
-		return err
-	}
-	if err := ssz.Encode(writer, f.ForkSlotNumber); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// EncodeSSZSize implements Encodable
-func (f ForkData) EncodeSSZSize() (uint32, error) {
-	var sizeOfPreForkVersion, sizeOfPostForkVersion, sizeOfForkSlotNumber uint32
-	var err error
-	if sizeOfPreForkVersion, err = ssz.EncodeSize(f.PreForkVersion); err != nil {
-		return 0, err
-	}
-	if sizeOfPostForkVersion, err = ssz.EncodeSize(f.PostForkVersion); err != nil {
-		return 0, err
-	}
-	if sizeOfForkSlotNumber, err = ssz.EncodeSize(f.ForkSlotNumber); err != nil {
-		return 0, err
-	}
-	return sizeOfPreForkVersion + sizeOfPostForkVersion + sizeOfForkSlotNumber, nil
-}
-
-// DecodeSSZ implements Decodable
-func (f ForkData) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, f.PreForkVersion); err != nil {
-		return err
-	}
-	if err := ssz.Decode(reader, f.PostForkVersion); err != nil {
-		return err
-	}
-	if err := ssz.Decode(reader, f.ForkSlotNumber); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Copy returns a copy of the fork data.
 func (f ForkData) Copy() ForkData {
 	return ForkData{PreForkVersion: f.PreForkVersion, PostForkVersion: f.PostForkVersion, ForkSlotNumber: f.ForkSlotNumber}

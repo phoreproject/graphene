@@ -67,13 +67,13 @@ func (f ForkData) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (f ForkData) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, f.PreForkVersion); err != nil {
+	if err := ssz.Decode(reader, &f.PreForkVersion); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, f.PostForkVersion); err != nil {
+	if err := ssz.Decode(reader, &f.PostForkVersion); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, f.ForkSlotNumber); err != nil {
+	if err := ssz.Decode(reader, &f.ForkSlotNumber); err != nil {
 		return err
 	}
 
@@ -285,76 +285,76 @@ func (s State) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (s State) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, s.Slot); err != nil {
+	if err := ssz.Decode(reader, &s.Slot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.GenesisTime); err != nil {
+	if err := ssz.Decode(reader, &s.GenesisTime); err != nil {
 		return err
 	}
 	s.ForkData = ForkData{}
-	if err := ssz.Decode(reader, s.ForkData); err != nil {
+	if err := ssz.Decode(reader, &s.ForkData); err != nil {
 		return err
 	}
 	s.ValidatorRegistry = []Validator{}
-	if err := ssz.Decode(reader, s.ValidatorRegistry); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistry); err != nil {
 		return err
 	}
 	s.ValidatorBalances = []uint64{}
-	if err := ssz.Decode(reader, s.ValidatorBalances); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorBalances); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.ValidatorRegistryLatestChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistryLatestChangeSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.ValidatorRegistryExitCount); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistryExitCount); err != nil {
 		return err
 	}
 	s.ValidatorRegistryDeltaChainTip = chainhash.Hash{}
-	if err := ssz.Decode(reader, s.ValidatorRegistryDeltaChainTip); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistryDeltaChainTip); err != nil {
 		return err
 	}
 	s.RandaoMix = chainhash.Hash{}
-	if err := ssz.Decode(reader, s.RandaoMix); err != nil {
+	if err := ssz.Decode(reader, &s.RandaoMix); err != nil {
 		return err
 	}
 	s.NextSeed = chainhash.Hash{}
-	if err := ssz.Decode(reader, s.NextSeed); err != nil {
+	if err := ssz.Decode(reader, &s.NextSeed); err != nil {
 		return err
 	}
 	s.ShardAndCommitteeForSlots = [][]ShardAndCommittee{}
-	if err := ssz.Decode(reader, s.ShardAndCommitteeForSlots); err != nil {
+	if err := ssz.Decode(reader, &s.ShardAndCommitteeForSlots); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.PreviousJustifiedSlot); err != nil {
+	if err := ssz.Decode(reader, &s.PreviousJustifiedSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.JustifiedSlot); err != nil {
+	if err := ssz.Decode(reader, &s.JustifiedSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.JustificationBitfield); err != nil {
+	if err := ssz.Decode(reader, &s.JustificationBitfield); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.FinalizedSlot); err != nil {
+	if err := ssz.Decode(reader, &s.FinalizedSlot); err != nil {
 		return err
 	}
 	s.LatestCrosslinks = []Crosslink{}
-	if err := ssz.Decode(reader, s.LatestCrosslinks); err != nil {
+	if err := ssz.Decode(reader, &s.LatestCrosslinks); err != nil {
 		return err
 	}
 	s.LatestBlockHashes = []chainhash.Hash{}
-	if err := ssz.Decode(reader, s.LatestBlockHashes); err != nil {
+	if err := ssz.Decode(reader, &s.LatestBlockHashes); err != nil {
 		return err
 	}
 	s.LatestPenalizedExitBalances = []uint64{}
-	if err := ssz.Decode(reader, s.LatestPenalizedExitBalances); err != nil {
+	if err := ssz.Decode(reader, &s.LatestPenalizedExitBalances); err != nil {
 		return err
 	}
 	s.LatestAttestations = []PendingAttestation{}
-	if err := ssz.Decode(reader, s.LatestAttestations); err != nil {
+	if err := ssz.Decode(reader, &s.LatestAttestations); err != nil {
 		return err
 	}
 	s.BatchedBlockRoots = []chainhash.Hash{}
-	if err := ssz.Decode(reader, s.BatchedBlockRoots); err != nil {
+	if err := ssz.Decode(reader, &s.BatchedBlockRoots); err != nil {
 		return err
 	}
 	return nil
@@ -626,11 +626,11 @@ func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config 
 	if proposer.Status == ExitedWithPenalty {
 		return errors.New("proposer is already exited")
 	}
-	hashProposal1, err := proposerSlashing.ProposalData1.TreeHashSSZ()
+	hashProposal1, err := ssz.TreeHash(proposerSlashing.ProposalData1)
 	if err != nil {
 		return err
 	}
-	hashProposal2, err := proposerSlashing.ProposalData2.TreeHashSSZ()
+	hashProposal2, err := ssz.TreeHash(proposerSlashing.ProposalData2)
 	if err != nil {
 		return err
 	}
@@ -694,12 +694,12 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	ad0 := AttestationDataAndCustodyBit{voteData.Data, true}
 	ad1 := AttestationDataAndCustodyBit{voteData.Data, true}
 
-	ad0Hash, err := ad0.TreeHashSSZ()
+	ad0Hash, err := ssz.TreeHash(ad0)
 	if err != nil {
 		return false
 	}
 
-	ad1Hash, err := ad1.TreeHashSSZ()
+	ad1Hash, err := ssz.TreeHash(ad1)
 	if err != nil {
 		return false
 	}
@@ -967,40 +967,40 @@ func (v Validator) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (v Validator) DecodeSSZ(reader io.Reader) error {
 	v.Pubkey = bls.PublicKey{}
-	if err := ssz.Decode(reader, v.Pubkey); err != nil {
+	if err := ssz.Decode(reader, &v.Pubkey); err != nil {
 		return err
 	}
 	v.WithdrawalCredentials = chainhash.Hash{}
-	if err := ssz.Decode(reader, v.WithdrawalCredentials); err != nil {
+	if err := ssz.Decode(reader, &v.WithdrawalCredentials); err != nil {
 		return err
 	}
 	v.RandaoCommitment = chainhash.Hash{}
-	if err := ssz.Decode(reader, v.RandaoCommitment); err != nil {
+	if err := ssz.Decode(reader, &v.RandaoCommitment); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.RandaoSkips); err != nil {
+	if err := ssz.Decode(reader, &v.RandaoSkips); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.Balance); err != nil {
+	if err := ssz.Decode(reader, &v.Balance); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.Status); err != nil {
+	if err := ssz.Decode(reader, &v.Status); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.LatestStatusChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &v.LatestStatusChangeSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.ExitCount); err != nil {
+	if err := ssz.Decode(reader, &v.ExitCount); err != nil {
 		return err
 	}
 	v.PoCCommitment = chainhash.Hash{}
-	if err := ssz.Decode(reader, v.PoCCommitment); err != nil {
+	if err := ssz.Decode(reader, &v.PoCCommitment); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.LastPoCChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &v.LastPoCChangeSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.SecondLastPoCChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &v.SecondLastPoCChangeSlot); err != nil {
 		return err
 	}
 	return nil
@@ -1090,11 +1090,11 @@ func (c Crosslink) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (c Crosslink) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, c.Slot); err != nil {
+	if err := ssz.Decode(reader, &c.Slot); err != nil {
 		return err
 	}
 	c.ShardBlockHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, c.ShardBlockHash); err != nil {
+	if err := ssz.Decode(reader, &c.ShardBlockHash); err != nil {
 		return err
 	}
 
@@ -1153,13 +1153,13 @@ func (sc ShardAndCommittee) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (sc ShardAndCommittee) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, sc.Shard); err != nil {
+	if err := ssz.Decode(reader, &sc.Shard); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, sc.Committee); err != nil {
+	if err := ssz.Decode(reader, &sc.Committee); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, sc.TotalValidatorCount); err != nil {
+	if err := ssz.Decode(reader, &sc.TotalValidatorCount); err != nil {
 		return err
 	}
 

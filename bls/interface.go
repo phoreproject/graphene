@@ -1,6 +1,7 @@
 package bls
 
 import (
+	"errors"
 	"io"
 
 	"github.com/phoreproject/bls"
@@ -128,12 +129,24 @@ func (p PublicKey) EncodeSSZSize() (uint32, error) {
 func (p PublicKey) DecodeSSZ(reader io.Reader) error {
 	size, _ := p.EncodeSSZSize()
 	buf := make([]byte, size)
+	n, err := reader.Read(buf)
+	if err != nil {
+		return err
+	}
+	if uint32(n) != size {
+		return errors.New("did not return enough bytes from reader")
+	}
 	key, err := DeserializePublicKey(buf)
 	if err != nil {
 		return err
 	}
 	p.p = key.p
 	return nil
+}
+
+// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+func (p PublicKey) TreeHashSSZ() ([32]byte, error) {
+	return [32]byte(chainhash.HashH(p.p.Serialize())), nil
 }
 
 // EncodeSSZ implements Encodable
@@ -153,12 +166,24 @@ func (s Signature) EncodeSSZSize() (uint32, error) {
 func (s Signature) DecodeSSZ(reader io.Reader) error {
 	size, _ := s.EncodeSSZSize()
 	buf := make([]byte, size)
+	n, err := reader.Read(buf)
+	if err != nil {
+		return err
+	}
+	if uint32(n) != size {
+		return errors.New("did not return enough bytes from reader")
+	}
 	sig, err := DeserializeSignature(buf)
 	if err != nil {
 		return err
 	}
 	s.s = sig.s
 	return nil
+}
+
+// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+func (s Signature) TreeHashSSZ() ([32]byte, error) {
+	return [32]byte(chainhash.HashH(s.s.Serialize())), nil
 }
 
 // Sign a message using a secret key - in a beacon/validator client,

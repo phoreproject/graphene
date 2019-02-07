@@ -56,19 +56,19 @@ func (dp DepositParameters) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (dp DepositParameters) DecodeSSZ(reader io.Reader) error {
 	dp.PubKey = bls.PublicKey{}
-	if err := ssz.Decode(reader, dp.PubKey); err != nil {
+	if err := ssz.Decode(reader, &dp.PubKey); err != nil {
 		return err
 	}
 	dp.ProofOfPossession = bls.Signature{}
-	if err := ssz.Decode(reader, dp.ProofOfPossession); err != nil {
+	if err := ssz.Decode(reader, &dp.ProofOfPossession); err != nil {
 		return err
 	}
 	dp.WithdrawalCredentials = chainhash.Hash{}
-	if err := ssz.Decode(reader, dp.WithdrawalCredentials); err != nil {
+	if err := ssz.Decode(reader, &dp.WithdrawalCredentials); err != nil {
 		return err
 	}
 	dp.RandaoCommitment = chainhash.Hash{}
-	if err := ssz.Decode(reader, dp.RandaoCommitment); err != nil {
+	if err := ssz.Decode(reader, &dp.RandaoCommitment); err != nil {
 		return err
 	}
 	return nil
@@ -109,7 +109,7 @@ func (d Deposit) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (d Deposit) DecodeSSZ(reader io.Reader) error {
 	d.Parameters = DepositParameters{}
-	if err := ssz.Decode(reader, d.Parameters); err != nil {
+	if err := ssz.Decode(reader, &d.Parameters); err != nil {
 		return err
 	}
 	return nil

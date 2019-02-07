@@ -60,23 +60,23 @@ func (ps ProposerSlashing) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (ps ProposerSlashing) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, ps.ProposerIndex); err != nil {
+	if err := ssz.Decode(reader, &ps.ProposerIndex); err != nil {
 		return err
 	}
 	ps.ProposalData1 = ProposalSignedData{}
-	if err := ssz.Decode(reader, ps.ProposalData1); err != nil {
+	if err := ssz.Decode(reader, &ps.ProposalData1); err != nil {
 		return err
 	}
 	ps.ProposalSignature1 = bls.Signature{}
-	if err := ssz.Decode(reader, ps.ProposalSignature1); err != nil {
+	if err := ssz.Decode(reader, &ps.ProposalSignature1); err != nil {
 		return err
 	}
 	ps.ProposalData2 = ProposalSignedData{}
-	if err := ssz.Decode(reader, ps.ProposalData2); err != nil {
+	if err := ssz.Decode(reader, &ps.ProposalData2); err != nil {
 		return err
 	}
 	ps.ProposalSignature2 = bls.Signature{}
-	if err := ssz.Decode(reader, ps.ProposalSignature2); err != nil {
+	if err := ssz.Decode(reader, &ps.ProposalSignature2); err != nil {
 		return err
 	}
 	return nil
@@ -139,19 +139,19 @@ func (svd SlashableVoteData) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (svd SlashableVoteData) DecodeSSZ(reader io.Reader) error {
 	svd.AggregateSignaturePoC0Indices = []uint32{}
-	if err := ssz.Decode(reader, svd.AggregateSignaturePoC0Indices); err != nil {
+	if err := ssz.Decode(reader, &svd.AggregateSignaturePoC0Indices); err != nil {
 		return err
 	}
 	svd.AggregateSignaturePoC1Indices = []uint32{}
-	if err := ssz.Decode(reader, svd.AggregateSignaturePoC1Indices); err != nil {
+	if err := ssz.Decode(reader, &svd.AggregateSignaturePoC1Indices); err != nil {
 		return err
 	}
 	svd.Data = AttestationData{}
-	if err := ssz.Decode(reader, svd.Data); err != nil {
+	if err := ssz.Decode(reader, &svd.Data); err != nil {
 		return err
 	}
 	svd.AggregateSignature = bls.Signature{}
-	if err := ssz.Decode(reader, svd.AggregateSignature); err != nil {
+	if err := ssz.Decode(reader, &svd.AggregateSignature); err != nil {
 		return err
 	}
 	return nil
@@ -201,11 +201,11 @@ func (cs CasperSlashing) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (cs CasperSlashing) DecodeSSZ(reader io.Reader) error {
 	cs.Votes1 = SlashableVoteData{}
-	if err := ssz.Decode(reader, cs.Votes1); err != nil {
+	if err := ssz.Decode(reader, &cs.Votes1); err != nil {
 		return err
 	}
 	cs.Votes2 = SlashableVoteData{}
-	if err := ssz.Decode(reader, cs.Votes2); err != nil {
+	if err := ssz.Decode(reader, &cs.Votes2); err != nil {
 		return err
 	}
 	return nil

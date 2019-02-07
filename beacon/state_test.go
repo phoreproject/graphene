@@ -10,7 +10,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/internal/util"
 	"github.com/phoreproject/synapse/bls"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/beacon/primitives"
 )
 

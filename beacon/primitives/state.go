@@ -2,16 +2,18 @@ package primitives
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
+
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // ForkData represents the fork information
@@ -22,6 +24,52 @@ type ForkData struct {
 	PostForkVersion uint64
 	// Fork slot number
 	ForkSlotNumber uint64
+}
+
+// EncodeSSZ implements Encodable
+func (f ForkData) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, f.PreForkVersion); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, f.PostForkVersion); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, f.ForkSlotNumber); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (f ForkData) EncodeSSZSize() (uint32, error) {
+	var sizeOfPreForkVersion, sizeOfPostForkVersion, sizeOfForkSlotNumber uint32
+	var err error
+	if sizeOfPreForkVersion, err = ssz.EncodeSize(f.PreForkVersion); err != nil {
+		return 0, err
+	}
+	if sizeOfPostForkVersion, err = ssz.EncodeSize(f.PostForkVersion); err != nil {
+		return 0, err
+	}
+	if sizeOfForkSlotNumber, err = ssz.EncodeSize(f.ForkSlotNumber); err != nil {
+		return 0, err
+	}
+	return sizeOfPreForkVersion + sizeOfPostForkVersion + sizeOfForkSlotNumber, nil
+}
+
+// DecodeSSZ implements Decodable
+func (f ForkData) DecodeSSZ(reader io.Reader) error {
+	if err := ssz.Decode(reader, f.PreForkVersion); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, f.PostForkVersion); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, f.ForkSlotNumber); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Copy returns a copy of the fork data.
@@ -83,6 +131,235 @@ type State struct {
 	LatestPenalizedExitBalances []uint64
 	LatestAttestations          []PendingAttestation
 	BatchedBlockRoots           []chainhash.Hash
+}
+
+// EncodeSSZ implements Encodable
+func (s State) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, s.Slot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.GenesisTime); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ForkData); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ValidatorRegistry); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ValidatorBalances); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ValidatorRegistryLatestChangeSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ValidatorRegistryExitCount); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ValidatorRegistryDeltaChainTip); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.RandaoMix); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.NextSeed); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.ShardAndCommitteeForSlots); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.PreviousJustifiedSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.JustifiedSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.JustificationBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.FinalizedSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.LatestCrosslinks); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.LatestBlockHashes); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.LatestPenalizedExitBalances); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.LatestAttestations); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, s.BatchedBlockRoots); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (s State) EncodeSSZSize() (uint32, error) {
+	var sizeOfslot, sizeOfgenesisTime, sizeOfforkData, sizeOfvalidatorRegistry,
+		sizeOfvalidatorBalances, sizeOfvalidatorRegistryLatestChangeSlot, sizeOfvalidatorRegistryExitCount,
+		sizeOfvalidatorRegistryDeltaChainTip, sizeOfrandaoMix, sizeOfnextSeed, sizeOfshardAndCommitteeForSlots,
+		sizeOfpreviousJustifiedSlot, sizeOfjustifiedSlot, sizeOfjustificationBitfield, sizeOffinalizedSlot,
+		sizeOflatestCrosslinks, sizeOflatestBlockHashes, sizeOflatestPenalizedExitBalances,
+		sizeOflatestAttestations, sizeOfbatchedBlockRoots uint32
+	var err error
+	if sizeOfslot, err = ssz.EncodeSize(s.Slot); err != nil {
+		return 0, err
+	}
+	if sizeOfgenesisTime, err = ssz.EncodeSize(s.GenesisTime); err != nil {
+		return 0, err
+	}
+	if sizeOfforkData, err = ssz.EncodeSize(s.ForkData); err != nil {
+		return 0, err
+	}
+	if sizeOfvalidatorRegistry, err = ssz.EncodeSize(s.ValidatorRegistry); err != nil {
+		return 0, err
+	}
+	if sizeOfvalidatorBalances, err = ssz.EncodeSize(s.ValidatorBalances); err != nil {
+		return 0, err
+	}
+	if sizeOfvalidatorRegistryLatestChangeSlot, err = ssz.EncodeSize(s.ValidatorRegistryLatestChangeSlot); err != nil {
+		return 0, err
+	}
+	if sizeOfvalidatorRegistryExitCount, err = ssz.EncodeSize(s.ValidatorRegistryExitCount); err != nil {
+		return 0, err
+	}
+	if sizeOfvalidatorRegistryDeltaChainTip, err = ssz.EncodeSize(s.ValidatorRegistryDeltaChainTip); err != nil {
+		return 0, err
+	}
+	if sizeOfrandaoMix, err = ssz.EncodeSize(s.RandaoMix); err != nil {
+		return 0, err
+	}
+	if sizeOfnextSeed, err = ssz.EncodeSize(s.NextSeed); err != nil {
+		return 0, err
+	}
+	if sizeOfshardAndCommitteeForSlots, err = ssz.EncodeSize(s.ShardAndCommitteeForSlots); err != nil {
+		return 0, err
+	}
+	if sizeOfpreviousJustifiedSlot, err = ssz.EncodeSize(s.PreviousJustifiedSlot); err != nil {
+		return 0, err
+	}
+	if sizeOfjustifiedSlot, err = ssz.EncodeSize(s.JustifiedSlot); err != nil {
+		return 0, err
+	}
+	if sizeOfjustificationBitfield, err = ssz.EncodeSize(s.JustificationBitfield); err != nil {
+		return 0, err
+	}
+	if sizeOffinalizedSlot, err = ssz.EncodeSize(s.FinalizedSlot); err != nil {
+		return 0, err
+	}
+	if sizeOflatestCrosslinks, err = ssz.EncodeSize(s.LatestCrosslinks); err != nil {
+		return 0, err
+	}
+	if sizeOflatestBlockHashes, err = ssz.EncodeSize(s.LatestBlockHashes); err != nil {
+		return 0, err
+	}
+	if sizeOflatestPenalizedExitBalances, err = ssz.EncodeSize(s.LatestPenalizedExitBalances); err != nil {
+		return 0, err
+	}
+	if sizeOflatestAttestations, err = ssz.EncodeSize(s.LatestAttestations); err != nil {
+		return 0, err
+	}
+	if sizeOfbatchedBlockRoots, err = ssz.EncodeSize(s.BatchedBlockRoots); err != nil {
+		return 0, err
+	}
+	return sizeOfslot + sizeOfgenesisTime + sizeOfforkData + sizeOfvalidatorRegistry +
+		sizeOfvalidatorBalances + sizeOfvalidatorRegistryLatestChangeSlot + sizeOfvalidatorRegistryExitCount +
+		sizeOfvalidatorRegistryDeltaChainTip + sizeOfrandaoMix + sizeOfnextSeed + sizeOfshardAndCommitteeForSlots +
+		sizeOfpreviousJustifiedSlot + sizeOfjustifiedSlot + sizeOfjustificationBitfield + sizeOffinalizedSlot +
+		sizeOflatestCrosslinks + sizeOflatestBlockHashes + sizeOflatestPenalizedExitBalances +
+		sizeOflatestAttestations + sizeOfbatchedBlockRoots, nil
+}
+
+// DecodeSSZ implements Decodable
+func (s State) DecodeSSZ(reader io.Reader) error {
+	if err := ssz.Decode(reader, s.Slot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.GenesisTime); err != nil {
+		return err
+	}
+	s.ForkData = ForkData{}
+	if err := ssz.Decode(reader, s.ForkData); err != nil {
+		return err
+	}
+	s.ValidatorRegistry = []Validator{}
+	if err := ssz.Decode(reader, s.ValidatorRegistry); err != nil {
+		return err
+	}
+	s.ValidatorBalances = []uint64{}
+	if err := ssz.Decode(reader, s.ValidatorBalances); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.ValidatorRegistryLatestChangeSlot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.ValidatorRegistryExitCount); err != nil {
+		return err
+	}
+	s.ValidatorRegistryDeltaChainTip = chainhash.Hash{}
+	if err := ssz.Decode(reader, s.ValidatorRegistryDeltaChainTip); err != nil {
+		return err
+	}
+	s.RandaoMix = chainhash.Hash{}
+	if err := ssz.Decode(reader, s.RandaoMix); err != nil {
+		return err
+	}
+	s.NextSeed = chainhash.Hash{}
+	if err := ssz.Decode(reader, s.NextSeed); err != nil {
+		return err
+	}
+	s.ShardAndCommitteeForSlots = [][]ShardAndCommittee{}
+	if err := ssz.Decode(reader, s.ShardAndCommitteeForSlots); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.PreviousJustifiedSlot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.JustifiedSlot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.JustificationBitfield); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, s.FinalizedSlot); err != nil {
+		return err
+	}
+	s.LatestCrosslinks = []Crosslink{}
+	if err := ssz.Decode(reader, s.LatestCrosslinks); err != nil {
+		return err
+	}
+	s.LatestBlockHashes = []chainhash.Hash{}
+	if err := ssz.Decode(reader, s.LatestBlockHashes); err != nil {
+		return err
+	}
+	s.LatestPenalizedExitBalances = []uint64{}
+	if err := ssz.Decode(reader, s.LatestPenalizedExitBalances); err != nil {
+		return err
+	}
+	s.LatestAttestations = []PendingAttestation{}
+	if err := ssz.Decode(reader, s.LatestAttestations); err != nil {
+		return err
+	}
+	s.BatchedBlockRoots = []chainhash.Hash{}
+	if err := ssz.Decode(reader, s.BatchedBlockRoots); err != nil {
+		return err
+	}
+	return nil
+}
+
+// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+func (s State) TreeHashSSZ() ([32]byte, error) {
+	buf := bytes.Buffer{}
+	s.EncodeSSZ(&buf)
+	hash := chainhash.HashB(buf.Bytes())
+	var result [32]byte
+	copy(result[:], hash)
+	return result, nil
 }
 
 // Copy deep-copies the state.
@@ -390,6 +667,7 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 	return uint32(index), nil
 }
 
+/*
 // TreeHashSSZ calculates the state hash for a certain state
 func (s *State) TreeHashSSZ() (chainhash.Hash, error) {
 	// TODO: fix me
@@ -397,6 +675,7 @@ func (s *State) TreeHashSSZ() (chainhash.Hash, error) {
 	binary.BigEndian.PutUint64(slotBytes[:], s.Slot)
 	return chainhash.HashH(slotBytes[:]), nil
 }
+*/
 
 // ShardReassignmentRecord is the record of shard reassignment
 type ShardReassignmentRecord struct {
@@ -447,6 +726,140 @@ type Validator struct {
 	SecondLastPoCChangeSlot uint64
 }
 
+// EncodeSSZ implements Encodable
+func (v Validator) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, v.Pubkey); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.WithdrawalCredentials); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.RandaoCommitment); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.RandaoSkips); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.Balance); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.Status); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.LatestStatusChangeSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.ExitCount); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.PoCCommitment); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.LastPoCChangeSlot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, v.SecondLastPoCChangeSlot); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (v Validator) EncodeSSZSize() (uint32, error) {
+	var sizeOfpubkey, sizeOfwithdrawalCredentials, sizeOfrandaoCommitment,
+		sizeOfrandaoSkips, sizeOfbalance, sizeOfstatus, sizeOflatestStatusChangeSlot,
+		sizeOfexitCount, sizeOfpoCCommitment, sizeOflastPoCChangeSlot, sizeOfsecondLastPoCChangeSlot uint32
+	var err error
+	if sizeOfpubkey, err = ssz.EncodeSize(v.Pubkey); err != nil {
+		return 0, err
+	}
+	if sizeOfwithdrawalCredentials, err = ssz.EncodeSize(v.WithdrawalCredentials); err != nil {
+		return 0, err
+	}
+	if sizeOfrandaoCommitment, err = ssz.EncodeSize(v.RandaoCommitment); err != nil {
+		return 0, err
+	}
+	if sizeOfrandaoSkips, err = ssz.EncodeSize(v.RandaoSkips); err != nil {
+		return 0, err
+	}
+	if sizeOfbalance, err = ssz.EncodeSize(v.Balance); err != nil {
+		return 0, err
+	}
+	if sizeOfstatus, err = ssz.EncodeSize(v.Status); err != nil {
+		return 0, err
+	}
+	if sizeOflatestStatusChangeSlot, err = ssz.EncodeSize(v.LatestStatusChangeSlot); err != nil {
+		return 0, err
+	}
+	if sizeOfexitCount, err = ssz.EncodeSize(v.ExitCount); err != nil {
+		return 0, err
+	}
+	if sizeOfpoCCommitment, err = ssz.EncodeSize(v.PoCCommitment); err != nil {
+		return 0, err
+	}
+	if sizeOflastPoCChangeSlot, err = ssz.EncodeSize(v.LastPoCChangeSlot); err != nil {
+		return 0, err
+	}
+	if sizeOfsecondLastPoCChangeSlot, err = ssz.EncodeSize(v.SecondLastPoCChangeSlot); err != nil {
+		return 0, err
+	}
+	return sizeOfpubkey + sizeOfwithdrawalCredentials + sizeOfrandaoCommitment +
+		sizeOfrandaoSkips + sizeOfbalance + sizeOfstatus + sizeOflatestStatusChangeSlot +
+		sizeOfexitCount + sizeOfpoCCommitment + sizeOflastPoCChangeSlot + sizeOfsecondLastPoCChangeSlot, nil
+}
+
+// DecodeSSZ implements Decodable
+func (v Validator) DecodeSSZ(reader io.Reader) error {
+	v.Pubkey = bls.PublicKey{}
+	if err := ssz.Decode(reader, v.Pubkey); err != nil {
+		return err
+	}
+	v.WithdrawalCredentials = chainhash.Hash{}
+	if err := ssz.Decode(reader, v.WithdrawalCredentials); err != nil {
+		return err
+	}
+	v.RandaoCommitment = chainhash.Hash{}
+	if err := ssz.Decode(reader, v.RandaoCommitment); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.RandaoSkips); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.Balance); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.Status); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.LatestStatusChangeSlot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.ExitCount); err != nil {
+		return err
+	}
+	v.PoCCommitment = chainhash.Hash{}
+	if err := ssz.Decode(reader, v.PoCCommitment); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.LastPoCChangeSlot); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, v.SecondLastPoCChangeSlot); err != nil {
+		return err
+	}
+	return nil
+}
+
+// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+func (v Validator) TreeHashSSZ() ([32]byte, error) {
+	buf := bytes.Buffer{}
+	v.EncodeSSZ(&buf)
+	hash := chainhash.HashB(buf.Bytes())
+	var result [32]byte
+	copy(result[:], hash)
+	return result, nil
+}
+
 // Copy copies a validator instance.
 func (v *Validator) Copy() Validator {
 	newValidator := *v
@@ -494,6 +907,44 @@ type Crosslink struct {
 	ShardBlockHash chainhash.Hash
 }
 
+// EncodeSSZ implements Encodable
+func (c Crosslink) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, c.Slot); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, c.ShardBlockHash); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (c Crosslink) EncodeSSZSize() (uint32, error) {
+	var sizeOfSlot, sizeOfShardBlockHash uint32
+	var err error
+	if sizeOfSlot, err = ssz.EncodeSize(c.Slot); err != nil {
+		return 0, err
+	}
+	if sizeOfShardBlockHash, err = ssz.EncodeSize(c.ShardBlockHash); err != nil {
+		return 0, err
+	}
+	return sizeOfSlot + sizeOfShardBlockHash, nil
+}
+
+// DecodeSSZ implements Decodable
+func (c Crosslink) DecodeSSZ(reader io.Reader) error {
+	if err := ssz.Decode(reader, c.Slot); err != nil {
+		return err
+	}
+	c.ShardBlockHash = chainhash.Hash{}
+	if err := ssz.Decode(reader, c.ShardBlockHash); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ShardAndCommittee keeps track of the validators assigned to a specific shard.
 type ShardAndCommittee struct {
 	// Shard number
@@ -511,4 +962,50 @@ func (sc *ShardAndCommittee) Copy() ShardAndCommittee {
 	newSc := *sc
 	copy(newSc.Committee, sc.Committee)
 	return newSc
+}
+
+// EncodeSSZ implements Encodable
+func (sc ShardAndCommittee) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, sc.Shard); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, sc.Committee); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, sc.TotalValidatorCount); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (sc ShardAndCommittee) EncodeSSZSize() (uint32, error) {
+	var sizeOShard, sizeOfCommittee, sizeOfTotalValidatorCount uint32
+	var err error
+	if sizeOShard, err = ssz.EncodeSize(sc.Shard); err != nil {
+		return 0, err
+	}
+	if sizeOfCommittee, err = ssz.EncodeSize(sc.Committee); err != nil {
+		return 0, err
+	}
+	if sizeOfTotalValidatorCount, err = ssz.EncodeSize(sc.TotalValidatorCount); err != nil {
+		return 0, err
+	}
+	return sizeOShard + sizeOfCommittee + sizeOfTotalValidatorCount, nil
+}
+
+// DecodeSSZ implements Decodable
+func (sc ShardAndCommittee) DecodeSSZ(reader io.Reader) error {
+	if err := ssz.Decode(reader, sc.Shard); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, sc.Committee); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, sc.TotalValidatorCount); err != nil {
+		return err
+	}
+
+	return nil
 }

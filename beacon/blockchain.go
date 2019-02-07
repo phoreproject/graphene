@@ -11,7 +11,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 var zeroHash = chainhash.Hash{}

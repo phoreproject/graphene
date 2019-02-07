@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"

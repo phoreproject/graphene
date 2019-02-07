@@ -5,7 +5,7 @@ import (
 
 	"crypto/sha256"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 func newHashFromStr(s string) *Hash {

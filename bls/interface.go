@@ -3,8 +3,8 @@ package bls
 import (
 	"io"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/bls"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 // Signature used in the BLS signature scheme.
@@ -97,16 +97,66 @@ func (p PublicKey) Hash() []byte {
 	return chainhash.HashB(p.p.Serialize())
 }
 
+// EncodeSSZ implements Encodable
+func (p PublicKey) EncodeSSZ(writer io.Writer) error {
+	writer.Write(p.Serialize())
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (p PublicKey) EncodeSSZSize() (uint32, error) {
+	return 96, nil // hard coded?
+	//return (uint32)(len(p.Serialize())), nil
+}
+
+// DecodeSSZ implements Decodable
+func (p PublicKey) DecodeSSZ(reader io.Reader) error {
+	size, _ := p.EncodeSSZSize()
+	buf := make([]byte, size)
+	key, err := DeserializePublicKey(buf)
+	if err != nil {
+		return err
+	}
+	p.p = key.p
+	return nil
+}
+
+// EncodeSSZ implements Encodable
+func (s Signature) EncodeSSZ(writer io.Writer) error {
+	writer.Write(s.Serialize())
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (s Signature) EncodeSSZSize() (uint32, error) {
+	return 48, nil // hard coded?
+	//return (uint32)(len(p.Serialize())), nil
+}
+
+// DecodeSSZ implements Decodable
+func (s Signature) DecodeSSZ(reader io.Reader) error {
+	size, _ := s.EncodeSSZSize()
+	buf := make([]byte, size)
+	sig, err := DeserializeSignature(buf)
+	if err != nil {
+		return err
+	}
+	s.s = sig.s
+	return nil
+}
+
 // Sign a message using a secret key - in a beacon/validator client,
 // this key will come from and be unlocked from the account keystore.
 func Sign(sec *SecretKey, msg []byte) (*Signature, error) {
-	s := bls.Sign(msg, &sec.s)
+	s := bls.Sign(msg, &sec.s, 0)
 	return &Signature{s: *s}, nil
 }
 
 // VerifySig against a public key.
 func VerifySig(pub *PublicKey, msg []byte, sig *Signature) (bool, error) {
-	return bls.Verify(msg, &pub.p, &sig.s), nil
+	return bls.Verify(msg, &pub.p, &sig.s, 0), nil
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying
@@ -131,7 +181,7 @@ func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) 
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregate(blsPubs, msgs)
+	return signature.s.VerifyAggregate(blsPubs, msgs, 0)
 }
 
 // VerifyAggregateCommon verifies a signature over a common message.
@@ -141,7 +191,7 @@ func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signatur
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregateCommon(blsPubs, msg)
+	return signature.s.VerifyAggregateCommon(blsPubs, msg, 0)
 }
 
 // AggregatePubKeys aggregates some public keys into one.

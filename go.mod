@@ -73,6 +73,7 @@ require (
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
 	github.com/phoreproject/bls v0.0.0-20181203232606-7814fb05e1a4
+	github.com/prysmaticlabs/prysm v0.0.0-20190201212252-3acffd878c8d
 	github.com/sirupsen/logrus v1.2.0
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc // indirect

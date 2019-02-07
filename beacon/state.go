@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -326,9 +326,9 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	blockWithoutSignatureRoot := blockWithoutSignature.Hash()
 
 	proposalRoot := primitives.ProposalSignedData{
-		Slot: newState.Slot,
-		Shard: b.config.BeaconShardNumber,
-		BlockHash: blockWithoutSignatureRoot
+		Slot:      newState.Slot,
+		Shard:     b.config.BeaconShardNumber,
+		BlockHash: blockWithoutSignatureRoot,
 	}
 
 	beaconProposerIndex := newState.GetBeaconProposerIndex()

@@ -408,6 +408,12 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 		b.ApplyAttestation(&newState, a, b.config)
 	}
 
+	// process deposits here
+
+	for _, e := range block.BlockBody.Exits {
+		b.state.ApplyExit(e, b.config)
+	}
+
 	b.state = newState
 	return nil
 }

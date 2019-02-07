@@ -758,6 +758,33 @@ func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Con
 	return nil
 }
 
+var zeroHash = chainhash.Hash{}
+
+// ApplyExit validates and applies an exit.
+func (s *State) ApplyExit(exit Exit, config *config.Config) error {
+	validator := s.ValidatorRegistry[exit.ValidatorIndex]
+	if validator.Status != Active {
+		return errors.New("validator with exit is not active")
+	}
+
+	if s.Slot < exit.Slot {
+		return errors.New("exit is not yet valid")
+	}
+
+	valid, err := bls.VerifySig(&validator.Pubkey, zeroHash[:], &exit.Signature, bls.DomainExit)
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		return errors.New("signature is not valid")
+	}
+
+	s.UpdateValidatorStatus(uint32(exit.ValidatorIndex), ActivePendingExit, config)
+
+	return nil
+}
+
 // GetAttestationParticipants gets the indices of participants.
 func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
 	shardCommittees := s.GetShardCommitteesAtSlot(data.Slot, c)

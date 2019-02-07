@@ -4,7 +4,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/transaction"
 	logger "github.com/sirupsen/logrus"
 )
 

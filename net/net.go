@@ -1,5 +1,8 @@
 package net
 
+// TODO: this file is to be removed
+// It will be replaced by HostNode and PeerNode
+
 import (
 	"context"
 	"time"
@@ -111,7 +114,7 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 		return NetworkingService{}, err
 	}
 
-	err = startDiscovery(ctx, host)
+	err = StartDiscovery(ctx, host, NewDiscoveryOptions())
 	if err != nil {
 		cancel()
 		return NetworkingService{}, err

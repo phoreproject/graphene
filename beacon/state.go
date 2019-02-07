@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	logger "github.com/sirupsen/logrus"
 )
 

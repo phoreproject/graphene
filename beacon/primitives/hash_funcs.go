@@ -1,6 +1,6 @@
 package primitives
 
-import "github.com/btcsuite/btcd/chaincfg/chainhash"
+import "github.com/phoreproject/synapse/chainhash"
 
 // Hashable is a type that can be hashed.
 type Hashable interface {

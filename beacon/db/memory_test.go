@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 

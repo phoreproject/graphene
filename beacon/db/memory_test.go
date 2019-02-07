@@ -7,8 +7,6 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
 )

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/golang/protobuf/proto"
 
@@ -671,7 +672,8 @@ func isSurroundVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) 
 		(targetEpoch2 < targetEpoch1)
 }
 
-func getDomain(forkData ForkData, slot uint64, domainType uint64) uint64 {
+// GetDomain gets the domain for a slot and type.
+func GetDomain(forkData ForkData, slot uint64, domainType uint64) uint64 {
 	return (forkData.GetVersionForSlot(slot) << 32) + domainType
 }
 
@@ -710,7 +712,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	}, [][]byte{
 		ad0Hash[:],
 		ad1Hash[:],
-	}, &voteData.AggregateSignature, getDomain(s.ForkData, s.Slot, bls.DomainAttestation))
+	}, &voteData.AggregateSignature, GetDomain(s.ForkData, s.Slot, bls.DomainAttestation))
 }
 
 // ApplyCasperSlashing applies a casper slashing claim to the current state.
@@ -754,6 +756,30 @@ func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Con
 	}
 
 	return nil
+}
+
+// GetAttestationParticipants gets the indices of participants.
+func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
+	shardCommittees := s.GetShardCommitteesAtSlot(data.Slot, c)
+	var shardCommittee ShardAndCommittee
+	for i := range shardCommittees {
+		if shardCommittees[i].Shard == data.Shard {
+			shardCommittee = shardCommittees[i]
+		}
+	}
+
+	if len(participationBitfield) != int(math.Ceil(float64(len(shardCommittee.Committee))/8)) {
+		return nil, errors.New("participation bitfield is of incorrect length")
+	}
+
+	participants := []uint32{}
+	for i, validatorIndex := range shardCommittee.Committee {
+		participationBit := (participationBitfield[i/8] >> (7 - (uint(i) % 8))) % 2
+		if participationBit == 1 {
+			participants = append(participants, validatorIndex)
+		}
+	}
+	return participants, nil
 }
 
 // MinEmptyValidator finds the first validator slot that is empty.
@@ -822,16 +848,6 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 	}
 	return uint32(index), nil
 }
-
-/*
-// TreeHashSSZ calculates the state hash for a certain state
-func (s *State) TreeHashSSZ() (chainhash.Hash, error) {
-	// TODO: fix me
-	var slotBytes [8]byte
-	binary.BigEndian.PutUint64(slotBytes[:], s.Slot)
-	return chainhash.HashH(slotBytes[:]), nil
-}
-*/
 
 // ShardReassignmentRecord is the record of shard reassignment
 type ShardReassignmentRecord struct {

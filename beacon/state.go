@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/prysmaticlabs/prysm/shared/ssz"
+
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
@@ -320,7 +322,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	newState.Slot++
 
 	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[b.state.GetBeaconProposerIndex(b.state.Slot, b.config)].RandaoSkips++
+	newState.ValidatorRegistry[newState.GetBeaconProposerIndex(newState.Slot, b.config)].RandaoSkips++
 
 	previousBlockRoot, err := b.GetNodeByHeight(block.SlotNumber - 1)
 	if err != nil {
@@ -330,7 +332,11 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	newState.LatestBlockHashes[(newState.Slot-1)%b.config.LatestBlockRootsLength] = previousBlockRoot
 
 	if newState.Slot%b.config.LatestBlockRootsLength == 0 {
-		b.state.BatchedBlockRoots = append(b.state.BatchedBlockRoots, primitives.MerkleRootHash(newState.LatestBlockHashes))
+		latestBlockHashesRoot, err := ssz.TreeHash(newState.LatestBlockHashes)
+		if err != nil {
+			return err
+		}
+		newState.BatchedBlockRoots = append(newState.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
 	if block.SlotNumber != newState.Slot {
@@ -350,7 +356,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot, err := proposal.TreeHashSSZ()
+	proposalRoot, err := ssz.TreeHash(proposal)
 	if err != nil {
 		return err
 	}
@@ -382,15 +388,103 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 		return errors.New("more than maximum proposer slashings")
 	}
 
+	if len(block.BlockBody.CasperSlashings) > b.config.MaxCasperSlashings {
+		return errors.New("more than maximum casper slashings")
+	}
+
+	if len(block.BlockBody.Attestations) > b.config.MaxAttestations {
+		return errors.New("more than maximum casper slashings")
+	}
+
 	for _, s := range block.BlockBody.ProposerSlashings {
-		b.state.ApplyProposerSlashing(s, b.config)
+		newState.ApplyProposerSlashing(s, b.config)
 	}
 
 	for _, c := range block.BlockBody.CasperSlashings {
-		b.state.ApplyCasperSlashing(c, b.config)
+		newState.ApplyCasperSlashing(c, b.config)
+	}
+
+	for _, a := range block.BlockBody.Attestations {
+		b.ApplyAttestation(&newState, a, b.config)
 	}
 
 	b.state = newState
+	return nil
+}
+
+// ApplyAttestation verifies and applies an attestation to the given state.
+func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attestation, c *config.Config) error {
+	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
+		return errors.New("attestation included too soon")
+	}
+
+	if att.Data.Slot+c.EpochLength < s.Slot {
+		return errors.New("attestation was not included within 1 epoch")
+	}
+
+	expectedJustifiedSlot := s.JustifiedSlot
+	if att.Data.Slot < s.Slot-(s.Slot%c.EpochLength) {
+		expectedJustifiedSlot = s.PreviousJustifiedSlot
+	}
+
+	if att.Data.JustifiedSlot != expectedJustifiedSlot {
+		return errors.New("justified slot did not match expected justified slot")
+	}
+
+	node, err := b.GetNodeByHeight(att.Data.JustifiedSlot)
+	if err != nil {
+		return err
+	}
+
+	if !att.Data.JustifiedBlockHash.IsEqual(&node) {
+		return errors.New("justified block hash did not match")
+	}
+
+	if len(s.LatestCrosslinks) <= int(att.Data.Shard) {
+		return errors.New("invalid shard number")
+	}
+
+	latestCrosslinkRoot := s.LatestCrosslinks[att.Data.Shard].ShardBlockHash
+
+	if !att.Data.LatestCrosslinkHash.IsEqual(&latestCrosslinkRoot) && !att.Data.ShardBlockHash.IsEqual(&latestCrosslinkRoot) {
+		return errors.New("latest crosslink is invalid")
+	}
+
+	participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
+	if err != nil {
+		return err
+	}
+
+	groupPublicKey := bls.NewAggregatePublicKey()
+	for _, p := range participants {
+		groupPublicKey.AggregatePubKey(&s.ValidatorRegistry[p].Pubkey)
+	}
+
+	dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+	if err != nil {
+		return err
+	}
+
+	valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], &att.AggregateSig, primitives.GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		return errors.New("attestation signature is invalid")
+	}
+
+	// REMOVEME
+	if !att.Data.ShardBlockHash.IsEqual(&zeroHash) {
+		return errors.New("invalid block hash")
+	}
+
+	s.LatestAttestations = append(s.LatestAttestations, primitives.PendingAttestation{
+		Data:                  att.Data,
+		ParticipationBitfield: att.ParticipationBitfield,
+		CustodyBitfield:       att.CustodyBitfield,
+		SlotIncluded:          s.Slot,
+	})
 	return nil
 }
 

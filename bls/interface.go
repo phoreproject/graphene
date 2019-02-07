@@ -7,6 +7,20 @@ import (
 	"github.com/phoreproject/bls"
 )
 
+const (
+	// DomainProposal is a signature for proposing a block.
+	DomainProposal = iota
+
+	// DomainAttestation is a signature for an attestation.
+	DomainAttestation
+
+	// DomainDeposit is a signature for validating a deposit.
+	DomainDeposit
+
+	// DomainExit is a signature for a validator exit.
+	DomainExit
+)
+
 // Signature used in the BLS signature scheme.
 type Signature struct {
 	s bls.Signature
@@ -99,14 +113,14 @@ func (p PublicKey) Hash() []byte {
 
 // Sign a message using a secret key - in a beacon/validator client,
 // this key will come from and be unlocked from the account keystore.
-func Sign(sec *SecretKey, msg []byte) (*Signature, error) {
-	s := bls.Sign(msg, &sec.s)
+func Sign(sec *SecretKey, msg []byte, domain uint64) (*Signature, error) {
+	s := bls.Sign(msg, &sec.s, domain)
 	return &Signature{s: *s}, nil
 }
 
 // VerifySig against a public key.
-func VerifySig(pub *PublicKey, msg []byte, sig *Signature) (bool, error) {
-	return bls.Verify(msg, &pub.p, &sig.s), nil
+func VerifySig(pub *PublicKey, msg []byte, sig *Signature, domain uint64) (bool, error) {
+	return bls.Verify(msg, &pub.p, &sig.s, domain), nil
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying
@@ -121,7 +135,7 @@ func AggregateSigs(sigs []*Signature) (*Signature, error) {
 }
 
 // VerifyAggregate verifies a signature over many messages.
-func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) bool {
+func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature, domain uint64) bool {
 	if len(pubkeys) != len(msgs) {
 		return false
 	}
@@ -131,17 +145,17 @@ func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) 
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregate(blsPubs, msgs)
+	return signature.s.VerifyAggregate(blsPubs, msgs, domain)
 }
 
 // VerifyAggregateCommon verifies a signature over a common message.
-func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signature) bool {
+func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signature, domain uint64) bool {
 	blsPubs := make([]*bls.PublicKey, len(pubkeys))
 	for i := range pubkeys {
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregateCommon(blsPubs, msg)
+	return signature.s.VerifyAggregateCommon(blsPubs, msg, domain)
 }
 
 // AggregatePubKeys aggregates some public keys into one.

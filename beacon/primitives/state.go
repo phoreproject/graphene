@@ -24,6 +24,14 @@ type ForkData struct {
 	ForkSlotNumber uint64
 }
 
+// GetVersionForSlot returns the version for a specific slot number.
+func (f *ForkData) GetVersionForSlot(slot uint64) uint64 {
+	if slot < f.ForkSlotNumber {
+		return f.PreForkVersion
+	}
+	return f.PostForkVersion
+}
+
 // Copy returns a copy of the fork data.
 func (f ForkData) Copy() ForkData {
 	return ForkData{PreForkVersion: f.PreForkVersion, PostForkVersion: f.PostForkVersion, ForkSlotNumber: f.ForkSlotNumber}
@@ -316,11 +324,159 @@ func (s *State) ValidateProofOfPossession(pubkey bls.PublicKey, proofOfPossessio
 		return false, err
 	}
 
-	valid, err := bls.VerifySig(&pubkey, proofOfPossessionDataBytes, &proofOfPossession)
+	valid, err := bls.VerifySig(&pubkey, proofOfPossessionDataBytes, &proofOfPossession, bls.DomainDeposit)
 	if err != nil {
 		return false, err
 	}
 	return valid, nil
+}
+
+// ApplyProposerSlashing applies a proposer slashing if valid.
+func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config *config.Config) error {
+	if proposerSlashing.ProposerIndex >= uint32(len(s.ValidatorRegistry)) {
+		return errors.New("invalid proposer index")
+	}
+	proposer := &s.ValidatorRegistry[proposerSlashing.ProposerIndex]
+	if proposerSlashing.ProposalData1.Slot != proposerSlashing.ProposalData2.Slot {
+		return errors.New("proposer slashing request does not have same slot")
+	}
+	if proposerSlashing.ProposalData1.Shard != proposerSlashing.ProposalData2.Shard {
+		return errors.New("proposer slashing request does not have same shard number")
+	}
+	if proposerSlashing.ProposalData1.BlockHash.IsEqual(&proposerSlashing.ProposalData2.BlockHash) {
+		return errors.New("proposer slashing request has same block hash (same proposal)")
+	}
+	if proposer.Status == ExitedWithPenalty {
+		return errors.New("proposer is already exited")
+	}
+	hashProposal1, err := proposerSlashing.ProposalData1.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
+	hashProposal2, err := proposerSlashing.ProposalData2.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
+	valid, err := bls.VerifySig(&proposer.Pubkey, hashProposal2[:], &proposerSlashing.ProposalSignature2, bls.DomainProposal)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("invalid proposer signature")
+	}
+	valid, err = bls.VerifySig(&proposer.Pubkey, hashProposal1[:], &proposerSlashing.ProposalSignature1, bls.DomainProposal)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("invalid proposer signature")
+	}
+	return s.UpdateValidatorStatus(proposerSlashing.ProposerIndex, ExitedWithPenalty, config)
+}
+
+func indices(vote SlashableVoteData) []uint32 {
+	return append(vote.AggregateSignaturePoC0Indices, vote.AggregateSignaturePoC1Indices...)
+}
+
+func isDoubleVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
+	targetEpoch1 := ad1.Slot / c.EpochLength
+	targetEpoch2 := ad2.Slot / c.EpochLength
+	return targetEpoch1 == targetEpoch2
+}
+
+func isSurroundVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
+	targetEpoch1 := ad1.Slot / c.EpochLength
+	targetEpoch2 := ad2.Slot / c.EpochLength
+	sourceEpoch1 := ad1.JustifiedSlot / c.EpochLength
+	sourceEpoch2 := ad2.JustifiedSlot / c.EpochLength
+	return (sourceEpoch1 < sourceEpoch2) &&
+		(sourceEpoch2+1 == targetEpoch2) &&
+		(targetEpoch2 < targetEpoch1)
+}
+
+func getDomain(forkData ForkData, slot uint64, domainType uint64) uint64 {
+	return (forkData.GetVersionForSlot(slot) << 32) + domainType
+}
+
+func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Config) bool {
+	if len(voteData.AggregateSignaturePoC0Indices)+len(voteData.AggregateSignaturePoC1Indices) > int(c.MaxCasperVotes) {
+		return false
+	}
+
+	pubKey0 := bls.NewAggregatePublicKey()
+	pubKey1 := bls.NewAggregatePublicKey()
+
+	for _, i := range voteData.AggregateSignaturePoC0Indices {
+		pubKey0.AggregatePubKey(&s.ValidatorRegistry[i].Pubkey)
+	}
+
+	for _, i := range voteData.AggregateSignaturePoC1Indices {
+		pubKey1.AggregatePubKey(&s.ValidatorRegistry[i].Pubkey)
+	}
+
+	ad0 := AttestationDataAndCustodyBit{voteData.Data, true}
+	ad1 := AttestationDataAndCustodyBit{voteData.Data, true}
+
+	ad0Hash, err := ad0.TreeHashSSZ()
+	if err != nil {
+		return false
+	}
+
+	ad1Hash, err := ad1.TreeHashSSZ()
+	if err != nil {
+		return false
+	}
+
+	return bls.VerifyAggregate([]*bls.PublicKey{
+		pubKey0,
+		pubKey1,
+	}, [][]byte{
+		ad0Hash[:],
+		ad1Hash[:],
+	}, &voteData.AggregateSignature, getDomain(s.ForkData, s.Slot, bls.DomainAttestation))
+}
+
+// ApplyCasperSlashing applies a casper slashing claim to the current state.
+func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
+	intersection := []uint32{}
+	indices1 := indices(casperSlashing.Votes1)
+	indices2 := indices(casperSlashing.Votes2)
+	for _, k := range indices1 {
+		for _, m := range indices2 {
+			if k == m {
+				intersection = append(intersection, k)
+			}
+		}
+	}
+
+	if len(intersection) == 0 {
+		return errors.New("casper slashing does not include intersection")
+	}
+
+	if casperSlashing.Votes1.Data.Equals(&casperSlashing.Votes2.Data) {
+		return errors.New("casper slashing votes are the same")
+	}
+
+	if !isDoubleVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) &&
+		!isSurroundVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) {
+		return errors.New("casper slashing is not double or surround vote")
+	}
+
+	if !s.verifySlashableVoteData(casperSlashing.Votes1, c) {
+		return errors.New("casper slashing signature did not verify")
+	}
+
+	if !s.verifySlashableVoteData(casperSlashing.Votes2, c) {
+		return errors.New("casper slashing signature did not verify")
+	}
+
+	for _, i := range intersection {
+		if s.ValidatorRegistry[i].Status != ExitedWithPenalty {
+			s.UpdateValidatorStatus(i, ExitedWithPenalty, c)
+		}
+	}
+
+	return nil
 }
 
 // MinEmptyValidator finds the first validator slot that is empty.

@@ -21,6 +21,18 @@ type AttestationData struct {
 	JustifiedBlockHash  chainhash.Hash
 }
 
+// Equals checks if this attestation data is equal to another.
+func (a *AttestationData) Equals(other *AttestationData) bool {
+	return a.Slot == other.Slot &&
+		a.Shard == other.Shard &&
+		a.BeaconBlockHash.IsEqual(&other.BeaconBlockHash) &&
+		a.EpochBoundaryHash.IsEqual(&other.EpochBoundaryHash) &&
+		a.ShardBlockHash.IsEqual(&other.ShardBlockHash) &&
+		a.LatestCrosslinkHash.IsEqual(&other.LatestCrosslinkHash) &&
+		a.JustifiedSlot == other.JustifiedSlot &&
+		a.JustifiedBlockHash.IsEqual(&other.JustifiedBlockHash)
+}
+
 // Copy returns a copy of the data.
 func (a *AttestationData) Copy() AttestationData {
 	return *a

@@ -356,7 +356,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	}
 
 	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, b.config)
-	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.Signature)
+	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.Signature, bls.DomainProposal)
 	if err != nil {
 		return err
 	}
@@ -377,6 +377,19 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 
 	proposer.RandaoCommitment = block.RandaoReveal
 	proposer.RandaoSkips = 0
+
+	if len(block.BlockBody.ProposerSlashings) > b.config.MaxProposerSlashings {
+		return errors.New("more than maximum proposer slashings")
+	}
+
+	for _, s := range block.BlockBody.ProposerSlashings {
+		b.state.ApplyProposerSlashing(s, b.config)
+	}
+
+	for _, c := range block.BlockBody.CasperSlashings {
+		b.state.ApplyCasperSlashing(c, b.config)
+	}
+
 	b.state = newState
 	return nil
 }

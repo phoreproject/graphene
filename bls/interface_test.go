@@ -15,12 +15,12 @@ func TestBasicSignature(t *testing.T) {
 
 	msg := []byte("test!")
 
-	sig, err := bls.Sign(s, msg)
+	sig, err := bls.Sign(s, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	valid, err := bls.VerifySig(p, msg, sig)
+	valid, err := bls.VerifySig(p, msg, sig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,15 +63,15 @@ func TestAggregateSignatures(t *testing.T) {
 
 	msg := []byte("test!")
 
-	sig0, err := bls.Sign(s0, msg)
+	sig0, err := bls.Sign(s0, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig1, err := bls.Sign(s1, msg)
+	sig1, err := bls.Sign(s1, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := bls.Sign(s2, msg)
+	sig2, err := bls.Sign(s2, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestAggregateSignatures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid := bls.VerifyAggregateCommon([]*bls.PublicKey{p0, p1, p2}, msg, aggregateSig)
+	valid := bls.VerifyAggregateCommon([]*bls.PublicKey{p0, p1, p2}, msg, aggregateSig, 0)
 	if !valid {
 		t.Fatal("aggregate signature was not valid")
 	}
@@ -102,15 +102,15 @@ func TestVerifyAggregate(t *testing.T) {
 	msg1 := []byte("test! 1")
 	msg2 := []byte("test! 2")
 
-	sig0, err := bls.Sign(s0, msg0)
+	sig0, err := bls.Sign(s0, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig1, err := bls.Sign(s1, msg1)
+	sig1, err := bls.Sign(s1, msg1, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := bls.Sign(s2, msg2)
+	sig2, err := bls.Sign(s2, msg2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestVerifyAggregate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid := bls.VerifyAggregate([]*bls.PublicKey{p0, p1, p2}, [][]byte{msg0, msg1, msg2}, aggregateSig)
+	valid := bls.VerifyAggregate([]*bls.PublicKey{p0, p1, p2}, [][]byte{msg0, msg1, msg2}, aggregateSig, 0)
 	if !valid {
 		t.Fatal("aggregate signature was not valid")
 	}
@@ -139,15 +139,15 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 
 	msg0 := []byte("test!")
 
-	sig0, err := bls.Sign(s0, msg0)
+	sig0, err := bls.Sign(s0, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig1, err := bls.Sign(s1, msg0)
+	sig1, err := bls.Sign(s1, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := bls.Sign(s2, msg0)
+	sig2, err := bls.Sign(s2, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 	aggPk.AggregatePubKey(p1)
 	aggPk.AggregatePubKey(p2)
 
-	valid, err := bls.VerifySig(aggPk, msg0, aggregateSig)
+	valid, err := bls.VerifySig(aggPk, msg0, aggregateSig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 	}
 
 	aggPk = bls.AggregatePubKeys([]*bls.PublicKey{p0, p1, p2})
-	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig)
+	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 	aggregateSig.AggregateSig(sig0)
 	aggregateSig.AggregateSig(sig1)
 	aggregateSig.AggregateSig(sig2)
-	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig)
+	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 
 	k, _ := bls.RandSecretKey(r)
 
-	sig, err := bls.Sign(k, []byte("testing!"))
+	sig, err := bls.Sign(k, []byte("testing!"), 0)
 	if err != nil {
 		t.Fatal(err)
 	}

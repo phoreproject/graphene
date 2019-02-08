@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/phoreproject/synapse/beacon/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/phoreproject/prysm/shared/ssz"
 )
 
 func TestForkDataSSZ(t *testing.T) {

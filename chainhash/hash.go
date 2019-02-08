@@ -128,24 +128,27 @@ func Decode(dst *Hash, src string) error {
 	return nil
 }
 
-// EncodeSSZ implements Encodable  in  github.com/prysmaticlabs/prysm/shared/ssz
+// EncodeSSZ implements Encodable  in  github.com/phoreproject/prysm/shared/ssz
 func (hash Hash) EncodeSSZ(writer io.Writer) error {
-	writer.Write(hash[:])
-	return nil
+	_, err := writer.Write(hash[:])
+	return err
 }
 
-// EncodeSSZSize implements Encodable  in  github.com/prysmaticlabs/prysm/shared/ssz
+// EncodeSSZSize implements Encodable  in  github.com/phoreproject/prysm/shared/ssz
 func (hash Hash) EncodeSSZSize() (uint32, error) {
 	return HashSize, nil
 }
 
-// DecodeSSZ implements Decodable  in  github.com/prysmaticlabs/prysm/shared/ssz
-func (hash Hash) DecodeSSZ(reader io.Reader) error {
-	reader.Read(hash[:])
-	return nil
+// DecodeSSZ implements Decodable  in  github.com/phoreproject/prysm/shared/ssz
+func (hash Hash) DecodeSSZ(reader io.Reader) (uint32, error) {
+	n, err := reader.Read(hash[:])
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
 }
 
-// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+// TreeHashSSZ implements Hashable  in  github.com/phoreproject/prysm/shared/ssz
 func (hash Hash) TreeHashSSZ() ([32]byte, error) {
 	return [32]byte(hash), nil
 }

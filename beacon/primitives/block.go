@@ -1,11 +1,6 @@
 package primitives
 
 import (
-	"io"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
-
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
@@ -13,8 +8,8 @@ import (
 
 // Block represents a single beacon chain block.
 type Block struct {
-	BlockHeader
-	BlockBody
+	BlockHeader BlockHeader
+	BlockBody   BlockBody
 }
 
 // Copy returns a copy of the block.
@@ -32,72 +27,6 @@ type BlockHeader struct {
 	StateRoot    chainhash.Hash
 	RandaoReveal chainhash.Hash
 	Signature    bls.Signature
-}
-
-// EncodeSSZ implements Encodable
-func (bh BlockHeader) EncodeSSZ(writer io.Writer) error {
-	if err := ssz.Encode(writer, bh.SlotNumber); err != nil {
-		return err
-	}
-	if err := ssz.Encode(writer, bh.ParentRoot); err != nil {
-		return err
-	}
-	if err := ssz.Encode(writer, bh.StateRoot); err != nil {
-		return err
-	}
-	if err := ssz.Encode(writer, bh.RandaoReveal); err != nil {
-		return err
-	}
-	if err := ssz.Encode(writer, bh.Signature); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeSSZSize implements Encodable
-func (bh BlockHeader) EncodeSSZSize() (uint32, error) {
-	var sizeOfslotNumber, sizeOfparentRoot, sizeOfstateRoot, sizeOfrandaoReveal, sizeOfsignature uint32
-	var err error
-	if sizeOfslotNumber, err = ssz.EncodeSize(bh.SlotNumber); err != nil {
-		return 0, err
-	}
-	if sizeOfparentRoot, err = ssz.EncodeSize(bh.ParentRoot); err != nil {
-		return 0, err
-	}
-	if sizeOfstateRoot, err = ssz.EncodeSize(bh.StateRoot); err != nil {
-		return 0, err
-	}
-	if sizeOfrandaoReveal, err = ssz.EncodeSize(bh.RandaoReveal); err != nil {
-		return 0, err
-	}
-	if sizeOfsignature, err = ssz.EncodeSize(bh.Signature); err != nil {
-		return 0, err
-	}
-	return sizeOfslotNumber + sizeOfparentRoot + sizeOfstateRoot + sizeOfrandaoReveal + sizeOfsignature, nil
-}
-
-// DecodeSSZ implements Decodable
-func (bh BlockHeader) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, &bh.SlotNumber); err != nil {
-		return err
-	}
-	bh.ParentRoot = chainhash.Hash{}
-	if err := ssz.Decode(reader, &bh.ParentRoot); err != nil {
-		return err
-	}
-	bh.StateRoot = chainhash.Hash{}
-	if err := ssz.Decode(reader, &bh.StateRoot); err != nil {
-		return err
-	}
-	bh.RandaoReveal = chainhash.Hash{}
-	if err := ssz.Decode(reader, &bh.RandaoReveal); err != nil {
-		return err
-	}
-	bh.Signature = bls.Signature{}
-	if err := ssz.Decode(reader, &bh.Signature); err != nil {
-		return err
-	}
-	return nil
 }
 
 // Copy returns a copy of the block header.
@@ -163,10 +92,4 @@ func (bb *BlockBody) Copy() BlockBody {
 		Deposits:          newDeposits,
 		Exits:             newExits,
 	}
-}
-
-// TreeHashSSZ gets the hash of the block header
-func (b *Block) TreeHashSSZ() (chainhash.Hash, error) {
-	m, _ := proto.Marshal(b.ToProto())
-	return chainhash.HashH(m), nil
 }

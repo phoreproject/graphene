@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 
@@ -42,7 +44,7 @@ func TestStoreRetrieve(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blockHash, err := b.TreeHashSSZ()
+	blockHash, err := ssz.TreeHash(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +53,7 @@ func TestStoreRetrieve(t *testing.T) {
 		t.Fatalf("could not find block hash %x", blockHash)
 	}
 
-	blockHashAfter, err := b1.TreeHashSSZ()
+	blockHashAfter, err := ssz.TreeHash(b1)
 	if err != nil {
 		t.Fatal(err)
 	}

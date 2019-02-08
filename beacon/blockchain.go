@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+
 	"github.com/phoreproject/synapse/bls"
 	logger "github.com/sirupsen/logrus"
 
@@ -16,16 +18,23 @@ import (
 
 var zeroHash = chainhash.Hash{}
 
+type blockNode struct {
+	hash   chainhash.Hash
+	height uint64
+	parent *blockNode
+}
+
 type blockchainView struct {
-	chain []chainhash.Hash
+	tip   *blockNode
+	chain []*blockNode
 	lock  *sync.Mutex
 }
 
-func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
+func (bv *blockchainView) GetBlock(n int) (*blockNode, error) {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	if len(bv.chain) > n && n >= 0 {
-		return &bv.chain[n], nil
+		return bv.chain[n], nil
 	}
 	return nil, fmt.Errorf("block %d does not exist", n)
 }
@@ -52,7 +61,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		db:     db,
 		config: config,
 		chain: blockchainView{
-			chain: []chainhash.Hash{},
+			chain: []*blockNode{},
 			lock:  &sync.Mutex{},
 		},
 		stateLock: &sync.Mutex{},
@@ -92,15 +101,20 @@ const (
 // UpdateChainHead updates the blockchain head if needed
 func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 	b.chain.lock.Lock()
-	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
-		blockHash, err := n.TreeHashSSZ()
+	// TODO
+	if int64(n.BlockHeader.SlotNumber) > int64(len(b.chain.chain)-1) {
+		blockHash, err := ssz.TreeHash(n)
 		if err != nil {
 			b.chain.lock.Unlock()
 			return err
 		}
-		logger.WithField("hash", blockHash).WithField("height", n.SlotNumber).Debug("updating blockchain head")
+		logger.WithField("hash", blockHash).WithField("height", n.BlockHeader.SlotNumber).Debug("updating blockchain head")
 		b.chain.lock.Unlock()
-		err = b.SetTip(n)
+		err = b.SetTip(blockNode{
+			hash:   blockHash,
+			height: n.BlockHeader.SlotNumber,
+			parent: b.chain.tip,
+		})
 		if err != nil {
 			return err
 		}
@@ -111,37 +125,16 @@ func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 }
 
 // SetTip sets the tip of the chain.
-func (b *Blockchain) SetTip(n *primitives.Block) error {
+func (b *Blockchain) SetTip(bl blockNode) error {
 	b.chain.lock.Lock()
 	defer b.chain.lock.Unlock()
-	needed := n.SlotNumber + 1
+	needed := bl.height
 	if uint64(cap(b.chain.chain)) < needed {
-		nodes := make([]chainhash.Hash, needed, needed+100)
+		nodes := make([]*blockNode, needed, needed+100)
 		copy(nodes, b.chain.chain)
 		b.chain.chain = nodes
 	} else {
-		prevLen := int32(len(b.chain.chain))
 		b.chain.chain = b.chain.chain[0:needed]
-		for i := prevLen; uint64(i) < needed; i++ {
-			b.chain.chain[i] = zeroHash
-		}
-	}
-
-	current := n
-	currentHash, err := current.TreeHashSSZ()
-	if err != nil {
-		return err
-	}
-	nHash := chainhash.Hash{}
-	nHash.SetBytes(currentHash[:])
-
-	for current != nil && b.chain.chain[current.SlotNumber] != currentHash {
-		b.chain.chain[n.SlotNumber] = nHash
-		nextBlock, err := b.db.GetBlockForHash(n.ParentRoot)
-		if err != nil {
-			nextBlock = nil
-		}
-		current = nextBlock
 	}
 
 	return nil
@@ -150,20 +143,31 @@ func (b *Blockchain) SetTip(n *primitives.Block) error {
 // Tip returns the block at the tip of the chain.
 func (b Blockchain) Tip() chainhash.Hash {
 	b.chain.lock.Lock()
-	tip := b.chain.chain[len(b.chain.chain)-1]
+	tip := b.chain.tip.hash
 	b.chain.lock.Unlock()
 	return tip
 }
 
 // GetNodeByHeight gets a node from the active blockchain by height.
-func (b Blockchain) GetNodeByHeight(height uint64) (chainhash.Hash, error) {
+func (b Blockchain) getNodeByHeight(height uint64) (*blockNode, error) {
+	b.chain.lock.Lock()
+	defer b.chain.lock.Unlock()
+	if uint64(len(b.chain.chain)-1) < height {
+		return nil, fmt.Errorf("attempted to retrieve block hash of height > chain height")
+	}
+	node := b.chain.chain[height]
+	return node, nil
+}
+
+// GetHashByHeight gets the block hash at a certain height.
+func (b Blockchain) GetHashByHeight(height uint64) (chainhash.Hash, error) {
 	b.chain.lock.Lock()
 	defer b.chain.lock.Unlock()
 	if uint64(len(b.chain.chain)-1) < height {
 		return chainhash.Hash{}, fmt.Errorf("attempted to retrieve block hash of height > chain height")
 	}
 	node := b.chain.chain[height]
-	return node, nil
+	return node.hash, nil
 }
 
 // Height returns the height of the chain.
@@ -173,11 +177,11 @@ func (b *Blockchain) Height() int {
 
 // LastBlock gets the last block in the chain
 func (b *Blockchain) LastBlock() (*primitives.Block, error) {
-	hash, err := b.chain.GetBlock(b.chain.Height())
+	bl, err := b.chain.GetBlock(b.chain.Height())
 	if err != nil {
 		return nil, err
 	}
-	block, err := b.db.GetBlockForHash(*hash)
+	block, err := b.db.GetBlockForHash(bl.hash)
 	if err != nil {
 		return nil, err
 	}

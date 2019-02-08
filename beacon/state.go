@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/phoreproject/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/primitives"
@@ -81,7 +80,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	b.state.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
 
 	sig := bls.EmptySignature.Copy()
-	stateRoot, err := b.state.TreeHashSSZ()
+	stateRoot, err := ssz.TreeHash(b.state)
 	if err != nil {
 		return err
 	}
@@ -237,58 +236,10 @@ func checkTrailingZeros(a byte, numZeros uint8) bool {
 	return true
 }
 
-func validateAttestationSlot(attestation *primitives.Attestation, parentBlock *primitives.Block, c *config.Config) error {
-	if attestation.Data.Slot > parentBlock.SlotNumber {
-		return errors.New("attestation slot number too high")
-	}
-
-	// verify attestation slot >= max(parent.slot - CYCLE_LENGTH + 1, 0)
-	if attestation.Data.Slot < uint64(math.Max(float64(int64(parentBlock.SlotNumber)-int64(c.EpochLength)+1), 0)) {
-		return errors.New("attestation slot number too low")
-	}
-
-	return nil
-}
-
-func (b *Blockchain) findAttestationPublicKey(attestation *primitives.Attestation, parentBlock *primitives.Block, c *config.Config) (*bls.PublicKey, error) {
-	attestationIndicesForShards := b.state.GetShardCommitteesAtSlot(attestation.Data.Slot, b.config)
-	var attestationIndices primitives.ShardAndCommittee
-	found := false
-	for _, s := range attestationIndicesForShards {
-		if s.Shard == attestation.Data.Shard {
-			attestationIndices = s
-			found = true
-		}
-	}
-
-	if !found {
-		return nil, fmt.Errorf("could not find shard id %d", attestation.Data.Shard)
-	}
-
-	if len(attestation.ParticipationBitfield) != (len(attestationIndices.Committee)+7)/8 {
-		return nil, fmt.Errorf("attestation bitfield length does not match number of validators in committee")
-	}
-
-	trailingZeros := 8 - uint8(len(attestationIndices.Committee)%8)
-	if trailingZeros != 8 && !checkTrailingZeros(attestation.ParticipationBitfield[len(attestation.ParticipationBitfield)-1], trailingZeros) {
-		return nil, fmt.Errorf("expected %d bits at the end empty", trailingZeros)
-	}
-
-	pubkey := bls.NewAggregatePublicKey()
-	for bit, n := range attestationIndices.Committee {
-		set := (attestation.ParticipationBitfield[bit/8]>>uint(7-(bit%8)))%2 == 1
-		if set {
-			pubkey.AggregatePubKey(&b.state.ValidatorRegistry[n].Pubkey)
-		}
-	}
-
-	return pubkey, nil
-}
-
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
-	blockHash, err := block.TreeHashSSZ()
+	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return err
 	}
@@ -324,7 +275,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	// increase the randao skips of the proposer
 	newState.ValidatorRegistry[newState.GetBeaconProposerIndex(newState.Slot, b.config)].RandaoSkips++
 
-	previousBlockRoot, err := b.GetNodeByHeight(block.SlotNumber - 1)
+	previousBlockRoot, err := b.GetHashByHeight(block.BlockHeader.SlotNumber - 1)
 	if err != nil {
 		return err
 	}
@@ -339,13 +290,13 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 		newState.BatchedBlockRoots = append(newState.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
-	if block.SlotNumber != newState.Slot {
+	if block.BlockHeader.SlotNumber != newState.Slot {
 		return errors.New("block has incorrect slot number")
 	}
 
 	blockWithoutSignature := block.Copy()
-	blockWithoutSignature.Signature = *bls.EmptySignature
-	blockWithoutSignatureRoot, err := blockWithoutSignature.TreeHashSSZ()
+	blockWithoutSignature.BlockHeader.Signature = *bls.EmptySignature
+	blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
 	if err != nil {
 		return err
 	}
@@ -362,7 +313,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	}
 
 	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, b.config)
-	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.Signature, bls.DomainProposal)
+	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.BlockHeader.Signature, bls.DomainProposal)
 	if err != nil {
 		return err
 	}
@@ -371,17 +322,17 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	}
 
 	proposer := &newState.ValidatorRegistry[beaconProposerIndex]
-	expectedRandaoCommitment := repeatHash(block.RandaoReveal[:], proposer.RandaoSkips)
+	expectedRandaoCommitment := repeatHash(block.BlockHeader.RandaoReveal[:], proposer.RandaoSkips)
 
 	if !bytes.Equal(expectedRandaoCommitment, proposer.RandaoCommitment[:]) {
 		return errors.New("randao commitment does not match")
 	}
 
 	for i := range newState.RandaoMix {
-		newState.RandaoMix[i] ^= block.RandaoReveal[i]
+		newState.RandaoMix[i] ^= block.BlockHeader.RandaoReveal[i]
 	}
 
-	proposer.RandaoCommitment = block.RandaoReveal
+	proposer.RandaoCommitment = block.BlockHeader.RandaoReveal
 	proposer.RandaoSkips = 0
 
 	if len(block.BlockBody.ProposerSlashings) > b.config.MaxProposerSlashings {
@@ -447,7 +398,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 		}
 	}
 
-	previousEpochBoundaryHash, err := b.GetNodeByHeight(newState.Slot - b.config.EpochLength)
+	previousEpochBoundaryHash, err := b.GetHashByHeight(newState.Slot - b.config.EpochLength)
 	if err != nil {
 		return err
 	}
@@ -514,7 +465,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 
 	previousEpochJustifiedAttestingBalance := newState.GetTotalBalanceMap(previousEpochJustifiedAttesterIndices, b.config)
 
-	epochBoundaryHashMinus2, err := b.GetNodeByHeight(newState.Slot - 2*b.config.EpochLength)
+	epochBoundaryHashMinus2, err := b.GetHashByHeight(newState.Slot - 2*b.config.EpochLength)
 	if err != nil {
 		return err
 	}
@@ -543,7 +494,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 	previousEpochHeadAttestations := []primitives.PendingAttestation{}
 
 	for _, a := range previousEpochAttestations {
-		blockRoot, err := b.GetNodeByHeight(a.Data.Slot)
+		blockRoot, err := b.GetHashByHeight(a.Data.Slot)
 		if err != nil {
 			return err
 		}
@@ -844,7 +795,7 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 		return errors.New("justified slot did not match expected justified slot")
 	}
 
-	node, err := b.GetNodeByHeight(att.Data.JustifiedSlot)
+	node, err := b.GetHashByHeight(att.Data.JustifiedSlot)
 	if err != nil {
 		return err
 	}

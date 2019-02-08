@@ -2,6 +2,7 @@ package bls
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/phoreproject/bls"
@@ -51,7 +52,11 @@ func DeserializeSignature(b []byte) (*Signature, error) {
 }
 
 // EmptySignature is an empty signature.
-var EmptySignature, _ = DeserializeSignature(make([]byte, 48))
+var EmptySignature, _ = DeserializeSignature([]byte{
+	0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+})
 
 // SecretKey used in the BLS scheme.
 type SecretKey struct {
@@ -114,37 +119,37 @@ func (p PublicKey) Hash() []byte {
 
 // EncodeSSZ implements Encodable
 func (p PublicKey) EncodeSSZ(writer io.Writer) error {
-	writer.Write(p.Serialize())
+	fmt.Println("ENCODE SSZ")
+	_, err := writer.Write(p.Serialize())
 
-	return nil
+	return err
 }
 
 // EncodeSSZSize implements Encodable
 func (p PublicKey) EncodeSSZSize() (uint32, error) {
-	return 96, nil // hard coded?
-	//return (uint32)(len(p.Serialize())), nil
+	return 96, nil
 }
 
 // DecodeSSZ implements Decodable
-func (p PublicKey) DecodeSSZ(reader io.Reader) error {
+func (p PublicKey) DecodeSSZ(reader io.Reader) (uint32, error) {
 	size, _ := p.EncodeSSZSize()
 	buf := make([]byte, size)
 	n, err := reader.Read(buf)
 	if err != nil {
-		return err
+		return uint32(n), err
 	}
 	if uint32(n) != size {
-		return errors.New("did not return enough bytes from reader")
+		return uint32(n), errors.New("did not return enough bytes from reader")
 	}
 	key, err := DeserializePublicKey(buf)
 	if err != nil {
-		return err
+		return uint32(n), err
 	}
 	p.p = key.p
-	return nil
+	return uint32(n), nil
 }
 
-// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+// TreeHashSSZ implements Hashable  in  github.com/phoreproject/prysm/shared/ssz
 func (p PublicKey) TreeHashSSZ() ([32]byte, error) {
 	return [32]byte(chainhash.HashH(p.p.Serialize())), nil
 }
@@ -159,29 +164,28 @@ func (s Signature) EncodeSSZ(writer io.Writer) error {
 // EncodeSSZSize implements Encodable
 func (s Signature) EncodeSSZSize() (uint32, error) {
 	return 48, nil // hard coded?
-	//return (uint32)(len(p.Serialize())), nil
 }
 
 // DecodeSSZ implements Decodable
-func (s Signature) DecodeSSZ(reader io.Reader) error {
+func (s Signature) DecodeSSZ(reader io.Reader) (uint32, error) {
 	size, _ := s.EncodeSSZSize()
 	buf := make([]byte, size)
 	n, err := reader.Read(buf)
 	if err != nil {
-		return err
+		return uint32(n), err
 	}
 	if uint32(n) != size {
-		return errors.New("did not return enough bytes from reader")
+		return uint32(n), errors.New("did not return enough bytes from reader")
 	}
 	sig, err := DeserializeSignature(buf)
 	if err != nil {
-		return err
+		return uint32(n), err
 	}
 	s.s = sig.s
-	return nil
+	return uint32(n), nil
 }
 
-// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+// TreeHashSSZ implements Hashable  in  github.com/phoreproject/prysm/shared/ssz
 func (s Signature) TreeHashSSZ() ([32]byte, error) {
 	return [32]byte(chainhash.HashH(s.s.Serialize())), nil
 }

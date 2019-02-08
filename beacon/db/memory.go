@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/chainhash"
 )
@@ -33,7 +35,7 @@ func (imdb *InMemoryDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, er
 // SetBlock adds the block to storage
 func (imdb *InMemoryDB) SetBlock(b primitives.Block) error {
 	imdb.lock.Lock()
-	blockHash, err := b.TreeHashSSZ()
+	blockHash, err := ssz.TreeHash(b)
 	if err != nil {
 		return err
 	}

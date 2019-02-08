@@ -421,6 +421,8 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 		}
 	}
 
+	// VERIFY BLOCK STATE ROOT MATCHES STATE ROOT FROM PREVIOUS BLOCK IF NEEDED
+
 	b.state = newState
 	return nil
 }
@@ -773,9 +775,52 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 		}
 	}
 
-	newState.UpdateValidatorRegistry(b.config)
+	shouldUpdateRegistry := true
 
-	// FINAL UPDATES
+	if newState.FinalizedSlot <= newState.ValidatorRegistryLatestChangeSlot {
+		shouldUpdateRegistry = false
+	}
+
+	for _, shardAndCommittees := range newState.ShardAndCommitteeForSlots {
+		for _, committee := range shardAndCommittees {
+			if newState.LatestCrosslinks[committee.Shard].Slot <= newState.ValidatorRegistryLatestChangeSlot {
+				shouldUpdateRegistry = false
+				goto done
+			}
+		}
+	}
+done:
+
+	if shouldUpdateRegistry {
+		newState.UpdateValidatorRegistry(b.config)
+
+		newState.ValidatorRegistryLatestChangeSlot = newState.Slot
+		copy(newState.ShardAndCommitteeForSlots[:b.config.EpochLength], newState.ShardAndCommitteeForSlots[b.config.EpochLength:])
+		lastSlot := newState.ShardAndCommitteeForSlots[len(newState.ShardAndCommitteeForSlots)-1]
+		lastCommittee := lastSlot[len(lastSlot)-1]
+		nextStartShard := (lastCommittee.Shard + 1) % uint64(b.config.ShardCount)
+		newShuffling := GetNewShuffling(newState.RandaoMix, newState.ValidatorRegistry, int(nextStartShard), b.config)
+		copy(newState.ShardAndCommitteeForSlots[b.config.EpochLength:], newShuffling)
+	} else {
+		copy(newState.ShardAndCommitteeForSlots[:b.config.EpochLength], newState.ShardAndCommitteeForSlots[b.config.EpochLength:])
+		epochsSinceLastRegistryChange := (newState.Slot - newState.ValidatorRegistryLatestChangeSlot) / b.config.EpochLength
+		startShard := newState.ShardAndCommitteeForSlots[0][0].Shard
+
+		// epochsSinceLastRegistryChange is a power of 2
+		if epochsSinceLastRegistryChange&(epochsSinceLastRegistryChange-1) == 0 {
+			newShuffling := GetNewShuffling(newState.RandaoMix, newState.ValidatorRegistry, int(startShard), b.config)
+			copy(newState.ShardAndCommitteeForSlots[b.config.EpochLength:], newShuffling)
+		}
+	}
+
+	newLatestAttestations := []primitives.PendingAttestation{}
+	for _, a := range newState.LatestAttestations {
+		if a.Data.Slot >= newState.Slot-b.config.EpochLength {
+			newLatestAttestations = append(newLatestAttestations, a)
+		}
+	}
+
+	newState.LatestAttestations = newLatestAttestations
 
 	return nil
 }

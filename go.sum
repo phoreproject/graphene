@@ -186,6 +186,8 @@ github.com/phoreproject/bls v0.0.0-20181203232606-7814fb05e1a4/go.mod h1:Wkghjrs
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prysmaticlabs/prysm v0.0.0-20190201212252-3acffd878c8d h1:OOCZ7+2FyyrRtPWGUM+iSA2NvjPqHgsjxG1O8SSLFlI=
 github.com/prysmaticlabs/prysm v0.0.0-20190201212252-3acffd878c8d/go.mod h1:kjzJhe13tmXQBdaO5DRLntr1qtMgl1boIocbR4dP3O4=
+github.com/prysmaticlabs/prysm v0.0.0-20190207214622-d837e5ef9e68 h1:d6UOrsFw7S0i+u1VMjgkCeI69KyWhDJqPT/Nf54RI3o=
+github.com/prysmaticlabs/prysm v0.0.0-20190207214622-d837e5ef9e68/go.mod h1:kjzJhe13tmXQBdaO5DRLntr1qtMgl1boIocbR4dP3O4=
 github.com/sirupsen/logrus v1.2.0 h1:juTguoYk5qI21pwyTXY3B3Y5cOTH3ZUyZCg1v/mihuo=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 h1:qLC7fQah7D6K1B0ujays3HV9gkFtllcxhzImRR7ArPQ=

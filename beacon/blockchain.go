@@ -93,9 +93,14 @@ const (
 func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 	b.chain.lock.Lock()
 	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
-		logger.WithField("hash", n.Hash()).WithField("height", n.SlotNumber).Debug("updating blockchain head")
+		blockHash, err := n.TreeHashSSZ()
+		if err != nil {
+			b.chain.lock.Unlock()
+			return err
+		}
+		logger.WithField("hash", blockHash).WithField("height", n.SlotNumber).Debug("updating blockchain head")
 		b.chain.lock.Unlock()
-		err := b.SetTip(n)
+		err = b.SetTip(n)
 		if err != nil {
 			return err
 		}
@@ -123,9 +128,15 @@ func (b *Blockchain) SetTip(n *primitives.Block) error {
 	}
 
 	current := n
+	currentHash, err := current.TreeHashSSZ()
+	if err != nil {
+		return err
+	}
+	nHash := chainhash.Hash{}
+	nHash.SetBytes(currentHash[:])
 
-	for current != nil && b.chain.chain[current.SlotNumber] != current.Hash() {
-		b.chain.chain[n.SlotNumber] = n.Hash()
+	for current != nil && b.chain.chain[current.SlotNumber] != currentHash {
+		b.chain.chain[n.SlotNumber] = nHash
 		nextBlock, err := b.db.GetBlockForHash(n.ParentRoot)
 		if err != nil {
 			nextBlock = nil

@@ -1,10 +1,25 @@
 package bls
 
 import (
+	"errors"
 	"io"
 
 	"github.com/phoreproject/bls"
 	"github.com/phoreproject/synapse/chainhash"
+)
+
+const (
+	// DomainProposal is a signature for proposing a block.
+	DomainProposal = iota
+
+	// DomainAttestation is a signature for an attestation.
+	DomainAttestation
+
+	// DomainDeposit is a signature for validating a deposit.
+	DomainDeposit
+
+	// DomainExit is a signature for a validator exit.
+	DomainExit
 )
 
 // Signature used in the BLS signature scheme.
@@ -114,12 +129,24 @@ func (p PublicKey) EncodeSSZSize() (uint32, error) {
 func (p PublicKey) DecodeSSZ(reader io.Reader) error {
 	size, _ := p.EncodeSSZSize()
 	buf := make([]byte, size)
+	n, err := reader.Read(buf)
+	if err != nil {
+		return err
+	}
+	if uint32(n) != size {
+		return errors.New("did not return enough bytes from reader")
+	}
 	key, err := DeserializePublicKey(buf)
 	if err != nil {
 		return err
 	}
 	p.p = key.p
 	return nil
+}
+
+// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+func (p PublicKey) TreeHashSSZ() ([32]byte, error) {
+	return [32]byte(chainhash.HashH(p.p.Serialize())), nil
 }
 
 // EncodeSSZ implements Encodable
@@ -139,6 +166,13 @@ func (s Signature) EncodeSSZSize() (uint32, error) {
 func (s Signature) DecodeSSZ(reader io.Reader) error {
 	size, _ := s.EncodeSSZSize()
 	buf := make([]byte, size)
+	n, err := reader.Read(buf)
+	if err != nil {
+		return err
+	}
+	if uint32(n) != size {
+		return errors.New("did not return enough bytes from reader")
+	}
 	sig, err := DeserializeSignature(buf)
 	if err != nil {
 		return err
@@ -147,16 +181,21 @@ func (s Signature) DecodeSSZ(reader io.Reader) error {
 	return nil
 }
 
+// TreeHashSSZ implements Hashable  in  github.com/prysmaticlabs/prysm/shared/ssz
+func (s Signature) TreeHashSSZ() ([32]byte, error) {
+	return [32]byte(chainhash.HashH(s.s.Serialize())), nil
+}
+
 // Sign a message using a secret key - in a beacon/validator client,
 // this key will come from and be unlocked from the account keystore.
-func Sign(sec *SecretKey, msg []byte) (*Signature, error) {
-	s := bls.Sign(msg, &sec.s, 0)
+func Sign(sec *SecretKey, msg []byte, domain uint64) (*Signature, error) {
+	s := bls.Sign(msg, &sec.s, domain)
 	return &Signature{s: *s}, nil
 }
 
 // VerifySig against a public key.
-func VerifySig(pub *PublicKey, msg []byte, sig *Signature) (bool, error) {
-	return bls.Verify(msg, &pub.p, &sig.s, 0), nil
+func VerifySig(pub *PublicKey, msg []byte, sig *Signature, domain uint64) (bool, error) {
+	return bls.Verify(msg, &pub.p, &sig.s, domain), nil
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying
@@ -171,7 +210,7 @@ func AggregateSigs(sigs []*Signature) (*Signature, error) {
 }
 
 // VerifyAggregate verifies a signature over many messages.
-func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) bool {
+func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature, domain uint64) bool {
 	if len(pubkeys) != len(msgs) {
 		return false
 	}
@@ -181,17 +220,17 @@ func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) 
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregate(blsPubs, msgs, 0)
+	return signature.s.VerifyAggregate(blsPubs, msgs, domain)
 }
 
 // VerifyAggregateCommon verifies a signature over a common message.
-func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signature) bool {
+func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signature, domain uint64) bool {
 	blsPubs := make([]*bls.PublicKey, len(pubkeys))
 	for i := range pubkeys {
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregateCommon(blsPubs, msg, 0)
+	return signature.s.VerifyAggregateCommon(blsPubs, msg, domain)
 }
 
 // AggregatePubKeys aggregates some public keys into one.

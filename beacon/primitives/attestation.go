@@ -23,6 +23,18 @@ type AttestationData struct {
 	JustifiedBlockHash  chainhash.Hash
 }
 
+// Equals checks if this attestation data is equal to another.
+func (a *AttestationData) Equals(other *AttestationData) bool {
+	return a.Slot == other.Slot &&
+		a.Shard == other.Shard &&
+		a.BeaconBlockHash.IsEqual(&other.BeaconBlockHash) &&
+		a.EpochBoundaryHash.IsEqual(&other.EpochBoundaryHash) &&
+		a.ShardBlockHash.IsEqual(&other.ShardBlockHash) &&
+		a.LatestCrosslinkHash.IsEqual(&other.LatestCrosslinkHash) &&
+		a.JustifiedSlot == other.JustifiedSlot &&
+		a.JustifiedBlockHash.IsEqual(&other.JustifiedBlockHash)
+}
+
 // Copy returns a copy of the data.
 func (a *AttestationData) Copy() AttestationData {
 	return *a
@@ -123,6 +135,49 @@ func (a AttestationData) DecodeSSZ(reader io.Reader) error {
 		return err
 	}
 
+	return nil
+}
+
+// AttestationDataAndCustodyBit is an attestation data and custody bit combined.
+type AttestationDataAndCustodyBit struct {
+	Data   AttestationData
+	PoCBit bool
+}
+
+// EncodeSSZ implements Encodable
+func (a AttestationDataAndCustodyBit) EncodeSSZ(writer io.Writer) error {
+	if err := ssz.Encode(writer, a.Data); err != nil {
+		return err
+	}
+	if err := ssz.Encode(writer, a.PoCBit); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// EncodeSSZSize implements Encodable
+func (a AttestationDataAndCustodyBit) EncodeSSZSize() (uint32, error) {
+	var sizeOfData, sizeOfPoCBit uint32
+	var err error
+	if sizeOfData, err = ssz.EncodeSize(a.Data); err != nil {
+		return 0, err
+	}
+	if sizeOfPoCBit, err = ssz.EncodeSize(a.PoCBit); err != nil {
+		return 0, err
+	}
+	return sizeOfData + sizeOfPoCBit, nil
+}
+
+// DecodeSSZ implements Decodable
+func (a AttestationDataAndCustodyBit) DecodeSSZ(reader io.Reader) error {
+	a.Data = AttestationData{}
+	if err := ssz.Decode(reader, &a.Data); err != nil {
+		return err
+	}
+	if err := ssz.Decode(reader, &a.PoCBit); err != nil {
+		return err
+	}
 	return nil
 }
 

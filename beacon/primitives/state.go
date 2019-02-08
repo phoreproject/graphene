@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/golang/protobuf/proto"
 
@@ -24,6 +25,14 @@ type ForkData struct {
 	PostForkVersion uint64
 	// Fork slot number
 	ForkSlotNumber uint64
+}
+
+// GetVersionForSlot returns the version for a specific slot number.
+func (f *ForkData) GetVersionForSlot(slot uint64) uint64 {
+	if slot < f.ForkSlotNumber {
+		return f.PreForkVersion
+	}
+	return f.PostForkVersion
 }
 
 // EncodeSSZ implements Encodable
@@ -59,13 +68,13 @@ func (f ForkData) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (f ForkData) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, f.PreForkVersion); err != nil {
+	if err := ssz.Decode(reader, &f.PreForkVersion); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, f.PostForkVersion); err != nil {
+	if err := ssz.Decode(reader, &f.PostForkVersion); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, f.ForkSlotNumber); err != nil {
+	if err := ssz.Decode(reader, &f.ForkSlotNumber); err != nil {
 		return err
 	}
 
@@ -277,76 +286,76 @@ func (s State) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (s State) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, s.Slot); err != nil {
+	if err := ssz.Decode(reader, &s.Slot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.GenesisTime); err != nil {
+	if err := ssz.Decode(reader, &s.GenesisTime); err != nil {
 		return err
 	}
 	s.ForkData = ForkData{}
-	if err := ssz.Decode(reader, s.ForkData); err != nil {
+	if err := ssz.Decode(reader, &s.ForkData); err != nil {
 		return err
 	}
 	s.ValidatorRegistry = []Validator{}
-	if err := ssz.Decode(reader, s.ValidatorRegistry); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistry); err != nil {
 		return err
 	}
 	s.ValidatorBalances = []uint64{}
-	if err := ssz.Decode(reader, s.ValidatorBalances); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorBalances); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.ValidatorRegistryLatestChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistryLatestChangeSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.ValidatorRegistryExitCount); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistryExitCount); err != nil {
 		return err
 	}
 	s.ValidatorRegistryDeltaChainTip = chainhash.Hash{}
-	if err := ssz.Decode(reader, s.ValidatorRegistryDeltaChainTip); err != nil {
+	if err := ssz.Decode(reader, &s.ValidatorRegistryDeltaChainTip); err != nil {
 		return err
 	}
 	s.RandaoMix = chainhash.Hash{}
-	if err := ssz.Decode(reader, s.RandaoMix); err != nil {
+	if err := ssz.Decode(reader, &s.RandaoMix); err != nil {
 		return err
 	}
 	s.NextSeed = chainhash.Hash{}
-	if err := ssz.Decode(reader, s.NextSeed); err != nil {
+	if err := ssz.Decode(reader, &s.NextSeed); err != nil {
 		return err
 	}
 	s.ShardAndCommitteeForSlots = [][]ShardAndCommittee{}
-	if err := ssz.Decode(reader, s.ShardAndCommitteeForSlots); err != nil {
+	if err := ssz.Decode(reader, &s.ShardAndCommitteeForSlots); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.PreviousJustifiedSlot); err != nil {
+	if err := ssz.Decode(reader, &s.PreviousJustifiedSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.JustifiedSlot); err != nil {
+	if err := ssz.Decode(reader, &s.JustifiedSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.JustificationBitfield); err != nil {
+	if err := ssz.Decode(reader, &s.JustificationBitfield); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, s.FinalizedSlot); err != nil {
+	if err := ssz.Decode(reader, &s.FinalizedSlot); err != nil {
 		return err
 	}
 	s.LatestCrosslinks = []Crosslink{}
-	if err := ssz.Decode(reader, s.LatestCrosslinks); err != nil {
+	if err := ssz.Decode(reader, &s.LatestCrosslinks); err != nil {
 		return err
 	}
 	s.LatestBlockHashes = []chainhash.Hash{}
-	if err := ssz.Decode(reader, s.LatestBlockHashes); err != nil {
+	if err := ssz.Decode(reader, &s.LatestBlockHashes); err != nil {
 		return err
 	}
 	s.LatestPenalizedExitBalances = []uint64{}
-	if err := ssz.Decode(reader, s.LatestPenalizedExitBalances); err != nil {
+	if err := ssz.Decode(reader, &s.LatestPenalizedExitBalances); err != nil {
 		return err
 	}
 	s.LatestAttestations = []PendingAttestation{}
-	if err := ssz.Decode(reader, s.LatestAttestations); err != nil {
+	if err := ssz.Decode(reader, &s.LatestAttestations); err != nil {
 		return err
 	}
 	s.BatchedBlockRoots = []chainhash.Hash{}
-	if err := ssz.Decode(reader, s.BatchedBlockRoots); err != nil {
+	if err := ssz.Decode(reader, &s.BatchedBlockRoots); err != nil {
 		return err
 	}
 	return nil
@@ -593,11 +602,184 @@ func (s *State) ValidateProofOfPossession(pubkey bls.PublicKey, proofOfPossessio
 		return false, err
 	}
 
-	valid, err := bls.VerifySig(&pubkey, proofOfPossessionDataBytes, &proofOfPossession)
+	valid, err := bls.VerifySig(&pubkey, proofOfPossessionDataBytes, &proofOfPossession, bls.DomainDeposit)
 	if err != nil {
 		return false, err
 	}
 	return valid, nil
+}
+
+// ApplyProposerSlashing applies a proposer slashing if valid.
+func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config *config.Config) error {
+	if proposerSlashing.ProposerIndex >= uint32(len(s.ValidatorRegistry)) {
+		return errors.New("invalid proposer index")
+	}
+	proposer := &s.ValidatorRegistry[proposerSlashing.ProposerIndex]
+	if proposerSlashing.ProposalData1.Slot != proposerSlashing.ProposalData2.Slot {
+		return errors.New("proposer slashing request does not have same slot")
+	}
+	if proposerSlashing.ProposalData1.Shard != proposerSlashing.ProposalData2.Shard {
+		return errors.New("proposer slashing request does not have same shard number")
+	}
+	if proposerSlashing.ProposalData1.BlockHash.IsEqual(&proposerSlashing.ProposalData2.BlockHash) {
+		return errors.New("proposer slashing request has same block hash (same proposal)")
+	}
+	if proposer.Status == ExitedWithPenalty {
+		return errors.New("proposer is already exited")
+	}
+	hashProposal1, err := ssz.TreeHash(proposerSlashing.ProposalData1)
+	if err != nil {
+		return err
+	}
+	hashProposal2, err := ssz.TreeHash(proposerSlashing.ProposalData2)
+	if err != nil {
+		return err
+	}
+	valid, err := bls.VerifySig(&proposer.Pubkey, hashProposal2[:], &proposerSlashing.ProposalSignature2, bls.DomainProposal)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("invalid proposer signature")
+	}
+	valid, err = bls.VerifySig(&proposer.Pubkey, hashProposal1[:], &proposerSlashing.ProposalSignature1, bls.DomainProposal)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("invalid proposer signature")
+	}
+	return s.UpdateValidatorStatus(proposerSlashing.ProposerIndex, ExitedWithPenalty, config)
+}
+
+func indices(vote SlashableVoteData) []uint32 {
+	return append(vote.AggregateSignaturePoC0Indices, vote.AggregateSignaturePoC1Indices...)
+}
+
+func isDoubleVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
+	targetEpoch1 := ad1.Slot / c.EpochLength
+	targetEpoch2 := ad2.Slot / c.EpochLength
+	return targetEpoch1 == targetEpoch2
+}
+
+func isSurroundVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
+	targetEpoch1 := ad1.Slot / c.EpochLength
+	targetEpoch2 := ad2.Slot / c.EpochLength
+	sourceEpoch1 := ad1.JustifiedSlot / c.EpochLength
+	sourceEpoch2 := ad2.JustifiedSlot / c.EpochLength
+	return (sourceEpoch1 < sourceEpoch2) &&
+		(sourceEpoch2+1 == targetEpoch2) &&
+		(targetEpoch2 < targetEpoch1)
+}
+
+// GetDomain gets the domain for a slot and type.
+func GetDomain(forkData ForkData, slot uint64, domainType uint64) uint64 {
+	return (forkData.GetVersionForSlot(slot) << 32) + domainType
+}
+
+func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Config) bool {
+	if len(voteData.AggregateSignaturePoC0Indices)+len(voteData.AggregateSignaturePoC1Indices) > int(c.MaxCasperVotes) {
+		return false
+	}
+
+	pubKey0 := bls.NewAggregatePublicKey()
+	pubKey1 := bls.NewAggregatePublicKey()
+
+	for _, i := range voteData.AggregateSignaturePoC0Indices {
+		pubKey0.AggregatePubKey(&s.ValidatorRegistry[i].Pubkey)
+	}
+
+	for _, i := range voteData.AggregateSignaturePoC1Indices {
+		pubKey1.AggregatePubKey(&s.ValidatorRegistry[i].Pubkey)
+	}
+
+	ad0 := AttestationDataAndCustodyBit{voteData.Data, true}
+	ad1 := AttestationDataAndCustodyBit{voteData.Data, true}
+
+	ad0Hash, err := ssz.TreeHash(ad0)
+	if err != nil {
+		return false
+	}
+
+	ad1Hash, err := ssz.TreeHash(ad1)
+	if err != nil {
+		return false
+	}
+
+	return bls.VerifyAggregate([]*bls.PublicKey{
+		pubKey0,
+		pubKey1,
+	}, [][]byte{
+		ad0Hash[:],
+		ad1Hash[:],
+	}, &voteData.AggregateSignature, GetDomain(s.ForkData, s.Slot, bls.DomainAttestation))
+}
+
+// ApplyCasperSlashing applies a casper slashing claim to the current state.
+func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
+	intersection := []uint32{}
+	indices1 := indices(casperSlashing.Votes1)
+	indices2 := indices(casperSlashing.Votes2)
+	for _, k := range indices1 {
+		for _, m := range indices2 {
+			if k == m {
+				intersection = append(intersection, k)
+			}
+		}
+	}
+
+	if len(intersection) == 0 {
+		return errors.New("casper slashing does not include intersection")
+	}
+
+	if casperSlashing.Votes1.Data.Equals(&casperSlashing.Votes2.Data) {
+		return errors.New("casper slashing votes are the same")
+	}
+
+	if !isDoubleVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) &&
+		!isSurroundVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) {
+		return errors.New("casper slashing is not double or surround vote")
+	}
+
+	if !s.verifySlashableVoteData(casperSlashing.Votes1, c) {
+		return errors.New("casper slashing signature did not verify")
+	}
+
+	if !s.verifySlashableVoteData(casperSlashing.Votes2, c) {
+		return errors.New("casper slashing signature did not verify")
+	}
+
+	for _, i := range intersection {
+		if s.ValidatorRegistry[i].Status != ExitedWithPenalty {
+			s.UpdateValidatorStatus(i, ExitedWithPenalty, c)
+		}
+	}
+
+	return nil
+}
+
+// GetAttestationParticipants gets the indices of participants.
+func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
+	shardCommittees := s.GetShardCommitteesAtSlot(data.Slot, c)
+	var shardCommittee ShardAndCommittee
+	for i := range shardCommittees {
+		if shardCommittees[i].Shard == data.Shard {
+			shardCommittee = shardCommittees[i]
+		}
+	}
+
+	if len(participationBitfield) != int(math.Ceil(float64(len(shardCommittee.Committee))/8)) {
+		return nil, errors.New("participation bitfield is of incorrect length")
+	}
+
+	participants := []uint32{}
+	for i, validatorIndex := range shardCommittee.Committee {
+		participationBit := (participationBitfield[i/8] >> (7 - (uint(i) % 8))) % 2
+		if participationBit == 1 {
+			participants = append(participants, validatorIndex)
+		}
+	}
+	return participants, nil
 }
 
 // MinEmptyValidator finds the first validator slot that is empty.
@@ -666,16 +848,6 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 	}
 	return uint32(index), nil
 }
-
-/*
-// TreeHashSSZ calculates the state hash for a certain state
-func (s *State) TreeHashSSZ() (chainhash.Hash, error) {
-	// TODO: fix me
-	var slotBytes [8]byte
-	binary.BigEndian.PutUint64(slotBytes[:], s.Slot)
-	return chainhash.HashH(slotBytes[:]), nil
-}
-*/
 
 // ShardReassignmentRecord is the record of shard reassignment
 type ShardReassignmentRecord struct {
@@ -811,40 +983,40 @@ func (v Validator) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (v Validator) DecodeSSZ(reader io.Reader) error {
 	v.Pubkey = bls.PublicKey{}
-	if err := ssz.Decode(reader, v.Pubkey); err != nil {
+	if err := ssz.Decode(reader, &v.Pubkey); err != nil {
 		return err
 	}
 	v.WithdrawalCredentials = chainhash.Hash{}
-	if err := ssz.Decode(reader, v.WithdrawalCredentials); err != nil {
+	if err := ssz.Decode(reader, &v.WithdrawalCredentials); err != nil {
 		return err
 	}
 	v.RandaoCommitment = chainhash.Hash{}
-	if err := ssz.Decode(reader, v.RandaoCommitment); err != nil {
+	if err := ssz.Decode(reader, &v.RandaoCommitment); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.RandaoSkips); err != nil {
+	if err := ssz.Decode(reader, &v.RandaoSkips); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.Balance); err != nil {
+	if err := ssz.Decode(reader, &v.Balance); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.Status); err != nil {
+	if err := ssz.Decode(reader, &v.Status); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.LatestStatusChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &v.LatestStatusChangeSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.ExitCount); err != nil {
+	if err := ssz.Decode(reader, &v.ExitCount); err != nil {
 		return err
 	}
 	v.PoCCommitment = chainhash.Hash{}
-	if err := ssz.Decode(reader, v.PoCCommitment); err != nil {
+	if err := ssz.Decode(reader, &v.PoCCommitment); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.LastPoCChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &v.LastPoCChangeSlot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, v.SecondLastPoCChangeSlot); err != nil {
+	if err := ssz.Decode(reader, &v.SecondLastPoCChangeSlot); err != nil {
 		return err
 	}
 	return nil
@@ -934,11 +1106,11 @@ func (c Crosslink) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (c Crosslink) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, c.Slot); err != nil {
+	if err := ssz.Decode(reader, &c.Slot); err != nil {
 		return err
 	}
 	c.ShardBlockHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, c.ShardBlockHash); err != nil {
+	if err := ssz.Decode(reader, &c.ShardBlockHash); err != nil {
 		return err
 	}
 
@@ -997,13 +1169,13 @@ func (sc ShardAndCommittee) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (sc ShardAndCommittee) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, sc.Shard); err != nil {
+	if err := ssz.Decode(reader, &sc.Shard); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, sc.Committee); err != nil {
+	if err := ssz.Decode(reader, &sc.Committee); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, sc.TotalValidatorCount); err != nil {
+	if err := ssz.Decode(reader, &sc.TotalValidatorCount); err != nil {
 		return err
 	}
 

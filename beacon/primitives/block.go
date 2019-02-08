@@ -25,7 +25,7 @@ type BlockHeader struct {
 	SlotNumber   uint64
 	ParentRoot   chainhash.Hash
 	StateRoot    chainhash.Hash
-	RandaoReveal chainhash.Hash
+	RandaoReveal bls.Signature
 	Signature    bls.Signature
 }
 
@@ -43,7 +43,7 @@ func (bh *BlockHeader) ToProto() *pb.BlockHeader {
 		SlotNumber:   bh.SlotNumber,
 		ParentRoot:   bh.ParentRoot[:],
 		StateRoot:    bh.StateRoot[:],
-		RandaoReveal: bh.RandaoReveal[:],
+		RandaoReveal: bh.RandaoReveal.Serialize(),
 		Signature:    bh.Signature.Serialize(),
 	}
 }

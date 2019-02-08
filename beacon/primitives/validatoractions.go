@@ -11,7 +11,6 @@ type DepositParameters struct {
 	PubKey                bls.PublicKey
 	ProofOfPossession     bls.Signature
 	WithdrawalCredentials chainhash.Hash
-	RandaoCommitment      chainhash.Hash
 }
 
 // Copy returns a copy of the deposit parameters

@@ -1,7 +1,6 @@
 package beacon
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"math"
@@ -63,7 +62,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	}
 
 	for _, deposit := range initialValidators {
-		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, deposit.RandaoCommitment, deposit.PoCCommitment, b.config)
+		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, b.config)
 		if err != nil {
 			return err
 		}
@@ -90,7 +89,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 			SlotNumber:   0,
 			StateRoot:    stateRoot,
 			ParentRoot:   zeroHash,
-			RandaoReveal: zeroHash,
+			RandaoReveal: *bls.EmptySignature,
 			Signature:    *sig,
 		},
 		BlockBody: primitives.BlockBody{
@@ -322,17 +321,27 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	}
 
 	proposer := &newState.ValidatorRegistry[beaconProposerIndex]
-	expectedRandaoCommitment := repeatHash(block.BlockHeader.RandaoReveal[:], proposer.RandaoSkips)
 
-	if !bytes.Equal(expectedRandaoCommitment, proposer.RandaoCommitment[:]) {
-		return errors.New("randao commitment does not match")
+	var proposerSlotsBytes [8]byte
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposer.ProposerSlots)
+
+	valid, err = bls.VerifySig(&proposer.Pubkey, proposerSlotsBytes[:], &block.BlockHeader.RandaoReveal, bls.DomainRandao)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errors.New("block has invalid randao signature")
+	}
+
+	randaoRevealSerialized, err := block.BlockHeader.RandaoReveal.TreeHashSSZ()
+	if err != nil {
+		return err
 	}
 
 	for i := range newState.RandaoMix {
-		newState.RandaoMix[i] ^= block.BlockHeader.RandaoReveal[i]
+		newState.RandaoMix[i] ^= randaoRevealSerialized[i]
 	}
 
-	proposer.RandaoCommitment = block.BlockHeader.RandaoReveal
 	proposer.RandaoSkips = 0
 
 	if len(block.BlockBody.ProposerSlashings) > b.config.MaxProposerSlashings {

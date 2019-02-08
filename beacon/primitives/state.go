@@ -386,12 +386,10 @@ func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Con
 }
 
 // ValidateProofOfPossession validates a proof of possession for a new validator.
-func (s *State) ValidateProofOfPossession(pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, randaoCommitment chainhash.Hash, pocCommitment chainhash.Hash) (bool, error) {
+func (s *State) ValidateProofOfPossession(pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
 	proofOfPossessionData := &pb.DepositParameters{
 		PublicKey:             pubkey.Serialize(),
 		WithdrawalCredentials: withdrawalCredentials[:],
-		RandaoCommitment:      randaoCommitment[:],
-		PoCCommitment:         pocCommitment[:],
 		ProofOfPossession:     bls.EmptySignature.Serialize(),
 	}
 
@@ -618,8 +616,8 @@ func MinEmptyValidator(validators []Validator, validatorBalances []uint64, c *co
 }
 
 // ProcessDeposit processes a deposit with the context of the current state.
-func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, randaoCommitment chainhash.Hash, pocCommitment chainhash.Hash, c *config.Config) (uint32, error) {
-	sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials, randaoCommitment, pocCommitment)
+func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, c *config.Config) (uint32, error) {
+	sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials)
 	if err != nil {
 		return 0, err
 	}
@@ -644,12 +642,11 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 		validator := Validator{
 			Pubkey:                  pubkey,
 			WithdrawalCredentials:   withdrawalCredentials,
-			RandaoCommitment:        randaoCommitment,
 			RandaoSkips:             0,
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,
 			ExitCount:               0,
-			PoCCommitment:           pocCommitment,
+			ProposerSlots:           0,
 			LastPoCChangeSlot:       0,
 			SecondLastPoCChangeSlot: 0,
 		}
@@ -703,8 +700,6 @@ type Validator struct {
 	Pubkey bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
-	// RANDAO commitment
-	RandaoCommitment chainhash.Hash
 	// RandaoSkips is the slots the proposer has skipped.
 	RandaoSkips uint64
 	// Balance in satoshi.
@@ -715,8 +710,8 @@ type Validator struct {
 	LatestStatusChangeSlot uint64
 	// Sequence number when validator exited (or 0)
 	ExitCount uint64
-	// PoCCommitment is the proof-of-custody commitment hash
-	PoCCommitment chainhash.Hash
+	// Number of proposer slots since genesis
+	ProposerSlots uint64
 	// LastPoCChangeSlot is the last time the PoC was changed
 	LastPoCChangeSlot uint64
 	// SecondLastPoCChangeSlot is the second to last time the PoC was changed
@@ -751,8 +746,7 @@ func (v *Validator) ToProto() *pb.Validator {
 	return &pb.Validator{
 		Pubkey:                  v.Pubkey.Serialize(),
 		WithdrawalCredentials:   v.WithdrawalCredentials[:],
-		RandaoCommitment:        v.RandaoCommitment[:],
-		PoCCommitment:           v.PoCCommitment[:],
+		ProposerSlots:           v.ProposerSlots,
 		LastPoCChangeSlot:       v.LastPoCChangeSlot,
 		SecondLastPoCChangeSlot: v.SecondLastPoCChangeSlot,
 		RandaoSkips:             v.RandaoSkips,

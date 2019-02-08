@@ -21,6 +21,9 @@ const (
 
 	// DomainExit is a signature for a validator exit.
 	DomainExit
+
+	// DomainRandao is for the randao signature.
+	DomainRandao
 )
 
 // Signature used in the BLS signature scheme.

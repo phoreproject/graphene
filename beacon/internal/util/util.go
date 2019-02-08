@@ -3,26 +3,27 @@ package util
 import (
 	"fmt"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/phoreproject/synapse/validator"
 
-	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 var randaoSecret = chainhash.HashH([]byte("randao"))
+
+var pocSecret = chainhash.HashH([]byte("poc"))
 var zeroHash = chainhash.Hash{}
 
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
 func SetupBlockchain(initialValidators int, config *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
-
-	randaoCommitment := chainhash.HashH(randaoSecret[:])
-
 	keystore := validator.FakeKeyStore{}
 
 	validators := []beacon.InitialValidatorEntry{}
@@ -32,7 +33,7 @@ func SetupBlockchain(initialValidators int, config *config.Config) (*beacon.Bloc
 		pub := key.DerivePublicKey()
 		// fmt.Println(pub)
 		hashPub := pub.Hash()
-		proofOfPossession, err := bls.Sign(key, hashPub)
+		proofOfPossession, err := bls.Sign(key, hashPub, bls.DomainDeposit)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -41,7 +42,7 @@ func SetupBlockchain(initialValidators int, config *config.Config) (*beacon.Bloc
 			ProofOfPossession:     *proofOfPossession,
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
-			RandaoCommitment:      randaoCommitment,
+			DepositSize:           32,
 		})
 	}
 
@@ -60,14 +61,26 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, specials []trans
 		return nil, err
 	}
 
+	parentRoot, err := ssz.TreeHash(lastBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	stateRoot, err := ssz.TreeHash(lastBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	state := b.GetState()
+	proposerIndex := state.GetBeaconProposerIndex(lastBlock.BlockHeader.SlotNumber+1, b.GetConfig())
+
 	block1 := primitives.Block{
-		SlotNumber:            lastBlock.SlotNumber + 1,
-		RandaoReveal:          chainhash.HashH([]byte(fmt.Sprintf("test test %d", lastBlock.SlotNumber))),
-		AncestorHashes:        beacon.UpdateAncestorHashes(lastBlock.AncestorHashes, lastBlock.SlotNumber, lastBlock.Hash()),
-		ActiveStateRoot:       zeroHash,
-		CrystallizedStateRoot: zeroHash,
-		Specials:              specials,
-		Attestations:          attestations,
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber: lastBlock.BlockHeader.SlotNumber + 1,
+			ParentRoot: parentRoot,
+			StateRoot:  stateRoot,
+		},
+		BlockBody: primitives.BlockBody{},
 	}
 
 	err = b.ProcessBlock(&block1)

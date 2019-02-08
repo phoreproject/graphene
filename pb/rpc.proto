@@ -185,8 +185,6 @@ message DepositParameters {
     bytes PublicKey = 1;
     bytes ProofOfPossession = 2;
     bytes WithdrawalCredentials = 3;
-    bytes RandaoCommitment = 4;
-    bytes PoCCommitment = 5;
 }
 
 message Deposit {
@@ -229,14 +227,13 @@ message ForkData {
 message Validator {
     bytes Pubkey = 1;
     bytes WithdrawalCredentials = 2;
-    bytes RandaoCommitment = 3;
-    uint64 RandaoSkips = 4;
-    uint64 Status = 6;
-    uint64 LatestStatusChangeSlot = 7;
-    uint64 ExitCount = 8;
-    bytes PoCCommitment = 9;
-    uint64 LastPoCChangeSlot = 10;
-    uint64 SecondLastPoCChangeSlot = 11;
+    uint64 RandaoSkips = 3;
+    uint64 Status = 4;
+    uint64 LatestStatusChangeSlot = 5;
+    uint64 ExitCount = 6;
+    uint64 ProposerSlots = 7;
+    uint64 LastPoCChangeSlot = 8;
+    uint64 SecondLastPoCChangeSlot = 9;
 }
 
 message ShardCommittee {

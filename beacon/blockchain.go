@@ -80,8 +80,6 @@ type InitialValidatorEntry struct {
 	ProofOfPossession     bls.Signature
 	WithdrawalShard       uint32
 	WithdrawalCredentials chainhash.Hash
-	RandaoCommitment      chainhash.Hash
-	PoCCommitment         chainhash.Hash
 	DepositSize           uint64
 }
 

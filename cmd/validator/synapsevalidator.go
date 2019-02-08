@@ -52,7 +52,7 @@ func main() {
 		panic(err)
 	}
 
-	vm, err := validator.NewManager(conn, validatorIndices, &validator.FakeKeyStore{})
+	vm, err := validator.NewManager(conn, validatorIndices, validator.NewFakeKeyStore())
 	if err != nil {
 		panic(err)
 	}

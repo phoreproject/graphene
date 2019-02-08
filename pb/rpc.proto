@@ -227,7 +227,6 @@ message ForkData {
 message Validator {
     bytes Pubkey = 1;
     bytes WithdrawalCredentials = 2;
-    uint64 RandaoSkips = 3;
     uint64 Status = 4;
     uint64 LatestStatusChangeSlot = 5;
     uint64 ExitCount = 6;

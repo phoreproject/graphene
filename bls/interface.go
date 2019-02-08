@@ -2,7 +2,6 @@ package bls
 
 import (
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/phoreproject/bls"
@@ -122,7 +121,6 @@ func (p PublicKey) Hash() []byte {
 
 // EncodeSSZ implements Encodable
 func (p PublicKey) EncodeSSZ(writer io.Writer) error {
-	fmt.Println("ENCODE SSZ")
 	_, err := writer.Write(p.Serialize())
 
 	return err

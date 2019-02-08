@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -12,8 +13,9 @@ import (
 
 // InMemoryDB is a very basic block database.
 type InMemoryDB struct {
-	DB   map[chainhash.Hash]primitives.Block
-	lock *sync.Mutex
+	DB            map[chainhash.Hash]primitives.Block
+	AttestationDB map[uint32]primitives.Attestation
+	lock          *sync.Mutex
 }
 
 // NewInMemoryDB initializes a new in-memory DB
@@ -41,5 +43,19 @@ func (imdb *InMemoryDB) SetBlock(b primitives.Block) error {
 	}
 	imdb.DB[blockHash] = b
 	imdb.lock.Unlock()
+	return nil
+}
+
+// GetLatestAttestation gets the latest attestation from a validator.
+func (imdb *InMemoryDB) GetLatestAttestation(validator uint32) (primitives.Attestation, error) {
+	if att, found := imdb.AttestationDB[validator]; found {
+		return att, nil
+	}
+	return primitives.Attestation{}, errors.New("could not find attestation for validator")
+}
+
+// SetLatestAttestation sets the latest attestation received from a validator.
+func (imdb *InMemoryDB) SetLatestAttestation(validator uint32, att primitives.Attestation) error {
+	imdb.AttestationDB[validator] = att
 	return nil
 }

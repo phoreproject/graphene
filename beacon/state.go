@@ -15,7 +15,7 @@ import (
 )
 
 // InitializeState initializes state to the genesis state according to the config.
-func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, genesisTime uint64) error {
+func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool) error {
 	b.stateLock.Lock()
 	crosslinks := make([]primitives.Crosslink, b.config.ShardCount)
 
@@ -62,12 +62,11 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	}
 
 	for _, deposit := range initialValidators {
-		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, b.config)
+		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, b.config)
 		if err != nil {
 			return err
 		}
-
-		if b.state.GetEffectiveBalance(validatorIndex, b.config) == b.config.MaxDeposit {
+		if b.state.GetEffectiveBalance(validatorIndex, b.config) == b.config.MaxDeposit*config.UnitInCoin {
 			err := b.state.UpdateValidatorStatus(validatorIndex, primitives.Active, b.config)
 			if err != nil {
 				return err
@@ -103,10 +102,25 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 
 	b.stateLock.Unlock()
 
-	err = b.AddBlock(&block0)
+	blockHash, err := ssz.TreeHash(block0)
 	if err != nil {
 		return err
 	}
+
+	err = b.db.SetBlock(block0)
+	if err != nil {
+		return err
+	}
+	node, err := b.addBlockNodeToIndex(&block0, blockHash)
+	if err != nil {
+		return err
+	}
+
+	b.chain.finalizedHead = blockNodeAndState{node, b.state}
+	b.chain.justifiedHead = blockNodeAndState{node, b.state}
+	b.chain.tip = node
+	b.stateMap = make(map[chainhash.Hash]primitives.State)
+	b.stateMap[blockHash] = b.state
 
 	return nil
 }
@@ -242,11 +256,8 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 	if err != nil {
 		return err
 	}
+
 	logger.WithField("hash", blockHash).Debug("adding block to cache and updating head if needed")
-	err = b.UpdateChainHead(block)
-	if err != nil {
-		return err
-	}
 
 	err = b.db.SetBlock(*block)
 	if err != nil {
@@ -264,19 +275,16 @@ func repeatHash(data []byte, n uint64) []byte {
 }
 
 // ApplyBlock tries to apply a block to the state.
-func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
+func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, error) {
 	// copy the state so we can easily revert
 	newState := b.state.Copy()
 
 	// increase the slot number
 	newState.Slot++
 
-	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[newState.GetBeaconProposerIndex(newState.Slot, b.config)].RandaoSkips++
-
 	previousBlockRoot, err := b.GetHashByHeight(block.BlockHeader.SlotNumber - 1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	newState.LatestBlockHashes[(newState.Slot-1)%b.config.LatestBlockRootsLength] = previousBlockRoot
@@ -284,20 +292,20 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	if newState.Slot%b.config.LatestBlockRootsLength == 0 {
 		latestBlockHashesRoot, err := ssz.TreeHash(newState.LatestBlockHashes)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		newState.BatchedBlockRoots = append(newState.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
 	if block.BlockHeader.SlotNumber != newState.Slot {
-		return errors.New("block has incorrect slot number")
+		return nil, errors.New("block has incorrect slot number")
 	}
 
 	blockWithoutSignature := block.Copy()
 	blockWithoutSignature.BlockHeader.Signature = *bls.EmptySignature
 	blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	proposal := primitives.ProposalSignedData{
@@ -308,16 +316,17 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 
 	proposalRoot, err := ssz.TreeHash(proposal)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, b.config)
+
 	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.BlockHeader.Signature, bls.DomainProposal)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !valid {
-		return errors.New("block had invalid signature")
+		return nil, errors.New("block had invalid signature")
 	}
 
 	proposer := &newState.ValidatorRegistry[beaconProposerIndex]
@@ -327,33 +336,34 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 
 	valid, err = bls.VerifySig(&proposer.Pubkey, proposerSlotsBytes[:], &block.BlockHeader.RandaoReveal, bls.DomainRandao)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !valid {
-		return errors.New("block has invalid randao signature")
+		return nil, errors.New("block has invalid randao signature")
 	}
+
+	// increase the randao skips of the proposer
+	newState.ValidatorRegistry[newState.GetBeaconProposerIndex(newState.Slot, b.config)].ProposerSlots++
 
 	randaoRevealSerialized, err := block.BlockHeader.RandaoReveal.TreeHashSSZ()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for i := range newState.RandaoMix {
 		newState.RandaoMix[i] ^= randaoRevealSerialized[i]
 	}
 
-	proposer.RandaoSkips = 0
-
 	if len(block.BlockBody.ProposerSlashings) > b.config.MaxProposerSlashings {
-		return errors.New("more than maximum proposer slashings")
+		return nil, errors.New("more than maximum proposer slashings")
 	}
 
 	if len(block.BlockBody.CasperSlashings) > b.config.MaxCasperSlashings {
-		return errors.New("more than maximum casper slashings")
+		return nil, errors.New("more than maximum casper slashings")
 	}
 
 	if len(block.BlockBody.Attestations) > b.config.MaxAttestations {
-		return errors.New("more than maximum casper slashings")
+		return nil, errors.New("more than maximum casper slashings")
 	}
 
 	for _, s := range block.BlockBody.ProposerSlashings {
@@ -377,14 +387,12 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	if newState.Slot%b.config.EpochLength == 0 {
 		err := b.processEpochTransition(&newState)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// VERIFY BLOCK STATE ROOT MATCHES STATE ROOT FROM PREVIOUS BLOCK IF NEEDED
-
-	b.state = newState
-	return nil
+	return &newState, nil
 }
 
 func intSqrt(n uint64) uint64 {
@@ -610,7 +618,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 		}
 	}
 
-	baseRewardQuotient := b.config.BaseRewardQuotient * intSqrt(totalBalance)
+	baseRewardQuotient := b.config.BaseRewardQuotient * intSqrt(totalBalance*config.UnitInCoin)
 	baseReward := func(index uint32) uint64 {
 		return newState.GetEffectiveBalance(index, b.config) / baseRewardQuotient / 5
 	}
@@ -863,7 +871,9 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 
 // ProcessBlock is called when a block is received from a peer.
 func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
-	err := b.ApplyBlock(block)
+	// VALIDATE BLOCK HERE
+
+	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return err
 	}
@@ -871,6 +881,47 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	err = b.AddBlock(block)
 	if err != nil {
 		return err
+	}
+
+	node, err := b.addBlockNodeToIndex(block, blockHash)
+	if err != nil {
+		return err
+	}
+
+	newState, err := b.ApplyBlock(block)
+	if err != nil {
+		return err
+	}
+
+	b.stateMap[blockHash] = *newState
+
+	err = b.UpdateChainHead(block)
+	if err != nil {
+		return err
+	}
+
+	finalizedNode, err := getAncestor(node, newState.FinalizedSlot)
+	if err != nil {
+		return err
+	}
+	finalizedState := b.stateMap[finalizedNode.hash]
+	finalizedNodeAndState := blockNodeAndState{finalizedNode, finalizedState}
+	b.chain.finalizedHead = finalizedNodeAndState
+
+	justifiedNode, err := getAncestor(node, newState.JustifiedSlot)
+	if err != nil {
+		return err
+	}
+	justifiedState := b.stateMap[justifiedNode.hash]
+	justifiedNodeAndState := blockNodeAndState{justifiedNode, justifiedState}
+	b.chain.justifiedHead = justifiedNodeAndState
+
+	// once we finalize the block, we can get rid of any states before finalizedSlot
+	for i := range b.stateMap {
+		// if it happened before finalized slot, we don't need it
+		if b.stateMap[i].Slot <= b.state.FinalizedSlot {
+			delete(b.stateMap, i)
+		}
 	}
 
 	return nil

@@ -160,10 +160,10 @@ func (s *State) Copy() State {
 
 // GetEffectiveBalance gets the effective balance for a validator
 func (s *State) GetEffectiveBalance(index uint32, c *config.Config) uint64 {
-	if s.ValidatorBalances[index] <= c.MaxDeposit {
+	if s.ValidatorBalances[index] <= c.MaxDeposit*config.UnitInCoin {
 		return s.ValidatorBalances[index]
 	}
-	return c.MaxDeposit
+	return c.MaxDeposit * config.UnitInCoin
 }
 
 // GetTotalBalance gets the total balance of the provided validator indices.
@@ -206,7 +206,7 @@ const (
 
 // ActivateValidator activates a validator in the state at a certain index.
 func (s *State) ActivateValidator(index uint32) error {
-	validator := s.ValidatorRegistry[index]
+	validator := &s.ValidatorRegistry[index]
 	if validator.Status != PendingActivation {
 		return errors.New("validator is not pending activation")
 	}
@@ -284,7 +284,7 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 func (s *State) UpdateValidatorRegistry(c *config.Config) {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
-	maxBalanceChurn := c.MaxDeposit
+	maxBalanceChurn := c.MaxDeposit * config.UnitInCoin
 	if maxBalanceChurn < (totalBalance / (2 * c.MaxBalanceChurnQuotient)) {
 		maxBalanceChurn = totalBalance / (2 * c.MaxBalanceChurnQuotient)
 	}
@@ -292,7 +292,7 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) {
 	balanceChurn := uint64(0)
 	for idx, validator := range s.ValidatorRegistry {
 		index := uint32(idx)
-		if validator.Status == PendingActivation {
+		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MaxDeposit*config.UnitInCoin {
 			balanceChurn += s.GetEffectiveBalance(index, c)
 			if balanceChurn > maxBalanceChurn {
 				break
@@ -358,8 +358,8 @@ func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [
 
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
 func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) []ShardAndCommittee {
-	earliestSlot := s.Slot - (s.Slot % c.EpochLength) - c.EpochLength
-	return s.ShardAndCommitteeForSlots[s.Slot-earliestSlot]
+	earliestSlot := slot - (slot % c.EpochLength) - c.EpochLength
+	return s.ShardAndCommitteeForSlots[slot-earliestSlot]
 }
 
 // GetAttesterIndices gets all of the validator indices involved with the committee
@@ -387,18 +387,9 @@ func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Con
 
 // ValidateProofOfPossession validates a proof of possession for a new validator.
 func (s *State) ValidateProofOfPossession(pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
-	proofOfPossessionData := &pb.DepositParameters{
-		PublicKey:             pubkey.Serialize(),
-		WithdrawalCredentials: withdrawalCredentials[:],
-		ProofOfPossession:     bls.EmptySignature.Serialize(),
-	}
+	// fixme
 
-	proofOfPossessionDataBytes, err := proto.Marshal(proofOfPossessionData)
-	if err != nil {
-		return false, err
-	}
-
-	valid, err := bls.VerifySig(&pubkey, proofOfPossessionDataBytes, &proofOfPossession, bls.DomainDeposit)
+	valid, err := bls.VerifySig(&pubkey, pubkey.Hash(), &proofOfPossession, bls.DomainDeposit)
 	if err != nil {
 		return false, err
 	}
@@ -616,13 +607,15 @@ func MinEmptyValidator(validators []Validator, validatorBalances []uint64, c *co
 }
 
 // ProcessDeposit processes a deposit with the context of the current state.
-func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, c *config.Config) (uint32, error) {
-	sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials)
-	if err != nil {
-		return 0, err
-	}
-	if !sigValid {
-		return 0, errors.New("invalid deposit signature")
+func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
+	if !skipValidation {
+		sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials)
+		if err != nil {
+			return 0, err
+		}
+		if !sigValid {
+			return 0, errors.New("invalid deposit signature")
+		}
 	}
 
 	validatorAlreadyRegisteredIndex := -1
@@ -642,7 +635,6 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 		validator := Validator{
 			Pubkey:                  pubkey,
 			WithdrawalCredentials:   withdrawalCredentials,
-			RandaoSkips:             0,
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,
 			ExitCount:               0,
@@ -700,8 +692,6 @@ type Validator struct {
 	Pubkey bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
-	// RandaoSkips is the slots the proposer has skipped.
-	RandaoSkips uint64
 	// Balance in satoshi.
 	Balance uint64
 	// Status code
@@ -749,7 +739,6 @@ func (v *Validator) ToProto() *pb.Validator {
 		ProposerSlots:           v.ProposerSlots,
 		LastPoCChangeSlot:       v.LastPoCChangeSlot,
 		SecondLastPoCChangeSlot: v.SecondLastPoCChangeSlot,
-		RandaoSkips:             v.RandaoSkips,
 		Status:                  v.Status,
 		LatestStatusChangeSlot:  v.LatestStatusChangeSlot,
 		ExitCount:               v.ExitCount}

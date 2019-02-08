@@ -48,14 +48,14 @@ func (psd ProposalSignedData) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (psd ProposalSignedData) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, psd.Slot); err != nil {
+	if err := ssz.Decode(reader, &psd.Slot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, psd.Shard); err != nil {
+	if err := ssz.Decode(reader, &psd.Shard); err != nil {
 		return err
 	}
 	psd.BlockHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, psd.BlockHash); err != nil {
+	if err := ssz.Decode(reader, &psd.BlockHash); err != nil {
 		return err
 	}
 	return nil

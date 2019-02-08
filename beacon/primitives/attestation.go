@@ -93,33 +93,33 @@ func (a AttestationData) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (a AttestationData) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, a.Slot); err != nil {
+	if err := ssz.Decode(reader, &a.Slot); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, a.Shard); err != nil {
+	if err := ssz.Decode(reader, &a.Shard); err != nil {
 		return err
 	}
 	a.BeaconBlockHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, a.BeaconBlockHash); err != nil {
+	if err := ssz.Decode(reader, &a.BeaconBlockHash); err != nil {
 		return err
 	}
 	a.EpochBoundaryHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, a.EpochBoundaryHash); err != nil {
+	if err := ssz.Decode(reader, &a.EpochBoundaryHash); err != nil {
 		return err
 	}
 	a.ShardBlockHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, a.ShardBlockHash); err != nil {
+	if err := ssz.Decode(reader, &a.ShardBlockHash); err != nil {
 		return err
 	}
 	a.LatestCrosslinkHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, a.LatestCrosslinkHash); err != nil {
+	if err := ssz.Decode(reader, &a.LatestCrosslinkHash); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, a.JustifiedSlot); err != nil {
+	if err := ssz.Decode(reader, &a.JustifiedSlot); err != nil {
 		return err
 	}
 	a.JustifiedBlockHash = chainhash.Hash{}
-	if err := ssz.Decode(reader, a.JustifiedBlockHash); err != nil {
+	if err := ssz.Decode(reader, &a.JustifiedBlockHash); err != nil {
 		return err
 	}
 
@@ -221,19 +221,19 @@ func (a Attestation) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (a Attestation) DecodeSSZ(reader io.Reader) error {
 	a.Data = AttestationData{}
-	if err := ssz.Decode(reader, a.Data); err != nil {
+	if err := ssz.Decode(reader, &a.Data); err != nil {
 		return err
 	}
 	a.ParticipationBitfield = []uint8{}
-	if err := ssz.Decode(reader, a.ParticipationBitfield); err != nil {
+	if err := ssz.Decode(reader, &a.ParticipationBitfield); err != nil {
 		return err
 	}
 	a.CustodyBitfield = []uint8{}
-	if err := ssz.Decode(reader, a.CustodyBitfield); err != nil {
+	if err := ssz.Decode(reader, &a.CustodyBitfield); err != nil {
 		return err
 	}
 	a.AggregateSig = bls.Signature{}
-	if err := ssz.Decode(reader, a.AggregateSig); err != nil {
+	if err := ssz.Decode(reader, &a.AggregateSig); err != nil {
 		return err
 	}
 	return nil
@@ -322,18 +322,18 @@ func (pa PendingAttestation) EncodeSSZSize() (uint32, error) {
 // DecodeSSZ implements Decodable
 func (pa PendingAttestation) DecodeSSZ(reader io.Reader) error {
 	pa.Data = AttestationData{}
-	if err := ssz.Decode(reader, pa.Data); err != nil {
+	if err := ssz.Decode(reader, &pa.Data); err != nil {
 		return err
 	}
 	pa.ParticipationBitfield = []byte{}
-	if err := ssz.Decode(reader, pa.ParticipationBitfield); err != nil {
+	if err := ssz.Decode(reader, &pa.ParticipationBitfield); err != nil {
 		return err
 	}
 	pa.CustodyBitfield = []byte{}
-	if err := ssz.Decode(reader, pa.CustodyBitfield); err != nil {
+	if err := ssz.Decode(reader, &pa.CustodyBitfield); err != nil {
 		return err
 	}
-	if err := ssz.Decode(reader, pa.SlotIncluded); err != nil {
+	if err := ssz.Decode(reader, &pa.SlotIncluded); err != nil {
 		return err
 	}
 

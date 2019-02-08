@@ -78,23 +78,23 @@ func (bh BlockHeader) EncodeSSZSize() (uint32, error) {
 
 // DecodeSSZ implements Decodable
 func (bh BlockHeader) DecodeSSZ(reader io.Reader) error {
-	if err := ssz.Decode(reader, bh.SlotNumber); err != nil {
+	if err := ssz.Decode(reader, &bh.SlotNumber); err != nil {
 		return err
 	}
 	bh.ParentRoot = chainhash.Hash{}
-	if err := ssz.Decode(reader, bh.ParentRoot); err != nil {
+	if err := ssz.Decode(reader, &bh.ParentRoot); err != nil {
 		return err
 	}
 	bh.StateRoot = chainhash.Hash{}
-	if err := ssz.Decode(reader, bh.StateRoot); err != nil {
+	if err := ssz.Decode(reader, &bh.StateRoot); err != nil {
 		return err
 	}
 	bh.RandaoReveal = chainhash.Hash{}
-	if err := ssz.Decode(reader, bh.RandaoReveal); err != nil {
+	if err := ssz.Decode(reader, &bh.RandaoReveal); err != nil {
 		return err
 	}
 	bh.Signature = bls.Signature{}
-	if err := ssz.Decode(reader, bh.Signature); err != nil {
+	if err := ssz.Decode(reader, &bh.Signature); err != nil {
 		return err
 	}
 	return nil

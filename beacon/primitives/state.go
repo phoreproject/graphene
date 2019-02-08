@@ -442,6 +442,24 @@ func (s *State) GetEffectiveBalance(index uint32, c *config.Config) uint64 {
 	return c.MaxDeposit
 }
 
+// GetTotalBalance gets the total balance of the provided validator indices.
+func (s *State) GetTotalBalance(activeValidators []uint32, c *config.Config) uint64 {
+	balance := uint64(0)
+	for _, i := range activeValidators {
+		balance += s.GetEffectiveBalance(i, c)
+	}
+	return balance
+}
+
+// GetTotalBalanceMap gets the total balance of the provided validator indices with a map input.
+func (s *State) GetTotalBalanceMap(activeValidators map[uint32]struct{}, c *config.Config) uint64 {
+	balance := uint64(0)
+	for i := range activeValidators {
+		balance += s.GetEffectiveBalance(i, c)
+	}
+	return balance
+}
+
 // GetNewValidatorRegistryDeltaChainTip gets the new delta chain tip hash.
 func GetNewValidatorRegistryDeltaChainTip(currentValidatorRegistryDeltaChainTip chainhash.Hash, validatorIndex uint32, pubkey bls.PublicKey, flag uint64) chainhash.Hash {
 	// TODO: fix me!
@@ -1072,11 +1090,11 @@ func (v Validator) IsActive() bool {
 }
 
 // GetActiveValidatorIndices gets validator indices that are active.
-func GetActiveValidatorIndices(validators []Validator) []int {
-	active := make([]int, 0, len(validators))
+func GetActiveValidatorIndices(validators []Validator) []uint32 {
+	active := []uint32{}
 	for i, v := range validators {
 		if v.IsActive() {
-			active = append(active, i)
+			active = append(active, uint32(i))
 		}
 	}
 	return active

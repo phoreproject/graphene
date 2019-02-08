@@ -411,10 +411,372 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) error {
 	// process deposits here
 
 	for _, e := range block.BlockBody.Exits {
-		b.state.ApplyExit(e, b.config)
+		newState.ApplyExit(e, b.config)
+	}
+
+	if newState.Slot%b.config.EpochLength == 0 {
+		err := b.processEpochTransition(&newState)
+		if err != nil {
+			return err
+		}
 	}
 
 	b.state = newState
+	return nil
+}
+
+func intSqrt(n uint64) uint64 {
+	x := n
+	y := (x + 1) / 2
+	for y < x {
+		x = y
+		y = (x + n/x) / 2
+	}
+	return x
+}
+
+func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
+	activeValidatorIndices := primitives.GetActiveValidatorIndices(newState.ValidatorRegistry)
+	totalBalance := newState.GetTotalBalance(activeValidatorIndices, b.config)
+	currentEpochAttestations := []primitives.PendingAttestation{}
+	for _, a := range newState.LatestAttestations {
+		if newState.Slot-b.config.EpochLength <= a.Data.Slot && a.Data.Slot < newState.Slot {
+			currentEpochAttestations = append(currentEpochAttestations, a)
+		}
+	}
+
+	previousEpochBoundaryHash, err := b.GetNodeByHeight(newState.Slot - b.config.EpochLength)
+	if err != nil {
+		return err
+	}
+
+	currentEpochBoundaryAttestations := []primitives.PendingAttestation{}
+	for _, a := range currentEpochAttestations {
+		if a.Data.EpochBoundaryHash.IsEqual(&previousEpochBoundaryHash) && a.Data.JustifiedSlot == newState.JustifiedSlot {
+			currentEpochBoundaryAttestations = append(currentEpochBoundaryAttestations, a)
+		}
+	}
+	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
+	for _, a := range currentEpochBoundaryAttestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+		for _, p := range participants {
+			currentEpochBoundaryAttesterIndices[p] = struct{}{}
+		}
+	}
+	currentEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(currentEpochBoundaryAttesterIndices, b.config)
+
+	previousEpochAttestations := []primitives.PendingAttestation{}
+	for _, a := range newState.LatestAttestations {
+		if newState.Slot-2*b.config.EpochLength <= a.Data.Slot && a.Data.Slot < newState.Slot-b.config.EpochLength {
+			previousEpochAttestations = append(previousEpochAttestations, a)
+		}
+	}
+
+	previousEpochAttesterIndices := map[uint32]struct{}{}
+	for _, a := range previousEpochAttestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+		for _, p := range participants {
+			previousEpochAttesterIndices[p] = struct{}{}
+		}
+	}
+
+	previousEpochJustifiedAttestations := []primitives.PendingAttestation{}
+	for _, a := range currentEpochAttestations {
+		if a.Data.JustifiedSlot == newState.PreviousJustifiedSlot {
+			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
+		}
+	}
+
+	for _, a := range previousEpochAttestations {
+		if a.Data.JustifiedSlot == newState.PreviousJustifiedSlot {
+			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
+		}
+	}
+
+	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
+	for _, a := range previousEpochJustifiedAttestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+		for _, p := range participants {
+			previousEpochJustifiedAttesterIndices[p] = struct{}{}
+		}
+	}
+
+	previousEpochJustifiedAttestingBalance := newState.GetTotalBalanceMap(previousEpochJustifiedAttesterIndices, b.config)
+
+	epochBoundaryHashMinus2, err := b.GetNodeByHeight(newState.Slot - 2*b.config.EpochLength)
+	if err != nil {
+		return err
+	}
+
+	previousEpochBoundaryAttestations := []primitives.PendingAttestation{}
+
+	for _, a := range previousEpochJustifiedAttestations {
+		if epochBoundaryHashMinus2.IsEqual(&a.Data.EpochBoundaryHash) {
+			previousEpochBoundaryAttestations = append(previousEpochBoundaryAttestations, a)
+		}
+	}
+
+	previousEpochBoundaryAttesterIndices := map[uint32]struct{}{}
+	for _, a := range previousEpochBoundaryAttestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+		for _, p := range participants {
+			previousEpochBoundaryAttesterIndices[p] = struct{}{}
+		}
+	}
+
+	previousEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(previousEpochBoundaryAttesterIndices, b.config)
+
+	previousEpochHeadAttestations := []primitives.PendingAttestation{}
+
+	for _, a := range previousEpochAttestations {
+		blockRoot, err := b.GetNodeByHeight(a.Data.Slot)
+		if err != nil {
+			return err
+		}
+		if a.Data.BeaconBlockHash.IsEqual(&blockRoot) {
+			previousEpochHeadAttestations = append(previousEpochHeadAttestations, a)
+		}
+	}
+
+	previousEpochHeadAttesterIndices := map[uint32]struct{}{}
+	for _, a := range previousEpochHeadAttestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+		for _, p := range participants {
+			previousEpochHeadAttesterIndices[p] = struct{}{}
+		}
+	}
+
+	previousEpochHeadAttestingBalance := newState.GetTotalBalanceMap(previousEpochHeadAttesterIndices, b.config)
+
+	newState.PreviousJustifiedSlot = newState.JustifiedSlot
+	newState.JustificationBitfield = newState.JustificationBitfield * 2
+	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
+		newState.JustificationBitfield |= 2
+		newState.JustifiedSlot = newState.Slot - 2*b.config.EpochLength
+	}
+
+	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
+		newState.JustificationBitfield |= 2
+		newState.JustifiedSlot = newState.Slot - b.config.EpochLength
+	}
+
+	if (newState.PreviousJustifiedSlot == newState.Slot-2*b.config.EpochLength && newState.JustificationBitfield%4 == 3) ||
+		(newState.PreviousJustifiedSlot == newState.Slot-3*b.config.EpochLength && newState.JustificationBitfield%8 == 7) ||
+		(newState.PreviousJustifiedSlot == newState.Slot-4*b.config.EpochLength && newState.JustificationBitfield%16 > 14) {
+		newState.FinalizedSlot = newState.PreviousJustifiedSlot
+	}
+
+	attestingValidatorIndices := func(shardComittee primitives.ShardAndCommittee, shardBlockRoot chainhash.Hash) ([]uint32, error) {
+		out := []uint32{}
+		for _, a := range currentEpochAttestations {
+			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
+				participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+				if err != nil {
+					return nil, err
+				}
+				for _, p := range participants {
+					out = append(out, p)
+				}
+			}
+		}
+		return out, nil
+	}
+
+	winningRoot := func(shardCommittee primitives.ShardAndCommittee) (*chainhash.Hash, error) {
+		balances := map[chainhash.Hash]struct{}{}
+		largestBalance := uint64(0)
+		largestBalanceHash := new(chainhash.Hash)
+		for _, a := range currentEpochAttestations {
+			if a.Data.Shard != shardCommittee.Shard {
+				continue
+			}
+			if _, exists := balances[a.Data.ShardBlockHash]; !exists {
+				participationIndices, err := attestingValidatorIndices(shardCommittee, a.Data.ShardBlockHash)
+				if err != nil {
+					return nil, err
+				}
+				balance := newState.GetTotalBalance(participationIndices, b.config)
+				if balance > largestBalance {
+					largestBalance = balance
+					largestBalanceHash = &a.Data.ShardBlockHash
+				}
+			}
+		}
+		if largestBalance == 0 {
+			return nil, errors.New("no attestations from correct shard ID")
+		}
+		return largestBalanceHash, nil
+	}
+
+	shardWinnerCache := make([]map[uint64]chainhash.Hash, len(newState.ShardAndCommitteeForSlots))
+
+	for i, shardCommitteeAtSlot := range newState.ShardAndCommitteeForSlots {
+		for _, shardCommittee := range shardCommitteeAtSlot {
+			bestRoot, err := winningRoot(shardCommittee)
+			if err != nil {
+				return err
+			}
+			shardWinnerCache[i][shardCommittee.Shard] = *bestRoot
+			attestingCommittee, err := attestingValidatorIndices(shardCommittee, *bestRoot)
+			if err != nil {
+				return err
+			}
+			totalAttestingBalance := newState.GetTotalBalance(attestingCommittee, b.config)
+			totalBalance := newState.GetTotalBalance(shardCommittee.Committee, b.config)
+
+			if 3*totalAttestingBalance >= 2*totalBalance {
+				newState.LatestCrosslinks[shardCommittee.Shard] = primitives.Crosslink{
+					Slot:           newState.Slot,
+					ShardBlockHash: *bestRoot,
+				}
+			}
+		}
+	}
+
+	baseRewardQuotient := b.config.BaseRewardQuotient * intSqrt(totalBalance)
+	baseReward := func(index uint32) uint64 {
+		return newState.GetEffectiveBalance(index, b.config) / baseRewardQuotient / 5
+	}
+
+	inactivityPenalty := func(index uint32, epochsSinceFinality uint64) uint64 {
+		return baseReward(index) + newState.GetEffectiveBalance(index, b.config)*epochsSinceFinality/b.config.InactivityPenaltyQuotient/2
+	}
+
+	epochsSinceFinality := (newState.Slot - newState.FinalizedSlot) / b.config.EpochLength
+
+	validatorAttestationCache := map[uint32]*primitives.PendingAttestation{}
+	for _, a := range currentEpochAttestations {
+		participation, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+
+		for _, p := range participation {
+			validatorAttestationCache[p] = &a
+		}
+	}
+
+	if epochsSinceFinality <= 4 {
+		// any validator in previous_epoch_justified_attester_indices is rewarded
+		for index := range previousEpochJustifiedAttesterIndices {
+			newState.ValidatorBalances[index] += baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
+		}
+
+		// any validator in previous_epoch_boundary_attester_indices is rewarded
+		for index := range previousEpochBoundaryAttesterIndices {
+			newState.ValidatorBalances[index] += baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
+		}
+
+		// any validator in previous_epoch_head_attester_indices is rewarded
+		for index := range previousEpochHeadAttesterIndices {
+			newState.ValidatorBalances[index] += baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
+		}
+
+		// any validator in previous_epoch_head_attester_indices is rewarded
+		for index := range previousEpochAttesterIndices {
+			inclusionDistance := validatorAttestationCache[index].SlotIncluded - validatorAttestationCache[index].Data.Slot
+			newState.ValidatorBalances[index] += baseReward(index) * b.config.MinAttestationInclusionDelay / inclusionDistance
+		}
+
+		// any validator not in previous_epoch_head_attester_indices is slashed
+		// any validator not in previous_epoch_boundary_attester_indices is slashed
+		// any validator not in previous_epoch_justified_attester_indices is slashed
+		for idx, validator := range newState.ValidatorRegistry {
+			index := uint32(idx)
+			if validator.Status != primitives.Active {
+				continue
+			}
+			if _, found := previousEpochHeadAttesterIndices[index]; !found {
+				newState.ValidatorBalances[index] -= baseReward(index)
+			}
+			if _, found := previousEpochBoundaryAttesterIndices[index]; !found {
+				newState.ValidatorBalances[index] -= baseReward(index)
+			}
+			if _, found := previousEpochJustifiedAttesterIndices[index]; !found {
+				newState.ValidatorBalances[index] -= baseReward(index)
+			}
+		}
+	} else {
+		// any validator not in previous_epoch_head_attester_indices is slashed
+		for idx, validator := range newState.ValidatorRegistry {
+			index := uint32(idx)
+			if validator.Status == primitives.Active {
+				if _, found := previousEpochJustifiedAttesterIndices[index]; !found {
+					newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality)
+				}
+				if _, found := previousEpochBoundaryAttesterIndices[index]; !found {
+					newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality)
+				}
+				if _, found := previousEpochHeadAttesterIndices[index]; !found {
+					newState.ValidatorBalances[index] -= baseReward(index)
+				}
+			} else if validator.Status == primitives.ExitedWithPenalty {
+				newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
+			}
+			// inclusion delay penalty
+			if _, found := previousEpochAttesterIndices[index]; !found {
+				inclusionDistance := validatorAttestationCache[index].SlotIncluded - validatorAttestationCache[index].Data.Slot
+				newState.ValidatorBalances[index] -= baseReward(index) - baseReward(index)*b.config.MinAttestationInclusionDelay/inclusionDistance
+			}
+		}
+	}
+
+	for index := range previousEpochAttesterIndices {
+		proposerIndex := newState.GetBeaconProposerIndex(validatorAttestationCache[index].SlotIncluded, b.config)
+		newState.ValidatorBalances[proposerIndex] += baseReward(index) / b.config.IncluderRewardQuotient
+	}
+
+	for slot, shardCommitteeAtSlot := range newState.ShardAndCommitteeForSlots[:b.config.EpochLength] {
+		for _, shardCommittee := range shardCommitteeAtSlot {
+			winningRoot := shardWinnerCache[slot][shardCommittee.Shard]
+			participationIndices, err := attestingValidatorIndices(shardCommittee, winningRoot)
+			if err != nil {
+				return err
+			}
+
+			participationIndicesMap := map[uint32]struct{}{}
+			for _, p := range participationIndices {
+				participationIndicesMap[p] = struct{}{}
+			}
+
+			totalAttestingBalance := newState.GetTotalBalance(participationIndices, b.config)
+			totalBalance := newState.GetTotalBalance(shardCommittee.Committee, b.config)
+
+			for _, index := range shardCommittee.Committee {
+				if _, found := participationIndicesMap[index]; found {
+					newState.ValidatorBalances[index] += baseReward(index) * totalAttestingBalance / totalBalance
+				} else {
+					newState.ValidatorBalances[index] -= baseReward(index)
+				}
+			}
+		}
+	}
+
+	for index, validator := range newState.ValidatorRegistry {
+		if validator.Status == primitives.Active && newState.ValidatorBalances[index] < b.config.EjectionBalance {
+			newState.UpdateValidatorStatus(uint32(index), primitives.ExitedWithoutPenalty, b.config)
+		}
+	}
+
+	// VALIDATOR REGISTRY
+
+	// FINAL UPDATES
+
 	return nil
 }
 

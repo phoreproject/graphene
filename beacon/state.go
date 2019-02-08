@@ -773,7 +773,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 		}
 	}
 
-	// VALIDATOR REGISTRY
+	newState.UpdateValidatorRegistry(b.config)
 
 	// FINAL UPDATES
 

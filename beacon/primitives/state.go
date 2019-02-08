@@ -556,6 +556,62 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 	return nil
 }
 
+// UpdateValidatorRegistry updates the registry and updates validator pending activation or exit.
+func (s *State) UpdateValidatorRegistry(c *config.Config) {
+	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
+	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
+	maxBalanceChurn := c.MaxDeposit
+	if maxBalanceChurn < (totalBalance / (2 * c.MaxBalanceChurnQuotient)) {
+		maxBalanceChurn = totalBalance / (2 * c.MaxBalanceChurnQuotient)
+	}
+
+	balanceChurn := uint64(0)
+	for idx, validator := range s.ValidatorRegistry {
+		index := uint32(idx)
+		if validator.Status == PendingActivation {
+			balanceChurn += s.GetEffectiveBalance(index, c)
+			if balanceChurn > maxBalanceChurn {
+				break
+			}
+
+			s.UpdateValidatorStatus(index, Active, c)
+		}
+	}
+
+	balanceChurn = 0
+	for idx, validator := range s.ValidatorRegistry {
+		index := uint32(idx)
+		if validator.Status == ActivePendingExit {
+			balanceChurn += s.GetEffectiveBalance(index, c)
+			if balanceChurn > maxBalanceChurn {
+				break
+			}
+
+			s.UpdateValidatorStatus(index, ExitedWithoutPenalty, c)
+		}
+	}
+
+	periodIndex := s.Slot / c.CollectivePenaltyCalculationPeriod
+	totalPenalties := s.LatestPenalizedExitBalances[periodIndex]
+	if periodIndex >= 1 {
+		totalPenalties += s.LatestPenalizedExitBalances[periodIndex-1]
+	}
+	if periodIndex >= 2 {
+		totalPenalties += s.LatestPenalizedExitBalances[periodIndex-2]
+	}
+
+	for idx, validator := range s.ValidatorRegistry {
+		index := uint32(idx)
+		if validator.Status != ExitedWithPenalty {
+			penaltyFactor := totalPenalties * 3
+			if totalBalance < penaltyFactor {
+				penaltyFactor = totalBalance
+			}
+			s.ValidatorBalances[index] -= s.GetEffectiveBalance(index, c) * penaltyFactor / totalBalance
+		}
+	}
+}
+
 // ShardCommitteeByShardID gets the shards committee from a list of committees/shards
 // in a list.
 func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee) ([]uint32, error) {

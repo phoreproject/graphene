@@ -1,13 +1,11 @@
 module github.com/phoreproject/synapse
 
 require (
-	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 // indirect
-	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d // indirect
+	github.com/btcsuite/btcd v0.0.0-20190209000034-12ce2fc7d321 // indirect
 	github.com/btcsuite/btcutil v0.0.0-20190207003914-4c204d697803
 	github.com/btcsuite/golangcrypto v0.0.0-20150304025918-53f62d9b43e8
 	github.com/coreos/go-semver v0.2.0 // indirect
 	github.com/fd/go-nat v1.0.0 // indirect
-	github.com/gogo/protobuf v1.2.0
 	github.com/golang/protobuf v1.2.0
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
@@ -24,7 +22,7 @@ require (
 	github.com/libp2p/go-libp2p v6.0.29+incompatible
 	github.com/libp2p/go-libp2p-autonat v0.0.0-20190207233022-494f7fce997b // indirect
 	github.com/libp2p/go-libp2p-circuit v2.3.2+incompatible // indirect
-	github.com/libp2p/go-libp2p-crypto v2.0.1+incompatible
+	github.com/libp2p/go-libp2p-crypto v2.0.5+incompatible
 	github.com/libp2p/go-libp2p-discovery v0.0.0-20190207233013-a666b9cafd4c // indirect
 	github.com/libp2p/go-libp2p-host v3.0.15+incompatible
 	github.com/libp2p/go-libp2p-interface-connmgr v0.0.21 // indirect
@@ -58,7 +56,7 @@ require (
 	github.com/multiformats/go-multistream v0.3.9 // indirect
 	github.com/phoreproject/bls v0.0.0-20190206220808-3635f34483c1
 	github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134
-	github.com/prysmaticlabs/prysm v0.0.0-20190208203038-7078382b8278 // indirect
+	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051 // indirect
 	github.com/sirupsen/logrus v1.3.0
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect
 	github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f // indirect

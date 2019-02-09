@@ -97,9 +97,16 @@ func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
 	}
 	current := node
 	for slot != current.height {
-		current = node.parent
+		current = current.parent
 	}
 	return current, nil
+}
+
+// GetEpochBoundaryHash gets the hash of the parent block at the epoch boundary.
+func (b *Blockchain) GetEpochBoundaryHash() (chainhash.Hash, error) {
+	height := b.Height()
+	epochBoundaryHeight := height - (height % b.config.EpochLength)
+	return b.GetHashByHeight(epochBoundaryHeight)
 }
 
 func (b *Blockchain) getLatestAttestation(validator uint32) (primitives.Attestation, error) {

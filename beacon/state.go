@@ -3,6 +3,7 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/phoreproject/prysm/shared/ssz"
@@ -267,13 +268,6 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 	return nil
 }
 
-func repeatHash(data []byte, n uint64) []byte {
-	if n == 0 {
-		return data
-	}
-	return repeatHash(chainhash.HashB(data), n-1)
-}
-
 // ApplyBlock tries to apply a block to the state.
 func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, error) {
 	// copy the state so we can easily revert
@@ -367,15 +361,24 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	}
 
 	for _, s := range block.BlockBody.ProposerSlashings {
-		newState.ApplyProposerSlashing(s, b.config)
+		err := newState.ApplyProposerSlashing(s, b.config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, c := range block.BlockBody.CasperSlashings {
-		newState.ApplyCasperSlashing(c, b.config)
+		err := newState.ApplyCasperSlashing(c, b.config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, a := range block.BlockBody.Attestations {
-		b.ApplyAttestation(&newState, a, b.config)
+		err := b.ApplyAttestation(&newState, a, b.config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// process deposits here
@@ -482,9 +485,13 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 
 	previousEpochJustifiedAttestingBalance := newState.GetTotalBalanceMap(previousEpochJustifiedAttesterIndices, b.config)
 
-	epochBoundaryHashMinus2, err := b.GetHashByHeight(newState.Slot - 2*b.config.EpochLength)
-	if err != nil {
-		return err
+	epochBoundaryHashMinus2 := chainhash.Hash{}
+	if newState.Slot >= 2*b.config.EpochLength {
+		ebhm2, err := b.GetHashByHeight(newState.Slot - 2*b.config.EpochLength)
+		epochBoundaryHashMinus2 = ebhm2
+		if err != nil {
+			return err
+		}
 	}
 
 	previousEpochBoundaryAttestations := []primitives.PendingAttestation{}
@@ -567,6 +574,8 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 		return out, nil
 	}
 
+	fmt.Println("a", len(currentEpochAttestations))
+
 	winningRoot := func(shardCommittee primitives.ShardAndCommittee) (*chainhash.Hash, error) {
 		balances := map[chainhash.Hash]struct{}{}
 		largestBalance := uint64(0)
@@ -575,7 +584,13 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 			if a.Data.Shard != shardCommittee.Shard {
 				continue
 			}
-			if _, exists := balances[a.Data.ShardBlockHash]; !exists {
+			balances[a.Data.ShardBlockHash] = struct{}{}
+		}
+		for _, a := range currentEpochAttestations {
+			if a.Data.Shard != shardCommittee.Shard {
+				continue
+			}
+			if _, exists := balances[a.Data.ShardBlockHash]; exists {
 				participationIndices, err := attestingValidatorIndices(shardCommittee, a.Data.ShardBlockHash)
 				if err != nil {
 					return nil, err
@@ -600,6 +615,9 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 			bestRoot, err := winningRoot(shardCommittee)
 			if err != nil {
 				return err
+			}
+			if shardWinnerCache[i] == nil {
+				shardWinnerCache[i] = make(map[uint64]chainhash.Hash)
 			}
 			shardWinnerCache[i][shardCommittee.Shard] = *bestRoot
 			attestingCommittee, err := attestingValidatorIndices(shardCommittee, *bestRoot)

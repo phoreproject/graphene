@@ -78,7 +78,7 @@ var RegtestConfig = Config{
 	InitialSlotNumber:                  0,
 	SlotDuration:                       6,
 	EpochLength:                        4,
-	MinAttestationInclusionDelay:       64,
+	MinAttestationInclusionDelay:       0,
 	CollectivePenaltyCalculationPeriod: 1048576,
 	ZeroBalanceValidatorTTL:            4194304,
 	BaseRewardQuotient:                 1024,

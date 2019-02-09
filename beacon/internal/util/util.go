@@ -6,8 +6,6 @@ import (
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/phoreproject/synapse/validator"
 
 	"github.com/phoreproject/synapse/beacon"
@@ -151,18 +149,28 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 			return nil, err
 		}
 
+		epochBoundaryHash, err := b.GetEpochBoundaryHash()
+		if err != nil {
+			return nil, err
+		}
+
 		dataToSign := primitives.AttestationData{
-			Slot:                lb.BlockHeader.SlotNumber - 4,
+			Slot:                lb.BlockHeader.SlotNumber,
 			Shard:               assignment.Shard,
 			BeaconBlockHash:     b.Tip(),
-			EpochBoundaryHash:   chainhash.Hash{},
+			EpochBoundaryHash:   epochBoundaryHash,
 			ShardBlockHash:      chainhash.Hash{},
-			LatestCrosslinkHash: chainhash.Hash{},
+			LatestCrosslinkHash: b.GetState().LatestCrosslinks[assignment.Shard].ShardBlockHash,
 			JustifiedBlockHash:  slotHash,
 			JustifiedSlot:       b.GetState().JustifiedSlot,
 		}
 
-		data, _ := proto.Marshal(dataToSign.ToProto())
+		dataAndCustodyBit := primitives.AttestationDataAndCustodyBit{Data: dataToSign, PoCBit: false}
+
+		dataRoot, err := ssz.TreeHash(dataAndCustodyBit)
+		if err != nil {
+			return nil, err
+		}
 
 		attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
 		aggregateSig := bls.NewAggregateSignature()
@@ -170,7 +178,7 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 		for i, n := range assignment.Committee {
 			attesterBitfield, _ = SetBit(attesterBitfield, uint32(i))
 			key := keys.GetKeyForValidator(n)
-			sig, err := bls.Sign(key, data, bls.DomainAttestation)
+			sig, err := bls.Sign(key, dataRoot[:], bls.DomainAttestation)
 			if err != nil {
 				return nil, err
 			}

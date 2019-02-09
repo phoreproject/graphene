@@ -221,34 +221,6 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 	return output
 }
 
-// checkTrailingZeros ensures there are a certain number of trailing
-// zeros in provided byte.
-func checkTrailingZeros(a byte, numZeros uint8) bool {
-	i := uint8(a)
-	if (i%128)/64 == 1 && numZeros == 7 {
-		return false
-	}
-	if (i%64)/32 == 1 && numZeros >= 6 {
-		return false
-	}
-	if (i%32)/16 == 1 && numZeros >= 5 {
-		return false
-	}
-	if (i%16)/8 == 1 && numZeros >= 4 {
-		return false
-	}
-	if (i%8)/4 == 1 && numZeros >= 3 {
-		return false
-	}
-	if (i%4)/2 == 1 && numZeros >= 2 {
-		return false
-	}
-	if (i%2) == 1 && numZeros >= 1 {
-		return false
-	}
-	return true
-}
-
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
@@ -547,7 +519,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 	}
 
 	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
-		newState.JustificationBitfield |= 2
+		newState.JustificationBitfield |= 1
 		newState.JustifiedSlot = newState.Slot - b.config.EpochLength
 	}
 

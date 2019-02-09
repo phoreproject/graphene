@@ -1,6 +1,7 @@
 package beacon_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -71,15 +72,26 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*2; i++ {
+	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5; i++ {
+		s := b.GetState()
+		fmt.Printf("proposer %d mining block %d\n", s.GetBeaconProposerIndex(i+1, b.GetConfig()), i+1)
 		_, err := util.MineBlockWithFullAttestations(b, keys)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
+
+		s = b.GetState()
+
+		fmt.Printf("justified slot: %d, finalized slot: %d, justificationBitField: %b, previousJustifiedSlot: %d\n", s.JustifiedSlot, s.FinalizedSlot, s.JustificationBitfield, s.PreviousJustifiedSlot)
 	}
 
-	firstValidator2 := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
+	stateAfterSlot20 := b.GetState()
+
+	firstValidator2 := stateAfterSlot20.ShardAndCommitteeForSlots[0][0].Committee[0]
 	if firstValidator == firstValidator2 {
 		t.Fatal("validators were not shuffled")
+	}
+	if stateAfterSlot20.FinalizedSlot != 12 || stateAfterSlot20.JustifiedSlot != 16 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedSlot != 12 {
+		t.Fatal("justification/finalization is working incorrectly")
 	}
 }

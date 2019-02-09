@@ -21,7 +21,7 @@ $(BINARY_NAME): $(SRC)
 	go build cmd/validator/synapsevalidator.go
 	go build cmd/p2p/synapsep2p.go
 
-test: unittest # integrationtests
+test: unittest integrationtests
 
 unittest:
 	go test -v ./...

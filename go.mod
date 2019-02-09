@@ -12,8 +12,6 @@ require (
 	github.com/ipfs/go-cid v0.9.0 // indirect
 	github.com/ipfs/go-ipfs-addr v0.1.25
 	github.com/ipfs/go-ipfs-util v1.2.8 // indirect
-	github.com/jbenet/go-cienv v0.0.0-20150120210510-1bb1476777ec // indirect
-	github.com/jbenet/go-randbuf v0.0.0-20160322125720-674640a50e6a // indirect
 	github.com/jbenet/go-temp-err-catcher v0.0.0-20150120210811-aac704a3f4f2 // indirect
 	github.com/jbenet/goprocess v0.0.0-20160826012719-b497e2f366b8 // indirect
 	github.com/libp2p/go-addr-util v2.0.7+incompatible // indirect
@@ -23,7 +21,6 @@ require (
 	github.com/libp2p/go-flow-metrics v0.2.0 // indirect
 	github.com/libp2p/go-libp2p v6.0.29+incompatible
 	github.com/libp2p/go-libp2p-autonat v0.0.0-20190207233022-494f7fce997b // indirect
-	github.com/libp2p/go-libp2p-blankhost v0.3.15 // indirect
 	github.com/libp2p/go-libp2p-circuit v2.3.2+incompatible // indirect
 	github.com/libp2p/go-libp2p-crypto v2.0.5+incompatible
 	github.com/libp2p/go-libp2p-discovery v0.0.0-20190207233013-a666b9cafd4c // indirect
@@ -49,7 +46,6 @@ require (
 	github.com/libp2p/go-reuseport-transport v0.2.0 // indirect
 	github.com/libp2p/go-stream-muxer v3.0.1+incompatible // indirect
 	github.com/libp2p/go-tcp-transport v2.0.16+incompatible // indirect
-	github.com/libp2p/go-testutil v1.2.10 // indirect
 	github.com/libp2p/go-ws-transport v2.0.15+incompatible // indirect
 	github.com/mattn/go-colorable v0.1.0 // indirect
 	github.com/miekg/dns v1.1.4 // indirect

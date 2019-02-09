@@ -3,7 +3,6 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/phoreproject/prysm/shared/ssz"
@@ -573,8 +572,6 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 		}
 		return out, nil
 	}
-
-	fmt.Println("a", len(currentEpochAttestations))
 
 	winningRoot := func(shardCommittee primitives.ShardAndCommittee) (*chainhash.Hash, error) {
 		balances := map[chainhash.Hash]struct{}{}

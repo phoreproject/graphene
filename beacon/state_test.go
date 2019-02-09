@@ -1,7 +1,6 @@
 package beacon_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -73,13 +72,9 @@ func TestCrystallizedStateTransition(t *testing.T) {
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
 	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*2; i++ {
-		fmt.Println(b.Height())
-		blk, err := util.MineBlockWithFullAttestations(b, keys)
+		_, err := util.MineBlockWithFullAttestations(b, keys)
 		if err != nil {
 			t.Error(err)
-		}
-		for _, a := range blk.BlockBody.Attestations {
-			fmt.Printf("block %d including shard attestation %d\n", a.Data.Slot, a.Data.Shard)
 		}
 	}
 

@@ -2,21 +2,14 @@ package beacon_test
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"testing"
 
-	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/internal/util"
-	"github.com/phoreproject/synapse/bls"
-
-	"github.com/phoreproject/synapse/transaction"
-
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/phoreproject/synapse/beacon/primitives"
 )
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
-	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+1, &beacon.RegtestConfig)
+	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+1, &config.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +19,7 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if b0.SlotNumber != 0 {
+	if b0.BlockHeader.SlotNumber != 0 {
 		t.Fatal("invalid last block for initial chain")
 	}
 
@@ -44,13 +37,13 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if b1.SlotNumber != 1 {
+	if b1.BlockHeader.SlotNumber != 1 {
 		t.Fatal("invalid last block after mining 1 block")
 	}
 }
 
 func TestStateInitialization(t *testing.T) {
-	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+1, &beacon.RegtestConfig)
+	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+1, &config.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,332 +59,39 @@ func TestStateInitialization(t *testing.T) {
 		t.Errorf("invalid initial validator entries")
 	}
 
-	if len(s.ShardAndCommitteeForSlots) != beacon.RegtestConfig.CycleLength*2 {
-		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), beacon.RegtestConfig.CycleLength)
-	}
-}
-
-/*
-func TestCrystallizedStateCopy(t *testing.T) {
-	c := beacon.CrystallizedState{
-		Crosslinks: []primitives.Crosslink{
-			{
-				RecentlyChanged: false,
-				Slot:            0,
-				Hash:            zeroHash,
-			},
-		},
-		Validators: []primitives.Validator{
-			{
-				WithdrawalShardID: 0,
-			},
-		},
-		ShardAndCommitteeForSlots: [][]primitives.ShardAndCommittee{
-			{
-				{
-					ShardID: 0,
-				},
-			},
-		},
-		DepositsPenalizedInPeriod: []uint64{1},
-	}
-
-	c1 := c.Copy()
-	c1.Crosslinks[0] = primitives.Crosslink{
-		RecentlyChanged: true,
-		Slot:            1,
-		Hash:            zeroHash,
-	}
-
-	c1.Validators[0] = primitives.Validator{
-		WithdrawalShardID: 1,
-	}
-
-	c1.ShardAndCommitteeForSlots[0][0] = primitives.ShardAndCommittee{
-		ShardID: 1,
-	}
-
-	c1.DepositsPenalizedInPeriod[0] = 2
-
-	if c.Crosslinks[0].RecentlyChanged {
-		t.Errorf("crystallized state was not copied correctly")
-		return
-	}
-
-	if c.Validators[0].WithdrawalShardID == 1 {
-		t.Errorf("crystallized state was not copied correctly")
-		return
-	}
-
-	if c.ShardAndCommitteeForSlots[0][0].ShardID == 1 {
-		t.Errorf("crystallized state was not copied correctly")
-		return
-	}
-
-	if c.DepositsPenalizedInPeriod[0] == 2 {
-		t.Errorf("crystallized state was not copied correctly")
-		return
-	}
-}
-*/
-
-func TestShardCommitteeByShardID(t *testing.T) {
-	committees := []primitives.ShardAndCommittee{
-		{
-			Shard:     0,
-			Committee: []uint32{0, 1, 2, 3},
-		},
-		{
-			Shard:     1,
-			Committee: []uint32{4, 5, 6, 7},
-		},
-		{
-			Shard:     2,
-			Committee: []uint32{0, 1, 2, 3},
-		},
-		{
-			Shard:     3,
-			Committee: []uint32{99, 100, 101, 102, 103},
-		},
-		{
-			Shard:     4,
-			Committee: []uint32{0, 1, 2, 3},
-		},
-		{
-			Shard:     5,
-			Committee: []uint32{4, 5, 6, 7},
-		},
-	}
-
-	s, err := beacon.ShardCommitteeByShardID(3, committees)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if s[0] != 99 {
-		t.Fatal("did not find correct shard")
-	}
-
-	_, err = beacon.ShardCommitteeByShardID(9, committees)
-	if err == nil {
-		t.Fatal("did not error on non-existent shard ID")
-	}
-
-	shardAndCommitteeForSlots := [][]primitives.ShardAndCommittee{committees}
-
-	s, err = beacon.CommitteeInShardAndSlot(0, 3, shardAndCommitteeForSlots)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if s[0] != 99 {
-		t.Fatal("did not find correct shard")
-	}
-
-	cState := beacon.State{
-		LastStateRecalculationSlot: 64,
-		ShardAndCommitteeForSlots:  shardAndCommitteeForSlots,
-	}
-
-	att, err := cState.GetAttesterIndices(64, 3, &beacon.RegtestConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if att[0] != 99 {
-		t.Fatal("did not find correct shard")
-	}
-}
-
-func TestAttestationValidation(t *testing.T) {
-	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+5, &beacon.RegtestConfig) // committee size of 257 (% 8 = 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	lb, err := b.LastBlock()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assignment := b.GetState().ShardAndCommitteeForSlots[lb.SlotNumber][0]
-
-	committeeSize := len(assignment.Committee)
-
-	attestationSignedData := transaction.AttestationSignedData{
-		Slot:                       lb.SlotNumber,
-		Shard:                      assignment.Shard,
-		ParentHashes:               []chainhash.Hash{},
-		ShardBlockHash:             chainhash.Hash{},
-		LastCrosslinkHash:          chainhash.Hash{},
-		ShardBlockCombinedDataRoot: chainhash.Hash{},
-		JustifiedSlot:              0,
-	}
-
-	attestationSignedDataBytes, err := proto.Marshal(attestationSignedData.ToProto())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	attesterBitfield := make([]byte, (len(assignment.Committee)+7)/8)
-	aggregateSig := bls.NewAggregateSignature()
-
-	for i, n := range assignment.Committee {
-		attesterBitfield, _ = util.SetBit(attesterBitfield, uint32(i))
-		key := keys.GetKeyForValidator(n)
-		sig, err := bls.Sign(key, attestationSignedDataBytes)
-		if err != nil {
-			t.Fatal(err)
-		}
-		aggregateSig.AggregateSig(sig)
-	}
-
-	b0, err := b.GetNodeByHeight(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	att := &transaction.AttestationRecord{
-		Data:             attestationSignedData,
-		AttesterBitfield: attesterBitfield,
-		PoCBitfield:      []uint8{},
-		AggregateSig:     *aggregateSig,
-	}
-
-	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	att = &transaction.AttestationRecord{
-		Data: transaction.AttestationSignedData{
-			Slot:                       lb.SlotNumber + 1,
-			Shard:                      assignment.Shard,
-			ParentHashes:               []chainhash.Hash{},
-			ShardBlockHash:             chainhash.Hash{},
-			LastCrosslinkHash:          chainhash.Hash{},
-			ShardBlockCombinedDataRoot: chainhash.Hash{},
-			JustifiedSlot:              0,
-		},
-		AttesterBitfield: attesterBitfield,
-		PoCBitfield:      []uint8{},
-		AggregateSig:     bls.Signature{},
-	}
-
-	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
-	if err == nil {
-		t.Fatal("did not catch slot number being too high")
-	}
-
-	att = &transaction.AttestationRecord{
-		Data: transaction.AttestationSignedData{
-			Slot:                       lb.SlotNumber,
-			Shard:                      assignment.Shard,
-			ParentHashes:               []chainhash.Hash{},
-			ShardBlockHash:             b0,
-			LastCrosslinkHash:          chainhash.Hash{},
-			ShardBlockCombinedDataRoot: chainhash.Hash{},
-			JustifiedSlot:              10,
-		},
-		AttesterBitfield: attesterBitfield,
-		PoCBitfield:      []uint8{},
-		AggregateSig:     bls.Signature{},
-	}
-
-	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
-	if err == nil {
-		t.Fatal("did not catch slot number being out of bounds")
-	}
-
-	att = &transaction.AttestationRecord{
-		Data: transaction.AttestationSignedData{
-			Slot:                       lb.SlotNumber,
-			Shard:                      5,
-			ParentHashes:               []chainhash.Hash{},
-			ShardBlockHash:             b0,
-			LastCrosslinkHash:          chainhash.Hash{},
-			ShardBlockCombinedDataRoot: chainhash.Hash{},
-			JustifiedSlot:              0,
-		},
-		AttesterBitfield: attesterBitfield,
-		PoCBitfield:      []uint8{},
-		AggregateSig:     bls.Signature{},
-	}
-
-	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
-	if err == nil {
-		t.Fatal("did not catch invalid shard ID")
-	}
-
-	att = &transaction.AttestationRecord{
-		Data: transaction.AttestationSignedData{
-			Slot:                       lb.SlotNumber,
-			Shard:                      assignment.Shard,
-			ParentHashes:               []chainhash.Hash{},
-			ShardBlockHash:             b0,
-			LastCrosslinkHash:          chainhash.Hash{},
-			ShardBlockCombinedDataRoot: chainhash.Hash{},
-			JustifiedSlot:              0,
-		},
-		AttesterBitfield: append(attesterBitfield, byte(0x00)),
-		PoCBitfield:      []uint8{},
-		AggregateSig:     bls.Signature{},
-	}
-
-	err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
-	if err == nil {
-		t.Fatal("did not catch invalid attester bitfield (too many bytes)")
-	}
-
-	for bitToSet := uint32(0); bitToSet <= 3; bitToSet++ {
-		newAttesterBitField := make([]byte, len(attesterBitfield))
-		copy(newAttesterBitField, attesterBitfield)
-
-		modifiedAttesterBitfield, err := util.SetBit(newAttesterBitField, uint32(committeeSize)+bitToSet)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		att = &transaction.AttestationRecord{
-			Data: transaction.AttestationSignedData{
-				Slot:                       lb.SlotNumber,
-				Shard:                      assignment.Shard,
-				ParentHashes:               []chainhash.Hash{},
-				ShardBlockHash:             b0,
-				LastCrosslinkHash:          chainhash.Hash{},
-				ShardBlockCombinedDataRoot: chainhash.Hash{},
-				JustifiedSlot:              0,
-			},
-			AttesterBitfield: modifiedAttesterBitfield,
-			PoCBitfield:      []uint8{},
-			AggregateSig:     bls.Signature{},
-		}
-
-		err = b.ValidateAttestationRecord(att, lb, &beacon.RegtestConfig)
-		if err == nil {
-			t.Fatal("did not catch invalid attester bitfield (not enough 0s at end)")
-		}
-		// t.Log(err)
+	if len(s.ShardAndCommitteeForSlots) != int(config.RegtestConfig.EpochLength*2) {
+		t.Errorf("shardandcommitteeforslots array is not big enough (got: %d, expected: %d)", len(s.ShardAndCommitteeForSlots), config.RegtestConfig.EpochLength)
 	}
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	b, keys, err := util.SetupBlockchain(beacon.RegtestConfig.ShardCount*beacon.RegtestConfig.MinCommitteeSize*2+5, &beacon.RegtestConfig)
+	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := uint64(0); i < uint64(b.GetConfig().CycleLength)+b.GetConfig().MinimumValidatorSetChangeInterval; i++ {
-		blk, err := util.MineBlockWithFullAttestations(b, keys)
+	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5; i++ {
+		s := b.GetState()
+		fmt.Printf("proposer %d mining block %d\n", s.GetBeaconProposerIndex(i+1, b.GetConfig()), i+1)
+		_, err := util.MineBlockWithFullAttestations(b, keys)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
-		for _, a := range blk.Attestations {
-			fmt.Printf("block %d including shard attestation %d\n", a.Data.Slot, a.Data.Shard)
-		}
+
+		s = b.GetState()
+
+		fmt.Printf("justified slot: %d, finalized slot: %d, justificationBitField: %b, previousJustifiedSlot: %d\n", s.JustifiedSlot, s.FinalizedSlot, s.JustificationBitfield, s.PreviousJustifiedSlot)
 	}
 
-	firstValidator2 := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
+	stateAfterSlot20 := b.GetState()
+
+	firstValidator2 := stateAfterSlot20.ShardAndCommitteeForSlots[0][0].Committee[0]
 	if firstValidator == firstValidator2 {
 		t.Fatal("validators were not shuffled")
+	}
+	if stateAfterSlot20.FinalizedSlot != 12 || stateAfterSlot20.JustifiedSlot != 16 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedSlot != 12 {
+		t.Fatal("justification/finalization is working incorrectly")
 	}
 }

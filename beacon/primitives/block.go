@@ -1,126 +1,91 @@
 package primitives
 
 import (
-	"fmt"
-
-	"github.com/golang/protobuf/proto"
-
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	pb "github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/transaction"
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/pb"
 )
-
-// To create a block:
-// - increase slot number
-// - reveal randao commitment
-// - update ancestor hashes
-// - calculate state roots
-// - aggregate specials + attestations (mempool?)
 
 // Block represents a single beacon chain block.
 type Block struct {
-	SlotNumber            uint64
-	RandaoReveal          chainhash.Hash
-	AncestorHashes        []chainhash.Hash
-	ActiveStateRoot       chainhash.Hash
-	CrystallizedStateRoot chainhash.Hash
-	Specials              []transaction.Transaction
-	//Attestations          []transaction.Attestation
-	Attestations []transaction.AttestationRecord
+	BlockHeader BlockHeader
+	BlockBody   BlockBody
 }
 
-// Hash gets the hash of the block header
-func (b *Block) Hash() chainhash.Hash {
-	m, _ := proto.Marshal(b.ToProto())
-	return chainhash.HashH(m)
+// Copy returns a copy of the block.
+func (b *Block) Copy() Block {
+	return Block{
+		b.BlockHeader.Copy(),
+		b.BlockBody.Copy(),
+	}
 }
 
-// BlockFromProto creates a block from the protobuf block given
-func BlockFromProto(blockProto *pb.Block) (*Block, error) {
-	if len(blockProto.AncestorHashes) != 32 {
-		return nil, fmt.Errorf("ancestor hashes length incorrect. got: %d, expected: 32", len(blockProto.AncestorHashes))
-	}
-
-	ancestorHashes := make([]chainhash.Hash, 32)
-	for i := range blockProto.AncestorHashes {
-		a, err := chainhash.NewHash(blockProto.AncestorHashes[i])
-		if err != nil {
-			return nil, err
-		}
-		ancestorHashes[i] = *a
-	}
-
-	activeStateRoot, err := chainhash.NewHash(blockProto.ActiveStateRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	randaoReveal, err := chainhash.NewHash(blockProto.RandaoReveal)
-	if err != nil {
-		return nil, err
-	}
-
-	crystallizedStateRoot, err := chainhash.NewHash(blockProto.CrystallizedStateRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	specials := make([]transaction.Transaction, len(blockProto.Specials))
-	for i := range blockProto.Specials {
-		s := blockProto.Specials[i]
-		tx, err := transaction.DeserializeTransaction(s.Type, s.Data)
-		if err != nil {
-			return nil, err
-		}
-		specials[i] = *tx
-	}
-
-	attestations := make([]transaction.AttestationRecord, len(blockProto.Attestations))
-	for i := range blockProto.Attestations {
-		a := blockProto.Attestations[i]
-		att, err := transaction.NewAttestationRecordFromProto(a)
-		if err != nil {
-			return nil, err
-		}
-		attestations[i] = *att
-	}
-
-	return &Block{
-		SlotNumber:            blockProto.SlotNumber,
-		RandaoReveal:          *randaoReveal,
-		AncestorHashes:        ancestorHashes,
-		ActiveStateRoot:       *activeStateRoot,
-		CrystallizedStateRoot: *crystallizedStateRoot,
-		Specials:              specials,
-		Attestations:          attestations,
-	}, nil
+// BlockHeader is the header of the block.
+type BlockHeader struct {
+	SlotNumber   uint64
+	ParentRoot   chainhash.Hash
+	StateRoot    chainhash.Hash
+	RandaoReveal [48]byte
+	Signature    [48]byte
 }
 
-// ToProto gets the protobuf representation of block
-func (b *Block) ToProto() *pb.Block {
-	ancestorHashes := make([][]byte, len(b.AncestorHashes))
-	for i := range ancestorHashes {
-		ancestorHashes[i] = b.AncestorHashes[i][:]
+// Copy returns a copy of the block header.
+func (bh *BlockHeader) Copy() BlockHeader {
+	return *bh
+}
+
+// ToProto converts to block header to protobuf form.
+func (bh *BlockHeader) ToProto() *pb.BlockHeader {
+	return &pb.BlockHeader{
+		SlotNumber:   bh.SlotNumber,
+		ParentRoot:   bh.ParentRoot[:],
+		StateRoot:    bh.StateRoot[:],
+		RandaoReveal: bh.RandaoReveal[:],
+		Signature:    bh.Signature[:],
+	}
+}
+
+// BlockBody contains the beacon actions that happened this block.
+type BlockBody struct {
+	Attestations      []Attestation
+	ProposerSlashings []ProposerSlashing
+	CasperSlashings   []CasperSlashing
+	Deposits          []Deposit
+	Exits             []Exit
+}
+
+// Copy returns a copy of the block body.
+func (bb *BlockBody) Copy() BlockBody {
+	newAttestations := make([]Attestation, len(bb.Attestations))
+	newProposerSlashings := make([]ProposerSlashing, len(bb.ProposerSlashings))
+	newCasperSlashings := make([]CasperSlashing, len(bb.CasperSlashings))
+	newDeposits := make([]Deposit, len(bb.Deposits))
+	newExits := make([]Exit, len(bb.Exits))
+
+	for i := range bb.Attestations {
+		newAttestations[i] = bb.Attestations[i].Copy()
 	}
 
-	specials := make([]*pb.Special, len(b.Specials))
-	for i := range specials {
-		s := b.Specials[i].Serialize()
-		specials[i] = s
+	for i := range bb.ProposerSlashings {
+		newProposerSlashings[i] = bb.ProposerSlashings[i].Copy()
 	}
 
-	attestations := make([]*pb.AttestationRecord, len(b.Attestations))
-	for i := range attestations {
-		attestations[i] = b.Attestations[i].ToProto()
+	for i := range bb.CasperSlashings {
+		newCasperSlashings[i] = bb.CasperSlashings[i].Copy()
 	}
 
-	return &pb.Block{
-		SlotNumber:            b.SlotNumber,
-		RandaoReveal:          b.RandaoReveal[:],
-		AncestorHashes:        ancestorHashes,
-		ActiveStateRoot:       b.ActiveStateRoot[:],
-		CrystallizedStateRoot: b.CrystallizedStateRoot[:],
-		Specials:              specials,
-		Attestations:          attestations,
+	for i := range bb.Deposits {
+		newDeposits[i] = bb.Deposits[i].Copy()
+	}
+
+	for i := range bb.Exits {
+		newExits[i] = bb.Exits[i].Copy()
+	}
+
+	return BlockBody{
+		Attestations:      newAttestations,
+		ProposerSlashings: newProposerSlashings,
+		CasperSlashings:   newCasperSlashings,
+		Deposits:          newDeposits,
+		Exits:             newExits,
 	}
 }

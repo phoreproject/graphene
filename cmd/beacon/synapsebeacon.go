@@ -4,14 +4,17 @@ import (
 	"context"
 	"flag"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/validator"
+
 	"github.com/golang/protobuf/proto"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/rpc"
-	"github.com/phoreproject/synapse/serialization"
 	"google.golang.org/grpc"
 
 	"github.com/phoreproject/synapse/beacon"
@@ -31,27 +34,37 @@ func main() {
 
 	logger.Info("initializing database")
 	database := db.NewInMemoryDB()
-	c := beacon.MainNetConfig
+	c := config.MainNetConfig
 
 	logger.Info("initializing blockchain")
 
 	validators := []beacon.InitialValidatorEntry{}
 
-	randaoCommitment := chainhash.HashH([]byte("test"))
+	keystore := validator.NewFakeKeyStore()
 
-	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
+	for i := uint64(0); i <= c.EpochLength*(uint64(c.TargetCommitteeSize)*2); i++ {
+		priv := keystore.GetKeyForValidator(uint32(i))
+		pub := priv.DerivePublicKey()
+		hashPub, err := ssz.TreeHash(pub.Serialize())
+		if err != nil {
+			panic(err)
+		}
+		proofOfPossession, err := bls.Sign(priv, hashPub[:], bls.DomainDeposit)
+		if err != nil {
+			panic(err)
+		}
 		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                bls.PublicKey{},
-			ProofOfPossession:     bls.Signature{},
+			PubKey:                pub.Serialize(),
+			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
-			WithdrawalCredentials: serialization.Address{},
-			RandaoCommitment:      randaoCommitment,
+			WithdrawalCredentials: chainhash.Hash{},
+			DepositSize:           c.MaxDeposit * config.UnitInCoin,
 		})
 	}
 
 	logger.WithField("numValidators", len(validators)).Info("initializing blockchain with validators")
 
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
 	if err != nil {
 		panic(err)
 	}
@@ -95,10 +108,10 @@ func main() {
 				continue
 			}
 
-			block, err := primitives.BlockFromProto(blockProto)
-			if err != nil {
-				continue
-			}
+			block := &primitives.Block{}
+			// if err != nil {
+			// 	continue
+			// }
 
 			newBlocks <- *block
 		}

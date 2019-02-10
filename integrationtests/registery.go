@@ -3,8 +3,8 @@ package testcase
 import (
 	"flag"
 
-	"github.com/phoreproject/synapse/integrationtests/framework"
-	"github.com/phoreproject/synapse/integrationtests/p2p"
+	testframework "github.com/phoreproject/synapse/integrationtests/framework"
+	testcase "github.com/phoreproject/synapse/integrationtests/p2p"
 )
 
 // EntryList is the registery entry list
@@ -20,13 +20,13 @@ var EntryList = []testframework.Entry{
 		Creator: func() testframework.IntegrationTest { return testcase.P2pTest{} },
 	},
 
-	testframework.Entry{
-		Name:    "SynapseP2p",
-		Creator: func() testframework.IntegrationTest { return SynapseP2pTest{} },
-		EntryArgs: testframework.EntryArgList{
-			"listen":             flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on"),
-			"initialConnections": flag.String("connect", "", "comma separated multiaddrs"),
-			"rpcConnect":         flag.String("rpclisten", "127.0.0.1:11783", "host and port for RPC server to listen on"),
-		},
-	},
+	// testframework.Entry{
+	// 	Name:    "SynapseP2p",
+	// 	Creator: func() testframework.IntegrationTest { return SynapseP2pTest{} },
+	// 	EntryArgs: testframework.EntryArgList{
+	// 		"listen":             flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on"),
+	// 		"initialConnections": flag.String("connect", "", "comma separated multiaddrs"),
+	// 		"rpcConnect":         flag.String("rpclisten", "127.0.0.1:11783", "host and port for RPC server to listen on"),
+	// 	},
+	// },
 }

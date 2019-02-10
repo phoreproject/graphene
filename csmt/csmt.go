@@ -3,7 +3,7 @@ package csmt
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 // Compact Sparse Merkle Trees

@@ -115,22 +115,12 @@ message GetBlockHashResponse {
     bytes Hash = 1;
 }
 
-message ValidatorResponse {
-    uint32 Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
-    bytes WithdrawalCredentials = 2;
-    bytes RandaoCommitment = 4;
-    uint64 RandaoLastChange = 5;
-    uint64 Balance = 6;
-    uint32 Status = 7;
-    uint64 ExitSeq = 8;
-}
-
 message GetValidatorAtIndexRequest {
     uint32 Index = 1;
 }
 
 message GetValidatorAtIndexResponse {
-    ValidatorResponse Validator = 1;
+    Validator Validator = 1;
 }
 
 message GetCommitteeValidatorsRequest {
@@ -139,43 +129,182 @@ message GetCommitteeValidatorsRequest {
 }
 
 message GetCommitteeValidatorsResponse {
-    repeated ValidatorResponse Validators = 1;
+    repeated Validator Validators = 1;
+}
+
+message ProposalSignedData {
+    uint64 Slot = 1;
+    uint64 Shard = 2;
+    bytes BlockHash = 3;
+}
+
+message ProposerSlashing {
+    uint32 ProposerIndex = 1;
+    ProposalSignedData ProposalData1 = 2;
+    bytes ProposalSignature1 = 3;
+    ProposalSignedData ProposalData2 = 4;
+    bytes ProposalSignature2 = 5;
+}
+
+message SlashableVoteData {
+    repeated uint32 AggregateSignaturePoC0Indices = 1;
+    repeated uint32 AggregateSignaturePoC1Indices = 2;
+    AttestationData Data = 3;
+    bytes AggregateSignature = 4;
+}
+
+message CasperSlashing {
+    SlashableVoteData Vote0 = 1;
+    SlashableVoteData Vote1 = 2;
+}
+
+message AttestationData {
+    uint64 Slot = 1;
+    uint64 Shard = 2;
+    bytes BeaconBlockHash = 3;
+    bytes EpochBoundaryHash = 4;
+    bytes ShardBlockHash = 5;
+    bytes LatestCrosslinkHash = 6;
+    uint64 JustifiedSlot = 7;
+    bytes JustifiedBlockHash = 8;
+}
+
+message AttestationDataAndCustodyBit {
+    AttestationData Data = 1;
+    bool PoCBit = 2;
+}
+
+message Attestation {
+    AttestationData Data = 1;
+    bytes ParticipationBitfield = 2;
+    bytes CustodyBitfield = 3;
+    bytes AggregateSig = 4;
+}
+
+message DepositParameters {
+    bytes PublicKey = 1;
+    bytes ProofOfPossession = 2;
+    bytes WithdrawalCredentials = 3;
+}
+
+message Deposit {
+    DepositParameters Parameters = 1;
+}
+
+message Exit {
+    uint64 Slot = 1;
+    uint64 ValidatorIndex = 2;
+    bytes Signature = 3;
 }
 
 message Block {
+    BlockHeader Header = 1;
+    BlockBody Body = 2;
+}
+
+message BlockHeader {
     uint64 SlotNumber = 1;
-    bytes RandaoReveal = 2;
-    repeated bytes AncestorHashes = 3;
-    bytes ActiveStateRoot = 4;
-    bytes CrystallizedStateRoot = 5;
-    repeated AttestationRecord Attestations = 6;
-    repeated Special Specials = 7;
+    bytes ParentRoot = 2;
+    bytes StateRoot = 3;
+    bytes RandaoReveal = 4;
+    bytes Signature = 5;
 }
 
-message Special {
-    uint32 Type = 1;
-    repeated bytes Data = 2;
+message BlockBody {
+    repeated Attestation Attestations = 1;
+    repeated ProposerSlashing ProposerSlashings = 2;
+    repeated CasperSlashing CasperSlashings = 3;
+    repeated Deposit Deposits = 4;
+    repeated Exit Exits = 5;
 }
 
-message AttestationSignedData {
-    uint32 Version = 1;
-    uint64 Slot = 2;
-    uint64 Shard = 3;
-    repeated bytes ParentHashes = 4;
-    bytes ShardBlockHash = 5;
-    uint64 JustifiedSlot = 6;
+message ForkData {
+    uint64 PreForkVersion = 1;
+    uint64 PostForkVersion = 2;
+    uint64 ForkSlot = 3;
 }
 
-message AttestationRecord {
-    AttestationSignedData Data = 1;
-    bytes AttesterBitfield = 2;
-    bytes PoCBitfield = 3;
-    bytes AggregateSig = 4;
+message Validator {
+    bytes Pubkey = 1;
+    bytes WithdrawalCredentials = 2;
+    uint64 Status = 4;
+    uint64 LatestStatusChangeSlot = 5;
+    uint64 ExitCount = 6;
+    uint64 ProposerSlots = 7;
+    uint64 LastPoCChangeSlot = 8;
+    uint64 SecondLastPoCChangeSlot = 9;
+}
+
+message ShardCommittee {
+    uint64 Shard = 1;
+    repeated uint32 Committee = 2;
+    uint64 TotalValidatorCount = 3;
+}
+
+message ShardCommitteesForSlot {
+    repeated ShardCommittee Committees = 1;
+}
+
+message PersistentCommitteesForSlot {
+    repeated uint32 PersistentCommittee = 1;
+}
+
+message ShardReassignment {
+    uint32 ValidatorIndex = 1;
+    uint64 Shard = 2;
+    uint64 Slot = 3;
+}
+
+message Crosslink {
+    uint64 Slot = 1;
+    bytes ShardBlockHash = 2;
+}
+
+message PendingAttestation {
+    AttestationData Data = 1;
+    bytes ParticipationBitfield = 2;
+    bytes CustodyBitfield = 3;
+    uint64 SlotIncluded = 4;
+}
+
+message State {
+    uint64 Slot = 1;
+    uint64 GenesisTime = 2;
+    ForkData ForkData = 3;
+
+    repeated Validator ValidatorRegistry = 4;
+    repeated uint64 ValidatorBalances = 5;
+    uint64 ValidatorRegistryLatestChangeSlot = 6;
+    uint64 ValidatorRegistryExitCount = 7;
+    bytes ValidatorRegistryDeltaChainTip = 8;
+
+    bytes RandaoMix = 9;
+    bytes NextSeed = 10;
+    repeated ShardCommitteesForSlot ShardCommittees = 11;
+
+    uint64 PreviousJustifiedSlot = 12;
+    uint64 JustifiedSlot = 13;
+    uint64 JustificationBitField = 14;
+    uint64 FinalizedSlot = 15;
+
+    repeated Crosslink LatestCrosslinks = 16;
+    repeated bytes LatestBlockHashes = 17;
+    repeated uint64 LatestPenalizedExitBalances = 18;
+    repeated PendingAttestation LatestAttestations = 19;
+    repeated bytes BatchedBlockRoots = 20;
+}
+
+message ValidatorRegistryDeltaBlock {
+    bytes LatestRegistryDeltaRoot = 1;
+    uint32 ValidatorIndex = 2;
+    bytes Pubkey = 3;
+    uint64 Flag = 4;
 }
 
 message TestMessage {
     string message = 1;
 }
+
 // This will be renamed to P2PRPC later
 service MainRPC {
     rpc Test(TestMessage) returns (TestMessage);

@@ -34,10 +34,10 @@ func (ps *ProposerSlashing) ToProto() *pb.ProposerSlashing {
 
 // ProposerSlashingFromProto gets the proposer slashing from the protobuf representation
 func ProposerSlashingFromProto(slashing *pb.ProposerSlashing) (*ProposerSlashing, error) {
-	if len(slashing.ProposalSignature1) != 48 {
+	if len(slashing.ProposalSignature1) > 48 {
 		return nil, errors.New("proposalSignature1 should be 48 bytes long")
 	}
-	if len(slashing.ProposalSignature2) != 48 {
+	if len(slashing.ProposalSignature2) > 48 {
 		return nil, errors.New("proposalSignature2 should be 48 bytes long")
 	}
 	pd1, err := ProposalSignedDataFromProto(slashing.ProposalData1)
@@ -89,7 +89,7 @@ func (svd *SlashableVoteData) ToProto() *pb.SlashableVoteData {
 
 // SlashableVoteDataFromProto returns the vote data from the protobuf representation
 func SlashableVoteDataFromProto(voteData *pb.SlashableVoteData) (*SlashableVoteData, error) {
-	if len(voteData.AggregateSignature) != 48 {
+	if len(voteData.AggregateSignature) > 48 {
 		return nil, errors.New("aggregateSignature should be 48 bytes")
 	}
 	svd := &SlashableVoteData{}

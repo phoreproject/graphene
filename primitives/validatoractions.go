@@ -32,10 +32,10 @@ func (dp *DepositParameters) ToProto() *pb.DepositParameters {
 
 // DepositParametersFromProto gets the deposit parameters from the protobuf representation.
 func DepositParametersFromProto(parameters *pb.DepositParameters) (*DepositParameters, error) {
-	if len(parameters.PublicKey) != 96 {
+	if len(parameters.PublicKey) > 96 {
 		return nil, errors.New("public key should be 96 bytes")
 	}
-	if len(parameters.ProofOfPossession) != 48 {
+	if len(parameters.ProofOfPossession) > 48 {
 		return nil, errors.New("proof of possession signature should be 48 bytes")
 	}
 	dp := &DepositParameters{}
@@ -98,7 +98,7 @@ func (e *Exit) ToProto() *pb.Exit {
 
 // ExitFromProto gets the exit from the protobuf representation.
 func ExitFromProto(exit *pb.Exit) (*Exit, error) {
-	if len(exit.Signature) != 48 {
+	if len(exit.Signature) > 48 {
 		return nil, errors.New("exit signature should be 48 bytes")
 	}
 

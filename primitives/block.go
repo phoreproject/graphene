@@ -74,10 +74,10 @@ func (bh *BlockHeader) ToProto() *pb.BlockHeader {
 
 // BlockHeaderFromProto converts a protobuf representation of a block header to a block header.
 func BlockHeaderFromProto(header *pb.BlockHeader) (*BlockHeader, error) {
-	if len(header.RandaoReveal) != 48 {
+	if len(header.RandaoReveal) > 48 {
 		return nil, errors.New("randaoReveal should be 48 bytes long")
 	}
-	if len(header.Signature) != 48 {
+	if len(header.Signature) > 48 {
 		return nil, errors.New("signature should be 48 bytes long")
 	}
 	newHeader := &BlockHeader{

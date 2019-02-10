@@ -1,8 +1,10 @@
 package primitives
 
 import (
+	"errors"
+
 	"github.com/phoreproject/synapse/chainhash"
-	pb "github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/pb"
 )
 
 // AttestationData is the part of the attestation that is signed.
@@ -34,12 +36,6 @@ func (a *AttestationData) Equals(other *AttestationData) bool {
 // Copy returns a copy of the data.
 func (a *AttestationData) Copy() AttestationData {
 	return *a
-}
-
-// AttestationDataAndCustodyBit is an attestation data and custody bit combined.
-type AttestationDataAndCustodyBit struct {
-	Data   AttestationData
-	PoCBit bool
 }
 
 // AttestationDataFromProto converts the protobuf representation to an attestationdata
@@ -86,6 +82,12 @@ func (a AttestationData) ToProto() *pb.AttestationData {
 	}
 }
 
+// AttestationDataAndCustodyBit is an attestation data and custody bit combined.
+type AttestationDataAndCustodyBit struct {
+	Data   AttestationData
+	PoCBit bool
+}
+
 // Attestation is a signed attestation of a shard block.
 type Attestation struct {
 	// Signed data
@@ -116,12 +118,16 @@ func AttestationFromProto(att *pb.Attestation) (*Attestation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Attestation{
+	a := &Attestation{
 		Data:                  *data,
 		ParticipationBitfield: att.ParticipationBitfield[:],
 		CustodyBitfield:       att.CustodyBitfield[:],
-		AggregateSig:          [48]byte{},
-	}, nil
+	}
+	if len(att.AggregateSig) != 48 {
+		return nil, errors.New("aggregateSig was not 48 bytes")
+	}
+	copy(a.AggregateSig[:], att.AggregateSig)
+	return a, nil
 }
 
 // ToProto gets the protobuf representation of the attestation

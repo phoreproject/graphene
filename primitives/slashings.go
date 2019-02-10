@@ -1,6 +1,8 @@
 package primitives
 
 import (
+	"errors"
+
 	"github.com/phoreproject/synapse/pb"
 )
 
@@ -28,6 +30,32 @@ func (ps *ProposerSlashing) ToProto() *pb.ProposerSlashing {
 	copy(newPS.ProposalSignature1, ps.ProposalSignature1[:])
 	copy(newPS.ProposalSignature2, ps.ProposalSignature2[:])
 	return newPS
+}
+
+// ProposerSlashingFromProto gets the proposer slashing from the protobuf representation
+func ProposerSlashingFromProto(slashing *pb.ProposerSlashing) (*ProposerSlashing, error) {
+	if len(slashing.ProposalSignature1) != 48 {
+		return nil, errors.New("proposalSignature1 should be 48 bytes long")
+	}
+	if len(slashing.ProposalSignature2) != 48 {
+		return nil, errors.New("proposalSignature2 should be 48 bytes long")
+	}
+	pd1, err := ProposalSignedDataFromProto(slashing.ProposalData1)
+	if err != nil {
+		return nil, err
+	}
+	pd2, err := ProposalSignedDataFromProto(slashing.ProposalData2)
+	if err != nil {
+		return nil, err
+	}
+	ps := &ProposerSlashing{
+		ProposalData1: *pd1,
+		ProposalData2: *pd2,
+		ProposerIndex: slashing.ProposerIndex,
+	}
+	copy(ps.ProposalSignature1[:], slashing.ProposalSignature1)
+	copy(ps.ProposalSignature2[:], slashing.ProposalSignature2)
+	return ps, nil
 }
 
 // SlashableVoteData is the vote data that should be slashed.
@@ -59,6 +87,25 @@ func (svd *SlashableVoteData) ToProto() *pb.SlashableVoteData {
 	return newSvd
 }
 
+// SlashableVoteDataFromProto returns the vote data from the protobuf representation
+func SlashableVoteDataFromProto(voteData *pb.SlashableVoteData) (*SlashableVoteData, error) {
+	if len(voteData.AggregateSignature) != 48 {
+		return nil, errors.New("aggregateSignature should be 48 bytes")
+	}
+	svd := &SlashableVoteData{}
+	copy(svd.AggregateSignaturePoC0Indices, voteData.AggregateSignaturePoC0Indices)
+	copy(svd.AggregateSignaturePoC1Indices, voteData.AggregateSignaturePoC1Indices)
+	copy(svd.AggregateSignature[:], voteData.AggregateSignature)
+
+	data, err := AttestationDataFromProto(voteData.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	svd.Data = *data
+	return svd, nil
+}
+
 // CasperSlashing is a claim to slash based on two votes.
 type CasperSlashing struct {
 	Votes1 SlashableVoteData
@@ -79,4 +126,20 @@ func (cs *CasperSlashing) ToProto() *pb.CasperSlashing {
 		Vote0: cs.Votes1.ToProto(),
 		Vote1: cs.Votes2.ToProto(),
 	}
+}
+
+// CasperSlashingFromProto returns the casper slashing from the protobuf representation.
+func CasperSlashingFromProto(slashing *pb.CasperSlashing) (*CasperSlashing, error) {
+	votes1, err := SlashableVoteDataFromProto(slashing.Vote0)
+	if err != nil {
+		return nil, err
+	}
+	votes2, err := SlashableVoteDataFromProto(slashing.Vote1)
+	if err != nil {
+		return nil, err
+	}
+	return &CasperSlashing{
+		Votes1: *votes1,
+		Votes2: *votes2,
+	}, nil
 }

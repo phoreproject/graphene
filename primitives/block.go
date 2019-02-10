@@ -1,6 +1,8 @@
 package primitives
 
 import (
+	"errors"
+
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 )
@@ -27,6 +29,24 @@ func (b *Block) ToProto() *pb.Block {
 	}
 }
 
+// BlockFromProto returns a block from the protobuf representation.
+func BlockFromProto(bl *pb.Block) (*Block, error) {
+	header, err := BlockHeaderFromProto(bl.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := BlockBodyFromProto(bl.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Block{
+		BlockHeader: *header,
+		BlockBody:   *body,
+	}, nil
+}
+
 // BlockHeader is the header of the block.
 type BlockHeader struct {
 	SlotNumber   uint64
@@ -50,6 +70,34 @@ func (bh *BlockHeader) ToProto() *pb.BlockHeader {
 		RandaoReveal: bh.RandaoReveal[:],
 		Signature:    bh.Signature[:],
 	}
+}
+
+// BlockHeaderFromProto converts a protobuf representation of a block header to a block header.
+func BlockHeaderFromProto(header *pb.BlockHeader) (*BlockHeader, error) {
+	if len(header.RandaoReveal) != 48 {
+		return nil, errors.New("randaoReveal should be 48 bytes long")
+	}
+	if len(header.Signature) != 48 {
+		return nil, errors.New("signature should be 48 bytes long")
+	}
+	newHeader := &BlockHeader{
+		SlotNumber: header.SlotNumber,
+	}
+
+	copy(newHeader.RandaoReveal[:], header.RandaoReveal)
+	copy(newHeader.Signature[:], header.Signature)
+
+	err := newHeader.StateRoot.SetBytes(header.StateRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = newHeader.ParentRoot.SetBytes(header.ParentRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	return newHeader, nil
 }
 
 // BlockBody contains the beacon actions that happened this block.
@@ -127,4 +175,61 @@ func (bb *BlockBody) ToProto() *pb.BlockBody {
 		Deposits:          ds,
 		Exits:             ex,
 	}
+}
+
+// BlockBodyFromProto converts a protobuf representation of a block body to a block body.
+func BlockBodyFromProto(body *pb.BlockBody) (*BlockBody, error) {
+	atts := make([]Attestation, len(body.Attestations))
+	casperSlashings := make([]CasperSlashing, len(body.CasperSlashings))
+	proposerSlashings := make([]ProposerSlashing, len(body.ProposerSlashings))
+	deposits := make([]Deposit, len(body.Deposits))
+	exits := make([]Exit, len(body.Exits))
+
+	for i := range atts {
+		a, err := AttestationFromProto(body.Attestations[i])
+		if err != nil {
+			return nil, err
+		}
+		atts[i] = *a
+	}
+
+	for i := range casperSlashings {
+		cs, err := CasperSlashingFromProto(body.CasperSlashings[i])
+		if err != nil {
+			return nil, err
+		}
+		casperSlashings[i] = *cs
+	}
+
+	for i := range proposerSlashings {
+		ps, err := ProposerSlashingFromProto(body.ProposerSlashings[i])
+		if err != nil {
+			return nil, err
+		}
+		proposerSlashings[i] = *ps
+	}
+
+	for i := range deposits {
+		ds, err := DepositFromProto(body.Deposits[i])
+		if err != nil {
+			return nil, err
+		}
+		deposits[i] = *ds
+	}
+
+	for i := range exits {
+		ex, err := ExitFromProto(body.Exits[i])
+		if err != nil {
+			return nil, err
+		}
+		exits[i] = *ex
+	}
+
+	return &BlockBody{
+		Attestations:      atts,
+		CasperSlashings:   casperSlashings,
+		ProposerSlashings: proposerSlashings,
+		Deposits:          deposits,
+		Exits:             exits,
+	}, nil
 }

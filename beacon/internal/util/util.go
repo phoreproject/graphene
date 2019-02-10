@@ -30,14 +30,17 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
 		pub := key.DerivePublicKey()
-		hashPub := pub.Hash()
-		proofOfPossession, err := bls.Sign(key, hashPub, bls.DomainDeposit)
+		hashPub, err := ssz.TreeHash(pub.Serialize())
+		if err != nil {
+			return nil, nil, err
+		}
+		proofOfPossession, err := bls.Sign(key, hashPub[:], bls.DomainDeposit)
 		if err != nil {
 			return nil, nil, err
 		}
 		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                *pub,
-			ProofOfPossession:     *proofOfPossession,
+			PubKey:                pub.Serialize(),
+			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
 			DepositSize:           c.MaxDeposit * config.UnitInCoin,
@@ -90,8 +93,8 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 			SlotNumber:   slotNumber,
 			ParentRoot:   parentRoot,
 			StateRoot:    stateRoot,
-			RandaoReveal: *randaoSig,
-			Signature:    *bls.EmptySignature,
+			RandaoReveal: randaoSig.Serialize(),
+			Signature:    bls.EmptySignature.Serialize(),
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      attestations,
@@ -122,7 +125,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	if err != nil {
 		return nil, err
 	}
-	block1.BlockHeader.Signature = *sig
+	block1.BlockHeader.Signature = sig.Serialize()
 
 	err = b.ProcessBlock(&block1)
 	if err != nil {
@@ -197,7 +200,7 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 			Data:                  dataToSign,
 			ParticipationBitfield: attesterBitfield,
 			CustodyBitfield:       make([]uint8, 32),
-			AggregateSig:          *aggregateSig,
+			AggregateSig:          aggregateSig.Serialize(),
 		}
 	}
 

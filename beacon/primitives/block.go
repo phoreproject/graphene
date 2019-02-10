@@ -1,7 +1,6 @@
 package primitives
 
 import (
-	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 )
@@ -25,16 +24,13 @@ type BlockHeader struct {
 	SlotNumber   uint64
 	ParentRoot   chainhash.Hash
 	StateRoot    chainhash.Hash
-	RandaoReveal bls.Signature
-	Signature    bls.Signature
+	RandaoReveal [48]byte
+	Signature    [48]byte
 }
 
 // Copy returns a copy of the block header.
 func (bh *BlockHeader) Copy() BlockHeader {
-	newHeader := *bh
-	newSignature := bh.Signature.Copy()
-	newHeader.Signature = *newSignature
-	return newHeader
+	return *bh
 }
 
 // ToProto converts to block header to protobuf form.
@@ -43,8 +39,8 @@ func (bh *BlockHeader) ToProto() *pb.BlockHeader {
 		SlotNumber:   bh.SlotNumber,
 		ParentRoot:   bh.ParentRoot[:],
 		StateRoot:    bh.StateRoot[:],
-		RandaoReveal: bh.RandaoReveal.Serialize(),
-		Signature:    bh.Signature.Serialize(),
+		RandaoReveal: bh.RandaoReveal[:],
+		Signature:    bh.Signature[:],
 	}
 }
 

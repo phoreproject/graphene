@@ -27,8 +27,8 @@ func TestStoreRetrieve(t *testing.T) {
 			SlotNumber:   0,
 			ParentRoot:   chainhash.Hash{},
 			StateRoot:    chainhash.Hash{},
-			RandaoReveal: *bls.EmptySignature,
-			Signature:    *bls.EmptySignature,
+			RandaoReveal: bls.EmptySignature.Serialize(),
+			Signature:    bls.EmptySignature.Serialize(),
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      []primitives.Attestation{},

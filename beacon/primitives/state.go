@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
@@ -15,6 +13,14 @@ import (
 
 	"github.com/phoreproject/prysm/shared/ssz"
 )
+
+// ValidatorRegistryDeltaBlock is a validator change hash.
+type ValidatorRegistryDeltaBlock struct {
+	LatestRegistryDeltaRoot chainhash.Hash
+	ValidatorIndex          uint32
+	Pubkey                  [96]byte
+	Flag                    uint64
+}
 
 // ForkData represents the fork information
 type ForkData struct {
@@ -185,16 +191,13 @@ func (s *State) GetTotalBalanceMap(activeValidators map[uint32]struct{}, c *conf
 }
 
 // GetNewValidatorRegistryDeltaChainTip gets the new delta chain tip hash.
-func GetNewValidatorRegistryDeltaChainTip(currentValidatorRegistryDeltaChainTip chainhash.Hash, validatorIndex uint32, pubkey bls.PublicKey, flag uint64) chainhash.Hash {
-	// TODO: fix me!
-	p := &pb.ValidatorRegistryDeltaBlock{
-		LatestRegistryDeltaRoot: currentValidatorRegistryDeltaChainTip[:],
+func GetNewValidatorRegistryDeltaChainTip(currentValidatorRegistryDeltaChainTip chainhash.Hash, validatorIndex uint32, pubkey [96]byte, flag uint64) (chainhash.Hash, error) {
+	return ssz.TreeHash(ValidatorRegistryDeltaBlock{
+		LatestRegistryDeltaRoot: currentValidatorRegistryDeltaChainTip,
 		ValidatorIndex:          validatorIndex,
-		Pubkey:                  pubkey.Serialize(),
+		Pubkey:                  pubkey,
 		Flag:                    flag,
-	}
-	pBytes, _ := proto.Marshal(p)
-	return chainhash.HashH(pBytes)
+	})
 }
 
 const (
@@ -213,7 +216,11 @@ func (s *State) ActivateValidator(index uint32) error {
 
 	validator.Status = Active
 	validator.LatestStatusChangeSlot = s.Slot
-	s.ValidatorRegistryDeltaChainTip = GetNewValidatorRegistryDeltaChainTip(s.ValidatorRegistryDeltaChainTip, index, validator.Pubkey, ActivationFlag)
+	deltaChainTip, err := GetNewValidatorRegistryDeltaChainTip(s.ValidatorRegistryDeltaChainTip, index, validator.Pubkey, ActivationFlag)
+	if err != nil {
+		return err
+	}
+	s.ValidatorRegistryDeltaChainTip = deltaChainTip
 	return nil
 }
 
@@ -263,7 +270,11 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) {
 
 	s.ValidatorRegistryExitCount++
 	validator.ExitCount = s.ValidatorRegistryExitCount
-	s.ValidatorRegistryDeltaChainTip = GetNewValidatorRegistryDeltaChainTip(s.ValidatorRegistryDeltaChainTip, index, validator.Pubkey, ExitFlag)
+	deltaChainTip, err := GetNewValidatorRegistryDeltaChainTip(s.ValidatorRegistryDeltaChainTip, index, validator.Pubkey, ExitFlag)
+	if err != nil {
+		return
+	}
+	s.ValidatorRegistryDeltaChainTip = deltaChainTip
 }
 
 // UpdateValidatorStatus moves a validator to a specific status.
@@ -386,10 +397,18 @@ func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Con
 }
 
 // ValidateProofOfPossession validates a proof of possession for a new validator.
-func (s *State) ValidateProofOfPossession(pubkey bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
+func (s *State) ValidateProofOfPossession(pubkey [96]byte, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
 	// fixme
 
-	valid, err := bls.VerifySig(&pubkey, pubkey.Hash(), &proofOfPossession, bls.DomainDeposit)
+	h, err := ssz.TreeHash(pubkey)
+	if err != nil {
+		return false, err
+	}
+	pub, err := bls.DeserializePublicKey(pubkey)
+	if err != nil {
+		return false, err
+	}
+	valid, err := bls.VerifySig(pub, h[:], &proofOfPossession, bls.DomainDeposit)
 	if err != nil {
 		return false, err
 	}
@@ -422,14 +441,30 @@ func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config 
 	if err != nil {
 		return err
 	}
-	valid, err := bls.VerifySig(&proposer.Pubkey, hashProposal2[:], &proposerSlashing.ProposalSignature2, bls.DomainProposal)
+	pub, err := bls.DeserializePublicKey(proposer.Pubkey)
+	if err != nil {
+		return err
+	}
+
+	sigProposal2, err := bls.DeserializeSignature(proposerSlashing.ProposalSignature2)
+	if err != nil {
+		return err
+	}
+
+	valid, err := bls.VerifySig(pub, hashProposal2[:], sigProposal2, bls.DomainProposal)
 	if err != nil {
 		return err
 	}
 	if !valid {
 		return errors.New("invalid proposer signature")
 	}
-	valid, err = bls.VerifySig(&proposer.Pubkey, hashProposal1[:], &proposerSlashing.ProposalSignature1, bls.DomainProposal)
+
+	sigProposal1, err := bls.DeserializeSignature(proposerSlashing.ProposalSignature1)
+	if err != nil {
+		return err
+	}
+
+	valid, err = bls.VerifySig(pub, hashProposal1[:], sigProposal1, bls.DomainProposal)
 	if err != nil {
 		return err
 	}
@@ -473,11 +508,19 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	pubKey1 := bls.NewAggregatePublicKey()
 
 	for _, i := range voteData.AggregateSignaturePoC0Indices {
-		pubKey0.AggregatePubKey(&s.ValidatorRegistry[i].Pubkey)
+		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[i].Pubkey)
+		if err != nil {
+			panic(err)
+		}
+		pubKey0.AggregatePubKey(p)
 	}
 
 	for _, i := range voteData.AggregateSignaturePoC1Indices {
-		pubKey1.AggregatePubKey(&s.ValidatorRegistry[i].Pubkey)
+		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[i].Pubkey)
+		if err != nil {
+			panic(err)
+		}
+		pubKey1.AggregatePubKey(p)
 	}
 
 	ad0 := AttestationDataAndCustodyBit{voteData.Data, true}
@@ -493,13 +536,18 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 		return false
 	}
 
+	aggregateSignature, err := bls.DeserializeSignature(voteData.AggregateSignature)
+	if err != nil {
+		panic(err)
+	}
+
 	return bls.VerifyAggregate([]*bls.PublicKey{
 		pubKey0,
 		pubKey1,
 	}, [][]byte{
 		ad0Hash[:],
 		ad1Hash[:],
-	}, &voteData.AggregateSignature, GetDomain(s.ForkData, s.Slot, bls.DomainAttestation))
+	}, aggregateSignature, GetDomain(s.ForkData, s.Slot, bls.DomainAttestation))
 }
 
 // ApplyCasperSlashing applies a casper slashing claim to the current state.
@@ -558,7 +606,17 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 		return errors.New("exit is not yet valid")
 	}
 
-	valid, err := bls.VerifySig(&validator.Pubkey, zeroHash[:], &exit.Signature, bls.DomainExit)
+	validatorPub, err := bls.DeserializePublicKey(validator.Pubkey)
+	if err != nil {
+		return err
+	}
+
+	exitSig, err := bls.DeserializeSignature(exit.Signature)
+	if err != nil {
+		return err
+	}
+
+	valid, err := bls.VerifySig(validatorPub, zeroHash[:], exitSig, bls.DomainExit)
 	if err != nil {
 		return err
 	}
@@ -607,7 +665,7 @@ func MinEmptyValidator(validators []Validator, validatorBalances []uint64, c *co
 }
 
 // ProcessDeposit processes a deposit with the context of the current state.
-func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
+func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
 	if !skipValidation {
 		sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials)
 		if err != nil {
@@ -620,11 +678,8 @@ func (s *State) ProcessDeposit(pubkey bls.PublicKey, amount uint64, proofOfPosse
 
 	validatorAlreadyRegisteredIndex := -1
 
-	validatorPubkeys := make([]bls.PublicKey, len(s.ValidatorRegistry))
 	for i := range s.ValidatorRegistry {
-		validatorPubkeys[i] = s.ValidatorRegistry[i].Pubkey
-
-		if s.ValidatorRegistry[i].Pubkey.Equals(pubkey) {
+		if bytes.Equal(s.ValidatorRegistry[i].Pubkey[:], pubkey[:]) {
 			validatorAlreadyRegisteredIndex = i
 		}
 	}
@@ -689,7 +744,7 @@ const (
 // Validator is a single validator session (logging in and out)
 type Validator struct {
 	// BLS public key
-	Pubkey bls.PublicKey
+	Pubkey [96]byte
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
 	// Balance in satoshi.
@@ -710,9 +765,7 @@ type Validator struct {
 
 // Copy copies a validator instance.
 func (v *Validator) Copy() Validator {
-	newValidator := *v
-	newValidator.Pubkey = v.Pubkey.Copy()
-	return newValidator
+	return *v
 }
 
 // IsActive checks if the validator is active.
@@ -734,7 +787,7 @@ func GetActiveValidatorIndices(validators []Validator) []uint32 {
 // ToProto creates a ProtoBuf ValidatorResponse from a Validator
 func (v *Validator) ToProto() *pb.Validator {
 	return &pb.Validator{
-		Pubkey:                  v.Pubkey.Serialize(),
+		Pubkey:                  v.Pubkey[:],
 		WithdrawalCredentials:   v.WithdrawalCredentials[:],
 		ProposerSlots:           v.ProposerSlots,
 		LastPoCChangeSlot:       v.LastPoCChangeSlot,

@@ -1,7 +1,6 @@
 package primitives
 
 import (
-	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	pb "github.com/phoreproject/synapse/pb"
 )
@@ -96,17 +95,18 @@ type Attestation struct {
 	// Proof of custody bitfield
 	CustodyBitfield []uint8
 	// BLS aggregate signature
-	AggregateSig bls.Signature
+	AggregateSig [48]byte
 }
 
 // Copy returns a copy of the attestation
 func (a *Attestation) Copy() Attestation {
-	sig := a.AggregateSig.Copy()
+	sig := [48]byte{}
+	copy(sig[:], a.AggregateSig[:])
 	return Attestation{
 		Data:                  a.Data.Copy(),
 		ParticipationBitfield: a.ParticipationBitfield[:],
 		CustodyBitfield:       a.CustodyBitfield[:],
-		AggregateSig:          *sig,
+		AggregateSig:          sig,
 	}
 }
 
@@ -120,7 +120,7 @@ func AttestationFromProto(att *pb.Attestation) (*Attestation, error) {
 		Data:                  *data,
 		ParticipationBitfield: att.ParticipationBitfield[:],
 		CustodyBitfield:       att.CustodyBitfield[:],
-		AggregateSig:          bls.Signature{},
+		AggregateSig:          [48]byte{},
 	}, nil
 }
 
@@ -130,7 +130,7 @@ func (a *Attestation) ToProto() *pb.Attestation {
 	att.Data = a.Data.ToProto()
 	att.ParticipationBitfield = a.ParticipationBitfield[:]
 	att.CustodyBitfield = a.CustodyBitfield[:]
-	att.AggregateSig = a.AggregateSig.Serialize()
+	att.AggregateSig = a.AggregateSig[:]
 	return att
 }
 

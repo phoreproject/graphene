@@ -1,11 +1,9 @@
 package bls
 
 import (
-	"errors"
 	"io"
 
 	"github.com/phoreproject/bls"
-	"github.com/phoreproject/synapse/chainhash"
 )
 
 const (
@@ -32,8 +30,10 @@ type Signature struct {
 
 // Serialize gets the binary representation of the
 // signature.
-func (s Signature) Serialize() []byte {
-	return s.s.Serialize()
+func (s Signature) Serialize() [48]byte {
+	sigSer := [48]byte{}
+	copy(sigSer[:], s.s.Serialize())
+	return sigSer
 }
 
 // Copy returns a copy of the signature.
@@ -44,8 +44,8 @@ func (s Signature) Copy() *Signature {
 
 // DeserializeSignature deserializes a binary signature
 // into the actual signature.
-func DeserializeSignature(b []byte) (*Signature, error) {
-	s, err := bls.DeserializeSignature(b)
+func DeserializeSignature(b [48]byte) (*Signature, error) {
+	s, err := bls.DeserializeSignature(b[:])
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func DeserializeSignature(b []byte) (*Signature, error) {
 }
 
 // EmptySignature is an empty signature.
-var EmptySignature, _ = DeserializeSignature([]byte{
+var EmptySignature, _ = DeserializeSignature([48]byte{
 	0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -91,8 +91,10 @@ type PublicKey struct {
 }
 
 // Serialize serializes a public key to bytes.
-func (p PublicKey) Serialize() []byte {
-	return p.p.Serialize()
+func (p PublicKey) Serialize() [96]byte {
+	pub := [96]byte{}
+	copy(pub[:], p.p.Serialize())
+	return pub
 }
 
 // Equals checks if two public keys are equal.
@@ -101,8 +103,8 @@ func (p PublicKey) Equals(other PublicKey) bool {
 }
 
 // DeserializePublicKey deserialies a public key from the provided bytes.
-func DeserializePublicKey(b []byte) (*PublicKey, error) {
-	p, err := bls.DeserializePublicKey(b)
+func DeserializePublicKey(b [96]byte) (*PublicKey, error) {
+	p, err := bls.DeserializePublicKey(b[:])
 	if err != nil {
 		return nil, err
 	}
@@ -112,83 +114,6 @@ func DeserializePublicKey(b []byte) (*PublicKey, error) {
 // Copy returns a copy of the public key
 func (p PublicKey) Copy() PublicKey {
 	return p
-}
-
-// Hash gets the hash of a pubkey
-func (p PublicKey) Hash() []byte {
-	return chainhash.HashB(p.p.Serialize())
-}
-
-// EncodeSSZ implements Encodable
-func (p PublicKey) EncodeSSZ(writer io.Writer) error {
-	_, err := writer.Write(p.Serialize())
-
-	return err
-}
-
-// EncodeSSZSize implements Encodable
-func (p PublicKey) EncodeSSZSize() (uint32, error) {
-	return 96, nil
-}
-
-// DecodeSSZ implements Decodable
-func (p PublicKey) DecodeSSZ(reader io.Reader) (uint32, error) {
-	size, _ := p.EncodeSSZSize()
-	buf := make([]byte, size)
-	n, err := reader.Read(buf)
-	if err != nil {
-		return uint32(n), err
-	}
-	if uint32(n) != size {
-		return uint32(n), errors.New("did not return enough bytes from reader")
-	}
-	key, err := DeserializePublicKey(buf)
-	if err != nil {
-		return uint32(n), err
-	}
-	p.p = key.p
-	return uint32(n), nil
-}
-
-// TreeHashSSZ implements Hashable  in  github.com/phoreproject/prysm/shared/ssz
-func (p PublicKey) TreeHashSSZ() ([32]byte, error) {
-	return [32]byte(chainhash.HashH(p.p.Serialize())), nil
-}
-
-// EncodeSSZ implements Encodable
-func (s Signature) EncodeSSZ(writer io.Writer) error {
-	writer.Write(s.Serialize())
-
-	return nil
-}
-
-// EncodeSSZSize implements Encodable
-func (s Signature) EncodeSSZSize() (uint32, error) {
-	return 48, nil // hard coded?
-}
-
-// DecodeSSZ implements Decodable
-func (s Signature) DecodeSSZ(reader io.Reader) (uint32, error) {
-	size, _ := s.EncodeSSZSize()
-	buf := make([]byte, size)
-	n, err := reader.Read(buf)
-	if err != nil {
-		return uint32(n), err
-	}
-	if uint32(n) != size {
-		return uint32(n), errors.New("did not return enough bytes from reader")
-	}
-	sig, err := DeserializeSignature(buf)
-	if err != nil {
-		return uint32(n), err
-	}
-	s.s = sig.s
-	return uint32(n), nil
-}
-
-// TreeHashSSZ implements Hashable  in  github.com/phoreproject/prysm/shared/ssz
-func (s Signature) TreeHashSSZ() ([32]byte, error) {
-	return [32]byte(chainhash.HashH(s.s.Serialize())), nil
 }
 
 // Sign a message using a secret key - in a beacon/validator client,

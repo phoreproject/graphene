@@ -7,8 +7,6 @@ import (
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
-	"github.com/phoreproject/synapse/bls"
-
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/primitives"
@@ -155,8 +153,8 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 // InitialValidatorEntry is the validator entry to be added
 // at the beginning of a blockchain.
 type InitialValidatorEntry struct {
-	PubKey                bls.PublicKey
-	ProofOfPossession     bls.Signature
+	PubKey                [96]byte
+	ProofOfPossession     [48]byte
 	WithdrawalShard       uint32
 	WithdrawalCredentials chainhash.Hash
 	DepositSize           uint64

@@ -1,6 +1,7 @@
 package bls_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/phoreproject/synapse/bls"
@@ -196,30 +197,26 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	r := NewXORShift(1)
 
 	k, _ := bls.RandSecretKey(r)
+	pub := k.DerivePublicKey()
 
 	sig, err := bls.Sign(k, []byte("testing!"), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = bls.DeserializeSignature(sig.Serialize())
+	sigAfter, err := bls.DeserializeSignature(sig.Serialize())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// TODO: verify sig == sigAfter
-}
+	valid, err := bls.VerifySig(pub, []byte("testing!"), sigAfter, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func TestHashPubkey(t *testing.T) {
-	r := NewXORShift(1)
-
-	k, _ := bls.RandSecretKey(r)
-
-	p := k.DerivePublicKey()
-
-	p.Hash()
-
-	// TODO: verify small change changes hash
+	if !valid {
+		t.Fatal("signature did not verify")
+	}
 }
 
 func TestCopyPubkey(t *testing.T) {
@@ -228,8 +225,38 @@ func TestCopyPubkey(t *testing.T) {
 	k, _ := bls.RandSecretKey(r)
 
 	p := k.DerivePublicKey()
+	p2 := p.Copy()
 
 	p.Copy()
 
-	// TODO: verify change in original does not change copy
+	p.AggregatePubKey(&p2)
+
+	if p2.Equals(*p) {
+		t.Fatal("pubkey copy is incorrect")
+	}
+}
+
+func TestCopySignature(t *testing.T) {
+	r := NewXORShift(1)
+
+	k, _ := bls.RandSecretKey(r)
+
+	s, err := bls.Sign(k, []byte{}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s2, err := bls.Sign(k, []byte{}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sCopy := s.Copy()
+
+	s.AggregateSig(s2)
+	sSer := s.Serialize()
+	sCopySer := sCopy.Serialize()
+	if bytes.Equal(sSer[:], sCopySer[:]) {
+		t.Fatal("copy returns pointer")
+	}
 }

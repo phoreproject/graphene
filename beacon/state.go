@@ -62,7 +62,11 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	}
 
 	for _, deposit := range initialValidators {
-		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, b.config)
+		sig, err := bls.DeserializeSignature(deposit.ProofOfPossession)
+		if err != nil {
+			return err
+		}
+		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, *sig, deposit.WithdrawalCredentials, skipValidation, b.config)
 		if err != nil {
 			return err
 		}
@@ -77,7 +81,6 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	initialShuffling := GetNewShuffling(zeroHash, b.state.ValidatorRegistry, 0, b.config)
 	b.state.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
 
-	sig := bls.EmptySignature.Copy()
 	stateRoot, err := ssz.TreeHash(b.state)
 	if err != nil {
 		return err
@@ -88,8 +91,8 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 			SlotNumber:   0,
 			StateRoot:    stateRoot,
 			ParentRoot:   zeroHash,
-			RandaoReveal: *bls.EmptySignature,
-			Signature:    *sig,
+			RandaoReveal: bls.EmptySignature.Serialize(),
+			Signature:    bls.EmptySignature.Serialize(),
 		},
 		BlockBody: primitives.BlockBody{
 			ProposerSlashings: []primitives.ProposerSlashing{},
@@ -267,7 +270,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	}
 
 	blockWithoutSignature := block.Copy()
-	blockWithoutSignature.BlockHeader.Signature = *bls.EmptySignature
+	blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
 	blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
 	if err != nil {
 		return nil, err
@@ -286,7 +289,17 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 
 	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, b.config)
 
-	valid, err := bls.VerifySig(&newState.ValidatorRegistry[beaconProposerIndex].Pubkey, proposalRoot[:], &block.BlockHeader.Signature, bls.DomainProposal)
+	proposerPub, err := bls.DeserializePublicKey(newState.ValidatorRegistry[beaconProposerIndex].Pubkey)
+	if err != nil {
+		return nil, err
+	}
+
+	proposerSig, err := bls.DeserializeSignature(block.BlockHeader.Signature)
+	if err != nil {
+		return nil, err
+	}
+
+	valid, err := bls.VerifySig(proposerPub, proposalRoot[:], proposerSig, bls.DomainProposal)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +312,12 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	var proposerSlotsBytes [8]byte
 	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposer.ProposerSlots)
 
-	valid, err = bls.VerifySig(&proposer.Pubkey, proposerSlotsBytes[:], &block.BlockHeader.RandaoReveal, bls.DomainRandao)
+	randaoSig, err := bls.DeserializeSignature(block.BlockHeader.RandaoReveal)
+	if err != nil {
+		return nil, err
+	}
+
+	valid, err = bls.VerifySig(proposerPub, proposerSlotsBytes[:], randaoSig, bls.DomainRandao)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +328,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	// increase the randao skips of the proposer
 	newState.ValidatorRegistry[newState.GetBeaconProposerIndex(newState.Slot, b.config)].ProposerSlots++
 
-	randaoRevealSerialized, err := block.BlockHeader.RandaoReveal.TreeHashSSZ()
+	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)
 	if err != nil {
 		return nil, err
 	}
@@ -825,7 +843,11 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 
 	groupPublicKey := bls.NewAggregatePublicKey()
 	for _, p := range participants {
-		groupPublicKey.AggregatePubKey(&s.ValidatorRegistry[p].Pubkey)
+		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[p].Pubkey)
+		if err != nil {
+			return err
+		}
+		groupPublicKey.AggregatePubKey(p)
 	}
 
 	dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
@@ -833,7 +855,12 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 		return err
 	}
 
-	valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], &att.AggregateSig, primitives.GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
+	aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+	if err != nil {
+		return err
+	}
+
+	valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], aggSig, primitives.GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 
+	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/validator"
 
 	"github.com/golang/protobuf/proto"
@@ -44,14 +45,17 @@ func main() {
 	for i := uint64(0); i <= c.EpochLength*(uint64(c.TargetCommitteeSize)*2); i++ {
 		priv := keystore.GetKeyForValidator(uint32(i))
 		pub := priv.DerivePublicKey()
-		hashPub := pub.Hash()
-		proofOfPossession, err := bls.Sign(priv, hashPub, bls.DomainDeposit)
+		hashPub, err := ssz.TreeHash(pub.Serialize())
+		if err != nil {
+			panic(err)
+		}
+		proofOfPossession, err := bls.Sign(priv, hashPub[:], bls.DomainDeposit)
 		if err != nil {
 			panic(err)
 		}
 		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                *pub,
-			ProofOfPossession:     *proofOfPossession,
+			PubKey:                pub.Serialize(),
+			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
 			DepositSize:           c.MaxDeposit * config.UnitInCoin,

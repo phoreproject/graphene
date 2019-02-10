@@ -1,25 +1,20 @@
 package primitives
 
 import (
-	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 )
 
 // DepositParameters are the parameters the depositer needs
 // to provide.
 type DepositParameters struct {
-	PubKey                bls.PublicKey
-	ProofOfPossession     bls.Signature
+	PubKey                [96]byte
+	ProofOfPossession     [48]byte
 	WithdrawalCredentials chainhash.Hash
 }
 
 // Copy returns a copy of the deposit parameters
 func (dp *DepositParameters) Copy() DepositParameters {
-	newDP := *dp
-	newDP.PubKey = dp.PubKey.Copy()
-	newSig := dp.ProofOfPossession.Copy()
-	newDP.ProofOfPossession = *newSig
-	return newDP
+	return *dp
 }
 
 // Deposit is a new deposit from a shard.
@@ -36,15 +31,10 @@ func (d Deposit) Copy() Deposit {
 type Exit struct {
 	Slot           uint64
 	ValidatorIndex uint64
-	Signature      bls.Signature
+	Signature      [48]byte
 }
 
 // Copy returns a copy of the exit.
 func (e *Exit) Copy() Exit {
-	newSig := e.Signature.Copy()
-	return Exit{
-		e.Slot,
-		e.ValidatorIndex,
-		*newSig,
-	}
+	return *e
 }

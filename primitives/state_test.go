@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 func TestForkDataSSZ(t *testing.T) {

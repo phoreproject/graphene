@@ -10,10 +10,10 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/rpc"
 	"google.golang.org/grpc"
 

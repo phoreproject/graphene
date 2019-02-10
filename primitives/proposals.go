@@ -19,8 +19,8 @@ func (psd *ProposalSignedData) Copy() ProposalSignedData {
 }
 
 // ToProto gets the protobuf representation of a proposal signed data object
-func (psd *ProposalSignedData) ToProto() pb.ProposalSignedData {
-	return pb.ProposalSignedData{
+func (psd *ProposalSignedData) ToProto() *pb.ProposalSignedData {
+	return &pb.ProposalSignedData{
 		Slot:      psd.Slot,
 		Shard:     psd.Shard,
 		BlockHash: psd.BlockHash[:],

@@ -1,8 +1,8 @@
 package db
 
 import (
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 // Database is a very basic interface for pluggable

@@ -2,6 +2,7 @@ package primitives
 
 import (
 	"github.com/phoreproject/synapse/chainhash"
+	pb "github.com/phoreproject/synapse/pb"
 )
 
 // DepositParameters are the parameters the depositer needs
@@ -17,9 +18,26 @@ func (dp *DepositParameters) Copy() DepositParameters {
 	return *dp
 }
 
+// ToProto gets the protobuf representation of the deposit parameters.
+func (dp *DepositParameters) ToProto() *pb.DepositParameters {
+	newDp := &pb.DepositParameters{
+		WithdrawalCredentials: dp.WithdrawalCredentials[:],
+	}
+	copy(newDp.PublicKey, dp.PubKey[:])
+	copy(newDp.ProofOfPossession, dp.ProofOfPossession[:])
+	return newDp
+}
+
 // Deposit is a new deposit from a shard.
 type Deposit struct {
 	Parameters DepositParameters
+}
+
+// ToProto gets the protobuf representation of the deposit.
+func (d Deposit) ToProto() *pb.Deposit {
+	return &pb.Deposit{
+		Parameters: d.Parameters.ToProto(),
+	}
 }
 
 // Copy returns a copy of the deposit.
@@ -37,4 +55,14 @@ type Exit struct {
 // Copy returns a copy of the exit.
 func (e *Exit) Copy() Exit {
 	return *e
+}
+
+// ToProto gets the protobuf representation of the exit.
+func (e *Exit) ToProto() *pb.Exit {
+	newE := &pb.Exit{
+		Slot:           e.Slot,
+		ValidatorIndex: e.ValidatorIndex,
+	}
+	copy(newE.Signature, e.Signature[:])
+	return newE
 }

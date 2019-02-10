@@ -19,6 +19,14 @@ func (b *Block) Copy() Block {
 	}
 }
 
+// ToProto gets the protobuf representation of the block.
+func (b *Block) ToProto() *pb.Block {
+	return &pb.Block{
+		Header: b.BlockHeader.ToProto(),
+		Body:   b.BlockBody.ToProto(),
+	}
+}
+
 // BlockHeader is the header of the block.
 type BlockHeader struct {
 	SlotNumber   uint64
@@ -87,5 +95,36 @@ func (bb *BlockBody) Copy() BlockBody {
 		CasperSlashings:   newCasperSlashings,
 		Deposits:          newDeposits,
 		Exits:             newExits,
+	}
+}
+
+// ToProto converts the block body to protobuf form
+func (bb *BlockBody) ToProto() *pb.BlockBody {
+	atts := make([]*pb.Attestation, len(bb.Attestations))
+	for i := range atts {
+		atts[i] = bb.Attestations[i].ToProto()
+	}
+	ps := make([]*pb.ProposerSlashing, len(bb.ProposerSlashings))
+	for i := range ps {
+		ps[i] = bb.ProposerSlashings[i].ToProto()
+	}
+	cs := make([]*pb.CasperSlashing, len(bb.CasperSlashings))
+	for i := range cs {
+		cs[i] = bb.CasperSlashings[i].ToProto()
+	}
+	ds := make([]*pb.Deposit, len(bb.Deposits))
+	for i := range ds {
+		ds[i] = bb.Deposits[i].ToProto()
+	}
+	ex := make([]*pb.Exit, len(bb.Exits))
+	for i := range ex {
+		ex[i] = bb.Exits[i].ToProto()
+	}
+	return &pb.BlockBody{
+		Attestations:      atts,
+		ProposerSlashings: ps,
+		CasperSlashings:   cs,
+		Deposits:          ds,
+		Exits:             ex,
 	}
 }

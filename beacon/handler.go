@@ -1,6 +1,6 @@
 package beacon
 
-import "github.com/phoreproject/synapse/beacon/primitives"
+import "github.com/phoreproject/synapse/primitives"
 
 // HandleNewBlocks handles any incoming blocks.
 func (b *Blockchain) HandleNewBlocks(blocks chan primitives.Block) error {

@@ -45,6 +45,15 @@ func (f ForkData) Copy() ForkData {
 	return ForkData{PreForkVersion: f.PreForkVersion, PostForkVersion: f.PostForkVersion, ForkSlotNumber: f.ForkSlotNumber}
 }
 
+// ToProto gets the protobuf representation of the fork data.
+func (f ForkData) ToProto() *pb.ForkData {
+	return &pb.ForkData{
+		PreForkVersion:  f.PreForkVersion,
+		PostForkVersion: f.PostForkVersion,
+		ForkSlot:        f.ForkSlotNumber,
+	}
+}
+
 // State is the state of a beacon block
 type State struct {
 	// MISC ITEMS
@@ -162,6 +171,70 @@ func (s *State) Copy() State {
 	}
 
 	return newState
+}
+
+// ToProto gets the protobuf representation of the state.
+func (s *State) ToProto() *pb.State {
+	validatorRegistry := make([]*pb.Validator, len(s.ValidatorRegistry))
+	shardCommittees := make([]*pb.ShardCommitteesForSlot, len(s.ShardAndCommitteeForSlots))
+	latestCrosslinks := make([]*pb.Crosslink, len(s.LatestCrosslinks))
+	latestBlockHashes := make([][]byte, len(s.LatestBlockHashes))
+	latestAttestations := make([]*pb.PendingAttestation, len(s.LatestAttestations))
+	batchedBlockRoots := make([][]byte, len(s.BatchedBlockRoots))
+
+	for i := range validatorRegistry {
+		validatorRegistry[i] = s.ValidatorRegistry[i].ToProto()
+	}
+
+	for i := range shardCommittees {
+		committees := make([]*pb.ShardCommittee, len(s.ShardAndCommitteeForSlots[i]))
+		for j := range committees {
+			committees[j] = s.ShardAndCommitteeForSlots[i][j].ToProto()
+		}
+
+		shardCommittees[i] = &pb.ShardCommitteesForSlot{
+			Committees: committees,
+		}
+	}
+
+	for i := range latestCrosslinks {
+		latestCrosslinks[i] = s.LatestCrosslinks[i].ToProto()
+	}
+
+	for i := range latestBlockHashes {
+		latestBlockHashes[i] = s.LatestBlockHashes[i][:]
+	}
+
+	for i := range latestAttestations {
+		latestAttestations[i] = s.LatestAttestations[i].ToProto()
+	}
+
+	for i := range batchedBlockRoots {
+		batchedBlockRoots[i] = s.BatchedBlockRoots[i][:]
+	}
+
+	return &pb.State{
+		Slot:                              s.Slot,
+		GenesisTime:                       s.GenesisTime,
+		ForkData:                          s.ForkData.ToProto(),
+		ValidatorRegistry:                 validatorRegistry,
+		ValidatorBalances:                 s.ValidatorBalances,
+		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
+		ValidatorRegistryDeltaChainTip:    s.ValidatorRegistryDeltaChainTip[:],
+		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
+		RandaoMix:                         s.RandaoMix[:],
+		NextSeed:                          s.NextSeed[:],
+		ShardCommittees:                   shardCommittees,
+		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
+		JustifiedSlot:                     s.JustifiedSlot,
+		JustificationBitField:             s.JustificationBitfield,
+		FinalizedSlot:                     s.FinalizedSlot,
+		LatestCrosslinks:                  latestCrosslinks,
+		LatestBlockHashes:                 latestBlockHashes,
+		LatestPenalizedExitBalances:       s.LatestPenalizedExitBalances,
+		LatestAttestations:                latestAttestations,
+		BatchedBlockRoots:                 batchedBlockRoots,
+	}
 }
 
 // GetEffectiveBalance gets the effective balance for a validator
@@ -718,16 +791,6 @@ func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession
 	return uint32(index), nil
 }
 
-// ShardReassignmentRecord is the record of shard reassignment
-type ShardReassignmentRecord struct {
-	// Which validator to reassign
-	ValidatorIndex uint32
-	// To which shard
-	Shard uint64
-	// When
-	Slot uint64
-}
-
 const (
 	// Active is a status for a validator that is active.
 	Active = iota
@@ -806,6 +869,14 @@ type Crosslink struct {
 	ShardBlockHash chainhash.Hash
 }
 
+// ToProto gets the protobuf representation of the crosslink
+func (c *Crosslink) ToProto() *pb.Crosslink {
+	return &pb.Crosslink{
+		Slot:           c.Slot,
+		ShardBlockHash: c.ShardBlockHash[:],
+	}
+}
+
 // ShardAndCommittee keeps track of the validators assigned to a specific shard.
 type ShardAndCommittee struct {
 	// Shard number
@@ -823,4 +894,13 @@ func (sc *ShardAndCommittee) Copy() ShardAndCommittee {
 	newSc := *sc
 	copy(newSc.Committee, sc.Committee)
 	return newSc
+}
+
+// ToProto gets the protobuf representation of the shard and committee
+func (sc *ShardAndCommittee) ToProto() *pb.ShardCommittee {
+	return &pb.ShardCommittee{
+		Shard:               sc.Shard,
+		Committee:           sc.Committee,
+		TotalValidatorCount: sc.TotalValidatorCount,
+	}
 }

@@ -6,6 +6,7 @@ require (
 	github.com/btcsuite/golangcrypto v0.0.0-20150304025918-53f62d9b43e8
 	github.com/coreos/go-semver v0.2.0 // indirect
 	github.com/fd/go-nat v1.0.0 // indirect
+	github.com/go-test/deep v1.0.1
 	github.com/golang/protobuf v1.2.0
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect

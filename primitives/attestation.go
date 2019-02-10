@@ -102,14 +102,15 @@ type Attestation struct {
 
 // Copy returns a copy of the attestation
 func (a *Attestation) Copy() Attestation {
-	sig := [48]byte{}
-	copy(sig[:], a.AggregateSig[:])
-	return Attestation{
-		Data:                  a.Data.Copy(),
-		ParticipationBitfield: a.ParticipationBitfield[:],
-		CustodyBitfield:       a.CustodyBitfield[:],
-		AggregateSig:          sig,
+	newAtt := Attestation{
+		Data: a.Data.Copy(),
 	}
+
+	copy(newAtt.AggregateSig[:], a.AggregateSig[:])
+	newAtt.CustodyBitfield = append([]uint8{}, a.CustodyBitfield...)
+	newAtt.ParticipationBitfield = append([]uint8{}, a.ParticipationBitfield...)
+
+	return newAtt
 }
 
 // AttestationFromProto gets a new attestation from a protobuf attestation message.
@@ -123,8 +124,8 @@ func AttestationFromProto(att *pb.Attestation) (*Attestation, error) {
 		ParticipationBitfield: att.ParticipationBitfield[:],
 		CustodyBitfield:       att.CustodyBitfield[:],
 	}
-	if len(att.AggregateSig) != 48 {
-		return nil, errors.New("aggregateSig was not 48 bytes")
+	if len(att.AggregateSig) > 48 {
+		return nil, errors.New("aggregateSig was not less than 48 bytes")
 	}
 	copy(a.AggregateSig[:], att.AggregateSig)
 	return a, nil
@@ -151,8 +152,8 @@ type PendingAttestation struct {
 // Copy copies a pending attestation
 func (pa *PendingAttestation) Copy() PendingAttestation {
 	newPa := *pa
-	copy(newPa.ParticipationBitfield, pa.ParticipationBitfield)
-	copy(newPa.CustodyBitfield, pa.CustodyBitfield)
+	newPa.ParticipationBitfield = append([]uint8{}, pa.ParticipationBitfield...)
+	newPa.CustodyBitfield = append([]uint8{}, pa.CustodyBitfield...)
 	return newPa
 }
 

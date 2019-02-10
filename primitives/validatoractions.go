@@ -25,8 +25,8 @@ func (dp *DepositParameters) ToProto() *pb.DepositParameters {
 	newDp := &pb.DepositParameters{
 		WithdrawalCredentials: dp.WithdrawalCredentials[:],
 	}
-	copy(newDp.PublicKey, dp.PubKey[:])
-	copy(newDp.ProofOfPossession, dp.ProofOfPossession[:])
+	newDp.PublicKey = dp.PubKey[:]
+	newDp.ProofOfPossession = dp.ProofOfPossession[:]
 	return newDp
 }
 
@@ -92,7 +92,7 @@ func (e *Exit) ToProto() *pb.Exit {
 		Slot:           e.Slot,
 		ValidatorIndex: e.ValidatorIndex,
 	}
-	copy(newE.Signature, e.Signature[:])
+	newE.Signature = e.Signature[:]
 	return newE
 }
 

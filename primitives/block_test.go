@@ -164,11 +164,34 @@ func TestBlockBody_Copy(t *testing.T) {
 
 func TestBlockBody_ToFromProto(t *testing.T) {
 	baseBlockBody := &primitives.BlockBody{
-		Attestations:      []primitives.Attestation{{}},
-		ProposerSlashings: []primitives.ProposerSlashing{{}},
-		CasperSlashings:   []primitives.CasperSlashing{{}},
-		Deposits:          []primitives.Deposit{{}},
-		Exits:             []primitives.Exit{{}},
+		Attestations:      []primitives.Attestation{{ParticipationBitfield: []uint8{1}}},
+		ProposerSlashings: []primitives.ProposerSlashing{{ProposerIndex: 1}},
+		CasperSlashings: []primitives.CasperSlashing{
+			{
+				Votes1: primitives.SlashableVoteData{
+					AggregateSignature:            [48]byte{1},
+					AggregateSignaturePoC0Indices: []uint32{},
+					AggregateSignaturePoC1Indices: []uint32{},
+				},
+				Votes2: primitives.SlashableVoteData{
+					AggregateSignature:            [48]byte{1},
+					AggregateSignaturePoC0Indices: []uint32{},
+					AggregateSignaturePoC1Indices: []uint32{},
+				},
+			},
+		},
+		Deposits: []primitives.Deposit{
+			{
+				Parameters: primitives.DepositParameters{
+					PubKey: [96]byte{1},
+				},
+			},
+		},
+		Exits: []primitives.Exit{
+			{
+				Slot: 1,
+			},
+		},
 	}
 
 	blockBodyProto := baseBlockBody.ToProto()

@@ -27,8 +27,8 @@ func (ps *ProposerSlashing) ToProto() *pb.ProposerSlashing {
 		ProposalData1: ps.ProposalData1.ToProto(),
 		ProposalData2: ps.ProposalData2.ToProto(),
 	}
-	copy(newPS.ProposalSignature1, ps.ProposalSignature1[:])
-	copy(newPS.ProposalSignature2, ps.ProposalSignature2[:])
+	newPS.ProposalSignature1 = ps.ProposalSignature1[:]
+	newPS.ProposalSignature2 = ps.ProposalSignature2[:]
 	return newPS
 }
 
@@ -69,8 +69,8 @@ type SlashableVoteData struct {
 // Copy returns a copy of the slashable vote data.
 func (svd *SlashableVoteData) Copy() SlashableVoteData {
 	return SlashableVoteData{
-		AggregateSignaturePoC0Indices: svd.AggregateSignaturePoC0Indices[:],
-		AggregateSignaturePoC1Indices: svd.AggregateSignaturePoC1Indices[:],
+		AggregateSignaturePoC0Indices: append([]uint32{}, svd.AggregateSignaturePoC0Indices[:]...),
+		AggregateSignaturePoC1Indices: append([]uint32{}, svd.AggregateSignaturePoC1Indices[:]...),
 		Data:                          svd.Data.Copy(),
 		AggregateSignature:            svd.AggregateSignature,
 	}
@@ -79,11 +79,11 @@ func (svd *SlashableVoteData) Copy() SlashableVoteData {
 // ToProto returns the protobuf representation of the slashable vote data.
 func (svd *SlashableVoteData) ToProto() *pb.SlashableVoteData {
 	newSvd := &pb.SlashableVoteData{
-		AggregateSignaturePoC0Indices: svd.AggregateSignaturePoC0Indices,
-		AggregateSignaturePoC1Indices: svd.AggregateSignaturePoC1Indices,
+		AggregateSignaturePoC0Indices: append([]uint32{}, svd.AggregateSignaturePoC0Indices[:]...),
+		AggregateSignaturePoC1Indices: append([]uint32{}, svd.AggregateSignaturePoC1Indices[:]...),
 		Data:                          svd.Data.ToProto(),
 	}
-	copy(newSvd.AggregateSignature, svd.AggregateSignature[:])
+	newSvd.AggregateSignature = append([]byte{}, svd.AggregateSignature[:]...)
 	return newSvd
 }
 
@@ -93,8 +93,8 @@ func SlashableVoteDataFromProto(voteData *pb.SlashableVoteData) (*SlashableVoteD
 		return nil, errors.New("aggregateSignature should be 48 bytes")
 	}
 	svd := &SlashableVoteData{}
-	copy(svd.AggregateSignaturePoC0Indices, voteData.AggregateSignaturePoC0Indices)
-	copy(svd.AggregateSignaturePoC1Indices, voteData.AggregateSignaturePoC1Indices)
+	svd.AggregateSignaturePoC0Indices = append([]uint32{}, voteData.AggregateSignaturePoC0Indices...)
+	svd.AggregateSignaturePoC1Indices = append([]uint32{}, voteData.AggregateSignaturePoC1Indices...)
 	copy(svd.AggregateSignature[:], voteData.AggregateSignature)
 
 	data, err := AttestationDataFromProto(voteData.Data)

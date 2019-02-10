@@ -35,9 +35,9 @@ func TestProposalSignedData_Copy(t *testing.T) {
 
 func TestProposalSignedData_ToFromProto(t *testing.T) {
 	proposalSignedData := &primitives.ProposalSignedData{
-		Slot:      0,
-		Shard:     0,
-		BlockHash: chainhash.Hash{},
+		Slot:      1,
+		Shard:     1,
+		BlockHash: chainhash.Hash{1},
 	}
 
 	proposalDataProto := proposalSignedData.ToProto()

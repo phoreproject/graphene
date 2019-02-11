@@ -82,8 +82,11 @@ func (s SecretKey) DerivePublicKey() *PublicKey {
 }
 
 // Serialize serializes a secret key to bytes.
-func (s SecretKey) Serialize() []byte {
-	return s.s.Serialize()
+func (s SecretKey) Serialize() [64]byte {
+	var sSer [64]byte
+	key := s.s.Serialize()
+	copy(sSer[:], key)
+	return sSer
 }
 
 // DeserializeSecretKey deserializes a secret key from bytes.

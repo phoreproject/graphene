@@ -69,18 +69,26 @@ type MemoryKeyStore struct {
 	publicKeys    []*bls.PublicKey
 }
 
+// NewMemoryKeyStore creates a new memory key store.
+func NewMemoryKeyStore(keys []*bls.SecretKey) *MemoryKeyStore {
+	return &MemoryKeyStore{proposerSlots: make(map[uint32]uint64), privateKeys: keys}
+}
+
 // GetKeyForValidator gets the private key for the given validator ID.
-func (m MemoryKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
+func (m *MemoryKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
 	return m.privateKeys[v]
 }
 
 // GetPublicKeyForValidator gets the public key for the given validator ID.
-func (m MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
+func (m *MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
+	if m.publicKeys[v] == nil {
+		m.publicKeys[v] = m.privateKeys[v].DerivePublicKey()
+	}
 	return m.publicKeys[v]
 }
 
 // IncrementProposerSlots increments proposal slots when chosen to propose a block.
-func (m MemoryKeyStore) IncrementProposerSlots(v uint32) {
+func (m *MemoryKeyStore) IncrementProposerSlots(v uint32) {
 	if _, found := m.proposerSlots[v]; !found {
 		m.proposerSlots[v] = 0
 	} else {
@@ -89,7 +97,7 @@ func (m MemoryKeyStore) IncrementProposerSlots(v uint32) {
 }
 
 // GetProposerSlots gets the number of times this validator was chosen as a proposer since genesis.
-func (m MemoryKeyStore) GetProposerSlots(v uint32) uint64 {
+func (m *MemoryKeyStore) GetProposerSlots(v uint32) uint64 {
 	return m.proposerSlots[v]
 }
 

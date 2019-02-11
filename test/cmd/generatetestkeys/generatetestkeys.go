@@ -44,7 +44,7 @@ func main() {
 
 	x := newXORShift(2)
 	keys := make([]bls.SecretKey, *numKeys)
-	validators := make([]beacon.InitialValidatorEntry, *numKeys)
+	validators := make([]beacon.InitialValidatorEntryAndPrivateKey, *numKeys)
 	for i := range keys {
 		k, err := bls.RandSecretKey(x)
 		if err != nil {
@@ -70,12 +70,15 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			validators[keyNum] = beacon.InitialValidatorEntry{
-				PubKey:                pub.Serialize(),
-				ProofOfPossession:     proofOfPossession.Serialize(),
-				WithdrawalShard:       0,
-				WithdrawalCredentials: chainhash.Hash{},
-				DepositSize:           config.MainNetConfig.MaxDeposit * config.UnitInCoin,
+			validators[keyNum] = beacon.InitialValidatorEntryAndPrivateKey{
+				Entry: beacon.InitialValidatorEntry{
+					PubKey:                pub.Serialize(),
+					ProofOfPossession:     proofOfPossession.Serialize(),
+					WithdrawalShard:       0,
+					WithdrawalCredentials: chainhash.Hash{},
+					DepositSize:           config.MainNetConfig.MaxDeposit * config.UnitInCoin,
+				},
+				PrivateKey: key.Serialize(),
 			}
 			fmt.Printf("Generating key %d\n", keyNum)
 			wg.Done()

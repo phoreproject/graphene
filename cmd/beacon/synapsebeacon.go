@@ -17,12 +17,15 @@ import (
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/db"
 
+	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
 const clientVersion = "0.0.1"
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
+
 	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	fakeValidatorKeyStore := flag.String("fakevalidatorkeys", "keypairs.bin", "key file of fake validators")
@@ -60,7 +63,7 @@ func main() {
 		// 	})
 		// }
 	} else {
-		// we should load the
+		// we should load the keys from the validator keystore
 		f, err := os.Open(*fakeValidatorKeyStore)
 		if err != nil {
 			panic(err)
@@ -78,9 +81,9 @@ func main() {
 		validators = make([]beacon.InitialValidatorEntry, length)
 
 		for i := uint32(0); i < length; i++ {
-			var iv beacon.InitialValidatorEntry
+			var iv beacon.InitialValidatorEntryAndPrivateKey
 			binary.Read(f, binary.BigEndian, &iv)
-			validators[i] = iv
+			validators[i] = iv.Entry
 		}
 	}
 

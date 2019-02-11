@@ -160,6 +160,13 @@ type InitialValidatorEntry struct {
 	DepositSize           uint64
 }
 
+// InitialValidatorEntryAndPrivateKey is an initial validator entry and private key.
+type InitialValidatorEntryAndPrivateKey struct {
+	Entry InitialValidatorEntry
+
+	PrivateKey [64]byte
+}
+
 const (
 	// RoleProposer is assigned to validators who need to propose a shard block.
 	RoleProposer = iota
@@ -269,10 +276,7 @@ func (b *Blockchain) GetConfig() *config.Config {
 // GetSlotAndShardAssignment gets the shard and slot assignment for a specific
 // validator.
 func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	earliestSlotInArray := b.state.Slot%b.config.EpochLength - b.config.EpochLength
-	if earliestSlotInArray < 0 {
-		earliestSlotInArray = 0
-	}
+	earliestSlotInArray := b.state.Slot - (b.config.EpochLength % b.config.EpochLength)
 	for i, slot := range b.state.ShardAndCommitteeForSlots {
 		for j, committee := range slot {
 			for v, validator := range committee.Committee {

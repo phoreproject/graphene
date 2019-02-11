@@ -15,10 +15,13 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	network "github.com/phoreproject/synapse/net"
+	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
 func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
+	logrus.SetLevel(logrus.DebugLevel)
+
 	currentAddr := ""
 
 	peers := []*peerstore.PeerInfo{}

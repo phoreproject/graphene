@@ -23,7 +23,9 @@ type Validator struct {
 
 // NewValidator gets a validator
 func NewValidator(key *bls.SecretKey, rpc pb.BlockchainRPCClient, id uint32, newSlot chan uint64, newCycle chan bool) *Validator {
-	return &Validator{secretKey: key, rpc: rpc, id: id, logger: logrus.New(), newSlot: newSlot, newCycle: newCycle}
+	v := &Validator{secretKey: key, rpc: rpc, id: id, logger: logrus.New(), newSlot: newSlot, newCycle: newCycle}
+	v.logger.SetLevel(logrus.DebugLevel)
+	return v
 }
 
 // GetSlotAssignment receives the slot assignment from the rpc.

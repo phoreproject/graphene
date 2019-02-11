@@ -342,8 +342,8 @@ func StateFromProto(s *pb.State) (*State, error) {
 		return nil, err
 	}
 
-	copy(newState.ValidatorBalances, s.ValidatorBalances)
-	copy(newState.LatestPenalizedExitBalances, s.LatestPenalizedExitBalances)
+	newState.ValidatorBalances = append([]uint64{}, s.ValidatorBalances...)
+	newState.LatestPenalizedExitBalances = append([]uint64{}, s.LatestPenalizedExitBalances...)
 
 	return newState, nil
 }
@@ -1044,7 +1044,7 @@ type ShardAndCommittee struct {
 // Copy copies the ShardAndCommittee
 func (sc *ShardAndCommittee) Copy() ShardAndCommittee {
 	newSc := *sc
-	copy(newSc.Committee, sc.Committee)
+	newSc.Committee = append([]uint32{}, sc.Committee...)
 	return newSc
 }
 
@@ -1063,6 +1063,6 @@ func ShardAndCommitteeFromProto(committee *pb.ShardCommittee) (*ShardAndCommitte
 		Shard:               committee.Shard,
 		TotalValidatorCount: committee.TotalValidatorCount,
 	}
-	copy(sc.Committee, committee.Committee)
+	sc.Committee = append([]uint32{}, committee.Committee...)
 	return sc, nil
 }

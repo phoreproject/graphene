@@ -16,6 +16,12 @@ service BlockchainRPC {
     rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
 
     rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
+
+    rpc GetCommitteeValidatorIndices(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorIndicesResponse);
+
+    rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
+
+    rpc GetSlotInformation(google.protobuf.Empty) returns (SlotInformation);
 }
 
 service P2PRPC {
@@ -34,6 +40,15 @@ service P2PRPC {
     rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
 
     rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+}
+
+message SlotInformation {
+    uint64 Slot = 1;
+    bytes BeaconBlockHash = 2;
+    bytes EpochBoundaryRoot = 3;
+    repeated Crosslink LatestCrosslinks = 4;
+    uint64 JustifiedSlot = 5;
+    bytes JustifiedRoot = 6;
 }
 
 message ConnectionStatus {
@@ -128,8 +143,16 @@ message GetCommitteeValidatorsRequest {
     uint32 Shard = 2;
 }
 
+message GetStateResponse {
+    State state = 1;
+}
+
 message GetCommitteeValidatorsResponse {
     repeated Validator Validators = 1;
+}
+
+message GetCommitteeValidatorIndicesResponse {
+    repeated uint32 Validators = 1;
 }
 
 message ProposalSignedData {

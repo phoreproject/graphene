@@ -65,7 +65,7 @@ func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAn
 		"validatorID": in.ValidatorID,
 		"shardID":     shardID,
 		"slot":        slot,
-		"role":        r}).Debug("slot shard assignment")
+		"role":        r})
 
 	return &pb.SlotAndShardAssignment{ShardID: uint32(shardID), Slot: slot, Role: r}, nil
 }
@@ -95,6 +95,49 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 	}
 
 	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil
+}
+
+func (s *server) GetCommitteeValidatorIndices(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorIndicesResponse, error) {
+	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, uint64(in.Shard))
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetCommitteeValidatorIndicesResponse{Validators: indices}, nil
+}
+
+func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateResponse, error) {
+	state := s.chain.GetState()
+	stateProto := state.ToProto()
+
+	return &pb.GetStateResponse{State: stateProto}, nil
+}
+
+func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.SlotInformation, error) {
+	state := s.chain.GetState()
+	beaconBlockHash := s.chain.Tip()
+	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash()
+	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
+	for i := range crosslinks {
+		crosslinks[i] = state.LatestCrosslinks[i].ToProto()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	justifiedRoot, err := s.chain.GetHashByHeight(state.JustifiedSlot)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.SlotInformation{
+		Slot:              s.chain.Height(),
+		BeaconBlockHash:   beaconBlockHash[:],
+		EpochBoundaryRoot: epochBoundaryRoot[:],
+		LatestCrosslinks:  crosslinks,
+		JustifiedSlot:     state.JustifiedSlot,
+		JustifiedRoot:     justifiedRoot[:],
+	}, nil
 }
 
 // Serve serves the RPC server

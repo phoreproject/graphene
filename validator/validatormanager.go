@@ -5,6 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
+
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/pb"
@@ -15,17 +18,59 @@ import (
 
 // Notifier handles notifications for each validator.
 type Notifier struct {
-	newSlot  chan uint64
+	newSlot  chan slotInformation
 	newCycle chan bool
 }
 
 // NewNotifier initializes a new validator notifier.
 func NewNotifier() *Notifier {
-	return &Notifier{newSlot: make(chan uint64), newCycle: make(chan bool)}
+	return &Notifier{newSlot: make(chan slotInformation), newCycle: make(chan bool)}
+}
+
+type slotInformation struct {
+	slot              uint64
+	beaconBlockHash   chainhash.Hash
+	epochBoundaryRoot chainhash.Hash
+	latestCrosslinks  []primitives.Crosslink
+	justifiedSlot     uint64
+	justifiedRoot     chainhash.Hash
+}
+
+// slotInformationFromProto gets the slot information from the protobuf format
+func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation, error) {
+	si := &slotInformation{
+		slot:          information.Slot,
+		justifiedSlot: information.JustifiedSlot,
+	}
+
+	err := si.beaconBlockHash.SetBytes(information.BeaconBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	err = si.epochBoundaryRoot.SetBytes(information.EpochBoundaryRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = si.justifiedRoot.SetBytes(information.JustifiedRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	si.latestCrosslinks = make([]primitives.Crosslink, len(information.LatestCrosslinks))
+	for i := range si.latestCrosslinks {
+		cl, err := primitives.CrosslinkFromProto(information.LatestCrosslinks[i])
+		if err != nil {
+			return nil, err
+		}
+		si.latestCrosslinks[i] = *cl
+	}
+	return si, nil
 }
 
 // SendNewSlot notifies the validator of a new slot.
-func (n *Notifier) SendNewSlot(slot uint64) {
+func (n *Notifier) SendNewSlot(slot slotInformation) {
 	n.newSlot <- slot
 }
 
@@ -84,6 +129,16 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 			continue
 		}
 
+		siProto, err := vm.rpc.GetSlotInformation(context.Background(), &empty.Empty{})
+		if err != nil {
+			return err
+		}
+
+		si, err := slotInformationFromProto(siProto)
+		if err != nil {
+			return err
+		}
+
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
 
 		currentSlot = int64(b.SlotNumber)
@@ -98,7 +153,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 			if newCycle {
 				go n.SendNewCycle()
 			}
-			go n.SendNewSlot(b.SlotNumber)
+			go n.SendNewSlot(*si)
 		}
 	}
 }

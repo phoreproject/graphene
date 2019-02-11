@@ -8,3 +8,5 @@ synapsep2p
 integration_tests
 integration
 *.exe
+
+.idea

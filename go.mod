@@ -59,6 +59,7 @@ require (
 	github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134
 	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051 // indirect
 	github.com/sirupsen/logrus v1.3.0
+	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect
 	github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f // indirect
 	github.com/whyrusleeping/go-smux-multiplex v3.0.16+incompatible // indirect
@@ -69,7 +70,7 @@ require (
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
 	github.com/whyrusleeping/yamux v1.1.5 // indirect
-	golang.org/x/crypto v0.0.0-20190208162236-193df9c0f06f // indirect
+	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 // indirect
 	golang.org/x/net v0.0.0-20190206173232-65e2d4e15006
 	golang.org/x/sys v0.0.0-20190209173611-3b5209105503 // indirect
 	google.golang.org/grpc v1.18.0

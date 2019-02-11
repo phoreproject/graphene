@@ -41,6 +41,13 @@ func (f FakeKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
 	return s
 }
 
+// GetPublicKeyForValidator gets the public key for the given validator ID.
+func (f FakeKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
+	r := newXORShift(uint64(v + 1000))
+	s, _ := bls.RandSecretKey(r)
+	return s.DerivePublicKey()
+}
+
 // IncrementProposerSlots increments proposal slots when chosen to propose a block.
 func (f FakeKeyStore) IncrementProposerSlots(v uint32) {
 	if _, found := f.proposerSlots[v]; !found {
@@ -58,6 +65,7 @@ func (f FakeKeyStore) GetProposerSlots(v uint32) uint64 {
 // Keystore is an interface for retrieving keys from a keystore.
 type Keystore interface {
 	GetKeyForValidator(uint32) *bls.SecretKey
+	GetPublicKeyForValidator(uint32) *bls.PublicKey
 	IncrementProposerSlots(uint32)
 	GetProposerSlots(uint32) uint64
 }

@@ -81,6 +81,17 @@ func (s SecretKey) DerivePublicKey() *PublicKey {
 	return &PublicKey{p: *pub}
 }
 
+// Serialize serializes a secret key to bytes.
+func (s SecretKey) Serialize() []byte {
+	return s.s.Serialize()
+}
+
+// DeserializeSecretKey deserializes a secret key from bytes.
+func DeserializeSecretKey(b []byte) SecretKey {
+	k := bls.DeserializeSecretKey(b)
+	return SecretKey{*k}
+}
+
 func (p PublicKey) String() string {
 	return p.p.String()
 }

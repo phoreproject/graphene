@@ -7,6 +7,11 @@ import (
 	"os"
 	"sync"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/chainhash"
+
 	"github.com/phoreproject/synapse/bls"
 )
 
@@ -39,8 +44,7 @@ func main() {
 
 	x := newXORShift(2)
 	keys := make([]bls.SecretKey, *numKeys)
-	keysSer := make([][64]byte, *numKeys)
-	pubs := make([][96]byte, *numKeys)
+	validators := make([]beacon.InitialValidatorEntry, *numKeys)
 	for i := range keys {
 		k, err := bls.RandSecretKey(x)
 		if err != nil {
@@ -57,8 +61,22 @@ func main() {
 
 		go func(keyNum int) {
 			key := keys[keyNum]
-			pubs[keyNum] = key.DerivePublicKey().Serialize()
-			copy(keysSer[keyNum][:], key.Serialize())
+			pub := key.DerivePublicKey()
+			hashPub, err := ssz.TreeHash(pub.Serialize())
+			if err != nil {
+				panic(err)
+			}
+			proofOfPossession, err := bls.Sign(&key, hashPub[:], bls.DomainDeposit)
+			if err != nil {
+				panic(err)
+			}
+			validators[keyNum] = beacon.InitialValidatorEntry{
+				PubKey:                pub.Serialize(),
+				ProofOfPossession:     proofOfPossession.Serialize(),
+				WithdrawalShard:       0,
+				WithdrawalCredentials: chainhash.Hash{},
+				DepositSize:           config.MainNetConfig.MaxDeposit * config.UnitInCoin,
+			}
 			fmt.Printf("Generating key %d\n", keyNum)
 			wg.Done()
 		}(i)
@@ -80,12 +98,8 @@ func main() {
 		panic(err)
 	}
 
-	for i := range keys {
-		_, err := f.Write(keysSer[i][:])
-		if err != nil {
-			panic(err)
-		}
-		_, err = f.Write(pubs[i][:])
+	for _, v := range validators {
+		err := binary.Write(f, binary.BigEndian, v)
 		if err != nil {
 			panic(err)
 		}

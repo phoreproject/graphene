@@ -62,6 +62,37 @@ func (f FakeKeyStore) GetProposerSlots(v uint32) uint64 {
 	return f.proposerSlots[v]
 }
 
+// MemoryKeyStore is a keystore that keeps keys in memory.
+type MemoryKeyStore struct {
+	proposerSlots map[uint32]uint64
+	privateKeys   []*bls.SecretKey
+	publicKeys    []*bls.PublicKey
+}
+
+// GetKeyForValidator gets the private key for the given validator ID.
+func (m MemoryKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
+	return m.privateKeys[v]
+}
+
+// GetPublicKeyForValidator gets the public key for the given validator ID.
+func (m MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
+	return m.publicKeys[v]
+}
+
+// IncrementProposerSlots increments proposal slots when chosen to propose a block.
+func (m MemoryKeyStore) IncrementProposerSlots(v uint32) {
+	if _, found := m.proposerSlots[v]; !found {
+		m.proposerSlots[v] = 0
+	} else {
+		m.proposerSlots[v]++
+	}
+}
+
+// GetProposerSlots gets the number of times this validator was chosen as a proposer since genesis.
+func (m MemoryKeyStore) GetProposerSlots(v uint32) uint64 {
+	return m.proposerSlots[v]
+}
+
 // Keystore is an interface for retrieving keys from a keystore.
 type Keystore interface {
 	GetKeyForValidator(uint32) *bls.SecretKey

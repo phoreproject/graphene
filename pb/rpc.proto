@@ -249,12 +249,6 @@ message PersistentCommitteesForSlot {
     repeated uint32 PersistentCommittee = 1;
 }
 
-message ShardReassignment {
-    uint32 ValidatorIndex = 1;
-    uint64 Shard = 2;
-    uint64 Slot = 3;
-}
-
 message Crosslink {
     uint64 Slot = 1;
     bytes ShardBlockHash = 2;

@@ -19,15 +19,23 @@ func (psd *ProposalSignedData) Copy() ProposalSignedData {
 }
 
 // ToProto gets the protobuf representation of a proposal signed data object
-func (psd *ProposalSignedData) ToProto() pb.ProposalSignedData {
-	return pb.ProposalSignedData{
+func (psd *ProposalSignedData) ToProto() *pb.ProposalSignedData {
+	return &pb.ProposalSignedData{
 		Slot:      psd.Slot,
 		Shard:     psd.Shard,
 		BlockHash: psd.BlockHash[:],
 	}
 }
 
-// Hash gets the hash of the psd
-func (psd *ProposalSignedData) Hash() chainhash.Hash {
-	return chainhash.Hash{} // TODO: fixme
+// ProposalSignedDataFromProto gets the proposal for the protobuf representation.
+func ProposalSignedDataFromProto(data *pb.ProposalSignedData) (*ProposalSignedData, error) {
+	psd := &ProposalSignedData{
+		Slot:  data.Slot,
+		Shard: data.Shard,
+	}
+	err := psd.BlockHash.SetBytes(data.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+	return psd, nil
 }

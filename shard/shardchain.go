@@ -9,8 +9,8 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	beacondb "github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 // BlockHeader represents a single shard chain block header.

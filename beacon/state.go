@@ -8,9 +8,9 @@ import (
 	"github.com/phoreproject/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	logger "github.com/sirupsen/logrus"
 )
 

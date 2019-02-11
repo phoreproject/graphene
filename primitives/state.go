@@ -45,6 +45,24 @@ func (f ForkData) Copy() ForkData {
 	return ForkData{PreForkVersion: f.PreForkVersion, PostForkVersion: f.PostForkVersion, ForkSlotNumber: f.ForkSlotNumber}
 }
 
+// ToProto gets the protobuf representation of the fork data.
+func (f ForkData) ToProto() *pb.ForkData {
+	return &pb.ForkData{
+		PreForkVersion:  f.PreForkVersion,
+		PostForkVersion: f.PostForkVersion,
+		ForkSlot:        f.ForkSlotNumber,
+	}
+}
+
+// ForkDataFromProto gets the fork data from the proto representation.
+func ForkDataFromProto(data *pb.ForkData) (*ForkData, error) {
+	return &ForkData{
+		PreForkVersion:  data.PreForkVersion,
+		PostForkVersion: data.PostForkVersion,
+		ForkSlotNumber:  data.ForkSlot,
+	}, nil
+}
+
 // State is the state of a beacon block
 type State struct {
 	// MISC ITEMS
@@ -162,6 +180,172 @@ func (s *State) Copy() State {
 	}
 
 	return newState
+}
+
+// ToProto gets the protobuf representation of the state.
+func (s *State) ToProto() *pb.State {
+	validatorRegistry := make([]*pb.Validator, len(s.ValidatorRegistry))
+	shardCommittees := make([]*pb.ShardCommitteesForSlot, len(s.ShardAndCommitteeForSlots))
+	latestCrosslinks := make([]*pb.Crosslink, len(s.LatestCrosslinks))
+	latestBlockHashes := make([][]byte, len(s.LatestBlockHashes))
+	latestAttestations := make([]*pb.PendingAttestation, len(s.LatestAttestations))
+	batchedBlockRoots := make([][]byte, len(s.BatchedBlockRoots))
+
+	for i := range validatorRegistry {
+		validatorRegistry[i] = s.ValidatorRegistry[i].ToProto()
+	}
+
+	for i := range shardCommittees {
+		committees := make([]*pb.ShardCommittee, len(s.ShardAndCommitteeForSlots[i]))
+		for j := range committees {
+			committees[j] = s.ShardAndCommitteeForSlots[i][j].ToProto()
+		}
+
+		shardCommittees[i] = &pb.ShardCommitteesForSlot{
+			Committees: committees,
+		}
+	}
+
+	for i := range latestCrosslinks {
+		latestCrosslinks[i] = s.LatestCrosslinks[i].ToProto()
+	}
+
+	for i := range latestBlockHashes {
+		latestBlockHashes[i] = s.LatestBlockHashes[i][:]
+	}
+
+	for i := range latestAttestations {
+		latestAttestations[i] = s.LatestAttestations[i].ToProto()
+	}
+
+	for i := range batchedBlockRoots {
+		batchedBlockRoots[i] = s.BatchedBlockRoots[i][:]
+	}
+
+	return &pb.State{
+		Slot:                              s.Slot,
+		GenesisTime:                       s.GenesisTime,
+		ForkData:                          s.ForkData.ToProto(),
+		ValidatorRegistry:                 validatorRegistry,
+		ValidatorBalances:                 s.ValidatorBalances,
+		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
+		ValidatorRegistryDeltaChainTip:    s.ValidatorRegistryDeltaChainTip[:],
+		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
+		RandaoMix:                         s.RandaoMix[:],
+		NextSeed:                          s.NextSeed[:],
+		ShardCommittees:                   shardCommittees,
+		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
+		JustifiedSlot:                     s.JustifiedSlot,
+		JustificationBitField:             s.JustificationBitfield,
+		FinalizedSlot:                     s.FinalizedSlot,
+		LatestCrosslinks:                  latestCrosslinks,
+		LatestBlockHashes:                 latestBlockHashes,
+		LatestPenalizedExitBalances:       s.LatestPenalizedExitBalances,
+		LatestAttestations:                latestAttestations,
+		BatchedBlockRoots:                 batchedBlockRoots,
+	}
+}
+
+// StateFromProto gets the state fromo the protobuf representation.
+func StateFromProto(s *pb.State) (*State, error) {
+	validatorRegistry := make([]Validator, len(s.ValidatorRegistry))
+	shardAndCommitteeForSlots := make([][]ShardAndCommittee, len(s.ShardCommittees))
+	latestCrosslinks := make([]Crosslink, len(s.LatestCrosslinks))
+	latestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
+	latestAttestations := make([]PendingAttestation, len(s.LatestAttestations))
+	batchedBlockRoots := make([]chainhash.Hash, len(s.BatchedBlockRoots))
+
+	fd, err := ForkDataFromProto(s.ForkData)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range validatorRegistry {
+		v, err := ValidatorFromProto(s.ValidatorRegistry[i])
+		if err != nil {
+			return nil, err
+		}
+		validatorRegistry[i] = *v
+	}
+
+	for i := range shardAndCommitteeForSlots {
+		shardAndCommitteeForSlots[i] = make([]ShardAndCommittee, len(s.ShardCommittees[i].Committees))
+		for j := range shardAndCommitteeForSlots[i] {
+			sc, err := ShardAndCommitteeFromProto(s.ShardCommittees[i].Committees[j])
+			if err != nil {
+				return nil, err
+			}
+			shardAndCommitteeForSlots[i][j] = *sc
+		}
+	}
+
+	for i := range latestCrosslinks {
+		c, err := CrosslinkFromProto(s.LatestCrosslinks[i])
+		if err != nil {
+			return nil, err
+		}
+		latestCrosslinks[i] = *c
+	}
+
+	for i := range latestBlockHashes {
+		err := latestBlockHashes[i].SetBytes(s.LatestBlockHashes[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range latestAttestations {
+		a, err := PendingAttestationFromProto(s.LatestAttestations[i])
+		if err != nil {
+			return nil, err
+		}
+		latestAttestations[i] = *a
+	}
+
+	for i := range batchedBlockRoots {
+		err := batchedBlockRoots[i].SetBytes(s.BatchedBlockRoots[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	newState := &State{
+		Slot:                              s.Slot,
+		GenesisTime:                       s.GenesisTime,
+		ForkData:                          *fd,
+		ValidatorRegistry:                 validatorRegistry,
+		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
+		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
+		ShardAndCommitteeForSlots:         shardAndCommitteeForSlots,
+		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
+		JustifiedSlot:                     s.JustifiedSlot,
+		JustificationBitfield:             s.JustificationBitField,
+		FinalizedSlot:                     s.FinalizedSlot,
+		LatestCrosslinks:                  latestCrosslinks,
+		LatestBlockHashes:                 latestBlockHashes,
+		LatestAttestations:                latestAttestations,
+		BatchedBlockRoots:                 batchedBlockRoots,
+	}
+
+	err = newState.ValidatorRegistryDeltaChainTip.SetBytes(s.ValidatorRegistryDeltaChainTip)
+	if err != nil {
+		return nil, err
+	}
+
+	err = newState.RandaoMix.SetBytes(s.RandaoMix)
+	if err != nil {
+		return nil, err
+	}
+
+	err = newState.NextSeed.SetBytes(s.NextSeed)
+	if err != nil {
+		return nil, err
+	}
+
+	newState.ValidatorBalances = append([]uint64{}, s.ValidatorBalances...)
+	newState.LatestPenalizedExitBalances = append([]uint64{}, s.LatestPenalizedExitBalances...)
+
+	return newState, nil
 }
 
 // GetEffectiveBalance gets the effective balance for a validator
@@ -292,7 +476,7 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 }
 
 // UpdateValidatorRegistry updates the registry and updates validator pending activation or exit.
-func (s *State) UpdateValidatorRegistry(c *config.Config) {
+func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
 	maxBalanceChurn := c.MaxDeposit * config.UnitInCoin
@@ -309,7 +493,10 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) {
 				break
 			}
 
-			s.UpdateValidatorStatus(index, Active, c)
+			err := s.UpdateValidatorStatus(index, Active, c)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -322,7 +509,10 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) {
 				break
 			}
 
-			s.UpdateValidatorStatus(index, ExitedWithoutPenalty, c)
+			err := s.UpdateValidatorStatus(index, ExitedWithoutPenalty, c)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -345,6 +535,7 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) {
 			s.ValidatorBalances[index] -= s.GetEffectiveBalance(index, c) * penaltyFactor / totalBalance
 		}
 	}
+	return nil
 }
 
 // ShardCommitteeByShardID gets the shards committee from a list of committees/shards
@@ -586,7 +777,10 @@ func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Con
 
 	for _, i := range intersection {
 		if s.ValidatorRegistry[i].Status != ExitedWithPenalty {
-			s.UpdateValidatorStatus(i, ExitedWithPenalty, c)
+			err := s.UpdateValidatorStatus(i, ExitedWithPenalty, c)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -625,7 +819,10 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 		return errors.New("signature is not valid")
 	}
 
-	s.UpdateValidatorStatus(uint32(exit.ValidatorIndex), ActivePendingExit, config)
+	err = s.UpdateValidatorStatus(uint32(exit.ValidatorIndex), ActivePendingExit, config)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -718,16 +915,6 @@ func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession
 	return uint32(index), nil
 }
 
-// ShardReassignmentRecord is the record of shard reassignment
-type ShardReassignmentRecord struct {
-	// Which validator to reassign
-	ValidatorIndex uint32
-	// To which shard
-	Shard uint64
-	// When
-	Slot uint64
-}
-
 const (
 	// Active is a status for a validator that is active.
 	Active = iota
@@ -747,8 +934,6 @@ type Validator struct {
 	Pubkey [96]byte
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
-	// Balance in satoshi.
-	Balance uint64
 	// Status code
 	Status uint64
 	// Slot when validator last changed status (or 0)
@@ -771,6 +956,26 @@ func (v *Validator) Copy() Validator {
 // IsActive checks if the validator is active.
 func (v Validator) IsActive() bool {
 	return v.Status == Active || v.Status == ActivePendingExit
+}
+
+// ValidatorFromProto gets the validator for the protobuf representation
+func ValidatorFromProto(validator *pb.Validator) (*Validator, error) {
+	if len(validator.Pubkey) != 96 {
+		return nil, errors.New("validator pubkey should be 96 bytes")
+	}
+	v := &Validator{
+		Status:                  validator.Status,
+		LatestStatusChangeSlot:  validator.LatestStatusChangeSlot,
+		ExitCount:               validator.LatestStatusChangeSlot,
+		ProposerSlots:           validator.ProposerSlots,
+		LastPoCChangeSlot:       validator.LastPoCChangeSlot,
+		SecondLastPoCChangeSlot: validator.SecondLastPoCChangeSlot,
+	}
+	err := v.WithdrawalCredentials.SetBytes(validator.WithdrawalCredentials)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 // GetActiveValidatorIndices gets validator indices that are active.
@@ -806,6 +1011,24 @@ type Crosslink struct {
 	ShardBlockHash chainhash.Hash
 }
 
+// ToProto gets the protobuf representation of the crosslink
+func (c *Crosslink) ToProto() *pb.Crosslink {
+	return &pb.Crosslink{
+		Slot:           c.Slot,
+		ShardBlockHash: c.ShardBlockHash[:],
+	}
+}
+
+// CrosslinkFromProto gets the crosslink for a protobuf representation
+func CrosslinkFromProto(crosslink *pb.Crosslink) (*Crosslink, error) {
+	c := &Crosslink{Slot: crosslink.Slot}
+	err := c.ShardBlockHash.SetBytes(crosslink.ShardBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 // ShardAndCommittee keeps track of the validators assigned to a specific shard.
 type ShardAndCommittee struct {
 	// Shard number
@@ -821,6 +1044,25 @@ type ShardAndCommittee struct {
 // Copy copies the ShardAndCommittee
 func (sc *ShardAndCommittee) Copy() ShardAndCommittee {
 	newSc := *sc
-	copy(newSc.Committee, sc.Committee)
+	newSc.Committee = append([]uint32{}, sc.Committee...)
 	return newSc
+}
+
+// ToProto gets the protobuf representation of the shard and committee
+func (sc *ShardAndCommittee) ToProto() *pb.ShardCommittee {
+	return &pb.ShardCommittee{
+		Shard:               sc.Shard,
+		Committee:           sc.Committee,
+		TotalValidatorCount: sc.TotalValidatorCount,
+	}
+}
+
+// ShardAndCommitteeFromProto gets the shard and committee for the protobuf representation.
+func ShardAndCommitteeFromProto(committee *pb.ShardCommittee) (*ShardAndCommittee, error) {
+	sc := &ShardAndCommittee{
+		Shard:               committee.Shard,
+		TotalValidatorCount: committee.TotalValidatorCount,
+	}
+	sc.Committee = append([]uint32{}, committee.Committee...)
+	return sc, nil
 }

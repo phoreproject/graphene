@@ -9,7 +9,7 @@ import (
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/beacon/primitives"
+	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/chainhash"
 )

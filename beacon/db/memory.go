@@ -7,8 +7,8 @@ import (
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
-	"github.com/phoreproject/synapse/beacon/primitives"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 // InMemoryDB is a very basic block database.

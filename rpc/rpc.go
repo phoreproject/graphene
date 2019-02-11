@@ -11,7 +11,7 @@ import (
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/beacon/primitives"
+	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/pb"
 	"golang.org/x/net/context"

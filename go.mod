@@ -70,6 +70,7 @@ require (
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
 	github.com/whyrusleeping/yamux v1.1.5 // indirect
+	golang.org/x/arch v0.0.0-20181203225421-5a4828bb7045 // indirect
 	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 // indirect
 	golang.org/x/net v0.0.0-20190206173232-65e2d4e15006
 	golang.org/x/sys v0.0.0-20190209173611-3b5209105503 // indirect

@@ -81,15 +81,17 @@ func (n *Notifier) SendNewCycle() {
 
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
-	rpc        pb.BlockchainRPCClient
-	validators []*Validator
-	keystore   Keystore
-	notifiers  []*Notifier
+	blockchainRPC pb.BlockchainRPCClient
+	p2pRPC        pb.P2PRPCClient
+	validators    []*Validator
+	keystore      Keystore
+	notifiers     []*Notifier
 }
 
 // NewManager creates a new validator manager to manage some validators.
-func NewManager(conn *grpc.ClientConn, validators []uint32, keystore Keystore) (*Manager, error) {
-	r := pb.NewBlockchainRPCClient(conn)
+func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, validators []uint32, keystore Keystore) (*Manager, error) {
+	blockchainRPC := pb.NewBlockchainRPCClient(blockchainConn)
+	p2pRPC := pb.NewP2PRPCClient(p2pConn)
 
 	validatorObjs := make([]*Validator, len(validators))
 
@@ -99,14 +101,15 @@ func NewManager(conn *grpc.ClientConn, validators []uint32, keystore Keystore) (
 	}
 
 	for i := range validatorObjs {
-		validatorObjs[i] = NewValidator(keystore.GetKeyForValidator(validators[i]), r, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
+		validatorObjs[i] = NewValidator(keystore.GetKeyForValidator(validators[i]), blockchainRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
 	}
 
 	return &Manager{
-		rpc:        r,
-		validators: validatorObjs,
-		keystore:   keystore,
-		notifiers:  notifiers,
+		blockchainRPC: blockchainRPC,
+		p2pRPC:        p2pRPC,
+		validators:    validatorObjs,
+		keystore:      keystore,
+		notifiers:     notifiers,
 	}, nil
 }
 
@@ -120,7 +123,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 	for {
 		<-t.C
 
-		b, err := vm.rpc.GetSlotNumber(context.Background(), &empty.Empty{})
+		b, err := vm.blockchainRPC.GetSlotNumber(context.Background(), &empty.Empty{})
 		if err != nil {
 			return err
 		}
@@ -129,7 +132,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 			continue
 		}
 
-		siProto, err := vm.rpc.GetSlotInformation(context.Background(), &empty.Empty{})
+		siProto, err := vm.blockchainRPC.GetSlotInformation(context.Background(), &empty.Empty{})
 		if err != nil {
 			return err
 		}

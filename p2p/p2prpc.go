@@ -149,6 +149,10 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 	close(p.subChannels[in.ID])
 	p.subscriptions[in.ID].Cancel()
 
+	delete(p.cancelChannels, in.ID)
+	delete(p.subChannels, in.ID)
+	delete(p.subscriptions, in.ID)
+
 	return &empty.Empty{}, nil
 }
 

@@ -81,18 +81,19 @@ func (p RPCServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenFo
 		return fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
-	logrus.WithField("subID", in.ID).Debug("listening to new messages on sub")
+	messages := p.subChannels[in.ID]
+	cancelChan := p.cancelChannels[in.ID]
 
 	p.lock.Unlock()
 
 	for {
 		select {
-		case msg := <-p.subChannels[in.ID]:
+		case msg := <-messages:
 			err := out.Send(&pb.Message{Data: msg})
 			if err != nil {
 				return err
 			}
-		case <-p.cancelChannels[in.ID]:
+		case <-cancelChan:
 			return io.EOF
 		}
 	}
@@ -106,14 +107,13 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 	subID := *p.currentSubID
 	*p.currentSubID++
 
-	logrus.WithField("topic", in.Topic).WithField("subID", subID).Debug("subscribed to new messages")
-
-	p.subChannels[subID] = make(chan []byte)
+	subChan := make(chan []byte)
+	p.subChannels[subID] = subChan
 	p.cancelChannels[subID] = make(chan bool)
 
 	s, err := p.service.RegisterHandler(in.Topic, func(b []byte) error {
 		select {
-		case p.subChannels[subID] <- b:
+		case subChan <- b:
 		default:
 		}
 		return nil
@@ -135,8 +135,6 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 	if _, success := p.subscriptions[in.ID]; !success {
 		return nil, fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
-
-	logrus.WithField("subID", in.ID).Debug("unsubscribed to subID")
 
 	// either send it or not. we don't really care if it works.
 	// this is dependent on whether the channel is being listened on

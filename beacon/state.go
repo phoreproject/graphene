@@ -3,6 +3,7 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/phoreproject/prysm/shared/ssz"
@@ -797,7 +798,7 @@ done:
 
 // ApplyAttestation verifies and applies an attestation to the given state.
 func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attestation, c *config.Config) error {
-	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
+	if att.Data.Slot+c.MinAttestationInclusionDelay < s.Slot {
 		return errors.New("attestation included too soon")
 	}
 
@@ -889,7 +890,9 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
-	logger.WithField("hash", blockHash).Debug("processing new block")
+	blockHashStr := fmt.Sprintf("%x", blockHash)
+
+	logger.WithField("hash", blockHashStr).Debug("processing new block")
 
 	err = b.AddBlock(block)
 	if err != nil {
@@ -901,7 +904,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
-	logger.WithField("hash", blockHash).Debug("applying block")
+	logger.WithField("hash", blockHashStr).Debug("applying block")
 
 	newState, err := b.ApplyBlock(block)
 	if err != nil {
@@ -910,7 +913,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 	b.stateMap[blockHash] = *newState
 
-	logger.WithField("hash", blockHash).Debug("updating chain head")
+	logger.WithField("hash", blockHashStr).Debug("updating chain head")
 
 	err = b.UpdateChainHead(block)
 	if err != nil {

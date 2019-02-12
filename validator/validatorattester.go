@@ -29,66 +29,15 @@ func (v *Validator) attestBlock(information slotInformation) error {
 		return err
 	}
 
-	topic := fmt.Sprintf("signedAttestation %d", v.slot)
+	topic := fmt.Sprintf("attestations epoch %d", v.slot/v.config.EpochLength)
 
-	topicRequest := fmt.Sprintf("signedAttestation request %d %d", v.slot, v.shard)
+	timeWait := time.NewTimer(time.Second * 3)
 
-	sub, err := v.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
-		Topic: topicRequest,
+	<-timeWait.C
+
+	_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
+		Topic: topic,
+		Data:  attBytes,
 	})
-
-	if err != nil {
-		return err
-	}
-
-	msgListener, err := v.p2pRPC.ListenForMessages(context.Background(), sub)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		v.p2pRPC.Unsubscribe(context.Background(), sub)
-	}()
-
-	messages := make(chan pb.Message)
-	errors := make(chan error)
-
-	go func() {
-		for {
-			msg, err := msgListener.Recv()
-			if err != nil {
-				errors <- err
-				return
-			}
-			messages <- *msg
-		}
-	}()
-
-	timeLimit := time.NewTimer(time.Second * 15)
-
-	for {
-		select {
-		case msg := <-messages:
-			var attRequest pb.AttestationRequest
-			err = proto.Unmarshal(msg.Data, &attRequest)
-			if err != nil {
-				return err
-			}
-
-			if attRequest.ParticipationBitfield[v.committeeID/8]&(1<<(v.committeeID%8)) == 0 {
-				_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
-					Topic: topic,
-					Data:  attBytes,
-				})
-			} else {
-				msgListener.CloseSend()
-				return nil
-			}
-		case err := <-errors:
-			return err
-		case <-timeLimit.C:
-			msgListener.CloseSend()
-			return nil
-		}
-	}
+	return err
 }

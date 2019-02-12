@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -561,6 +560,9 @@ func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
 func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) []ShardAndCommittee {
 	earliestSlot := slot - (slot % c.EpochLength) - c.EpochLength
+	if slot < c.EpochLength {
+		earliestSlot = 0
+	}
 	return s.ShardAndCommitteeForSlots[slot-earliestSlot]
 }
 
@@ -837,14 +839,14 @@ func (s *State) GetAttestationParticipants(data AttestationData, participationBi
 		}
 	}
 
-	if len(participationBitfield) != int(math.Ceil(float64(len(shardCommittee.Committee))/8)) {
+	if len(participationBitfield) != (len(shardCommittee.Committee)+7)/8 {
 		return nil, errors.New("participation bitfield is of incorrect length")
 	}
 
 	participants := []uint32{}
 	for i, validatorIndex := range shardCommittee.Committee {
-		participationBit := (participationBitfield[i/8] >> (7 - (uint(i) % 8))) % 2
-		if participationBit == 1 {
+		participationBit := (participationBitfield[i/8] & (1 << (uint(i) % 8)))
+		if participationBit != 0 {
 			participants = append(participants, validatorIndex)
 		}
 	}

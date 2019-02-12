@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/phoreproject/synapse/beacon/config"
+
 	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/beacon"
@@ -106,7 +108,7 @@ func main() {
 		keys[i] = &key
 	}
 
-	vm, err := validator.NewManager(blockchainConn, p2pConn, validatorIndices, validator.NewMemoryKeyStore(keys))
+	vm, err := validator.NewManager(blockchainConn, p2pConn, validatorIndices, validator.NewMemoryKeyStore(keys), &config.MainNetConfig)
 	if err != nil {
 		panic(err)
 	}

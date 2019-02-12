@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/sirupsen/logrus"
 
@@ -25,12 +26,14 @@ type Validator struct {
 	committeeID   uint32
 	proposer      bool
 	logger        *logrus.Entry
+	mempool       *mempool
 	newSlot       chan slotInformation
 	newCycle      chan bool
+	config        *config.Config
 }
 
 // NewValidator gets a validator
-func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRPC pb.P2PRPCClient, id uint32, newSlot chan slotInformation, newCycle chan bool) *Validator {
+func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRPC pb.P2PRPCClient, id uint32, newSlot chan slotInformation, newCycle chan bool, mempool *mempool, c *config.Config) *Validator {
 	v := &Validator{
 		keystore:      keystore,
 		blockchainRPC: blockchainRPC,
@@ -38,6 +41,8 @@ func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRP
 		id:            id,
 		newSlot:       newSlot,
 		newCycle:      newCycle,
+		mempool:       mempool,
+		config:        c,
 	}
 	l := logrus.New()
 	l.SetLevel(logrus.DebugLevel)
@@ -51,6 +56,12 @@ func (v *Validator) GetSlotAssignment() error {
 	if err != nil {
 		return err
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"slot":  slotAssignment.Slot,
+		"shard": slotAssignment.ShardID,
+		"role":  slotAssignment.Role,
+	}).Debug("got new slot assignment")
 
 	v.shard = slotAssignment.ShardID
 	v.slot = slotAssignment.Slot
@@ -134,7 +145,7 @@ func (v *Validator) RunValidator() error {
 
 func (v *Validator) getAttestation(information slotInformation) (*primitives.AttestationData, [32]byte, error) {
 	a := primitives.AttestationData{
-		Slot:                information.slot,
+		Slot:                information.slot + 1,
 		Shard:               uint64(v.shard),
 		BeaconBlockHash:     information.beaconBlockHash,
 		EpochBoundaryHash:   information.epochBoundaryRoot,

@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
 
@@ -16,17 +16,9 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/sirupsen/logrus"
 )
 
 const maxAttemptsAttestation = 10
-
-type committeeAggregation struct {
-	custodyBitfield       []uint8
-	participationBitfield []uint8
-	aggregateSignature    *bls.Signature
-	data                  primitives.AttestationData
-}
 
 func hammingWeight(b uint8) int {
 	b = b - ((b >> 1) & 0x55)
@@ -103,23 +95,9 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 		v.p2pRPC.Unsubscribe(context.Background(), &pb.Subscription{ID: subID})
 	}()
 
-	aggregations, err := v.listenForAttestations(information, newAttestations)
+	attestations, err := v.mempool.attestationMempool.getAttestationsToInclude(v.slot, v.config)
 	if err != nil {
 		return err
-	}
-
-	v.logger.WithField("attestations", len(aggregations)).Debug("collected all attestations for block")
-
-	attestations := make([]primitives.Attestation, len(aggregations))
-
-	i := 0
-
-	for _, a := range aggregations {
-		attestations[i].AggregateSig = a.aggregateSignature.Serialize()
-		attestations[i].CustodyBitfield = a.custodyBitfield
-		attestations[i].ParticipationBitfield = a.participationBitfield
-		attestations[i].Data = a.data
-		i++
 	}
 
 	v.logger.Debug("creating block")
@@ -154,6 +132,11 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 		return err
 	}
 
+	v.logger.WithFields(logrus.Fields{
+		"mempoolSize": v.mempool.attestationMempool.size(),
+		"including":   len(attestations),
+	}).Debug("getting some mempool transactions")
+
 	newBlock := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
 			SlotNumber:   v.slot,
@@ -171,16 +154,12 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 		},
 	}
 
-	fmt.Println(newBlock.BlockHeader)
-
 	blockHash, err := ssz.TreeHash(newBlock)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(blockHash)
-
-	v.logger.WithField("blockHash", blockHash).Debug("signing block")
+	v.logger.WithField("blockHash", fmt.Sprintf("%x", blockHash)).Info("signing block")
 
 	psd := primitives.ProposalSignedData{
 		Slot:      v.slot,
@@ -209,156 +188,9 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 
 	v.logger.Debug("submitted block")
 
+	for _, a := range attestations {
+		v.mempool.attestationMempool.removeAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
+	}
+
 	return err
-}
-
-// ListenForAttestations listens for attestations to add to our proposal.
-func (v *Validator) listenForAttestations(information slotInformation, newAttestations chan *primitives.Attestation) (map[chainhash.Hash]*committeeAggregation, error) {
-	// we should request all of the shards assigned to this slot and then re-request as needed
-	committees, err := v.blockchainRPC.GetCommitteesForSlot(context.Background(), &pb.GetCommitteesForSlotRequest{Slot: information.slot + 1})
-	if err != nil {
-		return nil, err
-	}
-
-	currentAttestationBitfieldsTotal := make(map[uint64][]byte)
-
-	committeeAttested := make(map[uint32]int)
-	committeeTotal := make(map[uint32]int)
-
-	shards := make(map[uint32]*pb.ShardCommittee)
-	for _, c := range committees.Committees {
-		shards[uint32(c.Shard)] = c
-		committeeAttested[uint32(c.Shard)] = 0
-		committeeTotal[uint32(c.Shard)] = len(c.Committee)
-	}
-
-	for s, c := range shards {
-		fmt.Println("setting up shard", s, information.slot+1)
-
-		currentAttestationBitfieldsTotal[uint64(s)] = make([]byte, (len(c.Committee)+7)/8)
-
-		requestTopic := fmt.Sprintf("signedAttestation request %d %d", information.slot+1, s)
-
-		attRequest := &pb.AttestationRequest{
-			ParticipationBitfield: make([]byte, len(c.Committee)),
-		}
-
-		attRequestBytes, err := proto.Marshal(attRequest)
-		if err != nil {
-			return nil, err
-		}
-
-		v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
-			Topic: requestTopic,
-			Data:  attRequestBytes,
-		})
-	}
-
-	currentAttestations := make(map[chainhash.Hash]*committeeAggregation)
-
-	t := time.NewTicker(time.Second * 3)
-
-	attempt := 0
-
-	for {
-		select {
-		case newAtt := <-newAttestations:
-			// first we should check to make sure that the intersection between the bitfields is the empty set
-			signedHash, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: newAtt.Data, PoCBit: false})
-			if err != nil {
-				return nil, err
-			}
-
-			// if we don't have a running aggregate attestation for the signedHash, create one
-			if _, found := currentAttestations[signedHash]; !found {
-				committee, err := v.GetCommittee(v.slot, uint32(newAtt.Data.Shard))
-				if err != nil {
-					return nil, err
-				}
-
-				currentAttestations[signedHash] = &committeeAggregation{
-					data:                  newAtt.Data,
-					participationBitfield: make([]uint8, (len(committee)+7)/8),
-					custodyBitfield:       make([]uint8, (len(committee)+7)/8),
-					aggregateSignature:    bls.NewAggregateSignature(),
-				}
-			}
-
-			if len(currentAttestationBitfieldsTotal[newAtt.Data.Shard]) != len(newAtt.ParticipationBitfield) {
-				v.logger.WithFields(logrus.Fields{
-					"numExpected": len(currentAttestationBitfieldsTotal[newAtt.Data.Shard]),
-					"numReceived": len(newAtt.ParticipationBitfield),
-					"shard":       newAtt.Data.Shard,
-				}).Debug("attestation participation bitfield doesn't match committee size")
-				continue
-			}
-
-			for i := range newAtt.ParticipationBitfield {
-				if currentAttestationBitfieldsTotal[newAtt.Data.Shard][i]&newAtt.ParticipationBitfield[i] != 0 {
-					v.logger.Debug("received duplicate attestation")
-					continue
-				}
-			}
-
-			for i := range newAtt.ParticipationBitfield {
-				oldBits := currentAttestations[signedHash].participationBitfield[i]
-				newBits := newAtt.ParticipationBitfield[i]
-				numNewBits := hammingWeight((oldBits ^ newBits) & newBits)
-				currentAttestations[signedHash].participationBitfield[i] |= newAtt.ParticipationBitfield[i]
-				committeeAttested[uint32(newAtt.Data.Shard)] += numNewBits
-			}
-
-			sig, err := bls.DeserializeSignature(newAtt.AggregateSig)
-			if err != nil {
-				return nil, err
-			}
-			currentAttestations[signedHash].aggregateSignature.AggregateSig(sig)
-
-			shouldBreak := true
-
-			for i := range committeeAttested {
-				v.logger.WithFields(logrus.Fields{
-					"shard":       i,
-					"numAttested": committeeAttested[i],
-					"total":       committeeTotal[i],
-				}).Debug("received attestation")
-				if committeeAttested[i] != committeeTotal[i] {
-					shouldBreak = false
-				}
-			}
-
-			if shouldBreak {
-				return currentAttestations, nil
-			}
-		case <-t.C:
-			if attempt > maxAttemptsAttestation {
-				return currentAttestations, nil
-			}
-			attempt++
-
-			for _, a := range currentAttestations {
-				for i := range currentAttestationBitfieldsTotal[a.data.Shard] {
-					currentAttestationBitfieldsTotal[a.data.Shard][i] |= a.participationBitfield[i]
-				}
-			}
-
-			for shard, committeeBitfield := range currentAttestationBitfieldsTotal {
-				requestTopic := fmt.Sprintf("signedAttestation request %d %d", information.slot+1, shard)
-
-				attRequest := &pb.AttestationRequest{
-					ParticipationBitfield: committeeBitfield,
-				}
-
-				attRequestBytes, err := proto.Marshal(attRequest)
-				if err != nil {
-					return nil, err
-				}
-
-				v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
-					Topic: requestTopic,
-					Data:  attRequestBytes,
-				})
-			}
-		}
-	}
 }

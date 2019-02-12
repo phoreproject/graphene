@@ -24,7 +24,7 @@ This is loosely based on the Ethereum sharding system.
 make test
 ```
 
-Also, to test validator code, run the following commands in 3 separate terminals:
+Also, to test validator code, run the following commands in 3 separate terminals in order:
 
 ```bash
 go run cmd/p2p/synapsep2p.go

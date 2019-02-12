@@ -62,11 +62,7 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	}
 
 	for _, deposit := range initialValidators {
-		sig, err := bls.DeserializeSignature(deposit.ProofOfPossession)
-		if err != nil {
-			return err
-		}
-		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, *sig, deposit.WithdrawalCredentials, skipValidation, b.config)
+		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, b.config)
 		if err != nil {
 			return err
 		}

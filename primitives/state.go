@@ -862,9 +862,14 @@ func MinEmptyValidator(validators []Validator, validatorBalances []uint64, c *co
 }
 
 // ProcessDeposit processes a deposit with the context of the current state.
-func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
+func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession [48]byte, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
 	if !skipValidation {
-		sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials)
+		sig, err := bls.DeserializeSignature(proofOfPossession)
+		if err != nil {
+			return 0, err
+		}
+
+		sigValid, err := s.ValidateProofOfPossession(pubkey, *sig, withdrawalCredentials)
 		if err != nil {
 			return 0, err
 		}

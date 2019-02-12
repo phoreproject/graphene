@@ -140,6 +140,20 @@ func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.S
 	}, nil
 }
 
+func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesForSlotRequest) (*pb.ShardCommitteesForSlot, error) {
+	state := s.chain.GetState()
+
+	sc := state.GetShardCommitteesAtSlot(in.Slot, s.chain.GetConfig())
+	scProto := make([]*pb.ShardCommittee, len(sc))
+	for i := range sc {
+		scProto[i] = sc[i].ToProto()
+	}
+
+	return &pb.ShardCommitteesForSlot{
+		Committees: scProto,
+	}, nil
+}
+
 // Serve serves the RPC server
 func Serve(listenAddr string, b *beacon.Blockchain) error {
 	lis, err := net.Listen("tcp", listenAddr)

@@ -67,24 +67,16 @@ func (v *Validator) GetSlotAssignment() error {
 }
 
 // GetCommittee gets the indices that the validator is a part of.
-func (v *Validator) GetCommittee() error {
+func (v *Validator) GetCommittee(slot uint64, shard uint32) ([]uint32, error) {
 	validators, err := v.blockchainRPC.GetCommitteeValidatorIndices(context.Background(), &pb.GetCommitteeValidatorsRequest{
-		SlotNumber: v.slot,
-		Shard:      v.shard,
+		SlotNumber: slot,
+		Shard:      shard,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	v.committee = validators.Validators
-
-	for i, index := range v.committee {
-		if index == v.id {
-			v.committeeID = uint32(i)
-		}
-	}
-
-	return nil
+	return validators.Validators, nil
 }
 
 // RunValidator keeps track of assignments and creates/signs attestations as needed.
@@ -94,9 +86,17 @@ func (v *Validator) RunValidator() error {
 		return err
 	}
 
-	err = v.GetCommittee()
+	committee, err := v.GetCommittee(v.slot, v.shard)
 	if err != nil {
 		return err
+	}
+
+	v.committee = committee
+
+	for i, index := range committee {
+		if index == v.id {
+			v.committeeID = uint32(i)
+		}
 	}
 
 	for {
@@ -120,9 +120,16 @@ func (v *Validator) RunValidator() error {
 				return err
 			}
 
-			err = v.GetCommittee()
+			committee, err = v.GetCommittee(v.slot, v.shard)
 			if err != nil {
 				return err
+			}
+			v.committee = committee
+
+			for i, index := range committee {
+				if index == v.id {
+					v.committeeID = uint32(i)
+				}
 			}
 		}
 	}
@@ -175,22 +182,67 @@ func hammingWeight(b uint8) int {
 	return int(((b + (b >> 4)) & 0x0F) * 0x01)
 }
 
+// ListenForMessages listens for incoming attestations and sends them to a channel.
+func (v *Validator) ListenForMessages(topic string, newAttestations chan *primitives.Attestation, errReturn chan error) {
+	sub, err := v.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
+		Topic: topic,
+	})
+	if err != nil {
+		errReturn <- err
+	}
+	messages, err := v.p2pRPC.ListenForMessages(context.Background(), sub)
+	if err != nil {
+		errReturn <- err
+	}
+	defer func() {
+		messages.CloseSend()
+		v.p2pRPC.Unsubscribe(context.Background(), sub)
+	}()
+	for {
+		msg, err := messages.Recv()
+		if err != nil {
+			errReturn <- err
+		}
+
+		attRaw := msg.Data
+
+		var incomingAttestationProto pb.Attestation
+
+		err = proto.Unmarshal(attRaw, &incomingAttestationProto)
+		if err != nil {
+			v.logger.WithField("err", err).Debug("received invalid attestation")
+			continue
+		}
+
+		incomingAttestation, err := primitives.AttestationFromProto(&incomingAttestationProto)
+		if err != nil {
+			v.logger.WithField("err", err).Debug("received invalid attestation")
+			continue
+		}
+
+		newAttestations <- incomingAttestation
+	}
+}
+
+type committeeAggregation struct {
+	bitfield           []uint8
+	aggregateSignature *bls.Signature
+	data               primitives.AttestationData
+}
+
+const maxAttemptsAttestation = 3
+
 func (v *Validator) proposeBlock(information slotInformation) error {
 	newAttestations := make(chan *primitives.Attestation)
 
 	errReturn := make(chan error)
 
-	attData, hashAttestation, err := v.getAttestation(information)
-	if err != nil {
-		return err
-	}
-
-	aggSig := bls.NewAggregateSignature()
-	if err != nil {
-		return err
-	}
-
 	go func() {
+		attData, hashAttestation, err := v.getAttestation(information)
+		if err != nil {
+			errReturn <- err
+		}
+
 		att, err := v.signAttestation(hashAttestation, *attData)
 		if err != nil {
 			errReturn <- err
@@ -198,76 +250,158 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 		newAttestations <- att
 	}()
 
-	topic := fmt.Sprintf("signedAttestation %x", hashAttestation)
+	topic := fmt.Sprintf("signedAttestation %d", information.slot)
 
-	go func() {
-		sub, err := v.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
-			Topic: topic,
+	// we should request all of the shards assigned to this slot and then re-request as needed
+	committees, err := v.blockchainRPC.GetCommitteesForSlot(context.Background(), &pb.GetCommitteesForSlotRequest{Slot: information.slot})
+	if err != nil {
+		return err
+	}
+
+	committeeAttested := make(map[uint32]int)
+	committeeTotal := make(map[uint32]int)
+
+	shards := make(map[uint32]*pb.ShardCommittee)
+	for _, c := range committees.Committees {
+		shards[uint32(c.Shard)] = c
+		committeeAttested[uint32(c.Shard)] = 0
+		committeeTotal[uint32(c.Shard)] = len(c.Committee)
+	}
+
+	currentAttestationBitfieldsTotal := make(map[uint64][]byte)
+
+	for s, c := range shards {
+		requestTopic := fmt.Sprintf("signedAttestation request %d %d", information.slot, s)
+
+		attRequest := &pb.AttestationRequest{
+			ParticipationBitfield: make([]byte, len(c.Committee)),
+		}
+
+		attRequestBytes, err := proto.Marshal(attRequest)
+		if err != nil {
+			return err
+		}
+
+		v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
+			Topic: requestTopic,
+			Data:  attRequestBytes,
 		})
-		if err != nil {
-			errReturn <- err
-		}
-		messages, err := v.p2pRPC.ListenForMessages(context.Background(), sub)
-		if err != nil {
-			errReturn <- err
-		}
-		for {
-			msg, err := messages.Recv()
-			if err != nil {
-				errReturn <- err
-			}
 
-			attRaw := msg.Data
+		currentAttestationBitfieldsTotal[uint64(s)] = make([]byte, (len(c.Committee)+7)/8)
+	}
 
-			var incomingAttestationProto pb.Attestation
+	// listen for
+	go v.ListenForMessages(topic, newAttestations, errReturn)
 
-			err = proto.Unmarshal(attRaw, &incomingAttestationProto)
-			if err != nil {
-				v.logger.WithField("err", err).Debug("received invalid attestation")
-				continue
-			}
+	currentAttestations := make(map[chainhash.Hash]*committeeAggregation)
 
-			incomingAttestation, err := primitives.AttestationFromProto(&incomingAttestationProto)
-			if err != nil {
-				v.logger.WithField("err", err).Debug("received invalid attestation")
-				continue
-			}
+	t := time.NewTicker(time.Second * 2)
 
-			newAttestations <- incomingAttestation
-		}
-	}()
-
-	bitfieldTotal := make([]uint8, (len(v.committee)+7)/8)
-
-	numAttesters := 0
+	attempt := 0
 
 	for {
 		select {
 		case newAtt := <-newAttestations:
-			// first we should check to make sure that the intersection between the bitfields is
+			// first we should check to make sure that the intersection between the bitfields is the empty set
+			signedHash, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: newAtt.Data, PoCBit: false})
+			if err != nil {
+				return err
+			}
+
+			// if we don't have a running aggregate attestation for the signedHash, create one
+			if _, found := currentAttestations[signedHash]; !found {
+				committee, err := v.GetCommittee(v.slot, uint32(newAtt.Data.Shard))
+				if err != nil {
+					return err
+				}
+
+				currentAttestations[signedHash] = &committeeAggregation{
+					data:               newAtt.Data,
+					bitfield:           make([]uint8, (len(committee)+7)/8),
+					aggregateSignature: bls.NewAggregateSignature(),
+				}
+			}
+
+			if len(currentAttestations[signedHash].bitfield) != len(newAtt.ParticipationBitfield) {
+
+				v.logger.Debug("attestation participation bitfield doesn't match committee size")
+				fmt.Println(len(currentAttestations[signedHash].bitfield), len(newAtt.ParticipationBitfield))
+				continue
+			}
+
 			for i := range newAtt.ParticipationBitfield {
-				if bitfieldTotal[i]&newAtt.ParticipationBitfield[i] != 0 {
+				if currentAttestationBitfieldsTotal[newAtt.Data.Shard][i]&newAtt.ParticipationBitfield[i] != 0 {
 					v.logger.Debug("received duplicate attestation")
 					continue
 				}
 			}
+
 			for i := range newAtt.ParticipationBitfield {
-				bitfieldTotal[i] |= newAtt.ParticipationBitfield[i]
-				numAttesters += hammingWeight(newAtt.ParticipationBitfield[i])
+				oldBits := currentAttestations[signedHash].bitfield[i]
+				newBits := newAtt.ParticipationBitfield[i]
+				numNewBits := hammingWeight((oldBits ^ newBits) & newBits)
+				currentAttestations[signedHash].bitfield[i] |= newAtt.ParticipationBitfield[i]
+				committeeAttested[uint32(newAtt.Data.Shard)] += numNewBits
 			}
 
 			sig, err := bls.DeserializeSignature(newAtt.AggregateSig)
 			if err != nil {
 				return err
 			}
-			aggSig.AggregateSig(sig)
+			currentAttestations[signedHash].aggregateSignature.AggregateSig(sig)
 
-			v.logger.WithField("totalAttesters", len(v.committee)).WithField("numAttested", numAttesters).Debug("received attestation")
+			shouldBreak := true
+
+			for i := range committeeAttested {
+				v.logger.WithFields(logrus.Fields{
+					"shard":       i,
+					"numAttested": committeeAttested[i],
+					"total":       committeeTotal[i],
+				}).Debug("received attestation")
+				if committeeAttested[i] != committeeTotal[i] {
+					shouldBreak = false
+				}
+			}
+
+			if shouldBreak {
+				break
+			}
+		case <-t.C:
+			if attempt > maxAttemptsAttestation {
+				break
+			}
+			attempt++
+
+			for _, a := range currentAttestations {
+				for i := range currentAttestationBitfieldsTotal[a.data.Shard] {
+					currentAttestationBitfieldsTotal[a.data.Shard][i] |= a.bitfield[i]
+				}
+			}
+
+			for shard, committeeBitfield := range currentAttestationBitfieldsTotal {
+				requestTopic := fmt.Sprintf("signedAttestation request %d %d", information.slot, shard)
+
+				attRequest := &pb.AttestationRequest{
+					ParticipationBitfield: committeeBitfield,
+				}
+
+				attRequestBytes, err := proto.Marshal(attRequest)
+				if err != nil {
+					return err
+				}
+
+				v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
+					Topic: requestTopic,
+					Data:  attRequestBytes,
+				})
+			}
 		case err := <-errReturn:
 			return err
 		}
 	}
 }
+
+var zeroHash = [32]byte{}
 
 func (v *Validator) attestBlock(information slotInformation) error {
 	attData, hash, err := v.getAttestation(information)
@@ -280,12 +414,6 @@ func (v *Validator) attestBlock(information slotInformation) error {
 		return err
 	}
 
-	attestationAndPoCBit := primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false}
-	hashAttestation, err := ssz.TreeHash(attestationAndPoCBit)
-	if err != nil {
-		return err
-	}
-
 	attProto := att.ToProto()
 
 	attBytes, err := proto.Marshal(attProto)
@@ -293,21 +421,48 @@ func (v *Validator) attestBlock(information slotInformation) error {
 		return err
 	}
 
-	topic := fmt.Sprintf("signedAttestation %x", hashAttestation)
+	topic := fmt.Sprintf("signedAttestation %d", v.slot)
 
-	// v.logger.WithField("topic", topic).WithField("length", len(attBytes)).Debug("broadcasting signed attestation")
+	topicRequest := fmt.Sprintf("signedAttestation request %d %d", v.slot, v.shard)
 
-	timer := time.NewTimer(time.Second * 4)
-	<-timer.C
-
-	_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
-		Topic: topic,
-		Data:  attBytes,
+	sub, err := v.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
+		Topic: topicRequest,
 	})
+
 	if err != nil {
 		return err
 	}
 
-	// v.logger.WithField("block", v.slot).WithField("shard", v.shard).WithField("attestationHash", fmt.Sprintf("%x", hashAttestation)).Debug("attesting block")
+	msgListener, err := v.p2pRPC.ListenForMessages(context.Background(), sub)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		msgListener.CloseSend()
+		v.p2pRPC.Unsubscribe(context.Background(), sub)
+	}()
+
+	for {
+		msg, err := msgListener.Recv()
+		if err != nil {
+			return err
+		}
+
+		var attRequest pb.AttestationRequest
+		err = proto.Unmarshal(msg.Data, &attRequest)
+		if err != nil {
+			return err
+		}
+
+		if attRequest.ParticipationBitfield[v.committeeID/8]&(1<<(v.committeeID%8)) == 0 {
+			_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
+				Topic: topic,
+				Data:  attBytes,
+			})
+		} else {
+			break
+		}
+	}
 	return nil
 }

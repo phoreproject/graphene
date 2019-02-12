@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	iaddr "github.com/ipfs/go-ipfs-addr"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	"github.com/libp2p/go-libp2p-pubsub"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/net"
@@ -36,6 +37,7 @@ type RPCServer struct {
 	subChannels    map[uint64]chan []byte
 	cancelChannels map[uint64]chan bool
 	currentSubID   *uint64 // this is weird, but all of the methods have to pass the struct in by value
+	lock           *sync.Mutex
 }
 
 // NewRPCServer sets up a server for handling P2P module RPC requests.
@@ -46,6 +48,7 @@ func NewRPCServer(netService *net.NetworkingService) RPCServer {
 		subChannels:    make(map[uint64]chan []byte),
 		cancelChannels: make(map[uint64]chan bool),
 		currentSubID:   new(uint64),
+		lock:           new(sync.Mutex),
 	}
 	*p.currentSubID = 0
 	return p
@@ -53,11 +56,15 @@ func NewRPCServer(netService *net.NetworkingService) RPCServer {
 
 // GetConnectionStatus gets the status of the P2P connection.
 func (p RPCServer) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	return &pb.ConnectionStatus{Connected: p.service.IsConnected()}, nil
 }
 
 // GetPeers gets the peers for the P2P connection.
 func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersResponse, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	peers := p.service.GetPeers()
 	peersPb := []*pb.Peer{}
 	for _, p := range peers {
@@ -69,11 +76,14 @@ func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersR
 // ListenForMessages listens to a subscription and receives
 // a stream of messages.
 func (p RPCServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenForMessagesServer) error {
+	p.lock.Lock()
 	if _, success := p.subscriptions[in.ID]; !success {
 		return fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
 	logrus.WithField("subID", in.ID).Debug("listening to new messages on sub")
+
+	p.lock.Unlock()
 
 	for {
 		select {
@@ -91,6 +101,8 @@ func (p RPCServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenFo
 
 // Subscribe subscribes to a topic returning a subscription ID.
 func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*pb.Subscription, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	subID := *p.currentSubID
 	*p.currentSubID++
 
@@ -118,6 +130,8 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 
 // Unsubscribe unsubscribes from a subscription given a subscription ID.
 func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty.Empty, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	if _, success := p.subscriptions[in.ID]; !success {
 		return nil, fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
@@ -140,11 +154,15 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 
 // Broadcast broadcasts a message to a topic.
 func (p RPCServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*empty.Empty, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	return &empty.Empty{}, p.service.Broadcast(in.Topic, in.Data)
 }
 
 // Connect connects to more peers.
 func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectResponse, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	success := true
 	for _, peer := range in.Peers {
 		pInfo, err := StringToPeerInfo(peer.Address)
@@ -163,5 +181,7 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 
 // GetSettings gets the settings of the P2P connection.
 func (p RPCServer) GetSettings(ctx context.Context, in *empty.Empty) (*pb.P2PSettings, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	return &pb.P2PSettings{}, nil
 }

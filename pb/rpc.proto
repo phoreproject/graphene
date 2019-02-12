@@ -22,6 +22,8 @@ service BlockchainRPC {
     rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
 
     rpc GetSlotInformation(google.protobuf.Empty) returns (SlotInformation);
+
+    rpc GetCommitteesForSlot(GetCommitteesForSlotRequest) returns (ShardCommitteesForSlot);
 }
 
 service P2PRPC {
@@ -98,6 +100,10 @@ message P2PSettings {
 enum Role {
     ATTESTER = 0;
     PROPOSER = 1;
+}
+
+message GetCommitteesForSlotRequest {
+    uint64 Slot = 1;
 }
 
 message GetSlotAndShardAssignmentRequest {
@@ -320,6 +326,10 @@ message ValidatorRegistryDeltaBlock {
 
 message TestMessage {
     string message = 1;
+}
+
+message AttestationRequest { // possibly sign this message to prevent DoS
+    bytes ParticipationBitfield = 1;
 }
 
 // This will be renamed to P2PRPC later

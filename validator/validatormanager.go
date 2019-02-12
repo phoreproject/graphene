@@ -81,11 +81,12 @@ func (n *Notifier) SendNewCycle() {
 
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
-	blockchainRPC pb.BlockchainRPCClient
-	p2pRPC        pb.P2PRPCClient
-	validators    []*Validator
-	keystore      Keystore
-	notifiers     []*Notifier
+	blockchainRPC                   pb.BlockchainRPCClient
+	p2pRPC                          pb.P2PRPCClient
+	validators                      []*Validator
+	keystore                        Keystore
+	notifiers                       []*Notifier
+	attestationRequestSubscriptions map[string]chan pb.AttestationRequest
 }
 
 // NewManager creates a new validator manager to manage some validators.

@@ -283,7 +283,7 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint
 				if uint32(validator) != validatorID {
 					continue
 				}
-				if j == 0 && v == i%len(committee.Committee) {
+				if j == 0 && v == i%len(committee.Committee) { // first committee in slot and slot%committeeSize index validator
 					return committee.Shard, uint64(i) + earliestSlotInArray, RoleProposer, nil
 				}
 				return committee.Shard, uint64(i) + earliestSlotInArray, RoleAttester, nil

@@ -183,7 +183,7 @@ func hammingWeight(b uint8) int {
 }
 
 // ListenForMessages listens for incoming attestations and sends them to a channel.
-func (v *Validator) ListenForMessages(topic string, newAttestations chan *primitives.Attestation, errReturn chan error) {
+func (v *Validator) ListenForMessages(topic string, newAttestations chan *primitives.Attestation, errReturn chan error) uint64 {
 	sub, err := v.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
 		Topic: topic,
 	})
@@ -194,34 +194,34 @@ func (v *Validator) ListenForMessages(topic string, newAttestations chan *primit
 	if err != nil {
 		errReturn <- err
 	}
-	defer func() {
-		messages.CloseSend()
-		v.p2pRPC.Unsubscribe(context.Background(), sub)
+	go func() {
+		for {
+			msg, err := messages.Recv()
+			if err != nil {
+				errReturn <- err
+			}
+
+			attRaw := msg.Data
+
+			var incomingAttestationProto pb.Attestation
+
+			err = proto.Unmarshal(attRaw, &incomingAttestationProto)
+			if err != nil {
+				v.logger.WithField("err", err).Debug("received invalid attestation")
+				continue
+			}
+
+			incomingAttestation, err := primitives.AttestationFromProto(&incomingAttestationProto)
+			if err != nil {
+				v.logger.WithField("err", err).Debug("received invalid attestation")
+				continue
+			}
+
+			newAttestations <- incomingAttestation
+		}
 	}()
-	for {
-		msg, err := messages.Recv()
-		if err != nil {
-			errReturn <- err
-		}
 
-		attRaw := msg.Data
-
-		var incomingAttestationProto pb.Attestation
-
-		err = proto.Unmarshal(attRaw, &incomingAttestationProto)
-		if err != nil {
-			v.logger.WithField("err", err).Debug("received invalid attestation")
-			continue
-		}
-
-		incomingAttestation, err := primitives.AttestationFromProto(&incomingAttestationProto)
-		if err != nil {
-			v.logger.WithField("err", err).Debug("received invalid attestation")
-			continue
-		}
-
-		newAttestations <- incomingAttestation
-	}
+	return sub.ID
 }
 
 type committeeAggregation struct {
@@ -230,7 +230,7 @@ type committeeAggregation struct {
 	data               primitives.AttestationData
 }
 
-const maxAttemptsAttestation = 3
+const maxAttemptsAttestation = 10
 
 func (v *Validator) proposeBlock(information slotInformation) error {
 	newAttestations := make(chan *primitives.Attestation)
@@ -291,11 +291,15 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 	}
 
 	// listen for
-	go v.ListenForMessages(topic, newAttestations, errReturn)
+	subID := v.ListenForMessages(topic, newAttestations, errReturn)
+
+	defer func() {
+		v.p2pRPC.Unsubscribe(context.Background(), &pb.Subscription{ID: subID})
+	}()
 
 	currentAttestations := make(map[chainhash.Hash]*committeeAggregation)
 
-	t := time.NewTicker(time.Second * 2)
+	t := time.NewTicker(time.Second * 3)
 
 	attempt := 0
 
@@ -325,7 +329,6 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 			if len(currentAttestations[signedHash].bitfield) != len(newAtt.ParticipationBitfield) {
 
 				v.logger.Debug("attestation participation bitfield doesn't match committee size")
-				fmt.Println(len(currentAttestations[signedHash].bitfield), len(newAtt.ParticipationBitfield))
 				continue
 			}
 
@@ -364,11 +367,11 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 			}
 
 			if shouldBreak {
-				break
+				return nil
 			}
 		case <-t.C:
 			if attempt > maxAttemptsAttestation {
-				break
+				return nil
 			}
 			attempt++
 
@@ -439,30 +442,48 @@ func (v *Validator) attestBlock(information slotInformation) error {
 	}
 
 	defer func() {
-		msgListener.CloseSend()
 		v.p2pRPC.Unsubscribe(context.Background(), sub)
 	}()
 
+	messages := make(chan pb.Message)
+	errors := make(chan error)
+
+	go func() {
+		for {
+			msg, err := msgListener.Recv()
+			if err != nil {
+				errors <- err
+				return
+			}
+			messages <- *msg
+		}
+	}()
+
+	timeLimit := time.NewTimer(time.Second * 15)
+
 	for {
-		msg, err := msgListener.Recv()
-		if err != nil {
-			return err
-		}
+		select {
+		case msg := <-messages:
+			var attRequest pb.AttestationRequest
+			err = proto.Unmarshal(msg.Data, &attRequest)
+			if err != nil {
+				return err
+			}
 
-		var attRequest pb.AttestationRequest
-		err = proto.Unmarshal(msg.Data, &attRequest)
-		if err != nil {
+			if attRequest.ParticipationBitfield[v.committeeID/8]&(1<<(v.committeeID%8)) == 0 {
+				_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
+					Topic: topic,
+					Data:  attBytes,
+				})
+			} else {
+				msgListener.CloseSend()
+				return nil
+			}
+		case err := <-errors:
 			return err
-		}
-
-		if attRequest.ParticipationBitfield[v.committeeID/8]&(1<<(v.committeeID%8)) == 0 {
-			_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
-				Topic: topic,
-				Data:  attBytes,
-			})
-		} else {
-			break
+		case <-timeLimit.C:
+			msgListener.CloseSend()
+			return nil
 		}
 	}
-	return nil
 }

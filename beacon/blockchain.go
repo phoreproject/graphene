@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/phoreproject/prysm/shared/ssz"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -164,7 +165,7 @@ type InitialValidatorEntry struct {
 type InitialValidatorEntryAndPrivateKey struct {
 	Entry InitialValidatorEntry
 
-	PrivateKey [64]byte
+	PrivateKey [32]byte
 }
 
 const (
@@ -226,6 +227,7 @@ func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 				bestVotes = vc
 			}
 		}
+		logger.WithField("tip", bestVoteCountChild.height).Debug("set tip")
 		head = bestVoteCountChild
 	}
 }
@@ -241,8 +243,8 @@ func (b Blockchain) Tip() chainhash.Hash {
 // GetHashByHeight gets the block hash at a certain height.
 func (b Blockchain) GetHashByHeight(height uint64) (chainhash.Hash, error) {
 	b.chain.lock.Lock()
-	defer b.chain.lock.Unlock()
 	node, err := getAncestor(b.chain.tip, height)
+	b.chain.lock.Unlock()
 	if err != nil {
 		return chainhash.Hash{}, err
 	}
@@ -276,7 +278,7 @@ func (b *Blockchain) GetConfig() *config.Config {
 // GetSlotAndShardAssignment gets the shard and slot assignment for a specific
 // validator.
 func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	earliestSlotInArray := b.state.Slot - (b.config.EpochLength % b.config.EpochLength)
+	earliestSlotInArray := b.state.Slot - (b.state.Slot % b.config.EpochLength)
 	for i, slot := range b.state.ShardAndCommitteeForSlots {
 		for j, committee := range slot {
 			for v, validator := range committee.Committee {

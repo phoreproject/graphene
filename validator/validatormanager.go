@@ -102,7 +102,7 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 	}
 
 	for i := range validatorObjs {
-		validatorObjs[i] = NewValidator(keystore.GetKeyForValidator(validators[i]), blockchainRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
+		validatorObjs[i] = NewValidator(keystore, blockchainRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle)
 	}
 
 	return &Manager{

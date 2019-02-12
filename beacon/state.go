@@ -299,6 +299,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	if err != nil {
 		return nil, err
 	}
+
 	if !valid {
 		return nil, errors.New("block had invalid signature")
 	}
@@ -888,6 +889,8 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
+	logger.WithField("hash", blockHash).Debug("processing new block")
+
 	err = b.AddBlock(block)
 	if err != nil {
 		return err
@@ -898,12 +901,16 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
+	logger.WithField("hash", blockHash).Debug("applying block")
+
 	newState, err := b.ApplyBlock(block)
 	if err != nil {
 		return err
 	}
 
 	b.stateMap[blockHash] = *newState
+
+	logger.WithField("hash", blockHash).Debug("updating chain head")
 
 	err = b.UpdateChainHead(block)
 	if err != nil {

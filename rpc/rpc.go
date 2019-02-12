@@ -26,11 +26,14 @@ type server struct {
 
 // SubmitBlock submits a block to the network after verifying it
 func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*pb.SubmitBlockResponse, error) {
-	b := &primitives.Block{} // TODO
-	// if err != nil {
-	// 	return nil, err
-	// }
-	err := s.chain.ProcessBlock(b)
+	b, err := primitives.BlockFromProto(in.Block)
+	if err != nil {
+		return nil, err
+	}
+	err = s.chain.ProcessBlock(b)
+	if err != nil {
+		return nil, err
+	}
 	h, err := ssz.TreeHash(b)
 	if err != nil {
 		return nil, err
@@ -111,6 +114,17 @@ func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateRes
 	stateProto := state.ToProto()
 
 	return &pb.GetStateResponse{State: stateProto}, nil
+}
+
+func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStateRootResponse, error) {
+	state := s.chain.GetState()
+
+	root, err := ssz.TreeHash(state)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetStateRootResponse{StateRoot: root[:]}, nil
 }
 
 func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.SlotInformation, error) {

@@ -99,7 +99,7 @@ func main() {
 		if _, found := validatorIndicesMap[i]; !found {
 			continue
 		}
-		key := bls.DeserializeSecretKey(vs[i].PrivateKey[:])
+		key := bls.DeserializeSecretKey(vs[i].PrivateKey)
 		if err != nil {
 			panic(err)
 		}

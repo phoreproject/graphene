@@ -21,6 +21,8 @@ service BlockchainRPC {
 
     rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
 
+    rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);
+
     rpc GetSlotInformation(google.protobuf.Empty) returns (SlotInformation);
 
     rpc GetCommitteesForSlot(GetCommitteesForSlotRequest) returns (ShardCommitteesForSlot);
@@ -151,6 +153,10 @@ message GetCommitteeValidatorsRequest {
 
 message GetStateResponse {
     State state = 1;
+}
+
+message GetStateRootResponse {
+    bytes StateRoot = 1;
 }
 
 message GetCommitteeValidatorsResponse {

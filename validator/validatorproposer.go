@@ -186,5 +186,6 @@ func (v *Validator) proposeBlock(information assignment) error {
 		v.mempool.attestationMempool.removeAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
 	}
 
+	v.keystore.IncrementProposerSlots(v.id)
 	return err
 }

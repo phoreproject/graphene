@@ -699,11 +699,10 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 			} else if validator.Status == primitives.ExitedWithPenalty {
 				newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
 			}
-			// inclusion delay penalty
-			if _, found := previousEpochAttesterIndices[index]; !found {
-				inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
-				newState.ValidatorBalances[index] -= baseReward(index) - baseReward(index)*b.config.MinAttestationInclusionDelay/inclusionDistance
-			}
+		}
+		for index := range previousEpochAttesterIndices {
+			inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
+			newState.ValidatorBalances[index] -= baseReward(index) - baseReward(index)*b.config.MinAttestationInclusionDelay/inclusionDistance
 		}
 	}
 

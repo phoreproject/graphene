@@ -90,7 +90,7 @@ func (m *MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
 // IncrementProposerSlots increments proposal slots when chosen to propose a block.
 func (m *MemoryKeyStore) IncrementProposerSlots(v uint32) {
 	if _, found := m.proposerSlots[v]; !found {
-		m.proposerSlots[v] = 0
+		m.proposerSlots[v] = 1
 	} else {
 		m.proposerSlots[v]++
 	}

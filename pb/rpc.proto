@@ -24,8 +24,6 @@ service BlockchainRPC {
     rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);
 
     rpc GetSlotInformation(google.protobuf.Empty) returns (SlotInformation);
-
-    rpc GetCommitteesForSlot(GetCommitteesForSlotRequest) returns (ShardCommitteesForSlot);
 }
 
 service P2PRPC {
@@ -53,6 +51,7 @@ message SlotInformation {
     repeated Crosslink LatestCrosslinks = 4;
     uint64 JustifiedSlot = 5;
     bytes JustifiedRoot = 6;
+    repeated ShardCommittee Committees = 7;
 }
 
 message ConnectionStatus {

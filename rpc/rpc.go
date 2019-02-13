@@ -127,8 +127,11 @@ func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStat
 	return &pb.GetStateRootResponse{StateRoot: root[:]}, nil
 }
 
+// GetSlotInformation gets information about the next slot used for attestation
+// assignment and generation.
 func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.SlotInformation, error) {
 	state := s.chain.GetState()
+	config := s.chain.GetConfig()
 	beaconBlockHash := s.chain.Tip()
 	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash()
 	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
@@ -144,13 +147,20 @@ func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.S
 		return nil, err
 	}
 
+	committeesForNextSlot := state.GetShardCommitteesAtSlot(state.Slot+1, config)
+	committeesForNextSlotProto := make([]*pb.ShardCommittee, len(committeesForNextSlot))
+	for i := range committeesForNextSlot {
+		committeesForNextSlotProto[i] = committeesForNextSlot[i].ToProto()
+	}
+
 	return &pb.SlotInformation{
-		Slot:              s.chain.Height(),
+		Slot:              state.Slot, // this is the current slot
 		BeaconBlockHash:   beaconBlockHash[:],
 		EpochBoundaryRoot: epochBoundaryRoot[:],
 		LatestCrosslinks:  crosslinks,
 		JustifiedSlot:     state.JustifiedSlot,
 		JustifiedRoot:     justifiedRoot[:],
+		Committees:        committeesForNextSlotProto,
 	}, nil
 }
 

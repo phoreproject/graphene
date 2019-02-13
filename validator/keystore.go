@@ -65,13 +65,13 @@ func (f FakeKeyStore) GetProposerSlots(v uint32) uint64 {
 // MemoryKeyStore is a keystore that keeps keys in memory.
 type MemoryKeyStore struct {
 	proposerSlots map[uint32]uint64
-	privateKeys   []*bls.SecretKey
-	publicKeys    []*bls.PublicKey
+	privateKeys   map[uint32]*bls.SecretKey
+	publicKeys    map[uint32]*bls.PublicKey
 }
 
 // NewMemoryKeyStore creates a new memory key store.
-func NewMemoryKeyStore(keys []*bls.SecretKey) *MemoryKeyStore {
-	return &MemoryKeyStore{proposerSlots: make(map[uint32]uint64), privateKeys: keys}
+func NewMemoryKeyStore(keys map[uint32]*bls.SecretKey) *MemoryKeyStore {
+	return &MemoryKeyStore{proposerSlots: make(map[uint32]uint64), privateKeys: keys, publicKeys: make(map[uint32]*bls.PublicKey)}
 }
 
 // GetKeyForValidator gets the private key for the given validator ID.

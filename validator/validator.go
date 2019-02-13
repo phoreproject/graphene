@@ -1,8 +1,6 @@
 package validator
 
 import (
-	"context"
-
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
@@ -16,33 +14,26 @@ import (
 
 // Validator is a single validator to keep track of
 type Validator struct {
-	keystore      Keystore
-	blockchainRPC pb.BlockchainRPCClient
-	p2pRPC        pb.P2PRPCClient
-	id            uint32
-	slot          uint64
-	shard         uint32
-	committee     []uint32
-	committeeID   uint32
-	proposer      bool
-	logger        *logrus.Entry
-	mempool       *mempool
-	newSlot       chan slotInformation
-	newCycle      chan bool
-	config        *config.Config
+	keystore           Keystore
+	blockchainRPC      pb.BlockchainRPCClient
+	p2pRPC             pb.P2PRPCClient
+	id                 uint32
+	logger             *logrus.Entry
+	mempool            *mempool
+	config             *config.Config
+	attestationRequest chan assignment
 }
 
 // NewValidator gets a validator
-func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRPC pb.P2PRPCClient, id uint32, newSlot chan slotInformation, newCycle chan bool, mempool *mempool, c *config.Config) *Validator {
+func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRPC pb.P2PRPCClient, id uint32, mempool *mempool, c *config.Config) *Validator {
 	v := &Validator{
-		keystore:      keystore,
-		blockchainRPC: blockchainRPC,
-		p2pRPC:        p2pRPC,
-		id:            id,
-		newSlot:       newSlot,
-		newCycle:      newCycle,
-		mempool:       mempool,
-		config:        c,
+		keystore:           keystore,
+		blockchainRPC:      blockchainRPC,
+		p2pRPC:             p2pRPC,
+		id:                 id,
+		mempool:            mempool,
+		config:             c,
+		attestationRequest: make(chan assignment),
 	}
 	l := logrus.New()
 	l.SetLevel(logrus.DebugLevel)
@@ -50,107 +41,34 @@ func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRP
 	return v
 }
 
-// GetSlotAssignment receives the slot assignment from the rpc.
-func (v *Validator) GetSlotAssignment() error {
-	slotAssignment, err := v.blockchainRPC.GetSlotAndShardAssignment(context.Background(), &pb.GetSlotAndShardAssignmentRequest{ValidatorID: v.id})
-	if err != nil {
-		return err
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"slot":  slotAssignment.Slot,
-		"shard": slotAssignment.ShardID,
-		"role":  slotAssignment.Role,
-	}).Debug("got new slot assignment")
-
-	v.shard = slotAssignment.ShardID
-	v.slot = slotAssignment.Slot
-	v.proposer = true
-	if slotAssignment.Role == pb.Role_ATTESTER {
-		v.proposer = false
-	}
-
-	return nil
-}
-
-// GetCommittee gets the indices that the validator is a part of.
-func (v *Validator) GetCommittee(slot uint64, shard uint32) ([]uint32, error) {
-	validators, err := v.blockchainRPC.GetCommitteeValidatorIndices(context.Background(), &pb.GetCommitteeValidatorsRequest{
-		SlotNumber: slot,
-		Shard:      shard,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return validators.Validators, nil
-}
-
 // RunValidator keeps track of assignments and creates/signs attestations as needed.
 func (v *Validator) RunValidator() error {
-	err := v.GetSlotAssignment()
-	if err != nil {
-		return err
-	}
-
-	committee, err := v.GetCommittee(v.slot, v.shard)
-	if err != nil {
-		return err
-	}
-
-	v.committee = committee
-
-	for i, index := range committee {
-		if index == v.id {
-			v.committeeID = uint32(i)
-		}
-	}
-
 	for {
-		slotInformation := <-v.newSlot
+		// wait for validator manager to ask for attestation
+		si := <-v.attestationRequest
 
-		// if next block is our turn
-		if slotInformation.slot+1 == v.slot {
-			var err error
-			if v.proposer {
-				err = v.proposeBlock(slotInformation)
-			} else {
-				err = v.attestBlock(slotInformation)
-			}
+		if si.isProposer {
+			err := v.proposeBlock(si)
 			if err != nil {
 				return err
 			}
-
-			<-v.newCycle
-
-			err = v.GetSlotAssignment()
+		} else {
+			err := v.attestBlock(si)
 			if err != nil {
 				return err
-			}
-
-			committee, err = v.GetCommittee(v.slot, v.shard)
-			if err != nil {
-				return err
-			}
-			v.committee = committee
-
-			for i, index := range committee {
-				if index == v.id {
-					v.committeeID = uint32(i)
-				}
 			}
 		}
 	}
 }
 
-func (v *Validator) getAttestation(information slotInformation) (*primitives.AttestationData, [32]byte, error) {
+func getAttestation(information assignment) (*primitives.AttestationData, [32]byte, error) {
 	a := primitives.AttestationData{
-		Slot:                information.slot + 1,
-		Shard:               uint64(v.shard),
+		Slot:                information.slot,
+		Shard:               information.shard,
 		BeaconBlockHash:     information.beaconBlockHash,
 		EpochBoundaryHash:   information.epochBoundaryRoot,
 		ShardBlockHash:      chainhash.Hash{}, // only attest to 0 hashes in phase 0
-		LatestCrosslinkHash: information.latestCrosslinks[v.shard].ShardBlockHash,
+		LatestCrosslinkHash: information.latestCrosslinks[information.shard].ShardBlockHash,
 		JustifiedSlot:       information.justifiedSlot,
 		JustifiedBlockHash:  information.justifiedRoot,
 	}
@@ -164,15 +82,15 @@ func (v *Validator) getAttestation(information slotInformation) (*primitives.Att
 	return &a, hashAttestation, nil
 }
 
-func (v *Validator) signAttestation(hashAttestation [32]byte, data primitives.AttestationData) (*primitives.Attestation, error) {
+func (v *Validator) signAttestation(hashAttestation [32]byte, data primitives.AttestationData, committeeSize uint64, committeeIndex uint64) (*primitives.Attestation, error) {
 	signature, err := bls.Sign(v.keystore.GetKeyForValidator(v.id), hashAttestation[:], bls.DomainAttestation)
 	if err != nil {
 		return nil, err
 	}
 
-	participationBitfield := make([]uint8, (len(v.committee)+7)/8)
-	custodyBitfield := make([]uint8, (len(v.committee)+7)/8)
-	participationBitfield[v.committeeID/8] = 1 << (v.committeeID % 8)
+	participationBitfield := make([]uint8, (committeeSize+7)/8)
+	custodyBitfield := make([]uint8, (committeeSize+7)/8)
+	participationBitfield[committeeIndex/8] = 1 << (committeeIndex % 8)
 
 	att := &primitives.Attestation{
 		Data:                  data,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
 
@@ -68,18 +67,18 @@ func (v *Validator) ListenForMessages(topic string, newAttestations chan *primit
 	return sub.ID
 }
 
-func (v *Validator) proposeBlock(information slotInformation) error {
+func (v *Validator) proposeBlock(information assignment) error {
 	newAttestations := make(chan *primitives.Attestation)
 
 	errReturn := make(chan error)
 
 	go func() {
-		attData, hashAttestation, err := v.getAttestation(information)
+		attData, hashAttestation, err := getAttestation(information)
 		if err != nil {
 			errReturn <- err
 		}
 
-		att, err := v.signAttestation(hashAttestation, *attData)
+		att, err := v.signAttestation(hashAttestation, *attData, information.committeeSize, information.committeeIndex)
 		if err != nil {
 			errReturn <- err
 		}
@@ -95,14 +94,14 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 		v.p2pRPC.Unsubscribe(context.Background(), &pb.Subscription{ID: subID})
 	}()
 
-	attestations, err := v.mempool.attestationMempool.getAttestationsToInclude(v.slot, v.config)
+	attestations, err := v.mempool.attestationMempool.getAttestationsToInclude(information.slot, v.config)
 	if err != nil {
 		return err
 	}
 
 	v.logger.Debug("creating block")
 
-	parentRootBytes, err := v.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{SlotNumber: v.slot - 1})
+	parentRootBytes, err := v.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{SlotNumber: information.slot - 1})
 	if err != nil {
 		return err
 	}
@@ -132,14 +131,9 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 		return err
 	}
 
-	v.logger.WithFields(logrus.Fields{
-		"mempoolSize": v.mempool.attestationMempool.size(),
-		"including":   len(attestations),
-	}).Debug("getting some mempool transactions")
-
 	newBlock := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   v.slot,
+			SlotNumber:   information.slot,
 			ParentRoot:   *parentRoot,
 			StateRoot:    *stateRoot,
 			RandaoReveal: randaoSig.Serialize(),
@@ -162,7 +156,7 @@ func (v *Validator) proposeBlock(information slotInformation) error {
 	v.logger.WithField("blockHash", fmt.Sprintf("%x", blockHash)).Info("signing block")
 
 	psd := primitives.ProposalSignedData{
-		Slot:      v.slot,
+		Slot:      information.slot,
 		Shard:     config.MainNetConfig.BeaconShardNumber,
 		BlockHash: blockHash,
 	}

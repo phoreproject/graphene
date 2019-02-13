@@ -218,6 +218,7 @@ func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 			b.state = b.stateMap[head.hash]
 
 			logger.WithField("tip", head.height).Debug("set tip")
+			logger.WithField("tip", b.state.Slot).WithField("hash", head.hash.String()).Debug("tip state has slot = ")
 			return nil
 		}
 		bestVoteCountChild := children[0]
@@ -279,11 +280,20 @@ func (b *Blockchain) GetConfig() *config.Config {
 // GetSlotAndShardAssignment gets the shard and slot assignment for a specific
 // validator.
 func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	earliestSlotInArray := (b.state.Slot + 1) - ((b.state.Slot + 1) % b.config.EpochLength)
+	b.stateLock.Lock()
+	s := b.state.Slot
+	earliestSlotInArray := b.state.Slot - (b.state.Slot % b.config.EpochLength) - b.config.EpochLength
+	if b.state.Slot < b.config.EpochLength*2 {
+		earliestSlotInArray = 0
+	}
+	b.stateLock.Unlock()
 	for i, slot := range b.state.ShardAndCommitteeForSlots {
 		for j, committee := range slot {
 			for v, validator := range committee.Committee {
 				if uint32(validator) != validatorID {
+					continue
+				}
+				if uint64(i)+earliestSlotInArray <= s {
 					continue
 				}
 				if j == 0 && v == i%len(committee.Committee) { // first committee in slot and slot%committeeSize index validator

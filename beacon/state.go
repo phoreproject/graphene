@@ -224,14 +224,9 @@ func GetNewShuffling(seed chainhash.Hash, validators []primitives.Validator, cro
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
-	blockHash, err := ssz.TreeHash(block)
-	if err != nil {
-		return err
-	}
+	logger.Debug("adding block to cache and updating head if needed")
 
-	logger.WithField("hash", blockHash).Debug("adding block to cache and updating head if needed")
-
-	err = b.db.SetBlock(*block)
+	err := b.db.SetBlock(*block)
 	if err != nil {
 		return err
 	}
@@ -588,7 +583,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 			}
 		}
 		if largestBalance == 0 {
-			return nil, errors.New("no attestations from correct shard ID")
+			return nil, nil
 		}
 		return largestBalanceHash, nil
 	}
@@ -600,6 +595,9 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 			bestRoot, err := winningRoot(shardCommittee)
 			if err != nil {
 				return err
+			}
+			if bestRoot == nil {
+				continue
 			}
 			if shardWinnerCache[i] == nil {
 				shardWinnerCache[i] = make(map[uint64]chainhash.Hash)
@@ -632,15 +630,15 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 
 	epochsSinceFinality := (newState.Slot - newState.FinalizedSlot) / b.config.EpochLength
 
-	validatorAttestationCache := map[uint32]*primitives.PendingAttestation{}
-	for _, a := range currentEpochAttestations {
+	previousAttestationCache := map[uint32]*primitives.PendingAttestation{}
+	for _, a := range previousEpochAttestations {
 		participation, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
 		if err != nil {
 			return err
 		}
 
 		for _, p := range participation {
-			validatorAttestationCache[p] = &a
+			previousAttestationCache[p] = &a
 		}
 	}
 
@@ -662,7 +660,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 
 		// any validator in previous_epoch_head_attester_indices is rewarded
 		for index := range previousEpochAttesterIndices {
-			inclusionDistance := validatorAttestationCache[index].SlotIncluded - validatorAttestationCache[index].Data.Slot
+			inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
 			newState.ValidatorBalances[index] += baseReward(index) * b.config.MinAttestationInclusionDelay / inclusionDistance
 		}
 
@@ -703,14 +701,14 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 			}
 			// inclusion delay penalty
 			if _, found := previousEpochAttesterIndices[index]; !found {
-				inclusionDistance := validatorAttestationCache[index].SlotIncluded - validatorAttestationCache[index].Data.Slot
+				inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
 				newState.ValidatorBalances[index] -= baseReward(index) - baseReward(index)*b.config.MinAttestationInclusionDelay/inclusionDistance
 			}
 		}
 	}
 
 	for index := range previousEpochAttesterIndices {
-		proposerIndex := newState.GetBeaconProposerIndex(validatorAttestationCache[index].SlotIncluded, b.config)
+		proposerIndex := newState.GetBeaconProposerIndex(previousAttestationCache[index].SlotIncluded, b.config)
 		newState.ValidatorBalances[proposerIndex] += baseReward(index) / b.config.IncluderRewardQuotient
 	}
 
@@ -899,21 +897,22 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
-	node, err := b.addBlockNodeToIndex(block, blockHash)
-	if err != nil {
-		return err
-	}
-
-	logger.WithField("hash", blockHashStr).Debug("applying block")
+	logger.Debug("applying block")
 
 	newState, err := b.ApplyBlock(block)
 	if err != nil {
 		return err
 	}
 
+	node, err := b.addBlockNodeToIndex(block, blockHash)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("setting statemap for blockhash")
 	b.stateMap[blockHash] = *newState
 
-	logger.WithField("hash", blockHashStr).Debug("updating chain head")
+	logger.Debug("updating chain head")
 
 	err = b.UpdateChainHead(block)
 	if err != nil {

@@ -37,6 +37,7 @@ func main() {
 			if err != nil {
 				panic("invalid validators parameter")
 			}
+			validatorIndicesMap[i] = struct{}{}
 			validatorIndices = append(validatorIndices, uint32(i))
 		} else {
 			parts := strings.SplitN(s, "-", 2)
@@ -95,7 +96,7 @@ func main() {
 		vs[i] = iv
 	}
 
-	keys := make([]*bls.SecretKey, length)
+	keys := make(map[uint32]*bls.SecretKey)
 
 	for i := range vs {
 		if _, found := validatorIndicesMap[i]; !found {
@@ -105,7 +106,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		keys[i] = &key
+		keys[uint32(i)] = &key
 	}
 
 	vm, err := validator.NewManager(blockchainConn, p2pConn, validatorIndices, validator.NewMemoryKeyStore(keys), &config.MainNetConfig)

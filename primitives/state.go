@@ -549,14 +549,6 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 	return nil, fmt.Errorf("unable to find committee based on shard: %v", shardID)
 }
 
-// CommitteeInShardAndSlot gets the committee of validator indices at a specific
-// shard and slot given the relative slot number [0, CYCLE_LENGTH] and shard ID.
-func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [][]ShardAndCommittee) ([]uint32, error) {
-	shardCommittee := shardCommittees[slotIndex]
-
-	return ShardCommitteeByShardID(shardID, shardCommittee)
-}
-
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
 func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) []ShardAndCommittee {
 	earliestSlot := slot - (slot % c.EpochLength) - c.EpochLength
@@ -564,14 +556,6 @@ func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) []ShardA
 		earliestSlot = 0
 	}
 	return s.ShardAndCommitteeForSlots[slot-earliestSlot]
-}
-
-// GetAttesterIndices gets all of the validator indices involved with the committee
-// assigned to the shard and slot of the committee.
-func (s *State) GetAttesterIndices(slot uint64, shard uint64, con *config.Config) ([]uint32, error) {
-	slotsStart := (s.Slot % con.EpochLength) - con.EpochLength
-	slotIndex := (slot - slotsStart) % uint64(con.EpochLength)
-	return CommitteeInShardAndSlot(slotIndex, shard, s.ShardAndCommitteeForSlots)
 }
 
 // GetAttesterCommitteeSize gets the size of committee
@@ -584,9 +568,8 @@ func (s *State) GetAttesterCommitteeSize(slot uint64, con *config.Config) uint32
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
 func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
-	slotsStart := (s.Slot % con.EpochLength) - con.EpochLength
-	slotIndex := (slot - slotsStart) % uint64(con.EpochLength)
-	return CommitteeInShardAndSlot(slotIndex, shardID, s.ShardAndCommitteeForSlots)
+	committees := s.GetShardCommitteesAtSlot(slot, con)
+	return ShardCommitteeByShardID(shardID, committees)
 }
 
 // ValidateProofOfPossession validates a proof of possession for a new validator.

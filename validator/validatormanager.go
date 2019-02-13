@@ -19,15 +19,17 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Notifier handles notifications for each validator.
-type Notifier struct {
-	newSlot  chan slotInformation
-	newCycle chan bool
-}
-
-// NewNotifier initializes a new validator notifier.
-func NewNotifier() *Notifier {
-	return &Notifier{newSlot: make(chan slotInformation), newCycle: make(chan bool)}
+type assignment struct {
+	slot              uint64
+	shard             uint64
+	committeeSize     uint64
+	committeeIndex    uint64
+	isProposer        bool
+	beaconBlockHash   chainhash.Hash
+	epochBoundaryRoot chainhash.Hash
+	latestCrosslinks  []primitives.Crosslink
+	justifiedSlot     uint64
+	justifiedRoot     chainhash.Hash
 }
 
 type slotInformation struct {
@@ -37,6 +39,7 @@ type slotInformation struct {
 	latestCrosslinks  []primitives.Crosslink
 	justifiedSlot     uint64
 	justifiedRoot     chainhash.Hash
+	committees        []primitives.ShardAndCommittee
 }
 
 // slotInformationFromProto gets the slot information from the protobuf format
@@ -69,26 +72,24 @@ func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation
 		}
 		si.latestCrosslinks[i] = *cl
 	}
+
+	si.committees = make([]primitives.ShardAndCommittee, len(information.Committees))
+	for i := range information.Committees {
+		c, err := primitives.ShardAndCommitteeFromProto(information.Committees[i])
+		if err != nil {
+			return nil, err
+		}
+		si.committees[i] = *c
+	}
 	return si, nil
-}
-
-// SendNewSlot notifies the validator of a new slot.
-func (n *Notifier) SendNewSlot(slot slotInformation) {
-	n.newSlot <- slot
-}
-
-// SendNewCycle notifies the validator of a new cycle.
-func (n *Notifier) SendNewCycle() {
-	n.newCycle <- true
 }
 
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
 	blockchainRPC           pb.BlockchainRPCClient
 	p2pRPC                  pb.P2PRPCClient
-	validators              []*Validator
+	validatorMap            map[uint32]*Validator
 	keystore                Keystore
-	notifiers               []*Notifier
 	mempool                 *mempool
 	currentSlot             uint64
 	config                  *config.Config
@@ -100,25 +101,19 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 	blockchainRPC := pb.NewBlockchainRPCClient(blockchainConn)
 	p2pRPC := pb.NewP2PRPCClient(p2pConn)
 
-	validatorObjs := make([]*Validator, len(validators))
-
-	notifiers := make([]*Notifier, len(validators))
-	for i := range notifiers {
-		notifiers[i] = NewNotifier()
-	}
+	validatorObjs := make(map[uint32]*Validator)
 
 	m := newMempool()
 
-	for i := range validatorObjs {
-		validatorObjs[i] = NewValidator(keystore, blockchainRPC, p2pRPC, validators[i], notifiers[i].newSlot, notifiers[i].newCycle, &m, c)
+	for i := range validators {
+		validatorObjs[uint32(i)] = NewValidator(keystore, blockchainRPC, p2pRPC, validators[i], &m, c)
 	}
 
 	vm := &Manager{
 		blockchainRPC: blockchainRPC,
 		p2pRPC:        p2pRPC,
-		validators:    validatorObjs,
+		validatorMap:  validatorObjs,
 		keystore:      keystore,
-		notifiers:     notifiers,
 		mempool:       &m,
 		config:        c,
 		currentSlot:   0,
@@ -158,13 +153,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
 
-		newCycle := false
-
-		if b.SlotNumber%uint64(vm.config.EpochLength) == 0 && b.SlotNumber != 0 {
-			newCycle = true
-		}
-
-		if newCycle {
+		if b.SlotNumber%uint64(vm.config.EpochLength) == 0 {
 			logrus.Debug("cancelling old attestation listener")
 			err := vm.CancelAttestationsListener()
 			if err != nil {
@@ -178,11 +167,26 @@ func (vm *Manager) UpdateSlotNumber() error {
 			logrus.Debug("done")
 		}
 
-		for _, n := range vm.notifiers {
-			if newCycle {
-				go n.SendNewCycle()
+		for _, c := range si.committees {
+			for committeeIndex, validatorID := range c.Committee {
+				if validator, found := vm.validatorMap[validatorID]; found {
+					a := assignment{
+						slot:              b.SlotNumber + 1,
+						shard:             c.Shard,
+						committeeSize:     uint64(len(c.Committee)),
+						committeeIndex:    uint64(committeeIndex),
+						isProposer:        committeeIndex == int(b.SlotNumber+1)%len(c.Committee),
+						beaconBlockHash:   si.beaconBlockHash,
+						epochBoundaryRoot: si.epochBoundaryRoot,
+						latestCrosslinks:  si.latestCrosslinks,
+						justifiedRoot:     si.justifiedRoot,
+					}
+
+					go func() {
+						validator.attestationRequest <- a
+					}()
+				}
 			}
-			go n.SendNewSlot(*si)
 		}
 
 		vm.currentSlot = b.SlotNumber + 1
@@ -275,9 +279,9 @@ func (vm *Manager) Start() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(len(vm.validators))
+	wg.Add(len(vm.validatorMap))
 
-	for _, v := range vm.validators {
+	for _, v := range vm.validatorMap {
 		vClosed := v
 		go func() {
 			defer wg.Done()

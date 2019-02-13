@@ -11,17 +11,20 @@ import (
 
 var zeroHash = [32]byte{}
 
-func (v *Validator) attestBlock(information slotInformation) error {
-	attData, hash, err := v.getAttestation(information)
+func (v *Validator) attestBlock(information assignment) error {
+	// create attestation
+	attData, hash, err := getAttestation(information)
 	if err != nil {
 		return err
 	}
 
-	att, err := v.signAttestation(hash, *attData)
+	// sign attestation
+	att, err := v.signAttestation(hash, *attData, information.committeeSize, information.committeeIndex)
 	if err != nil {
 		return err
 	}
 
+	// broadcast attestation
 	attProto := att.ToProto()
 
 	attBytes, err := proto.Marshal(attProto)
@@ -29,7 +32,7 @@ func (v *Validator) attestBlock(information slotInformation) error {
 		return err
 	}
 
-	topic := fmt.Sprintf("attestations epoch %d", v.slot/v.config.EpochLength)
+	topic := fmt.Sprintf("attestations epoch %d", information.slot/v.config.EpochLength)
 
 	timeWait := time.NewTimer(time.Second * 3)
 

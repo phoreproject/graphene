@@ -1,6 +1,7 @@
 package bls_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/phoreproject/synapse/bls"
@@ -15,12 +16,12 @@ func TestBasicSignature(t *testing.T) {
 
 	msg := []byte("test!")
 
-	sig, err := bls.Sign(s, msg)
+	sig, err := bls.Sign(s, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	valid, err := bls.VerifySig(p, msg, sig)
+	valid, err := bls.VerifySig(p, msg, sig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,15 +64,15 @@ func TestAggregateSignatures(t *testing.T) {
 
 	msg := []byte("test!")
 
-	sig0, err := bls.Sign(s0, msg)
+	sig0, err := bls.Sign(s0, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig1, err := bls.Sign(s1, msg)
+	sig1, err := bls.Sign(s1, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := bls.Sign(s2, msg)
+	sig2, err := bls.Sign(s2, msg, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +82,7 @@ func TestAggregateSignatures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid := bls.VerifyAggregateCommon([]*bls.PublicKey{p0, p1, p2}, msg, aggregateSig)
+	valid := bls.VerifyAggregateCommon([]*bls.PublicKey{p0, p1, p2}, msg, aggregateSig, 0)
 	if !valid {
 		t.Fatal("aggregate signature was not valid")
 	}
@@ -102,15 +103,15 @@ func TestVerifyAggregate(t *testing.T) {
 	msg1 := []byte("test! 1")
 	msg2 := []byte("test! 2")
 
-	sig0, err := bls.Sign(s0, msg0)
+	sig0, err := bls.Sign(s0, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig1, err := bls.Sign(s1, msg1)
+	sig1, err := bls.Sign(s1, msg1, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := bls.Sign(s2, msg2)
+	sig2, err := bls.Sign(s2, msg2, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestVerifyAggregate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid := bls.VerifyAggregate([]*bls.PublicKey{p0, p1, p2}, [][]byte{msg0, msg1, msg2}, aggregateSig)
+	valid := bls.VerifyAggregate([]*bls.PublicKey{p0, p1, p2}, [][]byte{msg0, msg1, msg2}, aggregateSig, 0)
 	if !valid {
 		t.Fatal("aggregate signature was not valid")
 	}
@@ -139,15 +140,15 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 
 	msg0 := []byte("test!")
 
-	sig0, err := bls.Sign(s0, msg0)
+	sig0, err := bls.Sign(s0, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig1, err := bls.Sign(s1, msg0)
+	sig1, err := bls.Sign(s1, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig2, err := bls.Sign(s2, msg0)
+	sig2, err := bls.Sign(s2, msg0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +163,7 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 	aggPk.AggregatePubKey(p1)
 	aggPk.AggregatePubKey(p2)
 
-	valid, err := bls.VerifySig(aggPk, msg0, aggregateSig)
+	valid, err := bls.VerifySig(aggPk, msg0, aggregateSig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +172,7 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 	}
 
 	aggPk = bls.AggregatePubKeys([]*bls.PublicKey{p0, p1, p2})
-	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig)
+	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +184,7 @@ func TestVerifyAggregateSeparate(t *testing.T) {
 	aggregateSig.AggregateSig(sig0)
 	aggregateSig.AggregateSig(sig1)
 	aggregateSig.AggregateSig(sig2)
-	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig)
+	valid, err = bls.VerifySig(aggPk, msg0, aggregateSig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,30 +197,26 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	r := NewXORShift(1)
 
 	k, _ := bls.RandSecretKey(r)
+	pub := k.DerivePublicKey()
 
-	sig, err := bls.Sign(k, []byte("testing!"))
+	sig, err := bls.Sign(k, []byte("testing!"), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = bls.DeserializeSignature(sig.Serialize())
+	sigAfter, err := bls.DeserializeSignature(sig.Serialize())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// TODO: verify sig == sigAfter
-}
+	valid, err := bls.VerifySig(pub, []byte("testing!"), sigAfter, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func TestHashPubkey(t *testing.T) {
-	r := NewXORShift(1)
-
-	k, _ := bls.RandSecretKey(r)
-
-	p := k.DerivePublicKey()
-
-	p.Hash()
-
-	// TODO: verify small change changes hash
+	if !valid {
+		t.Fatal("signature did not verify")
+	}
 }
 
 func TestCopyPubkey(t *testing.T) {
@@ -228,8 +225,38 @@ func TestCopyPubkey(t *testing.T) {
 	k, _ := bls.RandSecretKey(r)
 
 	p := k.DerivePublicKey()
+	p2 := p.Copy()
 
 	p.Copy()
 
-	// TODO: verify change in original does not change copy
+	p.AggregatePubKey(&p2)
+
+	if p2.Equals(*p) {
+		t.Fatal("pubkey copy is incorrect")
+	}
+}
+
+func TestCopySignature(t *testing.T) {
+	r := NewXORShift(1)
+
+	k, _ := bls.RandSecretKey(r)
+
+	s, err := bls.Sign(k, []byte{}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s2, err := bls.Sign(k, []byte{}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sCopy := s.Copy()
+
+	s.AggregateSig(s2)
+	sSer := s.Serialize()
+	sCopySer := sCopy.Serialize()
+	if bytes.Equal(sSer[:], sCopySer[:]) {
+		t.Fatal("copy returns pointer")
+	}
 }

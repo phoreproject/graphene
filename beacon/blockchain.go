@@ -1,65 +1,149 @@
 package beacon
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/bls"
-	logger "github.com/sirupsen/logrus"
+	"github.com/phoreproject/prysm/shared/ssz"
 
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/beacon/primitives"
-	"github.com/phoreproject/synapse/serialization"
+	"github.com/phoreproject/synapse/primitives"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 var zeroHash = chainhash.Hash{}
 
+type blockNode struct {
+	hash     chainhash.Hash
+	height   uint64
+	parent   *blockNode
+	children []*blockNode
+}
+
+type blockNodeAndState struct {
+	*blockNode
+	primitives.State
+}
+
+// blockchainView is the state of GHOST-LMD
 type blockchainView struct {
-	chain []chainhash.Hash
-	lock  *sync.Mutex
+	finalizedHead blockNodeAndState
+	justifiedHead blockNodeAndState
+	tip           *blockNode
+	index         map[chainhash.Hash]*blockNode
+	lock          *sync.Mutex
 }
 
-func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
+func (bv *blockchainView) GetBlock(n uint64) (*blockNode, error) {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
-	if len(bv.chain) > n && n >= 0 {
-		return &bv.chain[n], nil
-	}
-	return nil, fmt.Errorf("block %d does not exist", n)
+	return getAncestor(bv.tip, n)
 }
 
-func (bv *blockchainView) Height() int {
+func (bv *blockchainView) Height() uint64 {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
-	return len(bv.chain) - 1
+	return bv.tip.height
 }
 
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
 	chain     blockchainView
 	db        db.Database
-	config    *Config
-	state     State
+	config    *config.Config
+	state     primitives.State // state of the head
+	stateMap  map[chainhash.Hash]primitives.State
 	stateLock *sync.Mutex
-	voteCache map[chainhash.Hash]*VoteCache
+}
+
+func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash) (*blockNode, error) {
+	if node, found := b.chain.index[blockHash]; found {
+		return node, nil
+	}
+
+	parentRoot := block.BlockHeader.ParentRoot
+	parentNode, found := b.chain.index[parentRoot]
+	if block.BlockHeader.SlotNumber == 0 {
+		parentNode = nil
+	} else if !found {
+		return nil, errors.New("could not find parent block for incoming block")
+	}
+
+	node := &blockNode{
+		hash:     blockHash,
+		height:   block.BlockHeader.SlotNumber,
+		parent:   parentNode,
+		children: []*blockNode{},
+	}
+
+	b.chain.index[blockHash] = node
+
+	if parentNode != nil {
+		parentNode.children = append(parentNode.children, node)
+	}
+
+	return node, nil
+}
+
+// getAncestor gets the ancestor of a block at a certain slot.
+func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
+	if slot > node.height {
+		return nil, errors.New("could not get block that is not ancestor of node")
+	}
+	current := node
+	for slot != current.height {
+		current = current.parent
+	}
+	return current, nil
+}
+
+// GetEpochBoundaryHash gets the hash of the parent block at the epoch boundary.
+func (b *Blockchain) GetEpochBoundaryHash() (chainhash.Hash, error) {
+	height := b.Height()
+	epochBoundaryHeight := height - (height % b.config.EpochLength)
+	return b.GetHashByHeight(epochBoundaryHeight)
+}
+
+func (b *Blockchain) getLatestAttestation(validator uint32) (primitives.Attestation, error) {
+	return b.db.GetLatestAttestation(validator)
+}
+
+func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*blockNode, error) {
+	att, err := b.db.GetLatestAttestation(validator)
+	if err != nil {
+		return nil, err
+	}
+	bl, err := b.db.GetBlockForHash(att.Data.BeaconBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	h, err := ssz.TreeHash(bl)
+	if err != nil {
+		return nil, err
+	}
+	node, found := b.chain.index[h]
+	if !found {
+		return nil, errors.New("couldn't find block attested to by validator in index")
+	}
+	return node, nil
 }
 
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
-func NewBlockchainWithInitialValidators(db db.Database, config *Config, validators []InitialValidatorEntry) (*Blockchain, error) {
+func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool) (*Blockchain, error) {
 	b := &Blockchain{
 		db:     db,
 		config: config,
 		chain: blockchainView{
-			chain: []chainhash.Hash{},
+			index: make(map[chainhash.Hash]*blockNode),
 			lock:  &sync.Mutex{},
 		},
 		stateLock: &sync.Mutex{},
-		voteCache: make(map[chainhash.Hash]*VoteCache),
 	}
-	err := b.InitializeState(validators)
+	err := b.InitializeState(validators, 0, skipValidation)
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +153,11 @@ func NewBlockchainWithInitialValidators(db db.Database, config *Config, validato
 // InitialValidatorEntry is the validator entry to be added
 // at the beginning of a blockchain.
 type InitialValidatorEntry struct {
-	PubKey                bls.PublicKey
-	ProofOfPossession     bls.Signature
+	PubKey                [96]byte
+	ProofOfPossession     [48]byte
 	WithdrawalShard       uint32
-	WithdrawalCredentials serialization.Address
-	RandaoCommitment      chainhash.Hash
+	WithdrawalCredentials chainhash.Hash
+	DepositSize           uint64
 }
 
 const (
@@ -92,81 +176,84 @@ const (
 // UpdateChainHead updates the blockchain head if needed
 func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 	b.chain.lock.Lock()
-	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
-		logger.WithField("hash", n.Hash()).WithField("height", n.SlotNumber).Debug("updating blockchain head")
-		b.chain.lock.Unlock()
-		err := b.SetTip(n)
-		if err != nil {
-			return err
-		}
-	} else {
-		b.chain.lock.Unlock()
-	}
-	return nil
-}
-
-// SetTip sets the tip of the chain.
-func (b *Blockchain) SetTip(n *primitives.Block) error {
-	b.chain.lock.Lock()
 	defer b.chain.lock.Unlock()
-	needed := n.SlotNumber + 1
-	if uint64(cap(b.chain.chain)) < needed {
-		nodes := make([]chainhash.Hash, needed, needed+100)
-		copy(nodes, b.chain.chain)
-		b.chain.chain = nodes
-	} else {
-		prevLen := int32(len(b.chain.chain))
-		b.chain.chain = b.chain.chain[0:needed]
-		for i := prevLen; uint64(i) < needed; i++ {
-			b.chain.chain[i] = zeroHash
-		}
-	}
-
-	current := n
-
-	for current != nil && b.chain.chain[current.SlotNumber] != current.Hash() {
-		b.chain.chain[n.SlotNumber] = n.Hash()
-		nextBlock, err := b.db.GetBlockForHash(n.AncestorHashes[0])
+	validators := b.chain.justifiedHead.State.ValidatorRegistry
+	activeValidatorIndices := primitives.GetActiveValidatorIndices(validators)
+	targets := []*blockNode{}
+	for _, i := range activeValidatorIndices {
+		bl, err := b.getLatestAttestationTarget(i)
 		if err != nil {
-			nextBlock = nil
+			continue
 		}
-		current = nextBlock
+		targets = append(targets, bl)
 	}
 
-	return nil
+	getVoteCount := func(block *blockNode) int {
+		votes := 0
+		for _, t := range targets {
+			node, err := getAncestor(t, block.height)
+			if err != nil {
+				panic(err)
+			}
+			if node.hash.IsEqual(&block.hash) {
+				votes++
+			}
+		}
+		return votes
+	}
+
+	head := b.chain.justifiedHead.blockNode
+	for {
+		children := head.children
+		if len(children) == 0 {
+			b.chain.tip = head
+			b.state = b.stateMap[head.hash]
+			return nil
+		}
+		bestVoteCountChild := children[0]
+		bestVotes := getVoteCount(bestVoteCountChild)
+		for _, c := range children[1:] {
+			vc := getVoteCount(c)
+			if vc > bestVotes {
+				bestVoteCountChild = c
+				bestVotes = vc
+			}
+		}
+		head = bestVoteCountChild
+	}
 }
 
 // Tip returns the block at the tip of the chain.
 func (b Blockchain) Tip() chainhash.Hash {
 	b.chain.lock.Lock()
-	tip := b.chain.chain[len(b.chain.chain)-1]
+	tip := b.chain.tip.hash
 	b.chain.lock.Unlock()
 	return tip
 }
 
-// GetNodeByHeight gets a node from the active blockchain by height.
-func (b Blockchain) GetNodeByHeight(height uint64) (chainhash.Hash, error) {
+// GetHashByHeight gets the block hash at a certain height.
+func (b Blockchain) GetHashByHeight(height uint64) (chainhash.Hash, error) {
 	b.chain.lock.Lock()
 	defer b.chain.lock.Unlock()
-	if uint64(len(b.chain.chain)-1) < height {
-		return chainhash.Hash{}, fmt.Errorf("attempted to retrieve block hash of height > chain height")
+	node, err := getAncestor(b.chain.tip, height)
+	if err != nil {
+		return chainhash.Hash{}, err
 	}
-	node := b.chain.chain[height]
-	return node, nil
+	return node.hash, nil
 }
 
 // Height returns the height of the chain.
-func (b *Blockchain) Height() int {
+func (b *Blockchain) Height() uint64 {
 	return b.chain.Height()
 }
 
 // LastBlock gets the last block in the chain
 func (b *Blockchain) LastBlock() (*primitives.Block, error) {
-	hash, err := b.chain.GetBlock(b.chain.Height())
+	bl, err := b.chain.GetBlock(b.chain.Height())
 	if err != nil {
 		return nil, err
 	}
-	block, err := b.db.GetBlockForHash(*hash)
+	block, err := b.db.GetBlockForHash(bl.hash)
 	if err != nil {
 		return nil, err
 	}
@@ -175,14 +262,14 @@ func (b *Blockchain) LastBlock() (*primitives.Block, error) {
 }
 
 // GetConfig returns the config used by this blockchain
-func (b *Blockchain) GetConfig() *Config {
+func (b *Blockchain) GetConfig() *config.Config {
 	return b.config
 }
 
 // GetSlotAndShardAssignment gets the shard and slot assignment for a specific
 // validator.
 func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	earliestSlotInArray := int(b.state.LastStateRecalculationSlot) - b.config.CycleLength
+	earliestSlotInArray := b.state.Slot%b.config.EpochLength - b.config.EpochLength
 	if earliestSlotInArray < 0 {
 		earliestSlotInArray = 0
 	}
@@ -193,9 +280,9 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint
 					continue
 				}
 				if j == 0 && v == i%len(committee.Committee) {
-					return committee.Shard, uint64(i + earliestSlotInArray), RoleProposer, nil
+					return committee.Shard, uint64(i) + earliestSlotInArray, RoleProposer, nil
 				}
-				return committee.Shard, uint64(i + earliestSlotInArray), RoleAttester, nil
+				return committee.Shard, uint64(i) + earliestSlotInArray, RoleAttester, nil
 			}
 		}
 	}
@@ -204,11 +291,11 @@ func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint
 
 // GetValidatorAtIndex gets the validator at index
 func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
-	if index >= uint32(len(b.state.Validators)) {
+	if index >= uint32(len(b.state.ValidatorRegistry)) {
 		return nil, fmt.Errorf("Index out of bounds")
 	}
 
-	return &b.state.Validators[index], nil
+	return &b.state.ValidatorRegistry[index], nil
 }
 
 // GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID

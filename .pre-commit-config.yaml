@@ -5,7 +5,7 @@
     - id: go-vet
     - id: go-lint
     - id: no-go-testing
-    - id: go-unit-tests
+    # - id: go-unit-tests
 - repo: git://github.com/pre-commit/pre-commit-hooks
   sha: v0.7.1
   hooks:

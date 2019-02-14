@@ -5,11 +5,13 @@ package rpc
 import (
 	"net"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/beacon/primitives"
+	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/pb"
 	"golang.org/x/net/context"
@@ -24,12 +26,15 @@ type server struct {
 
 // SubmitBlock submits a block to the network after verifying it
 func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*pb.SubmitBlockResponse, error) {
-	b, err := primitives.BlockFromProto(in.Block)
+	b := &primitives.Block{} // TODO
+	// if err != nil {
+	// 	return nil, err
+	// }
+	err := s.chain.ProcessBlock(b)
+	h, err := ssz.TreeHash(b)
 	if err != nil {
 		return nil, err
 	}
-	err = s.chain.ProcessBlock(b)
-	h := b.Hash()
 	return &pb.SubmitBlockResponse{BlockHash: h[:]}, err
 }
 
@@ -38,7 +43,7 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 }
 
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
-	h, err := s.chain.GetNodeByHeight(in.SlotNumber)
+	h, err := s.chain.GetHashByHeight(in.SlotNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +84,7 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 		return nil, err
 	}
 
-	var validatorList []*pb.ValidatorResponse
+	var validatorList []*pb.Validator
 
 	for _, indice := range indices {
 		validator, err := s.chain.GetValidatorAtIndex(indice)

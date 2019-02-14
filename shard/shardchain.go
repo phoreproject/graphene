@@ -6,10 +6,11 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	beacon "github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	beacondb "github.com/phoreproject/synapse/beacon/db"
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 // BlockHeader represents a single shard chain block header.
@@ -53,7 +54,7 @@ type blockchainView struct {
 type Blockchain struct {
 	chain  blockchainView
 	db     db.Database
-	config *beacon.Config
+	config *config.Config
 }
 
 func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, beaconDB beacondb.Database) error {
@@ -66,12 +67,12 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 	if err != nil {
 		return err
 	}
-	if beaconRefBlock.SlotNumber > header.SlotNumber {
+	if beaconRefBlock.BlockHeader.SlotNumber > header.SlotNumber {
 		return fmt.Errorf("Slot of shard block must not be larger than beacon block")
 	}
 
 	// TODO: get the beaconState from beaconRefBlock
-	var beaconState *beacon.State
+	var beaconState *primitives.State
 	committeeIndices, err := beaconState.GetCommitteeIndices(header.SlotNumber, header.ShardID, b.config)
 	if err != nil {
 		return err

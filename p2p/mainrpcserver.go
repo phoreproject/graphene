@@ -7,8 +7,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/beacon/primitives"
 	pb "github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

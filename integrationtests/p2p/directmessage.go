@@ -11,7 +11,6 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/serialization"
 
 	proto "github.com/golang/protobuf/proto"
 	crypto "github.com/libp2p/go-libp2p-crypto"
@@ -93,7 +92,7 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 			PubKey:                bls.PublicKey{},
 			ProofOfPossession:     bls.Signature{},
 			WithdrawalShard:       1,
-			WithdrawalCredentials: serialization.Address{},
+			WithdrawalCredentials: chainhash.Hash{},
 			RandaoCommitment:      randaoCommitment,
 		})
 	}

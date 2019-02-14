@@ -11,7 +11,6 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/rpc"
-	"github.com/phoreproject/synapse/serialization"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -89,7 +88,7 @@ func createHostNode(index int) (*testNode, error) {
 			PubKey:                bls.PublicKey{},
 			ProofOfPossession:     bls.Signature{},
 			WithdrawalShard:       1,
-			WithdrawalCredentials: serialization.Address{},
+			WithdrawalCredentials: chainhash.Hash{},
 			RandaoCommitment:      randaoCommitment,
 		})
 	}

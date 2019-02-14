@@ -8,6 +8,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/sirupsen/logrus"
 )
 
 type mempool struct {
@@ -24,13 +25,27 @@ type attestationMempool struct {
 }
 
 func newAttestationMempool() attestationMempool {
-	return attestationMempool{make([]primitives.Attestation, 0), new(sync.RWMutex)}
+	return attestationMempool{
+		attestations:     make([]primitives.Attestation, 0),
+		attestationsLock: new(sync.RWMutex),
+	}
 }
 
-func (a *attestationMempool) processNewAttestation(att primitives.Attestation) {
-	a.attestationsLock.Lock()
-	defer a.attestationsLock.Unlock()
-	a.attestations = append(a.attestations, att)
+func (am *attestationMempool) processNewAttestation(att primitives.Attestation) {
+	am.attestationsLock.Lock()
+	defer am.attestationsLock.Unlock()
+	// TODO: make this more efficient
+	for _, a := range am.attestations {
+		if a.Data.Slot == att.Data.Slot && a.Data.Shard == att.Data.Shard {
+			for i, b := range a.ParticipationBitfield {
+				if b&att.ParticipationBitfield[i] != 0 {
+					logrus.Debug("duplicate attestation, ignoring")
+					return
+				}
+			}
+		}
+	}
+	am.attestations = append(am.attestations, att)
 }
 
 type attestationWithRealSig struct {
@@ -40,13 +55,13 @@ type attestationWithRealSig struct {
 	data                  primitives.AttestationData
 }
 
-func (a *attestationMempool) getAttestationsToInclude(slot uint64, c *config.Config) ([]primitives.Attestation, error) {
+func (am *attestationMempool) getAttestationsToInclude(slot uint64, c *config.Config) ([]primitives.Attestation, error) {
 	// include any attestations
 	aggregatedAttestations := make(map[chainhash.Hash]*attestationWithRealSig)
 
-	a.attestationsLock.Lock()
-	for _, att := range a.attestations {
-		if att.Data.Slot+c.MinAttestationInclusionDelay < slot {
+	am.attestationsLock.Lock()
+	for _, att := range am.attestations {
+		if att.Data.Slot+c.MinAttestationInclusionDelay >= slot {
 			continue // don't include attestations that aren't valid yet
 		}
 
@@ -61,7 +76,6 @@ func (a *attestationMempool) getAttestationsToInclude(slot uint64, c *config.Con
 		}
 
 		if _, found := aggregatedAttestations[hash]; !found {
-
 			aggregatedAttestations[hash] = &attestationWithRealSig{
 				data:                  att.Data,
 				participationBitfield: att.ParticipationBitfield,
@@ -78,7 +92,7 @@ func (a *attestationMempool) getAttestationsToInclude(slot uint64, c *config.Con
 			}
 		}
 	}
-	a.attestationsLock.Unlock()
+	am.attestationsLock.Unlock()
 
 	attestationsToInclude := make([]primitives.Attestation, len(aggregatedAttestations))
 	i := 0
@@ -96,24 +110,24 @@ func (a *attestationMempool) getAttestationsToInclude(slot uint64, c *config.Con
 }
 
 // we want to remove attestations that will always be invalid or pointless
-func (a *attestationMempool) removeAttestationsBeforeSlot(slot uint64) {
-	a.attestationsLock.Lock()
-	defer a.attestationsLock.Unlock()
+func (am *attestationMempool) removeAttestationsBeforeSlot(slot uint64) {
+	am.attestationsLock.Lock()
+	defer am.attestationsLock.Unlock()
 	newAttestations := make([]primitives.Attestation, 0)
-	for _, att := range a.attestations {
+	for _, att := range am.attestations {
 		if att.Data.Slot >= slot {
 			newAttestations = append(newAttestations, att)
 		}
 	}
-	a.attestations = newAttestations
+	am.attestations = newAttestations
 }
 
 // we want to remove attestations that will always be invalid or pointless
-func (a *attestationMempool) removeAttestationsFromBitfield(slot uint64, shard uint64, bitfield []uint8) {
-	a.attestationsLock.Lock()
-	defer a.attestationsLock.Unlock()
+func (am *attestationMempool) removeAttestationsFromBitfield(slot uint64, shard uint64, bitfield []uint8) {
+	am.attestationsLock.Lock()
+	defer am.attestationsLock.Unlock()
 	newAttestations := make([]primitives.Attestation, 0)
-	for _, att := range a.attestations {
+	for _, att := range am.attestations {
 		if att.Data.Slot == slot && att.Data.Shard == shard {
 			intersect := false
 			for i := range att.ParticipationBitfield {
@@ -127,11 +141,11 @@ func (a *attestationMempool) removeAttestationsFromBitfield(slot uint64, shard u
 		}
 		newAttestations = append(newAttestations, att)
 	}
-	a.attestations = newAttestations
+	am.attestations = newAttestations
 }
 
-func (a *attestationMempool) size() int {
-	a.attestationsLock.Lock()
-	defer a.attestationsLock.Unlock()
-	return len(a.attestations)
+func (am *attestationMempool) size() int {
+	am.attestationsLock.Lock()
+	defer am.attestationsLock.Unlock()
+	return len(am.attestations)
 }

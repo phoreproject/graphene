@@ -19,17 +19,20 @@ import (
 	"google.golang.org/grpc"
 )
 
-type assignment struct {
+type attestationAssignment struct {
 	slot              uint64
 	shard             uint64
 	committeeSize     uint64
 	committeeIndex    uint64
-	isProposer        bool
 	beaconBlockHash   chainhash.Hash
 	epochBoundaryRoot chainhash.Hash
 	latestCrosslinks  []primitives.Crosslink
 	justifiedSlot     uint64
 	justifiedRoot     chainhash.Hash
+}
+
+type proposerAssignment struct {
+	slot uint64
 }
 
 type slotInformation struct {
@@ -40,6 +43,7 @@ type slotInformation struct {
 	justifiedSlot     uint64
 	justifiedRoot     chainhash.Hash
 	committees        []primitives.ShardAndCommittee
+	proposer          uint32
 }
 
 // slotInformationFromProto gets the slot information from the protobuf format
@@ -47,6 +51,7 @@ func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation
 	si := &slotInformation{
 		slot:          information.Slot,
 		justifiedSlot: information.JustifiedSlot,
+		proposer:      information.Proposer,
 	}
 
 	err := si.beaconBlockHash.SetBytes(information.BeaconBlockHash)
@@ -105,8 +110,18 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 
 	m := newMempool()
 
+	forkDataProto, err := blockchainRPC.GetForkData(context.Background(), &empty.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	forkData, err := primitives.ForkDataFromProto(forkDataProto)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := range validators {
-		validatorObjs[uint32(i)] = NewValidator(keystore, blockchainRPC, p2pRPC, validators[i], &m, c)
+		validatorObjs[uint32(i)] = NewValidator(keystore, blockchainRPC, p2pRPC, validators[i], &m, c, forkData)
 	}
 
 	vm := &Manager{
@@ -117,12 +132,6 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 		mempool:       &m,
 		config:        c,
 		currentSlot:   0,
-	}
-
-	logrus.Debug("cancelling old attestation listener")
-	err := vm.CancelAttestationsListener()
-	if err != nil {
-		return nil, err
 	}
 	logrus.Debug("initializing attestation listener")
 	err = vm.ListenForNewAttestations()
@@ -154,38 +163,47 @@ func (vm *Manager) UpdateSlotNumber() error {
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
 
 		if b.SlotNumber%uint64(vm.config.EpochLength) == 0 {
-			logrus.Debug("cancelling old attestation listener")
-			err := vm.CancelAttestationsListener()
-			if err != nil {
-				return err
+			slot := b.SlotNumber - vm.config.MinAttestationInclusionDelay - vm.config.EpochLength
+			if b.SlotNumber < vm.config.MinAttestationInclusionDelay+vm.config.EpochLength {
+				slot = 0
 			}
-			logrus.Debug("initializing attestation listener")
-			err = vm.ListenForNewAttestations()
-			if err != nil {
-				return err
-			}
-			logrus.Debug("done")
+			vm.mempool.attestationMempool.removeAttestationsBeforeSlot(slot)
 		}
+
+		valWaitGroup := new(sync.WaitGroup)
 
 		for _, c := range si.committees {
 			for committeeIndex, validatorID := range c.Committee {
 				if validator, found := vm.validatorMap[validatorID]; found {
-					a := assignment{
-						slot:              b.SlotNumber + 1,
+					a := attestationAssignment{
+						slot:              b.SlotNumber,
 						shard:             c.Shard,
 						committeeSize:     uint64(len(c.Committee)),
 						committeeIndex:    uint64(committeeIndex),
-						isProposer:        committeeIndex == int(b.SlotNumber+1)%len(c.Committee),
 						beaconBlockHash:   si.beaconBlockHash,
 						epochBoundaryRoot: si.epochBoundaryRoot,
 						latestCrosslinks:  si.latestCrosslinks,
 						justifiedRoot:     si.justifiedRoot,
 					}
 
+					// here we should proposer just before the block and attest just after the block
+					valWaitGroup.Add(1)
 					go func() {
 						validator.attestationRequest <- a
+						valWaitGroup.Done()
 					}()
 				}
+			}
+		}
+
+		valWaitGroup.Wait()
+
+		if validator, found := vm.validatorMap[si.proposer]; found {
+			err := validator.proposeBlock(proposerAssignment{
+				slot: b.SlotNumber + 1,
+			})
+			if err != nil {
+				return err
 			}
 		}
 
@@ -206,12 +224,8 @@ func (vm *Manager) CancelAttestationsListener() error {
 
 // ListenForNewAttestations listens for new attestations from this epoch.
 func (vm *Manager) ListenForNewAttestations() error {
-	epochNum := vm.currentSlot / vm.config.EpochLength
-
-	topic := fmt.Sprintf("attestations epoch %d", epochNum/vm.config.EpochLength)
-
 	sub, err := vm.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
-		Topic: topic,
+		Topic: "attestations",
 	})
 	if err != nil {
 		fmt.Println(err)

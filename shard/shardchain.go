@@ -73,7 +73,7 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 
 	// TODO: get the beaconState from beaconRefBlock
 	var beaconState *primitives.State
-	committeeIndices, err := beaconState.GetCommitteeIndices(header.SlotNumber, header.ShardID, b.config)
+	committeeIndices, err := beaconState.GetCommitteeIndices(beaconState.Slot, header.SlotNumber, header.ShardID, b.config)
 	if err != nil {
 		return err
 	}

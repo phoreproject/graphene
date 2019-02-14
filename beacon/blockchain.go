@@ -316,6 +316,6 @@ func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, e
 }
 
 // GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID
-func (b *Blockchain) GetCommitteeValidatorIndices(slot uint64, shardID uint64) ([]uint32, error) {
-	return b.state.GetCommitteeIndices(slot, shardID, b.config)
+func (b *Blockchain) GetCommitteeValidatorIndices(stateSlot uint64, slot uint64, shardID uint64) ([]uint32, error) {
+	return b.state.GetCommitteeIndices(stateSlot, slot, shardID, b.config)
 }

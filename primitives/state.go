@@ -421,8 +421,8 @@ func (s *State) InitiateValidatorExit(index uint32) error {
 
 // GetBeaconProposerIndex gets the validator index of the block proposer at a certain
 // slot.
-func (s *State) GetBeaconProposerIndex(slot uint64, c *config.Config) uint32 {
-	firstCommittee := s.GetShardCommitteesAtSlot(slot, c)[0].Committee
+func (s *State) GetBeaconProposerIndex(stateSlot uint64, slot uint64, c *config.Config) uint32 {
+	firstCommittee := s.GetShardCommitteesAtSlot(stateSlot, slot, c)[0].Committee
 	return firstCommittee[int(slot)%len(firstCommittee)]
 }
 
@@ -441,7 +441,7 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) {
 	if status == ExitedWithPenalty {
 		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
 
-		whistleblowerIndex := s.GetBeaconProposerIndex(s.Slot, c)
+		whistleblowerIndex := s.GetBeaconProposerIndex(s.Slot, s.Slot, c)
 		whistleblowerReward := s.GetEffectiveBalance(index, c) / c.WhistleblowerRewardQuotient
 		s.ValidatorBalances[whistleblowerIndex] += whistleblowerReward
 		s.ValidatorBalances[index] -= whistleblowerReward
@@ -550,12 +550,9 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 }
 
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
-func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) []ShardAndCommittee {
-	earliestSlot := slot - (slot % c.EpochLength) - c.EpochLength
-	if slot < c.EpochLength {
-		earliestSlot = 0
-	}
-	return s.ShardAndCommitteeForSlots[slot-earliestSlot]
+func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) []ShardAndCommittee {
+	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
+	return s.ShardAndCommitteeForSlots[int64(slot)-earliestSlot]
 }
 
 // GetAttesterCommitteeSize gets the size of committee
@@ -567,8 +564,8 @@ func (s *State) GetAttesterCommitteeSize(slot uint64, con *config.Config) uint32
 
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
-	committees := s.GetShardCommitteesAtSlot(slot, con)
+func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
+	committees := s.GetShardCommitteesAtSlot(stateSlot, slot, con)
 	return ShardCommitteeByShardID(shardID, committees)
 }
 
@@ -814,12 +811,17 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 
 // GetAttestationParticipants gets the indices of participants.
 func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
-	shardCommittees := s.GetShardCommitteesAtSlot(data.Slot, c)
+	shardCommittees := s.GetShardCommitteesAtSlot(s.Slot-1, data.Slot, c)
 	var shardCommittee ShardAndCommittee
+	found := false
 	for i := range shardCommittees {
 		if shardCommittees[i].Shard == data.Shard {
 			shardCommittee = shardCommittees[i]
+			found = true
 		}
+	}
+	if !found {
+		return nil, fmt.Errorf("could not find committee at slot %d and shard %d", data.Slot, data.Shard)
 	}
 
 	if len(participationBitfield) != (len(shardCommittee.Committee)+7)/8 {

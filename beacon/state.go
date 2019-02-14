@@ -12,6 +12,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -239,6 +240,8 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	// copy the state so we can easily revert
 	newState := b.state.Copy()
 
+	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
+
 	// increase the slot number
 	newState.Slot++
 
@@ -279,8 +282,6 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 		return nil, err
 	}
 
-	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, b.config)
-
 	proposerPub, err := bls.DeserializePublicKey(newState.ValidatorRegistry[beaconProposerIndex].Pubkey)
 	if err != nil {
 		return nil, err
@@ -319,7 +320,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	}
 
 	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[newState.GetBeaconProposerIndex(newState.Slot, b.config)].ProposerSlots++
+	newState.ValidatorRegistry[beaconProposerIndex].ProposerSlots++
 
 	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)
 	if err != nil {
@@ -615,6 +616,12 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 					Slot:           newState.Slot,
 					ShardBlockHash: *bestRoot,
 				}
+				logrus.WithFields(logrus.Fields{
+					"slot":             newState.Slot,
+					"shardBlockHash":   bestRoot.String(),
+					"totalAttestation": totalAttestingBalance,
+					"totalBalance":     totalBalance,
+				}).Debug("crosslink created")
 			}
 		}
 	}
@@ -707,7 +714,7 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 	}
 
 	for index := range previousEpochAttesterIndices {
-		proposerIndex := newState.GetBeaconProposerIndex(previousAttestationCache[index].SlotIncluded, b.config)
+		proposerIndex := newState.GetBeaconProposerIndex(newState.Slot-1, previousAttestationCache[index].SlotIncluded-1, b.config)
 		newState.ValidatorBalances[proposerIndex] += baseReward(index) / b.config.IncluderRewardQuotient
 	}
 
@@ -795,7 +802,7 @@ done:
 
 // ApplyAttestation verifies and applies an attestation to the given state.
 func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attestation, c *config.Config) error {
-	if att.Data.Slot+c.MinAttestationInclusionDelay < s.Slot {
+	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
 		return errors.New("attestation included too soon")
 	}
 
@@ -836,18 +843,18 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 		return err
 	}
 
-	groupPublicKey := bls.NewAggregatePublicKey()
-	for _, p := range participants {
-		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[p].Pubkey)
-		if err != nil {
-			return err
-		}
-		groupPublicKey.AggregatePubKey(p)
-	}
-
 	dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
 	if err != nil {
 		return err
+	}
+
+	groupPublicKey := bls.NewAggregatePublicKey()
+	for _, p := range participants {
+		pub, err := bls.DeserializePublicKey(s.ValidatorRegistry[p].Pubkey)
+		if err != nil {
+			return err
+		}
+		groupPublicKey.AggregatePubKey(pub)
 	}
 
 	aggSig, err := bls.DeserializeSignature(att.AggregateSig)

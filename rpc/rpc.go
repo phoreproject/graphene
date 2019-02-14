@@ -82,7 +82,7 @@ func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtI
 }
 
 func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, uint64(in.Shard))
+	indices, err := s.chain.GetCommitteeValidatorIndices(s.chain.GetState().Slot, in.SlotNumber, uint64(in.Shard))
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommittee
 }
 
 func (s *server) GetCommitteeValidatorIndices(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorIndicesResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, uint64(in.Shard))
+	indices, err := s.chain.GetCommitteeValidatorIndices(s.chain.GetState().Slot, in.SlotNumber, uint64(in.Shard))
 	if err != nil {
 		return nil, err
 	}
@@ -147,11 +147,13 @@ func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.S
 		return nil, err
 	}
 
-	committeesForNextSlot := state.GetShardCommitteesAtSlot(state.Slot+1, config)
+	committeesForNextSlot := state.GetShardCommitteesAtSlot(state.Slot, state.Slot, config)
 	committeesForNextSlotProto := make([]*pb.ShardCommittee, len(committeesForNextSlot))
 	for i := range committeesForNextSlot {
 		committeesForNextSlotProto[i] = committeesForNextSlot[i].ToProto()
 	}
+
+	nextProposerIndex := state.GetBeaconProposerIndex(state.Slot, state.Slot, config)
 
 	return &pb.SlotInformation{
 		Slot:              state.Slot, // this is the current slot
@@ -161,13 +163,14 @@ func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.S
 		JustifiedSlot:     state.JustifiedSlot,
 		JustifiedRoot:     justifiedRoot[:],
 		Committees:        committeesForNextSlotProto,
+		Proposer:          nextProposerIndex,
 	}, nil
 }
 
 func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesForSlotRequest) (*pb.ShardCommitteesForSlot, error) {
 	state := s.chain.GetState()
 
-	sc := state.GetShardCommitteesAtSlot(in.Slot, s.chain.GetConfig())
+	sc := state.GetShardCommitteesAtSlot(state.Slot, in.Slot, s.chain.GetConfig())
 	scProto := make([]*pb.ShardCommittee, len(sc))
 	for i := range sc {
 		scProto[i] = sc[i].ToProto()
@@ -176,6 +179,11 @@ func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesF
 	return &pb.ShardCommitteesForSlot{
 		Committees: scProto,
 	}, nil
+}
+
+func (s *server) GetForkData(ctx context.Context, in *empty.Empty) (*pb.ForkData, error) {
+	state := s.chain.GetState()
+	return state.ForkData.ToProto(), nil
 }
 
 // Serve serves the RPC server

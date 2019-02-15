@@ -37,7 +37,7 @@ func (s mainRPCServer) SubmitBlock(ctx context.Context, in *pb.SubmitBlockReques
 		return nil, err
 	}
 	err = s.chain.ProcessBlock(b)
-	h := b.Hash()
+	h := b.BlockHeader.ParentRoot // TODO: should be block hash
 	return &pb.SubmitBlockResponse{BlockHash: h[:]}, err
 }
 
@@ -46,7 +46,7 @@ func (s mainRPCServer) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.
 }
 
 func (s mainRPCServer) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
-	h, err := s.chain.GetNodeByHeight(in.SlotNumber)
+	h, err := s.chain.GetHashByHeight(in.SlotNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -82,22 +82,26 @@ func (s mainRPCServer) GetValidatorAtIndex(ctx context.Context, in *pb.GetValida
 }
 
 func (s mainRPCServer) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, uint64(in.Shard))
-	if err != nil {
-		return nil, err
-	}
+	return &pb.GetCommitteeValidatorsResponse{}, nil
 
-	var validatorList []*pb.ValidatorResponse
-
-	for _, indice := range indices {
-		validator, err := s.chain.GetValidatorAtIndex(indice)
+	/*
+		indices, err := s.chain.GetCommitteeValidatorIndices(in.SlotNumber, uint64(in.Shard))
 		if err != nil {
 			return nil, err
 		}
-		validatorList = append(validatorList, validator.ToProto())
-	}
 
-	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil
+			var validatorList []*pb.ValidatorResponse
+
+			for _, indice := range indices {
+				validator, err := s.chain.GetValidatorAtIndex(indice)
+				if err != nil {
+					return nil, err
+				}
+				validatorList = append(validatorList, validator.ToProto())
+			}
+
+			return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil
+	*/
 }
 
 // StartMainRPCServe serves the RPC mainRPCServer

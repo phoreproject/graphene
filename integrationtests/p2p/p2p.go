@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/rpc"
 
@@ -80,19 +80,19 @@ func createHostNode(index int) (*testNode, error) {
 	}
 
 	database := db.NewInMemoryDB()
-	c := beacon.MainNetConfig
+	c := config.MainNetConfig
 	validators := []beacon.InitialValidatorEntry{}
-	randaoCommitment := chainhash.HashH([]byte("test"))
-	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
+	//randaoCommitment := chainhash.HashH([]byte("test"))
+	for i := 0; i <= int(c.EpochLength)*(c.TargetCommitteeSize*2); i++ {
 		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                bls.PublicKey{},
-			ProofOfPossession:     bls.Signature{},
+			//PubKey:                bls.PublicKey{},
+			//ProofOfPossession:     bls.Signature{},
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
-			RandaoCommitment:      randaoCommitment,
+			//RandaoCommitment:      randaoCommitment,
 		})
 	}
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
 
 	hostNode, err := rpc.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.LocalPeerNodeHandler{})
 	if err != nil {

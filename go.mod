@@ -1,7 +1,7 @@
 module github.com/phoreproject/synapse
 
 require (
-	github.com/btcsuite/btcd v0.0.0-20190209000034-12ce2fc7d321 // indirect
+	github.com/btcsuite/btcd v0.0.0-20190209000034-12ce2fc7d321
 	github.com/btcsuite/btcutil v0.0.0-20190207003914-4c204d697803
 	github.com/btcsuite/golangcrypto v0.0.0-20150304025918-53f62d9b43e8
 	github.com/coreos/go-semver v0.2.0 // indirect

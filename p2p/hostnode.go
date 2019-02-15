@@ -15,6 +15,7 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/beacon"
 	pb "github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -36,7 +37,7 @@ type HostNode struct {
 var protocolID = protocol.ID("/grpc/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, chain *beacon.Blockchain) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
@@ -79,7 +80,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
 
-	pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer())
+	pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer(chain))
 
 	return &hostNode, nil
 }
@@ -200,11 +201,6 @@ func (node *HostNode) GetHost() host.Host {
 // GetPeerList returns the peer list
 func (node *HostNode) GetPeerList() []*PeerNode {
 	return node.peerList
-}
-
-// Discover discovers the peers
-func (node *HostNode) Discover(options *DiscoveryOptions) error {
-	return startDiscovery(node, options)
 }
 
 // GetConnectedPeerCount returns the connected peer count

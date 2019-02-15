@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 
-	proto "github.com/golang/protobuf/proto"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -28,7 +27,7 @@ type DirectMessageTest struct {
 }
 
 type testNodeDirectMessage struct {
-	*p2p.P2pHostNode
+	*p2p.HostNode
 	nodeID int
 }
 
@@ -84,41 +83,41 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 	}
 
 	database := db.NewInMemoryDB()
-	c := beacon.MainNetConfig
+	c := config.MainNetConfig
 	validators := []beacon.InitialValidatorEntry{}
-	randaoCommitment := chainhash.HashH([]byte("test"))
-	for i := 0; i <= c.CycleLength*(c.MinCommitteeSize*2); i++ {
+	//randaoCommitment := chainhash.HashH([]byte("test"))
+	for i := 0; i <= int(c.EpochLength)*(c.TargetCommitteeSize*2); i++ {
 		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                bls.PublicKey{},
-			ProofOfPossession:     bls.Signature{},
+			//PubKey:                bls.PublicKey{},
+			//ProofOfPossession:     bls.Signature{},
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
-			RandaoCommitment:      randaoCommitment,
+			//RandaoCommitment:      randaoCommitment,
 		})
 	}
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators)
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
 
-	hostNode, err := p2p.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain))
+	hostNode, err := p2p.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey, blockchain)
 	if err != nil {
 		logger.WithField("Function", "createHostNodeForDirectMessage").Warn(err)
 		return nil, err
 	}
 
 	node := &testNodeDirectMessage{
-		P2pHostNode: hostNode,
-		nodeID:      index,
+		HostNode: hostNode,
+		nodeID:   index,
 	}
 
-	node.RegisterMessageHandler("pb.TestMessage", func(node *p2p.P2pHostNode, message proto.Message) {
-		logger.Debugf("Node %s received message %s ", keyToString(node.GetPublicKey()), proto.MessageName(message))
-	})
+	//node.RegisterMessageHandler("pb.TestMessage", func(node *p2p.HostNode, message proto.Message) {
+	//	logger.Debugf("Node %s received message %s ", keyToString(node.GetPublicKey()), proto.MessageName(message))
+	//})
 
 	node.Run()
 
 	return node, nil
 }
 
-func connectToPeerForDirectMessage(hostNode *testNodeDirectMessage, target *testNodeDirectMessage) *p2p.P2pPeerNode {
+func connectToPeerForDirectMessage(hostNode *testNodeDirectMessage, target *testNodeDirectMessage) *p2p.PeerNode {
 	addrs := target.GetHost().Addrs()
 
 	peerInfo := peerstore.PeerInfo{

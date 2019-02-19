@@ -51,7 +51,7 @@ func (f FakeKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
 // IncrementProposerSlots increments proposal slots when chosen to propose a block.
 func (f FakeKeyStore) IncrementProposerSlots(v uint32) {
 	if _, found := f.proposerSlots[v]; !found {
-		f.proposerSlots[v] = 0
+		f.proposerSlots[v] = 2
 	} else {
 		f.proposerSlots[v]++
 	}
@@ -90,7 +90,7 @@ func (m *MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
 // IncrementProposerSlots increments proposal slots when chosen to propose a block.
 func (m *MemoryKeyStore) IncrementProposerSlots(v uint32) {
 	if _, found := m.proposerSlots[v]; !found {
-		m.proposerSlots[v] = 1
+		m.proposerSlots[v] = 2
 	} else {
 		m.proposerSlots[v]++
 	}
@@ -98,7 +98,10 @@ func (m *MemoryKeyStore) IncrementProposerSlots(v uint32) {
 
 // GetProposerSlots gets the number of times this validator was chosen as a proposer since genesis.
 func (m *MemoryKeyStore) GetProposerSlots(v uint32) uint64 {
-	return m.proposerSlots[v]
+	if slot, found := m.proposerSlots[v]; found {
+		return slot
+	}
+	return 1
 }
 
 // Keystore is an interface for retrieving keys from a keystore.

@@ -239,29 +239,38 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 	return nil
 }
 
-// ApplyBlock tries to apply a block to the state.
-func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, error) {
-	// copy the state so we can easily revert
-	newState := b.state.Copy()
-
+func (b *Blockchain) processSlot(newState *primitives.State, previousBlockRoot chainhash.Hash) error {
 	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
 
 	// increase the slot number
 	newState.Slot++
 
-	previousBlockRoot, err := b.GetHashByHeight(block.BlockHeader.SlotNumber - 1)
-	if err != nil {
-		return nil, err
-	}
+	// increase the randao skips of the proposer
+	newState.ValidatorRegistry[beaconProposerIndex].ProposerSlots++
 
 	newState.LatestBlockHashes[(newState.Slot-1)%b.config.LatestBlockRootsLength] = previousBlockRoot
 
 	if newState.Slot%b.config.LatestBlockRootsLength == 0 {
 		latestBlockHashesRoot, err := ssz.TreeHash(newState.LatestBlockHashes)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		newState.BatchedBlockRoots = append(newState.BatchedBlockRoots, latestBlockHashesRoot)
+	}
+
+	return nil
+}
+
+// ApplyBlock tries to apply a block to the state.
+func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, error) {
+	// copy the state so we can easily revert
+	newState := b.state.Copy()
+
+	proposerIndex := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
+
+	// PER SLOT PROCESSING
+	for newState.Slot != block.BlockHeader.SlotNumber {
+		b.processSlot(&newState, block.BlockHeader.ParentRoot)
 	}
 
 	if block.BlockHeader.SlotNumber != newState.Slot {
@@ -286,7 +295,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 		return nil, err
 	}
 
-	proposerPub, err := newState.ValidatorRegistry[beaconProposerIndex].GetPublicKey()
+	proposerPub, err := newState.ValidatorRegistry[proposerIndex].GetPublicKey()
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +314,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 		return nil, errors.New("block had invalid signature")
 	}
 
-	proposer := &newState.ValidatorRegistry[beaconProposerIndex]
+	proposer := &newState.ValidatorRegistry[proposerIndex]
 
 	var proposerSlotsBytes [8]byte
 	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposer.ProposerSlots)
@@ -322,9 +331,6 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	if !valid {
 		return nil, errors.New("block has invalid randao signature")
 	}
-
-	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[beaconProposerIndex].ProposerSlots++
 
 	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)
 	if err != nil {

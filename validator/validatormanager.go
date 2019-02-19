@@ -36,7 +36,7 @@ type proposerAssignment struct {
 }
 
 type slotInformation struct {
-	slot              uint64
+	slot              int64
 	beaconBlockHash   chainhash.Hash
 	epochBoundaryRoot chainhash.Hash
 	latestCrosslinks  []primitives.Crosslink
@@ -48,6 +48,12 @@ type slotInformation struct {
 
 // slotInformationFromProto gets the slot information from the protobuf format
 func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation, error) {
+	if information.Slot < 0 {
+		return &slotInformation{
+			slot: -1,
+		}, nil
+	}
+
 	si := &slotInformation{
 		slot:          information.Slot,
 		justifiedSlot: information.JustifiedSlot,
@@ -158,6 +164,10 @@ func (vm *Manager) UpdateSlotNumber() error {
 		si, err := slotInformationFromProto(siProto)
 		if err != nil {
 			return err
+		}
+
+		if si.slot < 0 {
+			return nil
 		}
 
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")

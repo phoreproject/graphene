@@ -36,7 +36,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		"mempoolSize":     v.mempool.attestationMempool.size(),
 	}).Debug("creating block")
 
-	parentRootBytes, err := v.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{SlotNumber: information.slot - 1})
+	parentRootBytes, err := v.blockchainRPC.GetLastBlockHash(context.Background(), &empty.Empty{})
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})
 	if err != nil {
-
+		return err
 	}
 
 	stateRoot, err := chainhash.NewHash(stateRootBytes.StateRoot)

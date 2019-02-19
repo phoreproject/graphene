@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
@@ -266,7 +267,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	// copy the state so we can easily revert
 	newState := b.state.Copy()
 
-	proposerIndex := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
+	proposerIndex := newState.GetBeaconProposerIndex(newState.Slot, block.BlockHeader.SlotNumber-1, b.config)
 
 	// PER SLOT PROCESSING
 	for newState.Slot != block.BlockHeader.SlotNumber {
@@ -898,6 +899,9 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 // ProcessBlock is called when a block is received from a peer.
 func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	// VALIDATE BLOCK HERE
+	if block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+b.state.GenesisTime > uint64(time.Now().Unix()) {
+		return errors.New("block slot too soon")
+	}
 
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {

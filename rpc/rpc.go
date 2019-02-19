@@ -4,6 +4,7 @@ package rpc
 
 import (
 	"net"
+	"time"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
@@ -42,11 +43,32 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 }
 
 func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNumberResponse, error) {
-	return &pb.SlotNumberResponse{SlotNumber: uint64(s.chain.Height())}, nil
+	state := s.chain.GetState()
+	config := s.chain.GetConfig()
+	genesisTime := state.GenesisTime
+	timePerSlot := config.SlotDuration
+	currentTime := time.Now().Unix()
+	currentSlot := (currentTime-int64(genesisTime))/int64(timePerSlot) - 1
+	if currentSlot < 0 {
+		currentSlot = 0
+	}
+	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot)}, nil
 }
 
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
 	h, err := s.chain.GetHashByHeight(in.SlotNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetBlockHashResponse{Hash: h[:]}, nil
+}
+
+func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.GetBlockHashResponse, error) {
+	b, err := s.chain.LastBlock()
+	if err != nil {
+		return nil, err
+	}
+	h, err := ssz.TreeHash(b)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +154,17 @@ func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStat
 func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.SlotInformation, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
+	genesisTime := state.GenesisTime
+	timePerSlot := config.SlotDuration
+	currentTime := time.Now().Unix()
+	currentSlot := (currentTime-int64(genesisTime))/int64(timePerSlot) - 1
+
+	if currentSlot < 0 {
+		return &pb.SlotInformation{
+			Slot: -1,
+		}, nil
+	}
+
 	beaconBlockHash := s.chain.Tip()
 	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash()
 	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
@@ -147,16 +180,16 @@ func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.S
 		return nil, err
 	}
 
-	committeesForNextSlot := state.GetShardCommitteesAtSlot(state.Slot, state.Slot, config)
+	committeesForNextSlot := state.GetShardCommitteesAtSlot(state.Slot, uint64(currentSlot), config)
 	committeesForNextSlotProto := make([]*pb.ShardCommittee, len(committeesForNextSlot))
 	for i := range committeesForNextSlot {
 		committeesForNextSlotProto[i] = committeesForNextSlot[i].ToProto()
 	}
 
-	nextProposerIndex := state.GetBeaconProposerIndex(state.Slot, state.Slot, config)
+	nextProposerIndex := state.GetBeaconProposerIndex(state.Slot, uint64(currentSlot), config)
 
 	return &pb.SlotInformation{
-		Slot:              state.Slot, // this is the current slot
+		Slot:              currentSlot, // this is the current slot
 		BeaconBlockHash:   beaconBlockHash[:],
 		EpochBoundaryRoot: epochBoundaryRoot[:],
 		LatestCrosslinks:  crosslinks,

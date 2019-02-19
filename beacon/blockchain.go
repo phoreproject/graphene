@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	logger "github.com/sirupsen/logrus"
@@ -144,7 +145,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		},
 		stateLock: &sync.Mutex{},
 	}
-	err := b.InitializeState(validators, 0, skipValidation)
+	err := b.InitializeState(validators, uint64(time.Now().Unix()), skipValidation)
 	if err != nil {
 		return nil, err
 	}

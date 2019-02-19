@@ -82,7 +82,7 @@ var mDNSTag = mdns.ServiceTag
 // DNS peer discovery.
 //
 // TODO(287): add other discovery protocols such as DHT, etc.
-func StartDiscovery(node *rpc.RpcHostNode, options *DiscoveryOptions) error {
+func StartDiscovery(node *rpc.HostNode, options *DiscoveryOptions) error {
 	if len(options.PeerAddresses) > 0 {
 		go discoverFromPeerInfos(node, options.PeerAddresses)
 	}
@@ -101,7 +101,7 @@ func StartDiscovery(node *rpc.RpcHostNode, options *DiscoveryOptions) error {
 	return nil
 }
 
-func discoverFromFiles(node *rpc.RpcHostNode, fileNames []string) {
+func discoverFromFiles(node *rpc.HostNode, fileNames []string) {
 	for _, fileName := range fileNames {
 		file, err := os.Open(fileName)
 		if err != nil {
@@ -126,10 +126,10 @@ func discoverFromFiles(node *rpc.RpcHostNode, fileNames []string) {
 	}
 }
 
-func discoverFromPeerInfos(node *rpc.RpcHostNode, peerInfoList []ps.PeerInfo) {
+func discoverFromPeerInfos(node *rpc.HostNode, peerInfoList []ps.PeerInfo) {
 }
 
-func discoverFromLines(node *rpc.RpcHostNode, lines []string) {
+func discoverFromLines(node *rpc.HostNode, lines []string) {
 	for _, a := range lines {
 		peerInfo, err := lineToPeerInfo(a)
 		if err == nil {
@@ -138,7 +138,7 @@ func discoverFromLines(node *rpc.RpcHostNode, lines []string) {
 	}
 }
 
-func discoverFromMDNS(node *rpc.RpcHostNode) error {
+func discoverFromMDNS(node *rpc.HostNode) error {
 	mdnsService, err := mdns.NewMdnsService(node.GetContext(), node.GetHost(), discoveryInterval, mDNSTag)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func discoverFromMDNS(node *rpc.RpcHostNode) error {
 
 // Discovery implements mDNS notifee interface.
 type discovery struct {
-	node *rpc.RpcHostNode
+	node *rpc.HostNode
 }
 
 // HandlePeerFound registers the peer with the host.

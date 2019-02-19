@@ -36,15 +36,15 @@ func (c *streamConn) RemoteAddr() net.Addr {
 
 // grpcListener implements the net.Listener interface.
 type grpcListener struct {
-	*RpcHostNode
+	*HostNode
 	listenerCtx       context.Context
 	listenerCtxCancel context.CancelFunc
 }
 
 // newGrpcListener creates a new GRPC listener.
-func newGrpcListener(hostNode *RpcHostNode) net.Listener {
+func newGrpcListener(hostNode *HostNode) net.Listener {
 	listener := &grpcListener{
-		RpcHostNode: hostNode,
+		HostNode: hostNode,
 	}
 	listener.listenerCtx, listener.listenerCtxCancel = context.WithCancel(hostNode.ctx)
 	return listener

@@ -64,7 +64,11 @@ func (b *Blockchain) InitializeState(initialValidators []InitialValidatorEntry, 
 	}
 
 	for _, deposit := range initialValidators {
-		validatorIndex, err := b.state.ProcessDeposit(deposit.PubKey, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, b.config)
+		pub, err := bls.DeserializePublicKey(deposit.PubKey)
+		if err != nil {
+			return err
+		}
+		validatorIndex, err := b.state.ProcessDeposit(pub, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, b.config)
 		if err != nil {
 			return err
 		}
@@ -282,7 +286,7 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 		return nil, err
 	}
 
-	proposerPub, err := bls.DeserializePublicKey(newState.ValidatorRegistry[beaconProposerIndex].Pubkey)
+	proposerPub, err := newState.ValidatorRegistry[beaconProposerIndex].GetPublicKey()
 	if err != nil {
 		return nil, err
 	}
@@ -850,7 +854,7 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 
 	groupPublicKey := bls.NewAggregatePublicKey()
 	for _, p := range participants {
-		pub, err := bls.DeserializePublicKey(s.ValidatorRegistry[p].Pubkey)
+		pub, err := s.ValidatorRegistry[p].GetPublicKey()
 		if err != nil {
 			return err
 		}

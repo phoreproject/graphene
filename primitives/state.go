@@ -570,18 +570,14 @@ func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint6
 }
 
 // ValidateProofOfPossession validates a proof of possession for a new validator.
-func (s *State) ValidateProofOfPossession(pubkey [96]byte, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
+func (s *State) ValidateProofOfPossession(pubkey *bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
 	// fixme
 
-	h, err := ssz.TreeHash(pubkey)
+	h, err := ssz.TreeHash(pubkey.Serialize())
 	if err != nil {
 		return false, err
 	}
-	pub, err := bls.DeserializePublicKey(pubkey)
-	if err != nil {
-		return false, err
-	}
-	valid, err := bls.VerifySig(pub, h[:], &proofOfPossession, bls.DomainDeposit)
+	valid, err := bls.VerifySig(pubkey, h[:], &proofOfPossession, bls.DomainDeposit)
 	if err != nil {
 		return false, err
 	}
@@ -614,7 +610,7 @@ func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config 
 	if err != nil {
 		return err
 	}
-	pub, err := bls.DeserializePublicKey(proposer.Pubkey)
+	pub, err := proposer.GetPublicKey()
 	if err != nil {
 		return err
 	}
@@ -681,7 +677,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	pubKey1 := bls.NewAggregatePublicKey()
 
 	for _, i := range voteData.AggregateSignaturePoC0Indices {
-		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[i].Pubkey)
+		p, err := s.ValidatorRegistry[i].GetPublicKey()
 		if err != nil {
 			panic(err)
 		}
@@ -689,7 +685,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	}
 
 	for _, i := range voteData.AggregateSignaturePoC1Indices {
-		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[i].Pubkey)
+		p, err := s.ValidatorRegistry[i].GetPublicKey()
 		if err != nil {
 			panic(err)
 		}
@@ -782,7 +778,7 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 		return errors.New("exit is not yet valid")
 	}
 
-	validatorPub, err := bls.DeserializePublicKey(validator.Pubkey)
+	validatorPub, err := validator.GetPublicKey()
 	if err != nil {
 		return err
 	}
@@ -849,7 +845,7 @@ func MinEmptyValidator(validators []Validator, validatorBalances []uint64, c *co
 }
 
 // ProcessDeposit processes a deposit with the context of the current state.
-func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession [48]byte, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
+func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPossession [48]byte, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
 	if !skipValidation {
 		sig, err := bls.DeserializeSignature(proofOfPossession)
 		if err != nil {
@@ -865,10 +861,12 @@ func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession
 		}
 	}
 
+	pubSer := pubkey.Serialize()
+
 	validatorAlreadyRegisteredIndex := -1
 
 	for i := range s.ValidatorRegistry {
-		if bytes.Equal(s.ValidatorRegistry[i].Pubkey[:], pubkey[:]) {
+		if bytes.Equal(s.ValidatorRegistry[i].Pubkey[:], pubSer[:]) {
 			validatorAlreadyRegisteredIndex = i
 		}
 	}
@@ -877,7 +875,8 @@ func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession
 
 	if validatorAlreadyRegisteredIndex == -1 {
 		validator := Validator{
-			Pubkey:                  pubkey,
+			Pubkey:                  pubSer,
+			XXXPubkeyCached:         pubkey,
 			WithdrawalCredentials:   withdrawalCredentials,
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,
@@ -923,7 +922,8 @@ const (
 // Validator is a single validator session (logging in and out)
 type Validator struct {
 	// BLS public key
-	Pubkey [96]byte
+	Pubkey          [96]byte
+	XXXPubkeyCached *bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
 	// Status code
@@ -938,6 +938,18 @@ type Validator struct {
 	LastPoCChangeSlot uint64
 	// SecondLastPoCChangeSlot is the second to last time the PoC was changed
 	SecondLastPoCChangeSlot uint64
+}
+
+// GetPublicKey gets the cached validator pubkey.
+func (v *Validator) GetPublicKey() (*bls.PublicKey, error) {
+	if v.XXXPubkeyCached == nil {
+		pub, err := bls.DeserializePublicKey(v.Pubkey)
+		if err != nil {
+			return nil, err
+		}
+		v.XXXPubkeyCached = pub
+	}
+	return v.XXXPubkeyCached, nil
 }
 
 // Copy copies a validator instance.

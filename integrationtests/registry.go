@@ -26,7 +26,7 @@ var EntryList = []testframework.Entry{
 	},
 
 	testframework.Entry{
-		Name:    "SynapseP2p",
+		Name:    "SynapseP2P",
 		Creator: func() testframework.IntegrationTest { return SynapseP2pTest{} },
 		EntryArgs: testframework.EntryArgList{
 			"listen":             flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on"),

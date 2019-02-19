@@ -20,23 +20,23 @@ import (
 	"google.golang.org/grpc"
 )
 
-// RpcHostNodeAbstract simulates abstract class in other modern languages such as Java/C++
-type RpcHostNodeAbstract interface {
+// PeerNodeCreator creates a peer node. It's used by RpcHostNode to creat the peer on demand.
+type PeerNodeCreator interface {
 	CreatePeerNode(stream inet.Stream, grpcConn *grpc.ClientConn) RpcPeerNode
 }
 
 // RpcHostNode is the node for host
 type RpcHostNode struct {
-	publicKey  crypto.PubKey
-	privateKey crypto.PrivKey
-	host       host.Host
-	gossipSub  *pubsub.PubSub
-	ctx        context.Context
-	cancel     context.CancelFunc
-	grpcServer *grpc.Server
-	streamCh   chan inet.Stream
-	peerList   []RpcPeerNode
-	abstract   RpcHostNodeAbstract
+	publicKey       crypto.PubKey
+	privateKey      crypto.PrivKey
+	host            host.Host
+	gossipSub       *pubsub.PubSub
+	ctx             context.Context
+	cancel          context.CancelFunc
+	grpcServer      *grpc.Server
+	streamCh        chan inet.Stream
+	peerList        []RpcPeerNode
+	peerNodeCreator PeerNodeCreator
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -47,7 +47,7 @@ func NewHostNode(
 	publicKey crypto.PubKey,
 	privateKey crypto.PrivKey,
 	server pb.MainRPCServer,
-	abstract RpcHostNodeAbstract) (*RpcHostNode, error) {
+	peerNodeCreator RpcHostNodeAbstract) (*RpcHostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
@@ -78,15 +78,15 @@ func NewHostNode(
 	grpcServer := grpc.NewServer()
 	stream := make(chan inet.Stream)
 	hostNode := RpcHostNode{
-		publicKey:  publicKey,
-		privateKey: privateKey,
-		host:       host,
-		gossipSub:  g,
-		ctx:        ctx,
-		cancel:     cancel,
-		grpcServer: grpcServer,
-		streamCh:   stream,
-		abstract:   abstract,
+		publicKey:       publicKey,
+		privateKey:      privateKey,
+		host:            host,
+		gossipSub:       g,
+		ctx:             ctx,
+		cancel:          cancel,
+		grpcServer:      grpcServer,
+		streamCh:        stream,
+		peerNodeCreator: peerNodeCreator,
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
@@ -134,7 +134,7 @@ func (node *RpcHostNode) Connect(peerInfo *peerstore.PeerInfo) (RpcPeerNode, err
 		return nil, err
 	}
 
-	peerNode := node.abstract.CreatePeerNode(stream, grpcConn)
+	peerNode := node.peerNodeCreator.CreatePeerNode(stream, grpcConn)
 
 	node.peerList = append(node.peerList, peerNode)
 

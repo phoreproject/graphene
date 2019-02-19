@@ -27,7 +27,7 @@ type P2pTest struct {
 }
 
 type testNode struct {
-	*rpc.RpcHostNode
+	*rpc.HostNode
 	nodeID int
 }
 
@@ -94,14 +94,14 @@ func createHostNode(index int) (*testNode, error) {
 	}
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
 
-	hostNode, err := rpc.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.LocalPeerNodeHandler{})
+	hostNode, err := rpc.NewHostNode(createNodeAddress(index), publicKey, privateKey, p2p.NewMainRPCServer(blockchain), p2p.LocalPeerNodeCreator{})
 	if err != nil {
 		logger.WithField("Function", "createHostNode").Warn(err)
 		return nil, err
 	}
 
 	node := &testNode{
-		RpcHostNode: hostNode,
+		HostNode: hostNode,
 		nodeID:      index,
 	}
 

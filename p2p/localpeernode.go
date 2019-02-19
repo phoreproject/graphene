@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// LocalPeerNodeHandler implements HostNodeAbstract
-type LocalPeerNodeHandler struct {
+// LocalPeerNodeCreator implements PeerNodeCreator
+type LocalPeerNodeCreator struct {
 }
 
 // LocalPeerNode is the node for the peer
@@ -34,7 +34,7 @@ func (node LocalPeerNode) Send(data []byte) {
 }
 
 // CreatePeerNode implements PeerNodeCreator
-func (handler LocalPeerNodeHandler) CreatePeerNode(stream inet.Stream, grpcConn *grpc.ClientConn) rpc.RpcPeerNode {
+func (handler LocalPeerNodeCreator) CreatePeerNode(stream inet.Stream, grpcConn *grpc.ClientConn) rpc.RpcPeerNode {
 	client := pb.NewMainRPCClient(grpcConn)
 	return LocalPeerNode{
 		stream:     stream,

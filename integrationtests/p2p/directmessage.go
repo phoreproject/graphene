@@ -1,4 +1,4 @@
-package testcase
+package p2p
 
 import (
 	"crypto/rand"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -108,9 +109,9 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 		nodeID:   index,
 	}
 
-	//node.RegisterMessageHandler("pb.TestMessage", func(node *p2p.HostNode, message proto.Message) {
-	//	logger.Debugf("Node %s received message %s ", keyToString(node.GetPublicKey()), proto.MessageName(message))
-	//})
+	node.RegisterMessageHandler("pb.TestMessage", func(node *p2p.HostNode, message proto.Message) {
+		logger.Debugf("Node %s received message %s ", keyToString(*node.GetPublicKey()), proto.MessageName(message))
+	})
 
 	node.Run()
 

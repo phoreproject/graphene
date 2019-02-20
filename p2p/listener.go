@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"io"
 	"net"
 
 	logger "github.com/sirupsen/logrus"
@@ -53,13 +52,15 @@ func newGrpcListener(hostNode *HostNode) net.Listener {
 // Accept implements net.Listener.
 func (listener *grpcListener) Accept() (net.Conn, error) {
 	logger.Debug("grpcListener: Accepted new connection")
-
-	select {
-	case <-listener.listenerCtx.Done():
-		return nil, io.EOF
-	case stream := <-listener.streamCh:
-		return &streamConn{Stream: stream}, nil
-	}
+	/*
+		select {
+		case <-listener.listenerCtx.Done():
+			return nil, io.EOF
+		case stream := <-listener.streamCh:
+			return &streamConn{Stream: stream}, nil
+		}
+	*/
+	return nil, nil
 }
 
 // Addr implements net.Listener.

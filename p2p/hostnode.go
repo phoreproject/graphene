@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	proto "github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
@@ -21,17 +22,20 @@ import (
 	"google.golang.org/grpc"
 )
 
+// MessageHandler is the message hander
+type MessageHandler func(node *HostNode, message proto.Message)
+
 // HostNode is the node for host
 type HostNode struct {
-	publicKey  crypto.PubKey
-	privateKey crypto.PrivKey
-	host       host.Host
-	gossipSub  *pubsub.PubSub
-	ctx        context.Context
-	cancel     context.CancelFunc
-	grpcServer *grpc.Server
-	streamCh   chan inet.Stream
-	peerList   []*PeerNode
+	publicKey         crypto.PubKey
+	privateKey        crypto.PrivKey
+	host              host.Host
+	gossipSub         *pubsub.PubSub
+	ctx               context.Context
+	cancel            context.CancelFunc
+	grpcServer        *grpc.Server
+	peerList          []PeerNode
+	messageHandlerMap map[string]MessageHandler
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -66,16 +70,15 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 	}
 
 	grpcServer := grpc.NewServer()
-	stream := make(chan inet.Stream)
 	hostNode := HostNode{
-		publicKey:  publicKey,
-		privateKey: privateKey,
-		host:       host,
-		gossipSub:  g,
-		ctx:        ctx,
-		cancel:     cancel,
-		grpcServer: grpcServer,
-		streamCh:   stream,
+		publicKey:         publicKey,
+		privateKey:        privateKey,
+		host:              host,
+		gossipSub:         g,
+		ctx:               ctx,
+		cancel:            cancel,
+		grpcServer:        grpcServer,
+		messageHandlerMap: make(map[string]MessageHandler),
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
@@ -87,11 +90,19 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 // handleStream handles an incoming stream.
 func (node *HostNode) handleStream(stream inet.Stream) {
-	select {
-	case <-node.ctx.Done():
-		return
-	case node.streamCh <- stream:
+	go processMessages(stream, node.handleMessage)
+}
+
+func (node *HostNode) handleMessage(message proto.Message) {
+	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
+	if ok {
+		handler(node, message)
 	}
+}
+
+// RegisterMessageHandler registers a message handler
+func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) {
+	node.messageHandlerMap[messageName] = handler
 }
 
 // Connect connects to a peer
@@ -104,17 +115,7 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 
 	logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("attempting to connect to a peer")
 
-	ctx, cancel := context.WithTimeout(node.ctx, 10*time.Second)
-	defer cancel()
-
 	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
-
-	grpcConn, err := node.Dial(ctx, peerInfo.ID, grpc.WithInsecure(), grpc.WithBlock())
-
-	if err != nil {
-		logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to connect to peer")
-		return nil, err
-	}
 
 	stream, err := node.host.NewStream(context.Background(), peerInfo.ID, protocolID)
 
@@ -123,21 +124,17 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	client := pb.NewMainRPCClient(grpcConn)
+	go processMessages(stream, node.handleMessage)
 
-	peerNode := &PeerNode{
-		stream: stream,
-		client: client,
-	}
+	peerNode := NewPeerNode(stream)
 
 	node.peerList = append(node.peerList, peerNode)
 
-	return peerNode, err
+	return &peerNode, err
 }
 
 // Run runs the main loop of the host node
 func (node *HostNode) Run() {
-	go node.grpcServer.Serve(newGrpcListener(node))
 }
 
 // GetGRPCServer returns the grpc server.
@@ -199,7 +196,7 @@ func (node *HostNode) GetHost() host.Host {
 }
 
 // GetPeerList returns the peer list
-func (node *HostNode) GetPeerList() []*PeerNode {
+func (node *HostNode) GetPeerList() []PeerNode {
 	return node.peerList
 }
 

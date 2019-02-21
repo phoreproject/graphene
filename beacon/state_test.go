@@ -74,8 +74,12 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5; i++ {
 		s := b.GetState()
-		fmt.Printf("proposer %d mining block %d\n", s.GetBeaconProposerIndex(s.Slot, i, b.GetConfig()), i+1)
-		_, err := util.MineBlockWithFullAttestations(b, keys)
+		proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, i, b.GetConfig())
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("proposer %d mining block %d\n", proposerIndex, i+1)
+		_, err = util.MineBlockWithFullAttestations(b, keys)
 		if err != nil {
 			t.Fatal(err)
 		}

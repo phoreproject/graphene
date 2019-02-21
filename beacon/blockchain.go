@@ -73,10 +73,14 @@ func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chai
 	} else if !found {
 		return nil, errors.New("could not find parent block for incoming block")
 	}
+	height := uint64(0)
+	if parentNode != nil {
+		height = parentNode.height + 1
+	}
 
 	node := &blockNode{
 		hash:     blockHash,
-		height:   block.BlockHeader.SlotNumber,
+		height:   height,
 		parent:   parentNode,
 		children: []*blockNode{},
 	}
@@ -198,17 +202,7 @@ func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 	}
 
 	getVoteCount := func(block *blockNode) int {
-		votes := 0
-		for _, t := range targets {
-			node, err := getAncestor(t, block.height)
-			if err != nil {
-				panic(err)
-			}
-			if node.hash.IsEqual(&block.hash) {
-				votes++
-			}
-		}
-		return votes
+		return len(block.children)
 	}
 
 	head := b.chain.justifiedHead.blockNode

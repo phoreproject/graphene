@@ -1,14 +1,9 @@
 package validator
 
 import (
-	"context"
-	"time"
-
-	"github.com/golang/protobuf/proto"
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 )
 
@@ -55,34 +50,18 @@ func (v *Validator) signAttestation(hashAttestation [32]byte, data primitives.At
 	return att, nil
 }
 
-func (v *Validator) attestBlock(information attestationAssignment) error {
+func (v *Validator) attestBlock(information attestationAssignment) (*primitives.Attestation, error) {
 	// create attestation
 	attData, hash, err := getAttestation(information)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// sign attestation
 	att, err := v.signAttestation(hash, *attData, information.committeeSize, information.committeeIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// broadcast attestation
-	attProto := att.ToProto()
-
-	attBytes, err := proto.Marshal(attProto)
-	if err != nil {
-		return err
-	}
-
-	timeWait := time.NewTimer(time.Second * 3)
-
-	<-timeWait.C
-
-	_, err = v.p2pRPC.Broadcast(context.Background(), &pb.MessageAndTopic{
-		Topic: "attestations",
-		Data:  attBytes,
-	})
-	return err
+	return att, nil
 }

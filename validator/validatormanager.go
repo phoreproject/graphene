@@ -32,56 +32,70 @@ type attestationAssignment struct {
 }
 
 type proposerAssignment struct {
-	slot uint64
+	slot      uint64
+	proposeAt uint64
 }
 
-type slotInformation struct {
+type epochInformation struct {
+	slots             []slotInformation
 	slot              int64
-	beaconBlockHash   chainhash.Hash
 	epochBoundaryRoot chainhash.Hash
 	latestCrosslinks  []primitives.Crosslink
 	justifiedSlot     uint64
 	justifiedRoot     chainhash.Hash
-	committees        []primitives.ShardAndCommittee
-	proposer          uint32
 }
 
-// slotInformationFromProto gets the slot information from the protobuf format
-func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation, error) {
+type slotInformation struct {
+	slot       int64
+	committees []primitives.ShardAndCommittee
+	proposeAt  uint64
+}
+
+// epochInformationFromProto gets the epoch information from the protobuf format
+func epochInformationFromProto(information *pb.EpochInformation) (*epochInformation, error) {
 	if information.Slot < 0 {
-		return &slotInformation{
+		return &epochInformation{
 			slot: -1,
 		}, nil
 	}
 
-	si := &slotInformation{
-		slot:          information.Slot,
-		justifiedSlot: information.JustifiedSlot,
-		proposer:      information.Proposer,
+	ei := &epochInformation{
+		slot:             information.Slot,
+		justifiedSlot:    information.JustifiedSlot,
+		slots:            make([]slotInformation, len(information.Slots)),
+		latestCrosslinks: make([]primitives.Crosslink, len(information.LatestCrosslinks)),
 	}
 
-	err := si.beaconBlockHash.SetBytes(information.BeaconBlockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	err = si.epochBoundaryRoot.SetBytes(information.EpochBoundaryRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	err = si.justifiedRoot.SetBytes(information.JustifiedRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	si.latestCrosslinks = make([]primitives.Crosslink, len(information.LatestCrosslinks))
-	for i := range si.latestCrosslinks {
-		cl, err := primitives.CrosslinkFromProto(information.LatestCrosslinks[i])
+	for i := range ei.slots {
+		s, err := slotInformationFromProto(information.Slots[i])
 		if err != nil {
 			return nil, err
 		}
-		si.latestCrosslinks[i] = *cl
+		ei.slots[i] = *s
+	}
+
+	for i := range ei.latestCrosslinks {
+		c, err := primitives.CrosslinkFromProto(information.LatestCrosslinks[i])
+		if err != nil {
+			return nil, err
+		}
+		ei.latestCrosslinks[i] = *c
+	}
+
+	err := ei.justifiedRoot.SetBytes(information.JustifiedHash)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ei.epochBoundaryRoot.SetBytes(information.EpochBoundaryRoot)
+	return ei, err
+}
+
+// slotInformationFromProto gets the slot information from the protobuf format
+func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation, error) {
+	si := &slotInformation{
+		slot:      information.Slot,
+		proposeAt: information.ProposeAt,
 	}
 
 	si.committees = make([]primitives.ShardAndCommittee, len(information.Committees))
@@ -102,7 +116,13 @@ type Manager struct {
 	validatorMap            map[uint32]*Validator
 	keystore                Keystore
 	mempool                 *mempool
+	attestationAssignments  [][]primitives.ShardAndCommittee
+	epochBoundaryRoot       chainhash.Hash
+	latestCrosslinks        []primitives.Crosslink
+	justifiedRoot           chainhash.Hash
+	justifiedSlot           uint64
 	currentSlot             uint64
+	epochNumber             uint64
 	config                  *config.Config
 	attestationSubscription *pb.Subscription
 }
@@ -138,6 +158,7 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 		mempool:       &m,
 		config:        c,
 		currentSlot:   0,
+		epochNumber:   0,
 	}
 	logrus.Debug("initializing attestation listener")
 	err = vm.ListenForNewAttestations()
@@ -156,18 +177,71 @@ func (vm *Manager) UpdateSlotNumber() error {
 	}
 
 	if vm.currentSlot != b.SlotNumber+1 {
-		siProto, err := vm.blockchainRPC.GetSlotInformation(context.Background(), &empty.Empty{})
+		if b.SlotNumber/vm.config.EpochLength+1 != vm.epochNumber {
+			epochInformation, err := vm.blockchainRPC.GetEpochInformation(context.Background(), &empty.Empty{})
+			if err != nil {
+				return err
+			}
+
+			ei, err := epochInformationFromProto(epochInformation)
+			if err != nil {
+				return err
+			}
+
+			if ei.slot < 0 {
+				return nil
+			}
+
+			vm.attestationAssignments = make([][]primitives.ShardAndCommittee, len(ei.slots))
+
+			for i, si := range ei.slots[vm.config.EpochLength:] {
+				if si.slot == 0 {
+					continue
+				}
+				proposer := si.committees[0].Committee[(si.slot-1)%int64(len(si.committees[0].Committee))]
+				if validator, found := vm.validatorMap[proposer]; found {
+					go func(proposeAt uint64, slot int64) {
+						validator.proposerRequest <- proposerAssignment{
+							slot:      uint64(slot),
+							proposeAt: proposeAt,
+						}
+					}(si.proposeAt, si.slot)
+				}
+
+				vm.attestationAssignments[i] = si.committees
+			}
+
+			vm.epochBoundaryRoot = ei.epochBoundaryRoot
+			vm.latestCrosslinks = ei.latestCrosslinks
+			vm.justifiedRoot = ei.justifiedRoot
+			vm.justifiedSlot = ei.justifiedSlot
+			vm.epochNumber = b.SlotNumber/vm.config.EpochLength + 1
+		}
+
+		epochIndex := b.SlotNumber % vm.config.EpochLength
+		slotCommittees := vm.attestationAssignments[epochIndex]
+		blockHash, err := chainhash.NewHash(b.BlockHash)
 		if err != nil {
 			return err
 		}
 
-		si, err := slotInformationFromProto(siProto)
-		if err != nil {
-			return err
-		}
-
-		if si.slot < 0 {
-			return nil
+		for _, committee := range slotCommittees {
+			shard := committee.Shard
+			for committeeIndex, vIndex := range committee.Committee {
+				if validator, found := vm.validatorMap[vIndex]; found {
+					validator.attestBlock(attestationAssignment{
+						slot:              b.SlotNumber,
+						shard:             shard,
+						committeeIndex:    uint64(committeeIndex),
+						committeeSize:     uint64(len(committee.Committee)),
+						beaconBlockHash:   *blockHash,
+						epochBoundaryRoot: vm.epochBoundaryRoot,
+						latestCrosslinks:  vm.latestCrosslinks,
+						justifiedRoot:     vm.justifiedRoot,
+						justifiedSlot:     vm.justifiedSlot,
+					})
+				}
+			}
 		}
 
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
@@ -178,43 +252,6 @@ func (vm *Manager) UpdateSlotNumber() error {
 				slot = 0
 			}
 			vm.mempool.attestationMempool.removeAttestationsBeforeSlot(slot)
-		}
-
-		valWaitGroup := new(sync.WaitGroup)
-
-		for _, c := range si.committees {
-			for committeeIndex, validatorID := range c.Committee {
-				if validator, found := vm.validatorMap[validatorID]; found {
-					a := attestationAssignment{
-						slot:              b.SlotNumber,
-						shard:             c.Shard,
-						committeeSize:     uint64(len(c.Committee)),
-						committeeIndex:    uint64(committeeIndex),
-						beaconBlockHash:   si.beaconBlockHash,
-						epochBoundaryRoot: si.epochBoundaryRoot,
-						latestCrosslinks:  si.latestCrosslinks,
-						justifiedRoot:     si.justifiedRoot,
-					}
-
-					// here we should proposer just before the block and attest just after the block
-					valWaitGroup.Add(1)
-					go func() {
-						validator.attestationRequest <- a
-						valWaitGroup.Done()
-					}()
-				}
-			}
-		}
-
-		valWaitGroup.Wait()
-
-		if validator, found := vm.validatorMap[si.proposer]; found {
-			err := validator.proposeBlock(proposerAssignment{
-				slot: b.SlotNumber + 1,
-			})
-			if err != nil {
-				return err
-			}
 		}
 
 		vm.currentSlot = b.SlotNumber + 1

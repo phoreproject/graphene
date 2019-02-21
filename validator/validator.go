@@ -45,17 +45,10 @@ func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRP
 // RunValidator keeps track of assignments and creates/signs attestations as needed.
 func (v *Validator) RunValidator() error {
 	for {
-		select {
-		case a := <-v.attestationRequest:
-			err := v.attestBlock(a)
-			if err != nil {
-				return err
-			}
-		case p := <-v.proposerRequest:
-			err := v.proposeBlock(p)
-			if err != nil {
-				return err
-			}
+		p := <-v.proposerRequest
+		err := v.proposeBlock(p)
+		if err != nil {
+			return err
 		}
 	}
 }

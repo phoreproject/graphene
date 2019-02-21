@@ -241,7 +241,10 @@ func (b *Blockchain) AddBlock(block *primitives.Block) error {
 }
 
 func (b *Blockchain) processSlot(newState *primitives.State, previousBlockRoot chainhash.Hash) error {
-	beaconProposerIndex := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
+	beaconProposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
+	if err != nil {
+		return err
+	}
 
 	// increase the slot number
 	newState.Slot++
@@ -267,10 +270,13 @@ func (b *Blockchain) ApplyBlock(block *primitives.Block) (*primitives.State, err
 	// copy the state so we can easily revert
 	newState := b.state.Copy()
 
-	proposerIndex := newState.GetBeaconProposerIndex(newState.Slot, block.BlockHeader.SlotNumber-1, b.config)
+	proposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot, block.BlockHeader.SlotNumber-1, b.config)
+	if err != nil {
+		return nil, err
+	}
 
 	// PER SLOT PROCESSING
-	for newState.Slot != block.BlockHeader.SlotNumber {
+	for newState.Slot < block.BlockHeader.SlotNumber {
 		b.processSlot(&newState, block.BlockHeader.ParentRoot)
 	}
 
@@ -725,7 +731,10 @@ func (b *Blockchain) processEpochTransition(newState *primitives.State) error {
 	}
 
 	for index := range previousEpochAttesterIndices {
-		proposerIndex := newState.GetBeaconProposerIndex(newState.Slot-1, previousAttestationCache[index].SlotIncluded-1, b.config)
+		proposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot-1, previousAttestationCache[index].SlotIncluded-1, b.config)
+		if err != nil {
+			return err
+		}
 		newState.ValidatorBalances[proposerIndex] += baseReward(index) / b.config.IncluderRewardQuotient
 	}
 
@@ -899,7 +908,7 @@ func (b *Blockchain) ApplyAttestation(s *primitives.State, att primitives.Attest
 // ProcessBlock is called when a block is received from a peer.
 func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	// VALIDATE BLOCK HERE
-	if block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+b.state.GenesisTime > uint64(time.Now().Unix()) {
+	if block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+b.state.GenesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0 {
 		return errors.New("block slot too soon")
 	}
 

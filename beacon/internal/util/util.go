@@ -76,7 +76,10 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 
 	slotNumber := lastBlock.BlockHeader.SlotNumber + 1
 
-	proposerIndex := state.GetBeaconProposerIndex(slotNumber-1, slotNumber-1, b.GetConfig())
+	proposerIndex, err := state.GetBeaconProposerIndex(slotNumber-1, slotNumber-1, b.GetConfig())
+	if err != nil {
+		return nil, err
+	}
 
 	k.IncrementProposerSlots(proposerIndex)
 
@@ -143,7 +146,10 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 	}
 
 	s := b.GetState()
-	assignments := s.GetShardCommitteesAtSlot(s.Slot, lb.BlockHeader.SlotNumber, b.GetConfig())
+	assignments, err := s.GetShardCommitteesAtSlot(s.Slot, lb.BlockHeader.SlotNumber, b.GetConfig())
+	if err != nil {
+		return nil, err
+	}
 
 	attestations := make([]primitives.Attestation, len(assignments))
 

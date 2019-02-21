@@ -52,7 +52,8 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	if currentSlot < 0 {
 		currentSlot = 0
 	}
-	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot)}, nil
+	block := s.chain.Tip()
+	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block[:]}, nil
 }
 
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
@@ -64,15 +65,10 @@ func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (
 }
 
 func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.GetBlockHashResponse, error) {
-	b, err := s.chain.LastBlock()
-	if err != nil {
-		return nil, err
-	}
-	h, err := ssz.TreeHash(b)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GetBlockHashResponse{Hash: h[:]}, nil
+	h := s.chain.Tip()
+	return &pb.GetBlockHashResponse{
+		Hash: h[:],
+	}, nil
 }
 
 func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAndShardAssignmentRequest) (*pb.SlotAndShardAssignment, error) {
@@ -151,21 +147,20 @@ func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStat
 
 // GetSlotInformation gets information about the next slot used for attestation
 // assignment and generation.
-func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.SlotInformation, error) {
+func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.EpochInformation, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
 	genesisTime := state.GenesisTime
 	timePerSlot := config.SlotDuration
 	currentTime := time.Now().Unix()
-	currentSlot := (currentTime-int64(genesisTime))/int64(timePerSlot) - 1
+	currentSlot := (currentTime - int64(genesisTime)) / int64(timePerSlot)
 
 	if currentSlot < 0 {
-		return &pb.SlotInformation{
+		return &pb.EpochInformation{
 			Slot: -1,
 		}, nil
 	}
 
-	beaconBlockHash := s.chain.Tip()
 	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash()
 	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
 	for i := range crosslinks {
@@ -180,30 +175,38 @@ func (s *server) GetSlotInformation(ctx context.Context, in *empty.Empty) (*pb.S
 		return nil, err
 	}
 
-	committeesForNextSlot := state.GetShardCommitteesAtSlot(state.Slot, uint64(currentSlot), config)
-	committeesForNextSlotProto := make([]*pb.ShardCommittee, len(committeesForNextSlot))
-	for i := range committeesForNextSlot {
-		committeesForNextSlotProto[i] = committeesForNextSlot[i].ToProto()
+	earliestSlot := int64(state.Slot) - int64(state.Slot%config.EpochLength) - int64(config.EpochLength)
+
+	slots := make([]*pb.SlotInformation, len(state.ShardAndCommitteeForSlots))
+	for s := range slots {
+		shardAndCommittees := make([]*pb.ShardCommittee, len(state.ShardAndCommitteeForSlots[s]))
+		for i := range shardAndCommittees {
+			shardAndCommittees[i] = state.ShardAndCommitteeForSlots[s][i].ToProto()
+		}
+		slots[s] = &pb.SlotInformation{
+			Slot:       earliestSlot + int64(s) + 1,
+			Committees: shardAndCommittees,
+			ProposeAt:  uint64(earliestSlot+int64(s)+1)*uint64(config.SlotDuration) + state.GenesisTime,
+		}
 	}
 
-	nextProposerIndex := state.GetBeaconProposerIndex(state.Slot, uint64(currentSlot), config)
-
-	return &pb.SlotInformation{
-		Slot:              currentSlot, // this is the current slot
-		BeaconBlockHash:   beaconBlockHash[:],
+	return &pb.EpochInformation{
+		Slots:             slots,
+		Slot:              int64(state.Slot) - int64(state.Slot%config.EpochLength),
 		EpochBoundaryRoot: epochBoundaryRoot[:],
 		LatestCrosslinks:  crosslinks,
 		JustifiedSlot:     state.JustifiedSlot,
-		JustifiedRoot:     justifiedRoot[:],
-		Committees:        committeesForNextSlotProto,
-		Proposer:          nextProposerIndex,
+		JustifiedHash:     justifiedRoot[:],
 	}, nil
 }
 
 func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesForSlotRequest) (*pb.ShardCommitteesForSlot, error) {
 	state := s.chain.GetState()
 
-	sc := state.GetShardCommitteesAtSlot(state.Slot, in.Slot, s.chain.GetConfig())
+	sc, err := state.GetShardCommitteesAtSlot(state.Slot, in.Slot, s.chain.GetConfig())
+	if err != nil {
+		return nil, err
+	}
 	scProto := make([]*pb.ShardCommittee, len(sc))
 	for i := range sc {
 		scProto[i] = sc[i].ToProto()

@@ -421,18 +421,22 @@ func (s *State) InitiateValidatorExit(index uint32) error {
 
 // GetBeaconProposerIndex gets the validator index of the block proposer at a certain
 // slot.
-func (s *State) GetBeaconProposerIndex(stateSlot uint64, slot uint64, c *config.Config) uint32 {
-	firstCommittee := s.GetShardCommitteesAtSlot(stateSlot, slot, c)[0].Committee
-	return firstCommittee[int(slot)%len(firstCommittee)]
+func (s *State) GetBeaconProposerIndex(stateSlot uint64, slot uint64, c *config.Config) (uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, c)
+	if err != nil {
+		return 0, err
+	}
+	firstCommittee := committees[0].Committee
+	return firstCommittee[int(slot)%len(firstCommittee)], nil
 }
 
 // ExitValidator handles state changes when a validator exits.
-func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) {
+func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) error {
 	validator := s.ValidatorRegistry[index]
 	prevStatus := validator.Status
 
 	if prevStatus == ExitedWithPenalty {
-		return
+		return nil
 	}
 
 	validator.Status = status
@@ -441,23 +445,27 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) {
 	if status == ExitedWithPenalty {
 		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
 
-		whistleblowerIndex := s.GetBeaconProposerIndex(s.Slot, s.Slot, c)
+		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, s.Slot, c)
+		if err != nil {
+			return err
+		}
 		whistleblowerReward := s.GetEffectiveBalance(index, c) / c.WhistleblowerRewardQuotient
 		s.ValidatorBalances[whistleblowerIndex] += whistleblowerReward
 		s.ValidatorBalances[index] -= whistleblowerReward
 	}
 
 	if prevStatus == ExitedWithoutPenalty {
-		return
+		return nil
 	}
 
 	s.ValidatorRegistryExitCount++
 	validator.ExitCount = s.ValidatorRegistryExitCount
 	deltaChainTip, err := GetNewValidatorRegistryDeltaChainTip(s.ValidatorRegistryDeltaChainTip, index, validator.Pubkey, ExitFlag)
 	if err != nil {
-		return
+		return err
 	}
 	s.ValidatorRegistryDeltaChainTip = deltaChainTip
+	return nil
 }
 
 // UpdateValidatorStatus moves a validator to a specific status.
@@ -469,7 +477,8 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 		err := s.InitiateValidatorExit(index)
 		return err
 	} else if status == ExitedWithPenalty || status == ExitedWithoutPenalty {
-		s.ExitValidator(index, status, c)
+		err := s.ExitValidator(index, status, c)
+		return err
 	}
 	return nil
 }
@@ -550,9 +559,12 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 }
 
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
-func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) []ShardAndCommittee {
+func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
 	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
-	return s.ShardAndCommitteeForSlots[int64(slot)-earliestSlot]
+	if int64(slot)-earliestSlot < 0 || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
+		return nil, fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot)
+	}
+	return s.ShardAndCommitteeForSlots[int64(slot)-earliestSlot], nil
 }
 
 // GetAttesterCommitteeSize gets the size of committee
@@ -565,7 +577,10 @@ func (s *State) GetAttesterCommitteeSize(slot uint64, con *config.Config) uint32
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
 func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
-	committees := s.GetShardCommitteesAtSlot(stateSlot, slot, con)
+	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, con)
+	if err != nil {
+		return nil, err
+	}
 	return ShardCommitteeByShardID(shardID, committees)
 }
 
@@ -807,7 +822,10 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 
 // GetAttestationParticipants gets the indices of participants.
 func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
-	shardCommittees := s.GetShardCommitteesAtSlot(s.Slot-1, data.Slot, c)
+	shardCommittees, err := s.GetShardCommitteesAtSlot(s.Slot-1, data.Slot, c)
+	if err != nil {
+		return nil, err
+	}
 	var shardCommittee ShardAndCommittee
 	found := false
 	for i := range shardCommittees {

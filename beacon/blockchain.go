@@ -139,10 +139,6 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*blockNode, e
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
 func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool) (*Blockchain, error) {
-	sm, err := NewStateManager(config, validators, uint64(time.Now().Unix()), skipValidation)
-	if err != nil {
-		return nil, err
-	}
 	b := &Blockchain{
 		db:     db,
 		config: config,
@@ -150,8 +146,14 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 			index: make(map[chainhash.Hash]*blockNode),
 			lock:  &sync.Mutex{},
 		},
-		stateManager: sm,
 	}
+
+	sm, err := NewStateManager(config, validators, uint64(time.Now().Unix()), skipValidation, b)
+	if err != nil {
+		return nil, err
+	}
+
+	b.stateManager = sm
 
 	initialState := sm.GetHeadState()
 
@@ -198,6 +200,9 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: only start this once sync has finished
+	go b.stateManager.ProcessSlotsAsNeeded()
 	return b, nil
 }
 

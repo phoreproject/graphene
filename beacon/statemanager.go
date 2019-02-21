@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -18,23 +19,24 @@ import (
 // StateManager handles all state transitions, storing of states for different forks,
 // and time-based state updates.
 type StateManager struct {
-	config          *config.Config
-	state           primitives.State // state of the head
-	stateMap        map[chainhash.Hash]primitives.State
-	getHashByHeight func(height uint64) (chainhash.Hash, error)
-	stateMapLock    *sync.RWMutex
-	stateLock       *sync.Mutex
-	genesisTime     uint64
+	config       *config.Config
+	state        primitives.State // state of the head
+	stateMap     map[chainhash.Hash]primitives.State
+	blockchain   *Blockchain
+	stateMapLock *sync.RWMutex
+	stateLock    *sync.Mutex
+	genesisTime  uint64
 }
 
 // NewStateManager creates a new state manager.
-func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool) (*StateManager, error) {
+func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool, blockchain *Blockchain) (*StateManager, error) {
 	s := &StateManager{
 		config:       c,
 		stateMap:     make(map[chainhash.Hash]primitives.State),
 		stateMapLock: new(sync.RWMutex),
 		stateLock:    new(sync.Mutex),
 		genesisTime:  genesisTime,
+		blockchain:   blockchain,
 	}
 	intialState, err := InitializeState(c, initialValidators, genesisTime, skipValidation)
 	if err != nil {
@@ -42,6 +44,29 @@ func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry
 	}
 	s.state = *intialState
 	return s, nil
+}
+
+// ProcessSlotsAsNeeded will process slots at the correct time.
+func (sm *StateManager) ProcessSlotsAsNeeded() {
+	nextSlotNumber := (time.Now().Unix()-int64(sm.genesisTime))/int64(sm.config.SlotDuration) + 1
+	nextSlotTime := time.Unix(int64(sm.genesisTime)+nextSlotNumber*int64(sm.config.SlotDuration), 0)
+	timer := time.NewTimer(time.Until(nextSlotTime))
+	for {
+		<-timer.C
+
+		latestBlockHash := sm.blockchain.Tip()
+
+		logrus.WithFields(logrus.Fields{
+			"slot":          nextSlotNumber,
+			"lastBlockHash": latestBlockHash,
+		}).Info("processing slot")
+
+		sm.ProcessSlots(uint64(nextSlotNumber), latestBlockHash)
+
+		nextSlotNumber = (time.Now().Unix()-int64(sm.genesisTime))/int64(sm.config.SlotDuration) + 1
+		nextSlotTime := time.Unix(int64(sm.genesisTime)+nextSlotNumber*int64(sm.config.SlotDuration), 0)
+		timer = time.NewTimer(time.Until(nextSlotTime))
+	}
 }
 
 // GetGenesisTime gets the time of the genesis slot.
@@ -172,7 +197,7 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 		return errors.New("justified slot did not match expected justified slot")
 	}
 
-	node, err := sm.getHashByHeight(att.Data.JustifiedSlot)
+	node, err := sm.blockchain.GetHashByHeight(att.Data.JustifiedSlot)
 	if err != nil {
 		return err
 	}
@@ -399,7 +424,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
-	previousEpochBoundaryHash, err := sm.getHashByHeight(newState.Slot - sm.config.EpochLength)
+	previousEpochBoundaryHash, err := sm.blockchain.GetHashByHeight(newState.Slot - sm.config.EpochLength)
 	if err != nil {
 		return err
 	}
@@ -468,7 +493,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	epochBoundaryHashMinus2 := chainhash.Hash{}
 	if newState.Slot >= 2*sm.config.EpochLength {
-		ebhm2, err := sm.getHashByHeight(newState.Slot - 2*sm.config.EpochLength)
+		ebhm2, err := sm.blockchain.GetHashByHeight(newState.Slot - 2*sm.config.EpochLength)
 		epochBoundaryHashMinus2 = ebhm2
 		if err != nil {
 			return err
@@ -499,7 +524,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	previousEpochHeadAttestations := []primitives.PendingAttestation{}
 
 	for _, a := range previousEpochAttestations {
-		blockRoot, err := sm.getHashByHeight(a.Data.Slot)
+		blockRoot, err := sm.blockchain.GetHashByHeight(a.Data.Slot)
 		if err != nil {
 			return err
 		}

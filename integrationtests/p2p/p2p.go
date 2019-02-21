@@ -1,4 +1,4 @@
-package testcase
+package p2p
 
 import (
 	"crypto/rand"
@@ -102,7 +102,7 @@ func createHostNode(index int) (*testNode, error) {
 
 	node := &testNode{
 		HostNode: hostNode,
-		nodeID:      index,
+		nodeID:   index,
 	}
 
 	node.Run()

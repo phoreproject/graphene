@@ -1,3 +1,4 @@
+// This is for RPC only
 syntax = "proto3";
 
 package pb;
@@ -293,14 +294,5 @@ message ValidatorRegistryDeltaBlock {
     uint32 ValidatorIndex = 2;
     bytes Pubkey = 3;
     uint64 Flag = 4;
-}
-
-message TestMessage {
-    string message = 1;
-}
-
-// This will be renamed to P2PRPC later
-service MainRPC {
-    rpc Test(TestMessage) returns (TestMessage);
 }
 

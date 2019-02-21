@@ -7,6 +7,7 @@ require (
 	github.com/coreos/go-semver v0.2.0 // indirect
 	github.com/fd/go-nat v1.0.0 // indirect
 	github.com/go-test/deep v1.0.1
+	github.com/gogo/protobuf v1.2.0
 	github.com/golang/protobuf v1.2.0
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
@@ -57,7 +58,7 @@ require (
 	github.com/multiformats/go-multistream v0.3.9 // indirect
 	github.com/phoreproject/bls v0.0.0-20190210004821-d3edbe5b5ff0
 	github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134
-	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051 // indirect
+	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051
 	github.com/sirupsen/logrus v1.3.0
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect
 	github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f // indirect

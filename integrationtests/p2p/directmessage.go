@@ -55,7 +55,7 @@ func (test DirectMessageTest) Execute(service *testframework.TestService) error 
 	connectToPeerForDirectMessage(hostNode0, hostNode1)
 	connectToPeerForDirectMessage(hostNode1, hostNode0)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
 		fmt.Printf("Request: %s\n", message)
 		hostNode0.GetPeerList()[0].SendMessage(&pb.TestMessage{Message: "Node0 " + message})
@@ -109,8 +109,11 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 		nodeID:   index,
 	}
 
-	node.RegisterMessageHandler("pb.TestMessage", func(node *p2p.HostNode, message proto.Message) {
+	node.RegisterMessageHandler("pb.TestMessage", func(peer *p2p.PeerNode, message proto.Message) {
 		logger.Debugf("Node %s received message %s ", keyToString(*node.GetPublicKey()), proto.MessageName(message))
+	})
+	node.SetOnPeerConnectedHandler(func(peer *p2p.PeerNode) {
+		logger.Debugf("Node %s has new connection ", keyToString(*node.GetPublicKey()))
 	})
 
 	node.Run()

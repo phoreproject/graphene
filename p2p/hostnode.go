@@ -22,8 +22,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// MessageHandler is the message hander
-type MessageHandler func(node *HostNode, message proto.Message)
+type messageHandler func(peer *PeerNode, message proto.Message)
+type onPeerConnectedHandler func(peer *PeerNode)
 
 // HostNode is the node for host
 type HostNode struct {
@@ -35,7 +35,8 @@ type HostNode struct {
 	cancel            context.CancelFunc
 	grpcServer        *grpc.Server
 	peerList          []PeerNode
-	messageHandlerMap map[string]MessageHandler
+	messageHandlerMap map[string]messageHandler
+	onPeerConnected   onPeerConnectedHandler
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -78,7 +79,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		ctx:               ctx,
 		cancel:            cancel,
 		grpcServer:        grpcServer,
-		messageHandlerMap: make(map[string]MessageHandler),
+		messageHandlerMap: make(map[string]messageHandler),
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
@@ -90,19 +91,24 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 // handleStream handles an incoming stream.
 func (node *HostNode) handleStream(stream inet.Stream) {
-	go processMessages(stream, node.handleMessage)
+	node.createPeerNodeFromStream(stream)
 }
 
-func (node *HostNode) handleMessage(message proto.Message) {
+func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
 	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
 	if ok {
-		handler(node, message)
+		handler(peer, message)
 	}
 }
 
 // RegisterMessageHandler registers a message handler
-func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) {
+func (node *HostNode) RegisterMessageHandler(messageName string, handler messageHandler) {
 	node.messageHandlerMap[messageName] = handler
+}
+
+// SetOnPeerConnectedHandler sets the onPeerConnected handler
+func (node *HostNode) SetOnPeerConnectedHandler(handler onPeerConnectedHandler) {
+	node.onPeerConnected = handler
 }
 
 // Connect connects to a peer
@@ -124,13 +130,24 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	go processMessages(stream, node.handleMessage)
+	return node.createPeerNodeFromStream(stream), nil
+}
 
+// Run runs the main loop of the host node
+func (node *HostNode) createPeerNodeFromStream(stream inet.Stream) *PeerNode {
 	peerNode := NewPeerNode(stream)
 
 	node.peerList = append(node.peerList, peerNode)
 
-	return &peerNode, err
+	go processMessages(stream, func(message proto.Message) {
+		node.handleMessage(&peerNode, message)
+	})
+
+	if node.onPeerConnected != nil {
+		node.onPeerConnected(&peerNode)
+	}
+
+	return &peerNode
 }
 
 // Run runs the main loop of the host node

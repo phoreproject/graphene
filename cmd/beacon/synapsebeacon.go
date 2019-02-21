@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/validator"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/golang/protobuf/proto"
 

@@ -13,14 +13,6 @@ service BlockchainRPC {
 
     rpc GetLastBlockHash(google.protobuf.Empty) returns (GetBlockHashResponse);
 
-    rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
-
-    rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
-
-    rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
-
-    rpc GetCommitteeValidatorIndices(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorIndicesResponse);
-
     rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
 
     rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);

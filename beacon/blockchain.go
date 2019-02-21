@@ -2,15 +2,16 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/chainhash"
@@ -53,12 +54,10 @@ func (bv *blockchainView) Height() uint64 {
 
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
-	chain     blockchainView
-	db        db.Database
-	config    *config.Config
-	state     primitives.State // state of the head
-	stateMap  map[chainhash.Hash]primitives.State
-	stateLock *sync.Mutex
+	chain        blockchainView
+	db           db.Database
+	config       *config.Config
+	stateManager *StateManager
 }
 
 func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash) (*blockNode, error) {
@@ -140,6 +139,10 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*blockNode, e
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
 func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool) (*Blockchain, error) {
+	sm, err := NewStateManager(config, validators, uint64(time.Now().Unix()), skipValidation)
+	if err != nil {
+		return nil, err
+	}
 	b := &Blockchain{
 		db:     db,
 		config: config,
@@ -147,9 +150,51 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 			index: make(map[chainhash.Hash]*blockNode),
 			lock:  &sync.Mutex{},
 		},
-		stateLock: &sync.Mutex{},
+		stateManager: sm,
 	}
-	err := b.InitializeState(validators, uint64(time.Now().Unix()), skipValidation)
+
+	initialState := sm.GetHeadState()
+
+	stateRoot, err := ssz.TreeHash(initialState)
+	if err != nil {
+		return nil, err
+	}
+
+	block0 := primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   0,
+			StateRoot:    stateRoot,
+			ParentRoot:   zeroHash,
+			RandaoReveal: bls.EmptySignature.Serialize(),
+			Signature:    bls.EmptySignature.Serialize(),
+		},
+		BlockBody: primitives.BlockBody{
+			ProposerSlashings: []primitives.ProposerSlashing{},
+			CasperSlashings:   []primitives.CasperSlashing{},
+			Attestations:      []primitives.Attestation{},
+			Deposits:          []primitives.Deposit{},
+			Exits:             []primitives.Exit{},
+		},
+	}
+
+	blockHash, err := ssz.TreeHash(block0)
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.db.SetBlock(block0)
+	if err != nil {
+		return nil, err
+	}
+	node, err := b.addBlockNodeToIndex(&block0, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	b.chain.finalizedHead = blockNodeAndState{node, initialState}
+	b.chain.justifiedHead = blockNodeAndState{node, initialState}
+	b.chain.tip = node
+	err = b.stateManager.SetBlockState(&block0, &initialState)
 	if err != nil {
 		return nil, err
 	}
@@ -210,10 +255,16 @@ func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 		children := head.children
 		if len(children) == 0 {
 			b.chain.tip = head
-			b.state = b.stateMap[head.hash]
+			err := b.stateManager.UpdateHead(head.hash)
+			if err != nil {
+				return err
+			}
 
-			logger.WithField("tip", head.height).Debug("set tip")
-			logger.WithField("tip", b.state.Slot).WithField("hash", head.hash.String()).Debug("tip state has slot = ")
+			logger.WithFields(logrus.Fields{
+				"height": head.height,
+				"hash":   head.hash.String(),
+				"slot":   b.stateManager.GetHeadSlot(),
+			}).Debug("set tip")
 			return nil
 		}
 		bestVoteCountChild := children[0]
@@ -270,47 +321,4 @@ func (b *Blockchain) LastBlock() (*primitives.Block, error) {
 // GetConfig returns the config used by this blockchain
 func (b *Blockchain) GetConfig() *config.Config {
 	return b.config
-}
-
-// GetSlotAndShardAssignment gets the shard and slot assignment for a specific
-// validator.
-func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	b.stateLock.Lock()
-	s := b.state.Slot
-	earliestSlotInArray := b.state.Slot - (b.state.Slot % b.config.EpochLength) - b.config.EpochLength
-	if b.state.Slot < b.config.EpochLength*2 {
-		earliestSlotInArray = 0
-	}
-	b.stateLock.Unlock()
-	for i, slot := range b.state.ShardAndCommitteeForSlots {
-		for j, committee := range slot {
-			for v, validator := range committee.Committee {
-				if uint32(validator) != validatorID {
-					continue
-				}
-				if uint64(i)+earliestSlotInArray <= s {
-					continue
-				}
-				if j == 0 && v == i%len(committee.Committee) { // first committee in slot and slot%committeeSize index validator
-					return committee.Shard, uint64(i) + earliestSlotInArray, RoleProposer, nil
-				}
-				return committee.Shard, uint64(i) + earliestSlotInArray, RoleAttester, nil
-			}
-		}
-	}
-	return 0, 0, 0, fmt.Errorf("validator not found in set %d", validatorID)
-}
-
-// GetValidatorAtIndex gets the validator at index
-func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
-	if index >= uint32(len(b.state.ValidatorRegistry)) {
-		return nil, fmt.Errorf("Index out of bounds")
-	}
-
-	return &b.state.ValidatorRegistry[index], nil
-}
-
-// GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID
-func (b *Blockchain) GetCommitteeValidatorIndices(stateSlot uint64, slot uint64, shardID uint64) ([]uint32, error) {
-	return b.state.GetCommitteeIndices(stateSlot, slot, shardID, b.config)
 }

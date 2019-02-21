@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
-	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/primitives"
 
@@ -69,62 +68,6 @@ func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.Get
 	return &pb.GetBlockHashResponse{
 		Hash: h[:],
 	}, nil
-}
-
-func (s *server) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAndShardAssignmentRequest) (*pb.SlotAndShardAssignment, error) {
-	shardID, slot, role, err := s.chain.GetSlotAndShardAssignment(in.ValidatorID)
-	if err != nil {
-		return nil, err
-	}
-
-	r := pb.Role_ATTESTER
-	if role == beacon.RoleProposer {
-		r = pb.Role_PROPOSER
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"validatorID": in.ValidatorID,
-		"shardID":     shardID,
-		"slot":        slot,
-		"role":        r})
-
-	return &pb.SlotAndShardAssignment{ShardID: uint32(shardID), Slot: slot, Role: r}, nil
-}
-
-func (s *server) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
-	validator, err := s.chain.GetValidatorAtIndex(in.Index)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GetValidatorAtIndexResponse{Validator: validator.ToProto()}, nil
-}
-
-func (s *server) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(s.chain.GetState().Slot, in.SlotNumber, uint64(in.Shard))
-	if err != nil {
-		return nil, err
-	}
-
-	var validatorList []*pb.Validator
-
-	for _, indice := range indices {
-		validator, err := s.chain.GetValidatorAtIndex(indice)
-		if err != nil {
-			return nil, err
-		}
-		validatorList = append(validatorList, validator.ToProto())
-	}
-
-	return &pb.GetCommitteeValidatorsResponse{Validators: validatorList}, nil
-}
-
-func (s *server) GetCommitteeValidatorIndices(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorIndicesResponse, error) {
-	indices, err := s.chain.GetCommitteeValidatorIndices(s.chain.GetState().Slot, in.SlotNumber, uint64(in.Shard))
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.GetCommitteeValidatorIndicesResponse{Validators: indices}, nil
 }
 
 func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateResponse, error) {

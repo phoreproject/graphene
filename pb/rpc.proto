@@ -20,6 +20,8 @@ service BlockchainRPC {
     rpc GetEpochInformation(google.protobuf.Empty) returns (EpochInformation);
 
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
+
+    rpc GetProposerSlots(GetProposerSlotsRequest) returns (GetProposerSlotsResponse);
 }
 
 service P2PRPC {
@@ -102,6 +104,14 @@ message P2PSettings {
 enum Role {
     ATTESTER = 0;
     PROPOSER = 1;
+}
+
+message GetProposerSlotsRequest {
+    uint32 ValidatorID = 1;
+}
+
+message GetProposerSlotsResponse {
+    uint64 ProposerSlots = 2;
 }
 
 message GetCommitteesForSlotRequest {

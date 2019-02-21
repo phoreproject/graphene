@@ -81,10 +81,10 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		return nil, err
 	}
 
-	k.IncrementProposerSlots(proposerIndex)
+	proposerSlots := state.ValidatorRegistry[proposerIndex].ProposerSlots
 
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], k.GetProposerSlots(proposerIndex))
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposerSlots)
 
 	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), proposerSlotsBytes[:], bls.DomainRandao)
 	if err != nil {

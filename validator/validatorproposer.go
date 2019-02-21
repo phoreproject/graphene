@@ -57,7 +57,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 	}
 
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], v.keystore.GetProposerSlots(v.id))
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], v.proposerSlots)
 
 	key := v.keystore.GetKeyForValidator(v.id)
 
@@ -139,6 +139,6 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		v.mempool.attestationMempool.removeAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
 	}
 
-	v.keystore.IncrementProposerSlots(v.id)
+	v.proposerSlots++
 	return err
 }

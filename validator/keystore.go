@@ -25,13 +25,11 @@ func (xor *xorshift) Read(b []byte) (int, error) {
 }
 
 // FakeKeyStore should be assumed to be insecure.
-type FakeKeyStore struct {
-	proposerSlots map[uint32]uint64
-}
+type FakeKeyStore struct{}
 
 // NewFakeKeyStore creates a new fake key store.
 func NewFakeKeyStore() FakeKeyStore {
-	return FakeKeyStore{proposerSlots: make(map[uint32]uint64)}
+	return FakeKeyStore{}
 }
 
 // GetKeyForValidator gets the private key for the given validator ID.
@@ -48,30 +46,15 @@ func (f FakeKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
 	return s.DerivePublicKey()
 }
 
-// IncrementProposerSlots increments proposal slots when chosen to propose a block.
-func (f FakeKeyStore) IncrementProposerSlots(v uint32) {
-	if _, found := f.proposerSlots[v]; !found {
-		f.proposerSlots[v] = 2
-	} else {
-		f.proposerSlots[v]++
-	}
-}
-
-// GetProposerSlots gets the number of times this validator was chosen as a proposer since genesis.
-func (f FakeKeyStore) GetProposerSlots(v uint32) uint64 {
-	return f.proposerSlots[v]
-}
-
 // MemoryKeyStore is a keystore that keeps keys in memory.
 type MemoryKeyStore struct {
-	proposerSlots map[uint32]uint64
-	privateKeys   map[uint32]*bls.SecretKey
-	publicKeys    map[uint32]*bls.PublicKey
+	privateKeys map[uint32]*bls.SecretKey
+	publicKeys  map[uint32]*bls.PublicKey
 }
 
 // NewMemoryKeyStore creates a new memory key store.
 func NewMemoryKeyStore(keys map[uint32]*bls.SecretKey) *MemoryKeyStore {
-	return &MemoryKeyStore{proposerSlots: make(map[uint32]uint64), privateKeys: keys, publicKeys: make(map[uint32]*bls.PublicKey)}
+	return &MemoryKeyStore{privateKeys: keys, publicKeys: make(map[uint32]*bls.PublicKey)}
 }
 
 // GetKeyForValidator gets the private key for the given validator ID.
@@ -87,27 +70,8 @@ func (m *MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
 	return m.publicKeys[v]
 }
 
-// IncrementProposerSlots increments proposal slots when chosen to propose a block.
-func (m *MemoryKeyStore) IncrementProposerSlots(v uint32) {
-	if _, found := m.proposerSlots[v]; !found {
-		m.proposerSlots[v] = 2
-	} else {
-		m.proposerSlots[v]++
-	}
-}
-
-// GetProposerSlots gets the number of times this validator was chosen as a proposer since genesis.
-func (m *MemoryKeyStore) GetProposerSlots(v uint32) uint64 {
-	if slot, found := m.proposerSlots[v]; found {
-		return slot
-	}
-	return 1
-}
-
 // Keystore is an interface for retrieving keys from a keystore.
 type Keystore interface {
 	GetKeyForValidator(uint32) *bls.SecretKey
 	GetPublicKeyForValidator(uint32) *bls.PublicKey
-	IncrementProposerSlots(uint32)
-	GetProposerSlots(uint32) uint64
 }

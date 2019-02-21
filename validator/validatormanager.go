@@ -199,7 +199,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 			vm.attestationAssignments = make([][]primitives.ShardAndCommittee, len(ei.slots))
 
 			for i, si := range ei.slots[vm.config.EpochLength:] {
-				if si.slot == 0 {
+				if si.slot == 0 || si.slot <= int64(b.SlotNumber) {
 					continue
 				}
 				proposer := si.committees[0].Committee[(si.slot-1)%int64(len(si.committees[0].Committee))]

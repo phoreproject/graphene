@@ -14,7 +14,6 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon"
 	pb "github.com/phoreproject/synapse/pb"
@@ -30,7 +29,6 @@ type HostNode struct {
 	publicKey         crypto.PubKey
 	privateKey        crypto.PrivKey
 	host              host.Host
-	gossipSub         *pubsub.PubSub
 	ctx               context.Context
 	cancel            context.CancelFunc
 	grpcServer        *grpc.Server
@@ -64,18 +62,11 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	g, err := pubsub.NewGossipSub(ctx, host)
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-
 	grpcServer := grpc.NewServer()
 	hostNode := HostNode{
 		publicKey:         publicKey,
 		privateKey:        privateKey,
 		host:              host,
-		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
 		grpcServer:        grpcServer,
@@ -220,39 +211,4 @@ func (node *HostNode) GetPeerList() []PeerNode {
 // GetConnectedPeerCount returns the connected peer count
 func (node *HostNode) GetConnectedPeerCount() int {
 	return node.host.Peerstore().Peers().Len()
-}
-
-// Broadcast broadcasts a message to the network for a topic.
-func (node *HostNode) Broadcast(topic string, data []byte) error {
-	return node.gossipSub.Publish(topic, data)
-}
-
-// SubscribeMessage registers a handler for a network topic.
-func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
-	subscription, err := node.gossipSub.Subscribe(topic)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		for {
-			msg, err := subscription.Next(node.ctx)
-			if err != nil {
-				logger.WithField("error", err).Warn("error when getting next topic message")
-				return
-			}
-
-			err = handler(msg.Data)
-			if err != nil {
-				logger.WithField("topic", topic).WithField("error", err).Warn("error when handling message")
-			}
-		}
-	}()
-
-	return subscription, nil
-}
-
-// UnsubscribeMessage cancels a subscription to a topic.
-func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
-	subscription.Cancel()
 }

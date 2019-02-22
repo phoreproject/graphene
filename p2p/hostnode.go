@@ -22,6 +22,7 @@ import (
 )
 
 type messageHandler func(peer *PeerNode, message proto.Message)
+type anyMessageHandler func(peer *PeerNode, message proto.Message) bool
 type onPeerConnectedHandler func(peer *PeerNode)
 
 // HostNode is the node for host
@@ -32,9 +33,14 @@ type HostNode struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	grpcServer        *grpc.Server
-	peerList          []PeerNode
 	messageHandlerMap map[string]messageHandler
+	anyMessagehandler anyMessageHandler
 	onPeerConnected   onPeerConnectedHandler
+
+	peerList           []*PeerNode
+	inboundPeerList    []*PeerNode
+	outboundPeerList   []*PeerNode
+	connectingPeerList []*PeerNode
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
@@ -82,10 +88,16 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 // handleStream handles an incoming stream.
 func (node *HostNode) handleStream(stream inet.Stream) {
-	node.createPeerNodeFromStream(stream)
+	node.createPeerNodeFromStream(stream, false)
 }
 
 func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
+	if node.anyMessagehandler != nil {
+		if !node.anyMessagehandler(peer, message) {
+			return
+		}
+	}
+
 	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
 	if ok {
 		handler(peer, message)
@@ -95,6 +107,12 @@ func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
 // RegisterMessageHandler registers a message handler
 func (node *HostNode) RegisterMessageHandler(messageName string, handler messageHandler) {
 	node.messageHandlerMap[messageName] = handler
+}
+
+// SetAnyMessageHandler sets a message handler for any message
+// The handler return false to prevent the message from dispatching
+func (node *HostNode) SetAnyMessageHandler(handler anyMessageHandler) {
+	node.anyMessagehandler = handler
 }
 
 // SetOnPeerConnectedHandler sets the onPeerConnected handler
@@ -121,28 +139,24 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	return node.createPeerNodeFromStream(stream), nil
+	return node.createPeerNodeFromStream(stream, true), nil
 }
 
 // Run runs the main loop of the host node
-func (node *HostNode) createPeerNodeFromStream(stream inet.Stream) *PeerNode {
-	peerNode := NewPeerNode(stream)
+func (node *HostNode) createPeerNodeFromStream(stream inet.Stream, outbound bool) *PeerNode {
+	peer := newPeerNode(stream, outbound)
 
-	node.peerList = append(node.peerList, peerNode)
+	node.connectingPeerList = append(node.connectingPeerList, peer)
 
 	go processMessages(stream, func(message proto.Message) {
-		node.handleMessage(&peerNode, message)
+		node.handleMessage(peer, message)
 	})
 
 	if node.onPeerConnected != nil {
-		node.onPeerConnected(&peerNode)
+		node.onPeerConnected(peer)
 	}
 
-	return &peerNode
-}
-
-// Run runs the main loop of the host node
-func (node *HostNode) Run() {
+	return peer
 }
 
 // GetGRPCServer returns the grpc server.
@@ -203,12 +217,27 @@ func (node *HostNode) GetHost() host.Host {
 	return node.host
 }
 
-// GetPeerList returns the peer list
-func (node *HostNode) GetPeerList() []PeerNode {
+// GetPeerList returns all peer list, including both inbound and outbound
+func (node *HostNode) GetPeerList() []*PeerNode {
 	return node.peerList
 }
 
-// GetConnectedPeerCount returns the connected peer count
-func (node *HostNode) GetConnectedPeerCount() int {
-	return node.host.Peerstore().Peers().Len()
+// GetInboundPeerList returns the inbound peer list
+func (node *HostNode) GetInboundPeerList() []*PeerNode {
+	return node.inboundPeerList
+}
+
+// GetOutboundPeerList returns the outbound peer list
+func (node *HostNode) GetOutboundPeerList() []*PeerNode {
+	return node.outboundPeerList
+}
+
+// PeerDoneHandShake is called when handshaking is finished
+func (node *HostNode) PeerDoneHandShake(peer *PeerNode) {
+	node.peerList = append(node.peerList, peer)
+	if peer.IsOutbound() {
+		node.outboundPeerList = append(node.outboundPeerList, peer)
+	} else {
+		node.inboundPeerList = append(node.inboundPeerList, peer)
+	}
 }

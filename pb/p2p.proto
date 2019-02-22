@@ -14,6 +14,25 @@ service MainRPC {
     rpc Test(TestMessage) returns (TestMessage);
 }
 
+message VersionMessage {
+    uint32 version = 1;
+}
+
+message VerackMessage {
+}
+
+message PingMessage {
+    uint64 nonce = 1;
+}
+
+message PongMessage {
+    uint64 nonce = 1;
+}
+
+message RejectMessage {
+    string message = 1;
+}
+
 message GetBlockMessage {
     repeated bytes locatorHahes = 1; //block locator object; newest back to genesis block (dense to start, but then sparse)
     bytes hashStop = 2; //hash of the last desired block header; set to zero to get as many blocks as possible (2000)

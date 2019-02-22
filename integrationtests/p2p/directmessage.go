@@ -116,8 +116,6 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 		logger.Debugf("Node %s has new connection ", keyToString(*node.GetPublicKey()))
 	})
 
-	node.Run()
-
 	return node, nil
 }
 

@@ -152,12 +152,28 @@ func (app *App) doStateSyncBeaconBlocks() {
 }
 
 func (app *App) onPeerConnected(peer *p2p.PeerNode) {
-	// TODO: need to handshake with the peer (exchange keys, etc)
+	peer.SendMessage(&pb.VersionMessage{
+		Version: 0,
+	})
 }
 
 func (app *App) registerMessageHandlers() {
+	app.hostNode.RegisterMessageHandler("pb.VersionMessage", app.onMessageVersion)
+	app.hostNode.RegisterMessageHandler("pb.VerackMessage", app.onMessageVerack)
 	app.hostNode.RegisterMessageHandler("pb.GetBlockMessage", app.onMessageGetBlock)
 	app.hostNode.RegisterMessageHandler("pb.BlockMessage", app.onMessageBlock)
+}
+
+func (app *App) onMessageVersion(peer *p2p.PeerNode, message proto.Message) {
+	logger.Debug("Received version")
+
+	peer.SendMessage(&pb.VerackMessage{})
+}
+
+func (app *App) onMessageVerack(peer *p2p.PeerNode, message proto.Message) {
+	logger.Debug("Received verack")
+
+	app.hostNode.PeerDoneHandShake(peer)
 }
 
 func (app *App) onMessageGetBlock(peer *p2p.PeerNode, message proto.Message) {

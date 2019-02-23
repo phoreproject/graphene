@@ -2,11 +2,21 @@ package beacon_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/internal/util"
 )
+
+func TestMain(m *testing.M) {
+	logrus.SetLevel(logrus.DebugLevel)
+	retCode := m.Run()
+	os.Exit(retCode)
+}
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
 	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+1, &config.RegtestConfig)
@@ -23,7 +33,14 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 		t.Fatal("invalid last block for initial chain")
 	}
 
-	_, err = util.MineBlockWithFullAttestations(b, keys)
+	s := b.GetState()
+
+	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, 0, b.GetConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,12 +65,18 @@ func TestStateInitialization(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = util.MineBlockWithFullAttestations(b, keys)
+	s := b.GetState()
+	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, 0, b.GetConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := b.GetState()
+	_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s = b.GetState()
 
 	if len(s.ShardAndCommitteeForSlots[0]) == 0 {
 		t.Errorf("invalid initial validator entries")
@@ -79,7 +102,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 			t.Fatal(err)
 		}
 		fmt.Printf("proposer %d mining block %d\n", proposerIndex, i+1)
-		_, err = util.MineBlockWithFullAttestations(b, keys)
+		_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,6 +111,9 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 		fmt.Printf("justified slot: %d, finalized slot: %d, justificationBitField: %b, previousJustifiedSlot: %d\n", s.JustifiedSlot, s.FinalizedSlot, s.JustificationBitfield, s.PreviousJustifiedSlot)
 	}
+
+	timer := time.NewTimer(time.Until(b.GetNextSlotTime().Add(time.Millisecond * 500)))
+	<-timer.C
 
 	stateAfterSlot20 := b.GetState()
 

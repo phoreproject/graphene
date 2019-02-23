@@ -26,6 +26,7 @@ type StateManager struct {
 	stateMapLock *sync.RWMutex
 	stateLock    *sync.Mutex
 	genesisTime  uint64
+	currentEpoch uint64
 }
 
 // NewStateManager creates a new state manager.
@@ -44,29 +45,6 @@ func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry
 	}
 	s.state = *intialState
 	return s, nil
-}
-
-// ProcessSlotsAsNeeded will process slots at the correct time.
-func (sm *StateManager) ProcessSlotsAsNeeded() {
-	nextSlotNumber := (time.Now().Unix()-int64(sm.genesisTime))/int64(sm.config.SlotDuration) + 1
-	nextSlotTime := time.Unix(int64(sm.genesisTime)+nextSlotNumber*int64(sm.config.SlotDuration), 0)
-	timer := time.NewTimer(time.Until(nextSlotTime))
-	for {
-		<-timer.C
-
-		latestBlockHash := sm.blockchain.Tip()
-
-		logrus.WithFields(logrus.Fields{
-			"slot":          nextSlotNumber,
-			"lastBlockHash": latestBlockHash,
-		}).Info("processing slot")
-
-		sm.ProcessSlots(uint64(nextSlotNumber), latestBlockHash)
-
-		nextSlotNumber = (time.Now().Unix()-int64(sm.genesisTime))/int64(sm.config.SlotDuration) + 1
-		nextSlotTime := time.Unix(int64(sm.genesisTime)+nextSlotNumber*int64(sm.config.SlotDuration), 0)
-		timer = time.NewTimer(time.Until(nextSlotTime))
-	}
 }
 
 // GetGenesisTime gets the time of the genesis slot.
@@ -94,6 +72,7 @@ func (sm *StateManager) UpdateHead(blockHash chainhash.Hash) error {
 	}
 	sm.stateMapLock.RUnlock()
 	sm.stateLock.Lock()
+	logrus.WithField("slot", state.Slot).Debug("setting state head")
 	sm.state = state
 	sm.stateLock.Unlock()
 	return nil
@@ -260,12 +239,13 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 		CustodyBitfield:       att.CustodyBitfield,
 		SlotIncluded:          s.Slot,
 	})
+
 	return nil
 }
 
 // processBlock tries to apply a block to the state.
 func (sm *StateManager) processBlock(block *primitives.Block, newState *primitives.State) error {
-	proposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot, block.BlockHeader.SlotNumber-1, sm.config)
+	proposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot-1, block.BlockHeader.SlotNumber-1, sm.config)
 	if err != nil {
 		return err
 	}
@@ -308,7 +288,7 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 	}
 
 	if !valid {
-		return errors.New("block had invalid signature")
+		return fmt.Errorf("block had invalid signature (expected signature from validator %d)", proposerIndex)
 	}
 
 	proposer := &newState.ValidatorRegistry[proposerIndex]
@@ -415,8 +395,12 @@ func (sm *StateManager) processSlot(newState *primitives.State, lastBlockHash ch
 }
 
 func (sm *StateManager) processEpochTransition(newState *primitives.State) error {
+	logrus.Debug("epoch transition")
+
 	activeValidatorIndices := primitives.GetActiveValidatorIndices(newState.ValidatorRegistry)
 	totalBalance := newState.GetTotalBalance(activeValidatorIndices, sm.config)
+
+	// currentEpochAttestations is any attestation that happened in the last epoch
 	currentEpochAttestations := []primitives.PendingAttestation{}
 	for _, a := range newState.LatestAttestations {
 		if newState.Slot-sm.config.EpochLength <= a.Data.Slot && a.Data.Slot < newState.Slot {
@@ -429,12 +413,17 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		return err
 	}
 
+	// currentEpochBoundaryAttestations is any attestation in the last epoch that has its boundary hash set to
+	// the last epoch boundary
 	currentEpochBoundaryAttestations := []primitives.PendingAttestation{}
 	for _, a := range currentEpochAttestations {
 		if a.Data.EpochBoundaryHash.IsEqual(&previousEpochBoundaryHash) && a.Data.JustifiedSlot == newState.JustifiedSlot {
 			currentEpochBoundaryAttestations = append(currentEpochBoundaryAttestations, a)
 		}
 	}
+
+	// currentEpochBoundaryAttesterIndices are all participant validator IDs of attestations
+	// with the epoch boundary set to the last epoch boundary.
 	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
 	for _, a := range currentEpochBoundaryAttestations {
 		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, sm.config)
@@ -447,6 +436,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	}
 	currentEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(currentEpochBoundaryAttesterIndices, sm.config)
 
+	// previousEpochAttestations is any attestation in the last epoch
 	previousEpochAttestations := []primitives.PendingAttestation{}
 	for _, a := range newState.LatestAttestations {
 		if newState.Slot-2*sm.config.EpochLength <= a.Data.Slot && a.Data.Slot < newState.Slot-sm.config.EpochLength {
@@ -454,6 +444,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
+	// previousEpochAttesterIndices are all participants of attestations in the previous epoch
 	previousEpochAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochAttestations {
 		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, sm.config)
@@ -465,19 +456,17 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
+	// previousEpochJustifiedAttestations are any attestations in the previous epoch that have a
+	// justified slot equal to the previous justified slot.
 	previousEpochJustifiedAttestations := []primitives.PendingAttestation{}
-	for _, a := range currentEpochAttestations {
-		if a.Data.JustifiedSlot == newState.PreviousJustifiedSlot {
-			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
-		}
-	}
-
 	for _, a := range previousEpochAttestations {
 		if a.Data.JustifiedSlot == newState.PreviousJustifiedSlot {
 			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
 		}
 	}
 
+	// previousEpochJustifiedAttesterIndices are all participants of attestations in the previous
+	// epoch with a justified slot equal to the previous justified slot.
 	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochJustifiedAttestations {
 		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, sm.config)
@@ -500,8 +489,9 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
+	// previousEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
+	// set to the epoch boundary two epochs ago
 	previousEpochBoundaryAttestations := []primitives.PendingAttestation{}
-
 	for _, a := range previousEpochJustifiedAttestations {
 		if epochBoundaryHashMinus2.IsEqual(&a.Data.EpochBoundaryHash) {
 			previousEpochBoundaryAttestations = append(previousEpochBoundaryAttestations, a)
@@ -522,7 +512,6 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	previousEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(previousEpochBoundaryAttesterIndices, sm.config)
 
 	previousEpochHeadAttestations := []primitives.PendingAttestation{}
-
 	for _, a := range previousEpochAttestations {
 		blockRoot, err := sm.blockchain.GetHashByHeight(a.Data.Slot)
 		if err != nil {
@@ -549,23 +538,25 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	newState.PreviousJustifiedSlot = newState.JustifiedSlot
 	newState.JustificationBitfield = newState.JustificationBitfield * 2
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
-		newState.JustificationBitfield |= 2
+		newState.JustificationBitfield |= 2 // mark the last epoch as justified
 		newState.JustifiedSlot = newState.Slot - 2*sm.config.EpochLength
 	}
 
 	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
-		newState.JustificationBitfield |= 1
+		newState.JustificationBitfield |= 1 // mark the current epoch as justified
 		newState.JustifiedSlot = newState.Slot - sm.config.EpochLength
 	}
 
+	// if 3 of the last 4, 7 of the last 8, or 14 of the last 16 blocks were justified, finalize the last justified slot
 	if (newState.PreviousJustifiedSlot == newState.Slot-2*sm.config.EpochLength && newState.JustificationBitfield%4 == 3) ||
 		(newState.PreviousJustifiedSlot == newState.Slot-3*sm.config.EpochLength && newState.JustificationBitfield%8 == 7) ||
 		(newState.PreviousJustifiedSlot == newState.Slot-4*sm.config.EpochLength && newState.JustificationBitfield%16 > 14) {
 		newState.FinalizedSlot = newState.PreviousJustifiedSlot
 	}
 
+	// attestingValidatorIndices gets the participants that attested to a certain shardblockRoot for a certain shardCommittee
 	attestingValidatorIndices := func(shardComittee primitives.ShardAndCommittee, shardBlockRoot chainhash.Hash) ([]uint32, error) {
-		out := []uint32{}
+		outMap := map[uint32]struct{}{}
 		for _, a := range currentEpochAttestations {
 			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
 				participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, sm.config)
@@ -573,13 +564,20 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 					return nil, err
 				}
 				for _, p := range participants {
-					out = append(out, p)
+					outMap[p] = struct{}{}
 				}
 			}
+		}
+		out := make([]uint32, len(outMap))
+		i := 0
+		for id := range outMap {
+			out[i] = id
+			i++
 		}
 		return out, nil
 	}
 
+	// winningRoot finds the winning shard block hash
 	winningRoot := func(shardCommittee primitives.ShardAndCommittee) (*chainhash.Hash, error) {
 		balances := map[chainhash.Hash]struct{}{}
 		largestBalance := uint64(0)
@@ -828,24 +826,35 @@ done:
 
 // ProcessSlots uses the current head to process slots up to a certain slot, applying
 // slot transitions and epoch transitions, and returns the updated state. Note that this should
-// only process up to the current slot number so that the lastBlockHash remains constant.
+// only process up to the current slot number so that the lastBlockHash remains constant. Also,
+// stateLock should already be held when running this.
 func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) (*primitives.State, error) {
 	sm.stateLock.Lock()
+	defer sm.stateLock.Unlock()
 	newState := sm.state.Copy()
-	sm.stateLock.Unlock()
 
 	for newState.Slot < upTo {
-		if newState.Slot != 1 && newState.Slot-1%sm.config.EpochLength == 0 {
+		// this only happens when there wasn't a block at the first slot of the epoch
+		if newState.Slot > 1 && sm.currentEpoch < (newState.Slot-1)/sm.config.EpochLength {
+			logrus.Info("processing epoch transition")
+			t := time.Now()
 			err := sm.processEpochTransition(&newState)
 			if err != nil {
 				return nil, err
 			}
+			logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
+			sm.currentEpoch = (newState.Slot - 1) / sm.config.EpochLength
 		}
 
 		err := sm.processSlot(&newState, lastBlockHash)
 		if err != nil {
 			return nil, err
 		}
+
+		logrus.WithFields(logrus.Fields{
+			"slot":          newState.Slot,
+			"lastBlockHash": lastBlockHash,
+		}).Info("processing slot")
 	}
 
 	return &newState, nil
@@ -853,12 +862,7 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 
 // SetBlockState sets the state for a certain block. This SHOULD ONLY
 // BE USED FOR THE GENESIS BLOCK!
-func (sm *StateManager) SetBlockState(block *primitives.Block, state *primitives.State) error {
-	blockHash, err := ssz.TreeHash(block)
-	if err != nil {
-		return err
-	}
-
+func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitives.State) error {
 	// add the state to the statemap
 	sm.stateMapLock.Lock()
 	sm.stateMap[blockHash] = *state
@@ -875,9 +879,33 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives
 	if err != nil {
 		return nil, err
 	}
-	err = sm.processBlock(block, newState)
 
-	sm.SetBlockState(block, newState)
+	err = sm.processBlock(block, newState)
+	if err != nil {
+		return nil, err
+	}
+
+	// we do this with the lock so we don't process the epoch transition twice
+	sm.stateLock.Lock()
+	if newState.Slot%sm.config.EpochLength == 0 {
+		err := sm.processEpochTransition(newState)
+		if err != nil {
+			return nil, err
+		}
+
+		sm.currentEpoch = newState.Slot / sm.config.EpochLength
+	}
+	sm.stateLock.Unlock()
+
+	blockHash, err := ssz.TreeHash(block)
+	if err != nil {
+		return nil, err
+	}
+
+	err = sm.SetBlockState(blockHash, newState)
+	if err != nil {
+		return nil, err
+	}
 
 	return newState, nil
 }

@@ -196,14 +196,35 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	b.chain.finalizedHead = blockNodeAndState{node, initialState}
 	b.chain.justifiedHead = blockNodeAndState{node, initialState}
 	b.chain.tip = node
-	err = b.stateManager.SetBlockState(&block0, &initialState)
+
+	err = b.stateManager.SetBlockState(blockHash, &initialState)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: only start this once sync has finished
-	go b.stateManager.ProcessSlotsAsNeeded()
 	return b, nil
+}
+
+// UpdateStateIfNeeded updates the state to a certain slot.
+func (b *Blockchain) UpdateStateIfNeeded(upTo uint64) error {
+	newState, err := b.stateManager.ProcessSlots(upTo, b.Tip())
+	if err != nil {
+		return err
+	}
+
+	err = b.stateManager.SetBlockState(b.Tip(), newState)
+	if err != nil {
+		return err
+	}
+
+	b.stateManager.UpdateHead(b.Tip())
+
+	return nil
+}
+
+// GetNextSlotTime returns the timestamp of the next slot.
+func (b *Blockchain) GetNextSlotTime() time.Time {
+	return time.Unix(int64((b.stateManager.GetHeadSlot()+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
 }
 
 // InitialValidatorEntry is the validator entry to be added

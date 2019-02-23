@@ -20,7 +20,7 @@ func newMempool() mempool {
 }
 
 type attestationMempool struct {
-	attestations     []primitives.Attestation
+	attestations     []primitives.Attestation // maps the hashed data
 	attestationsLock *sync.RWMutex
 }
 
@@ -34,7 +34,6 @@ func newAttestationMempool() attestationMempool {
 func (am *attestationMempool) processNewAttestation(att primitives.Attestation) {
 	am.attestationsLock.Lock()
 	defer am.attestationsLock.Unlock()
-	// TODO: make this more efficient
 	for _, a := range am.attestations {
 		if a.Data.Slot == att.Data.Slot && a.Data.Shard == att.Data.Shard {
 			for i, b := range a.ParticipationBitfield {
@@ -61,7 +60,7 @@ func (am *attestationMempool) getAttestationsToInclude(slot uint64, c *config.Co
 
 	am.attestationsLock.Lock()
 	for _, att := range am.attestations {
-		if att.Data.Slot+c.MinAttestationInclusionDelay >= slot {
+		if att.Data.Slot+c.MinAttestationInclusionDelay > slot {
 			continue // don't include attestations that aren't valid yet
 		}
 

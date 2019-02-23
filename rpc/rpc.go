@@ -105,6 +105,15 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		}, nil
 	}
 
+	if currentSlot > int64(state.Slot) {
+		err := s.chain.UpdateStateIfNeeded(uint64(currentSlot))
+		if err != nil {
+			return nil, err
+		}
+
+		state = s.chain.GetState()
+	}
+
 	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash()
 	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
 	for i := range crosslinks {

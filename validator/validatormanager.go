@@ -122,8 +122,8 @@ type Manager struct {
 	justifiedRoot           chainhash.Hash
 	justifiedSlot           uint64
 	currentSlot             uint64
-	epochNumber             uint64
 	config                  *config.Config
+	synced                  bool
 	attestationSubscription *pb.Subscription
 }
 
@@ -162,7 +162,7 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 		mempool:       &m,
 		config:        c,
 		currentSlot:   0,
-		epochNumber:   0,
+		synced:        false,
 	}
 	logrus.Debug("initializing attestation listener")
 	err = vm.ListenForNewAttestations()
@@ -181,7 +181,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 	}
 
 	if vm.currentSlot != b.SlotNumber+1 {
-		if b.SlotNumber/vm.config.EpochLength+1 != vm.epochNumber {
+		if b.SlotNumber%vm.config.EpochLength == 0 || !vm.synced {
 			epochInformation, err := vm.blockchainRPC.GetEpochInformation(context.Background(), &empty.Empty{})
 			if err != nil {
 				return err
@@ -219,7 +219,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 			vm.latestCrosslinks = ei.latestCrosslinks
 			vm.justifiedRoot = ei.justifiedRoot
 			vm.justifiedSlot = ei.justifiedSlot
-			vm.epochNumber = b.SlotNumber/vm.config.EpochLength + 1
+			vm.synced = true
 		}
 
 		epochIndex := b.SlotNumber % vm.config.EpochLength
@@ -233,7 +233,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 			shard := committee.Shard
 			for committeeIndex, vIndex := range committee.Committee {
 				if validator, found := vm.validatorMap[vIndex]; found {
-					validator.attestBlock(attestationAssignment{
+					att, err := validator.attestBlock(attestationAssignment{
 						slot:              b.SlotNumber,
 						shard:             shard,
 						committeeIndex:    uint64(committeeIndex),
@@ -244,6 +244,11 @@ func (vm *Manager) UpdateSlotNumber() error {
 						justifiedRoot:     vm.justifiedRoot,
 						justifiedSlot:     vm.justifiedSlot,
 					})
+					if err != nil {
+						return err
+					}
+
+					vm.mempool.attestationMempool.processNewAttestation(*att)
 				}
 			}
 		}

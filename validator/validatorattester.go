@@ -51,6 +51,12 @@ func (v *Validator) signAttestation(hashAttestation [32]byte, data primitives.At
 }
 
 func (v *Validator) attestBlock(information attestationAssignment) (*primitives.Attestation, error) {
+	// logrus.WithFields(logrus.Fields{
+	// 	"slot":      information.slot,
+	// 	"shard":     information.shard,
+	// 	"validator": v.id,
+	// }).Debug("attesting to shard")
+
 	// create attestation
 	attData, hash, err := getAttestation(information)
 	if err != nil {

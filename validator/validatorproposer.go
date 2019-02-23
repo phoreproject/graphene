@@ -28,17 +28,13 @@ func hammingWeight(b uint8) int {
 
 func (v *Validator) proposeBlock(information proposerAssignment) error {
 	// wait for slot to happen to submit
-	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt)-int64(v.config.SlotDuration), 0)))
+	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))
 	<-timer.C
 
 	attestations, err := v.mempool.attestationMempool.getAttestationsToInclude(information.slot, v.config)
 	if err != nil {
 		return err
 	}
-
-	// wait for slot to happen to submit
-	timer = time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))
-	<-timer.C
 
 	v.logger.WithFields(logrus.Fields{
 		"attestationSize": len(attestations),
@@ -57,7 +53,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 	}
 
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], v.proposerSlots)
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], v.proposerSlots+1)
 
 	key := v.keystore.GetKeyForValidator(v.id)
 
@@ -121,7 +117,10 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		return err
 	}
 
-	v.logger.WithField("blockHash", fmt.Sprintf("%x", hashWithSignature)).Debug("submitting block")
+	v.logger.WithFields(logrus.Fields{
+		"blockHash": fmt.Sprintf("%x", hashWithSignature),
+		"slot":      information.slot,
+	}).Debug("submitting block")
 
 	submitBlockRequest := &pb.SubmitBlockRequest{
 		Block: newBlock.ToProto(),
@@ -129,11 +128,14 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 
 	_, err = v.blockchainRPC.SubmitBlock(context.Background(), submitBlockRequest)
 	if err != nil {
-		logrus.Error(err)
+		logrus.WithField("slot", information.slot).Error(err)
 		return nil
 	}
 
-	v.logger.Debug("submitted block")
+	v.logger.WithFields(logrus.Fields{
+		"blockHash": fmt.Sprintf("%x", hashWithSignature),
+		"slot":      information.slot,
+	}).Debug("submitted block")
 
 	for _, a := range attestations {
 		v.mempool.attestationMempool.removeAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)

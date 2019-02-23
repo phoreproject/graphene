@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -28,6 +29,7 @@ func main() {
 
 	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
+	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
 	fakeValidatorKeyStore := flag.String("fakevalidatorkeys", "keypairs.bin", "key file of fake validators")
 	flag.Parse()
 
@@ -87,9 +89,12 @@ func main() {
 		}
 	}
 
-	logger.WithField("numValidators", len(validators)).Info("initializing blockchain with validators")
+	if *genesisTime == 0 {
+		*genesisTime = uint64(time.Now().Unix())
+	}
 
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
+	logger.WithField("numValidators", len(validators)).WithField("genesisTime", *genesisTime).Info("initializing blockchain with validators")
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true, *genesisTime)
 	if err != nil {
 		panic(err)
 	}
@@ -126,17 +131,17 @@ func main() {
 				panic(err)
 			}
 
-			var blockProto *pb.Block
+			blockProto := new(pb.Block)
 
 			err = proto.Unmarshal(msg.Data, blockProto)
 			if err != nil {
 				continue
 			}
 
-			block := &primitives.Block{}
-			// if err != nil {
-			// 	continue
-			// }
+			block, err := primitives.BlockFromProto(blockProto)
+			if err != nil {
+				continue
+			}
 
 			newBlocks <- *block
 		}
@@ -144,7 +149,7 @@ func main() {
 
 	logger.Info("initializing RPC")
 
-	err = rpc.Serve(*rpcConnect, blockchain)
+	err = rpc.Serve(*rpcConnect, blockchain, p2p)
 	if err != nil {
 		panic(err)
 	}

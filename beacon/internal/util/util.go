@@ -45,7 +45,7 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 		})
 	}
 
-	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true)
+	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true, uint64(time.Now().Unix()))
 	if err != nil {
 		return nil, nil, err
 	}

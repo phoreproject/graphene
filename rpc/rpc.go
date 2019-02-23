@@ -7,6 +7,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/phoreproject/prysm/shared/ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -23,6 +25,7 @@ import (
 // server is used to implement rpc.BlockchainRPCServer.
 type server struct {
 	chain *beacon.Blockchain
+	p2p   pb.P2PRPCClient
 }
 
 // SubmitBlock submits a block to the network after verifying it
@@ -36,6 +39,19 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 	h, err := ssz.TreeHash(b)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := proto.Marshal(b.ToProto())
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.p2p.Broadcast(context.Background(), &pb.MessageAndTopic{
+		Topic: "block",
+		Data:  data,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +203,13 @@ func (s *server) GetProposerSlots(ctx context.Context, in *pb.GetProposerSlotsRe
 }
 
 // Serve serves the RPC server
-func Serve(listenAddr string, b *beacon.Blockchain) error {
+func Serve(listenAddr string, b *beacon.Blockchain, p2p pb.P2PRPCClient) error {
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterBlockchainRPCServer(s, &server{b})
+	pb.RegisterBlockchainRPCServer(s, &server{b, p2p})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	err = s.Serve(lis)

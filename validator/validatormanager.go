@@ -146,12 +146,12 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 		return nil, err
 	}
 
-	for i := range validators {
-		v, err := NewValidator(keystore, blockchainRPC, p2pRPC, validators[i], &m, c, forkData)
+	for idx, id := range validators {
+		v, err := NewValidator(keystore, blockchainRPC, p2pRPC, validators[idx], &m, c, forkData)
 		if err != nil {
 			return nil, err
 		}
-		validatorObjs[uint32(i)] = v
+		validatorObjs[uint32(id)] = v
 	}
 
 	vm := &Manager{

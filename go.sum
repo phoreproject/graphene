@@ -164,6 +164,8 @@ github.com/phoreproject/bls v0.0.0-20190206220808-3635f34483c1 h1:5IKqDt44oOdiWs
 github.com/phoreproject/bls v0.0.0-20190206220808-3635f34483c1/go.mod h1:WkghjrsENqFWdUCUdL0WQGbNvEhOySe2XomMtDnV6tk=
 github.com/phoreproject/bls v0.0.0-20190210004821-d3edbe5b5ff0 h1:7WRy5gpfdatvwC2xyhKBJixHGZ1yK2ocvPkwSW8dyIM=
 github.com/phoreproject/bls v0.0.0-20190210004821-d3edbe5b5ff0/go.mod h1:WkghjrsENqFWdUCUdL0WQGbNvEhOySe2XomMtDnV6tk=
+github.com/phoreproject/bls v0.0.0-20190219000203-afaefda3ea64 h1:AivAe+zH22XMDvefvKQWxC27tbtYs2O5xhvQf0ekoZY=
+github.com/phoreproject/bls v0.0.0-20190219000203-afaefda3ea64/go.mod h1:WkghjrsENqFWdUCUdL0WQGbNvEhOySe2XomMtDnV6tk=
 github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134 h1:teJP124BvJaEsNYTEHfx241FDAtiJASQTBRxgC5x9xY=
 github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134/go.mod h1:eb+5SXNhgPJ90qZnYo+RfYdjv7/l1W98bSuR+FEaso0=
 github.com/pkg/errors v0.8.0 h1:WdK/asTD0HN+q6hsWO3/vpuAkAr+tw6aNJNDFFf0+qw=
@@ -213,6 +215,8 @@ golang.org/x/crypto v0.0.0-20190208162236-193df9c0f06f h1:ETU2VEl7TnT5bl7IvuKEzT
 golang.org/x/crypto v0.0.0-20190208162236-193df9c0f06f/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 h1:ng3VDlRp5/DHpSWl02R4rM9I+8M2rhmsuLwAMmkLQWE=
 golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+golang.org/x/crypto v0.0.0-20190222235706-ffb98f73852f h1:qWFY9ZxP3tfI37wYIs/MnIAqK0vlXp1xnYEa5HxFSSY=
+golang.org/x/crypto v0.0.0-20190222235706-ffb98f73852f/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
 golang.org/x/net v0.0.0-20180524181706-dfa909b99c79/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20180826012351-8a410e7b638d/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
@@ -232,6 +236,8 @@ golang.org/x/sys v0.0.0-20190102155601-82a175fd1598 h1:S8GOgffXV1X3fpVG442QRfWOt
 golang.org/x/sys v0.0.0-20190102155601-82a175fd1598/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190209173611-3b5209105503 h1:5SvYFrOM3W8Mexn9/oA44Ji7vhXAZQ9hiP+1Q/DMrWg=
 golang.org/x/sys v0.0.0-20190209173611-3b5209105503/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20190222171317-cd391775e71e h1:oF7qaQxUH6KzFdKN4ww7NpPdo53SZi4UlcksLrb2y/o=
+golang.org/x/sys v0.0.0-20190222171317-cd391775e71e/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/tools v0.0.0-20180828015842-6cd1fcedba52/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=

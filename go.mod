@@ -55,7 +55,7 @@ require (
 	github.com/multiformats/go-multiaddr-net v1.7.1
 	github.com/multiformats/go-multibase v0.3.0 // indirect
 	github.com/multiformats/go-multistream v0.3.9 // indirect
-	github.com/phoreproject/bls v0.0.0-20190210004821-d3edbe5b5ff0
+	github.com/phoreproject/bls v0.0.0-20190219000203-afaefda3ea64
 	github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134
 	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051 // indirect
 	github.com/sirupsen/logrus v1.3.0
@@ -71,8 +71,8 @@ require (
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
 	github.com/whyrusleeping/yamux v1.1.5 // indirect
 	golang.org/x/arch v0.0.0-20181203225421-5a4828bb7045 // indirect
-	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 // indirect
+	golang.org/x/crypto v0.0.0-20190222235706-ffb98f73852f // indirect
 	golang.org/x/net v0.0.0-20190206173232-65e2d4e15006
-	golang.org/x/sys v0.0.0-20190209173611-3b5209105503 // indirect
+	golang.org/x/sys v0.0.0-20190222171317-cd391775e71e // indirect
 	google.golang.org/grpc v1.18.0
 )

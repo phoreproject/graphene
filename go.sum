@@ -114,6 +114,8 @@ github.com/libp2p/go-libp2p-transport-upgrader v0.1.16 h1:lUvSzPZHNgjZREVVv22IU4
 github.com/libp2p/go-libp2p-transport-upgrader v0.1.16/go.mod h1:5r+arPlxwtCEF1aVi/fTQF/ZWGSPHLxBov1DlXDevDA=
 github.com/libp2p/go-maddr-filter v1.1.10 h1:wzVup6MP3FLiiMnK9A2WlIx97UIPflyjEdIBzpYBbb4=
 github.com/libp2p/go-maddr-filter v1.1.10/go.mod h1:9uHkmfw086BVLQyQFAbe/peEO9Iley6dafqm3cKHIAk=
+github.com/libp2p/go-mplex v0.0.0-20190218180303-8ac902b6abdf h1:c8XXqVqqZ0hzHpV5dG61KGlLXXuqNHn1xMB3/z7Oyhg=
+github.com/libp2p/go-mplex v0.0.0-20190218180303-8ac902b6abdf/go.mod h1:00WmJEYVKH/Kz6wCom3VmxX7re6B/jgSZmkydBYAZ1w=
 github.com/libp2p/go-mplex v0.2.30 h1:oU4Tcs/0Mftdrm3/SXKtwy2SMdLY6oYv/V/FFQYRxXM=
 github.com/libp2p/go-mplex v0.2.30/go.mod h1:00WmJEYVKH/Kz6wCom3VmxX7re6B/jgSZmkydBYAZ1w=
 github.com/libp2p/go-msgio v0.0.6 h1:e8n/z4Z3AP9gmOITuJVLuD9Ok0ZOvjiNDsh1AAhd4EY=

@@ -7,30 +7,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/phoreproject/synapse/bls"
-
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
+
+	"github.com/phoreproject/synapse/beacon"
+
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/validator"
 )
-
-type hdReader struct {
-	state chainhash.Hash
-}
-
-func (r *hdReader) Read(p []byte) (n int, err error) {
-	length := len(p)
-	sent := 0
-	for sent < length {
-		amountToSend := length - sent
-		if amountToSend > chainhash.HashSize {
-			amountToSend = chainhash.HashSize
-		}
-		copy(p[sent:sent+amountToSend], r.state[:])
-		r.state = chainhash.HashH(r.state[:])
-		sent += amountToSend
-	}
-
-	return sent, nil
-}
 
 func main() {
 	rootkey := flag.String("rootkey", "", "this key derives all other keys")
@@ -66,8 +51,6 @@ func main() {
 		}
 	}
 
-	rand := hdReader{chainhash.HashH([]byte(*rootkey))}
-
 	f, err := os.Create(*outfile)
 	if err != nil {
 		panic(err)
@@ -80,7 +63,7 @@ func main() {
 	}
 
 	for _, v := range validatorIndices {
-		key, _ := bls.RandSecretKey(&rand)
+		key, _ := bls.RandSecretKey(validator.GetReaderForID(*rootkey, v))
 
 		pub := key.DerivePublicKey()
 
@@ -92,7 +75,28 @@ func main() {
 		}
 
 		pubSer := pub.Serialize()
-		_, err = f.Write(pubSer[:])
+
+		h, err := ssz.TreeHash(pubSer)
+		if err != nil {
+			panic(err)
+		}
+
+		sig, err := bls.Sign(key, h[:], bls.DomainDeposit)
+		if err != nil {
+			panic(err)
+		}
+
+		sigSer := sig.Serialize()
+
+		iv := beacon.InitialValidatorEntry{
+			PubKey:                pubSer,
+			ProofOfPossession:     sigSer,
+			WithdrawalShard:       0,
+			WithdrawalCredentials: chainhash.Hash{},
+			DepositSize:           config.MainNetConfig.MaxDeposit * config.UnitInCoin,
+		}
+
+		err = binary.Write(f, binary.BigEndian, iv)
 		if err != nil {
 			panic(err)
 		}

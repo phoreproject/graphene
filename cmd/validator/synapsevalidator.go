@@ -1,17 +1,12 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/phoreproject/synapse/beacon/config"
 
-	"github.com/phoreproject/synapse/bls"
-
-	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/validator"
 	"github.com/sirupsen/logrus"
 
@@ -25,7 +20,7 @@ func main() {
 	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
 	p2pConnect := flag.String("p2pconnect", ":11783", "host and port for P2P rpc connection")
 	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
-	fakeValidatorKeyStore := flag.String("fakevalidatorkeys", "keypairs.bin", "key file of fake validators")
+	rootkey := flag.String("rootkey", "testnet", "root key to run validators")
 	flag.Parse()
 
 	validatorsStrings := strings.Split(*validators, ",")
@@ -74,42 +69,7 @@ func main() {
 		panic(err)
 	}
 
-	f, err := os.Open(*fakeValidatorKeyStore)
-	if err != nil {
-		panic(err)
-	}
-
-	var lengthBytes [4]byte
-
-	_, err = f.Read(lengthBytes[:])
-	if err != nil {
-		panic(err)
-	}
-
-	length := binary.BigEndian.Uint32(lengthBytes[:])
-
-	vs := make([]beacon.InitialValidatorEntryAndPrivateKey, length)
-
-	for i := uint32(0); i < length; i++ {
-		var iv beacon.InitialValidatorEntryAndPrivateKey
-		binary.Read(f, binary.BigEndian, &iv)
-		vs[i] = iv
-	}
-
-	keys := make(map[uint32]*bls.SecretKey)
-
-	for i := range vs {
-		if _, found := validatorIndicesMap[i]; !found {
-			continue
-		}
-		key := bls.DeserializeSecretKey(vs[i].PrivateKey)
-		if err != nil {
-			panic(err)
-		}
-		keys[uint32(i)] = &key
-	}
-
-	vm, err := validator.NewManager(blockchainConn, p2pConn, validatorIndices, validator.NewMemoryKeyStore(keys), &config.MainNetConfig)
+	vm, err := validator.NewManager(blockchainConn, p2pConn, validatorIndices, validator.NewRootKeyStore(*rootkey), &config.MainNetConfig)
 	if err != nil {
 		panic(err)
 	}

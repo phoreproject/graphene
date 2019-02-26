@@ -9,7 +9,6 @@ import (
 	"github.com/phoreproject/synapse/beacon"
 	pb "github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -54,6 +53,8 @@ func (s mainRPCServer) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequ
 }
 
 func (s mainRPCServer) GetSlotAndShardAssignment(ctx context.Context, in *pb.GetSlotAndShardAssignmentRequest) (*pb.SlotAndShardAssignment, error) {
+	return nil, nil
+	/* to be fixed
 	shardID, slot, role, err := s.chain.GetSlotAndShardAssignment(in.ValidatorID)
 	if err != nil {
 		return nil, err
@@ -71,14 +72,19 @@ func (s mainRPCServer) GetSlotAndShardAssignment(ctx context.Context, in *pb.Get
 		"role":        r}).Debug("slot shard assignment")
 
 	return &pb.SlotAndShardAssignment{ShardID: uint32(shardID), Slot: slot, Role: r}, nil
+	*/
 }
 
 func (s mainRPCServer) GetValidatorAtIndex(ctx context.Context, in *pb.GetValidatorAtIndexRequest) (*pb.GetValidatorAtIndexResponse, error) {
+	return nil, nil
+
+	/* to be fixed
 	validator, err := s.chain.GetValidatorAtIndex(in.Index)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetValidatorAtIndexResponse{Validator: validator.ToProto()}, nil
+	*/
 }
 
 func (s mainRPCServer) GetCommitteeValidators(ctx context.Context, in *pb.GetCommitteeValidatorsRequest) (*pb.GetCommitteeValidatorsResponse, error) {
@@ -111,7 +117,7 @@ func StartMainRPCServe(listenAddr string, b *beacon.Blockchain) error {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterBlockchainRPCServer(s, &mainRPCServer{b})
+	//pb.RegisterBlockchainRPCServer(s, &mainRPCServer{b})
 	// Register reflection service on gRPC mainRPCServer.
 	reflection.Register(s)
 	err = s.Serve(lis)

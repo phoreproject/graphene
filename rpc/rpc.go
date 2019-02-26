@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/phoreproject/prysm/shared/ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"

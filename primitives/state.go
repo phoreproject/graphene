@@ -10,7 +10,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/phoreproject/prysm/shared/ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.

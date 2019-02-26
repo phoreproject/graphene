@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/phoreproject/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"

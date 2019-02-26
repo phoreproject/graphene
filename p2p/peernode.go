@@ -9,11 +9,13 @@ import (
 
 // PeerNode is the node for the peer
 type PeerNode struct {
-	stream          inet.Stream
-	writer          *bufio.Writer
-	outbound        bool
-	lastPingTime    uint64
-	lastMessageTime uint64
+	stream   inet.Stream
+	writer   *bufio.Writer
+	outbound bool
+
+	LastPingNonce   uint64
+	LastPingTime    uint64
+	LastMessageTime uint64
 }
 
 // newPeerNode creates a P2pPeerNode
@@ -22,6 +24,10 @@ func newPeerNode(stream inet.Stream, outbound bool) *PeerNode {
 		stream:   stream,
 		writer:   bufio.NewWriter(stream),
 		outbound: outbound,
+
+		LastPingNonce:   0,
+		LastPingTime:    0,
+		LastMessageTime: 0,
 	}
 }
 
@@ -38,4 +44,8 @@ func (node *PeerNode) IsOutbound() bool {
 // IsInbound returns true if the connection is an inbound
 func (node *PeerNode) IsInbound() bool {
 	return !node.IsOutbound()
+}
+
+func (node *PeerNode) disconnect() {
+	node.stream.Reset()
 }

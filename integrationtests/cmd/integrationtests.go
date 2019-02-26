@@ -8,6 +8,7 @@ import (
 
 	"github.com/phoreproject/synapse/integrationtests"
 	"github.com/phoreproject/synapse/integrationtests/framework"
+	logger "github.com/sirupsen/logrus"
 )
 
 type multipleFlags []string
@@ -22,6 +23,8 @@ func (i *multipleFlags) Set(value string) error {
 }
 
 func main() {
+	logger.SetLevel(logger.TraceLevel)
+
 	var flagTest multipleFlags
 	flag.Var(&flagTest, "test", "Specify the test name, can't multiple.")
 	flag.Parse()

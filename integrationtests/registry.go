@@ -3,7 +3,6 @@ package testcase
 import (
 	"flag"
 
-	"github.com/phoreproject/synapse/integrationtests/beacon"
 	"github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/integrationtests/p2p"
 )
@@ -17,18 +16,13 @@ var EntryList = []testframework.Entry{
 	},
 
 	testframework.Entry{
-		Name:    "p2p",
-		Creator: func() testframework.IntegrationTest { return p2p.P2pTest{} },
-	},
-
-	testframework.Entry{
 		Name:    "directmessage",
 		Creator: func() testframework.IntegrationTest { return p2p.DirectMessageTest{} },
 	},
 
 	testframework.Entry{
-		Name:    "beaconapp",
-		Creator: func() testframework.IntegrationTest { return beaconapp.BeaconAppTest{} },
+		Name:    "p2papp",
+		Creator: func() testframework.IntegrationTest { return p2p.TestCase{} },
 	},
 
 	testframework.Entry{

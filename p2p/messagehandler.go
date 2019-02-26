@@ -18,7 +18,7 @@ func writeMessage(message proto.Message, writer *bufio.Writer) error {
 		return err
 	}
 
-	logger.WithField("Function", "writeMessage").Info("Sending")
+	logger.WithField("Function", "writeMessage").Infof("Sending %s", proto.MessageName(message))
 	messageName := proto.MessageName(message)
 	nameBytes := []byte(messageName)
 	nameLength := len(nameBytes)

@@ -14,9 +14,8 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	multiaddr "github.com/multiformats/go-multiaddr"
-	"github.com/phoreproject/synapse/beacon"
-	pb "github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -25,28 +24,37 @@ type messageHandler func(peer *PeerNode, message proto.Message)
 type anyMessageHandler func(peer *PeerNode, message proto.Message) bool
 type onPeerConnectedHandler func(peer *PeerNode)
 
-// HostNode is the node for host
+// HostNode is the node for p2p host
+// It's used only for do P2P communication to the internet
 type HostNode struct {
-	publicKey         crypto.PubKey
-	privateKey        crypto.PrivKey
-	host              host.Host
-	ctx               context.Context
-	cancel            context.CancelFunc
-	grpcServer        *grpc.Server
+	publicKey  crypto.PubKey
+	privateKey crypto.PrivKey
+	host       host.Host
+	gossipSub  *pubsub.PubSub
+	ctx        context.Context
+	cancel     context.CancelFunc
+	// TODO: the local RPC related stuff may be put in the shared RPC folder in shared code base
+	grpcServer *grpc.Server
+	// a messageHandler is called when a message with certain name is received
 	messageHandlerMap map[string]messageHandler
+	// anyMessagehandler is called upon any message is received
 	anyMessagehandler anyMessageHandler
 	onPeerConnected   onPeerConnectedHandler
 
-	peerList           []*PeerNode
-	inboundPeerList    []*PeerNode
-	outboundPeerList   []*PeerNode
+	// All peers that connected successfully with correct handshake
+	livePeerList []*PeerNode
+	// All live peers that are inbound
+	inboundPeerList []*PeerNode
+	// All live peers that are outbound
+	outboundPeerList []*PeerNode
+	// Connecting but not handshaked peers
 	connectingPeerList []*PeerNode
 }
 
 var protocolID = protocol.ID("/grpc/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, chain *beacon.Blockchain) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	host, err := libp2p.New(
 		ctx,
@@ -68,11 +76,18 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
+	g, err := pubsub.NewGossipSub(ctx, host)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
 	grpcServer := grpc.NewServer()
 	hostNode := HostNode{
 		publicKey:         publicKey,
 		privateKey:        privateKey,
 		host:              host,
+		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
 		grpcServer:        grpcServer,
@@ -81,7 +96,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
 
-	pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer(chain))
+	//pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer(chain))
 
 	return &hostNode, nil
 }
@@ -92,6 +107,8 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
+	logger.Infof("Received message: %s", proto.MessageName(message))
+
 	if node.anyMessagehandler != nil {
 		if !node.anyMessagehandler(peer, message) {
 			return
@@ -124,6 +141,7 @@ func (node *HostNode) SetOnPeerConnectedHandler(handler onPeerConnectedHandler) 
 func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
 		if p == peerInfo.ID {
+			logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("connecting to self, abort")
 			return nil, nil
 		}
 	}
@@ -160,6 +178,7 @@ func (node *HostNode) createPeerNodeFromStream(stream inet.Stream, outbound bool
 }
 
 // GetGRPCServer returns the grpc server.
+// TODO: the local RPC related stuff may be put in the shared RPC folder in shared code base
 func (node *HostNode) GetGRPCServer() *grpc.Server {
 	return node.grpcServer
 }
@@ -217,9 +236,44 @@ func (node *HostNode) GetHost() host.Host {
 	return node.host
 }
 
-// GetPeerList returns all peer list, including both inbound and outbound
-func (node *HostNode) GetPeerList() []*PeerNode {
-	return node.peerList
+// Broadcast broadcasts a message to the network for a topic.
+func (node *HostNode) Broadcast(topic string, data []byte) error {
+	return node.gossipSub.Publish(topic, data)
+}
+
+// SubscribeMessage registers a handler for a network topic.
+func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
+	subscription, err := node.gossipSub.Subscribe(topic)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			msg, err := subscription.Next(node.ctx)
+			if err != nil {
+				logger.WithField("error", err).Warn("error when getting next topic message")
+				return
+			}
+
+			err = handler(msg.Data)
+			if err != nil {
+				logger.WithField("topic", topic).WithField("error", err).Warn("error when handling message")
+			}
+		}
+	}()
+
+	return subscription, nil
+}
+
+// UnsubscribeMessage cancels a subscription to a topic.
+func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
+	subscription.Cancel()
+}
+
+// GetLivePeerList returns all peer list, including both inbound and outbound
+func (node *HostNode) GetLivePeerList() []*PeerNode {
+	return node.livePeerList
 }
 
 // GetInboundPeerList returns the inbound peer list
@@ -234,10 +288,43 @@ func (node *HostNode) GetOutboundPeerList() []*PeerNode {
 
 // PeerDoneHandShake is called when handshaking is finished
 func (node *HostNode) PeerDoneHandShake(peer *PeerNode) {
-	node.peerList = append(node.peerList, peer)
+	for i, p := range node.connectingPeerList {
+		if p == peer {
+			node.connectingPeerList = append(node.connectingPeerList[:i], node.connectingPeerList[i+1:]...)
+			break
+		}
+	}
+	node.livePeerList = append(node.livePeerList, peer)
 	if peer.IsOutbound() {
 		node.outboundPeerList = append(node.outboundPeerList, peer)
 	} else {
 		node.inboundPeerList = append(node.inboundPeerList, peer)
 	}
+}
+
+func (node *HostNode) removePeer(peer *PeerNode) {
+	for i, p := range node.livePeerList {
+		if p == peer {
+			node.livePeerList = append(node.livePeerList[:i], node.livePeerList[i+1:]...)
+			break
+		}
+	}
+	for i, p := range node.outboundPeerList {
+		if p == peer {
+			node.outboundPeerList = append(node.outboundPeerList[:i], node.outboundPeerList[i+1:]...)
+			break
+		}
+	}
+	for i, p := range node.inboundPeerList {
+		if p == peer {
+			node.inboundPeerList = append(node.inboundPeerList[:i], node.inboundPeerList[i+1:]...)
+			break
+		}
+	}
+}
+
+// DisconnectPeer disconnects a peer
+func (node *HostNode) DisconnectPeer(peer *PeerNode) {
+	peer.disconnect()
+	node.removePeer(peer)
 }

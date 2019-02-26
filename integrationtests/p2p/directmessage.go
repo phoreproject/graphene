@@ -7,10 +7,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
@@ -58,8 +54,8 @@ func (test DirectMessageTest) Execute(service *testframework.TestService) error 
 	for i := 0; i < 5; i++ {
 		message := fmt.Sprintf("Test message of %d", i)
 		fmt.Printf("Request: %s\n", message)
-		hostNode0.GetPeerList()[0].SendMessage(&pb.TestMessage{Message: "Node0 " + message})
-		hostNode1.GetPeerList()[0].SendMessage(&pb.TestMessage{Message: "Node1 " + message})
+		hostNode0.GetLivePeerList()[0].SendMessage(&pb.TestMessage{Message: "Node0 " + message})
+		hostNode1.GetLivePeerList()[0].SendMessage(&pb.TestMessage{Message: "Node1 " + message})
 
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -83,22 +79,7 @@ func createHostNodeForDirectMessage(index int) (*testNodeDirectMessage, error) {
 		return nil, err
 	}
 
-	database := db.NewInMemoryDB()
-	c := config.MainNetConfig
-	validators := []beacon.InitialValidatorEntry{}
-	//randaoCommitment := chainhash.HashH([]byte("test"))
-	for i := 0; i <= int(c.EpochLength)*(c.TargetCommitteeSize*2); i++ {
-		validators = append(validators, beacon.InitialValidatorEntry{
-			//PubKey:                bls.PublicKey{},
-			//ProofOfPossession:     bls.Signature{},
-			WithdrawalShard:       1,
-			WithdrawalCredentials: chainhash.Hash{},
-			//RandaoCommitment:      randaoCommitment,
-		})
-	}
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
-
-	hostNode, err := p2p.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey, blockchain)
+	hostNode, err := p2p.NewHostNode(createNodeAddressForDirectMessage(index), publicKey, privateKey)
 	if err != nil {
 		logger.WithField("Function", "createHostNodeForDirectMessage").Warn(err)
 		return nil, err

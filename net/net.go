@@ -7,13 +7,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/libp2p/go-libp2p-crypto"
+	crypto "github.com/libp2p/go-libp2p-crypto"
 
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 
 	logger "github.com/sirupsen/logrus"
 
-	"github.com/multiformats/go-multiaddr"
+	multiaddr "github.com/multiformats/go-multiaddr"
 
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-host"
@@ -46,7 +46,6 @@ func (n *NetworkingService) RegisterHandler(topic string, handler func([]byte) e
 		for {
 			msg, err := s.Next(n.ctx)
 			if err != nil {
-				logger.WithField("error", err).Warn("error when getting next topic message")
 				return
 			}
 

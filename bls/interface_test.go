@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 func TestBasicSignature(t *testing.T) {
@@ -210,6 +211,30 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	}
 
 	valid, err := bls.VerifySig(pub, []byte("testing!"), sigAfter, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !valid {
+		t.Fatal("signature did not verify")
+	}
+}
+
+func TestSerializeDeserializeSecret(t *testing.T) {
+	r := NewXORShift(1)
+
+	k, _ := bls.RandSecretKey(r)
+	pub := k.DerivePublicKey()
+
+	kSer := k.Serialize()
+	kNew := bls.DeserializeSecretKey(kSer)
+
+	sig, err := bls.Sign(&kNew, chainhash.HashB([]byte("testing!")), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	valid, err := bls.VerifySig(pub, chainhash.HashB([]byte("testing!")), sig, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

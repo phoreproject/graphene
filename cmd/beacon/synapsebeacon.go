@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"flag"
-
-	"github.com/phoreproject/synapse/validator"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"os"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/rpc"
@@ -20,14 +18,19 @@ import (
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/db"
 
+	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
 const clientVersion = "0.0.1"
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
+
 	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
+	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
+	fakeValidatorKeyStore := flag.String("fakevalidatorkeys", "keypairs.bin", "key file of fake validators")
 	flag.Parse()
 
 	logger.WithField("version", clientVersion).Info("initializing client")
@@ -40,31 +43,58 @@ func main() {
 
 	validators := []beacon.InitialValidatorEntry{}
 
-	keystore := validator.NewFakeKeyStore()
+	if fakeValidatorKeyStore == nil {
+		// we should load this data from chain config file
+		// for i := uint64(0); i <= c.EpochLength*(uint64(c.TargetCommitteeSize)*2); i++ {
+		// 	priv := keystore.GetKeyForValidator(uint32(i))
+		// 	pub := priv.DerivePublicKey()
+		// 	hashPub, err := ssz.TreeHash(pub.Serialize())
+		// 	if err != nil {
+		// 		panic(err)
+		// 	}
+		// 	proofOfPossession, err := bls.Sign(priv, hashPub[:], bls.DomainDeposit)
+		// 	if err != nil {
+		// 		panic(err)
+		// 	}
+		// 	validators = append(validators, beacon.InitialValidatorEntry{
+		// 		PubKey:                pub.Serialize(),
+		// 		ProofOfPossession:     proofOfPossession.Serialize(),
+		// 		WithdrawalShard:       1,
+		// 		WithdrawalCredentials: chainhash.Hash{},
+		// 		DepositSize:           c.MaxDeposit * config.UnitInCoin,
+		// 	})
+		// }
+	} else {
+		// we should load the keys from the validator keystore
+		f, err := os.Open(*fakeValidatorKeyStore)
+		if err != nil {
+			panic(err)
+		}
 
-	for i := uint64(0); i <= c.EpochLength*(uint64(c.TargetCommitteeSize)*2); i++ {
-		priv := keystore.GetKeyForValidator(uint32(i))
-		pub := priv.DerivePublicKey()
-		hashPub, err := ssz.TreeHash(pub.Serialize())
+		var lengthBytes [4]byte
+
+		_, err = f.Read(lengthBytes[:])
 		if err != nil {
 			panic(err)
 		}
-		proofOfPossession, err := bls.Sign(priv, hashPub[:], bls.DomainDeposit)
-		if err != nil {
-			panic(err)
+
+		length := binary.BigEndian.Uint32(lengthBytes[:])
+
+		validators = make([]beacon.InitialValidatorEntry, length)
+
+		for i := uint32(0); i < length; i++ {
+			var iv beacon.InitialValidatorEntryAndPrivateKey
+			binary.Read(f, binary.BigEndian, &iv)
+			validators[i] = iv.Entry
 		}
-		validators = append(validators, beacon.InitialValidatorEntry{
-			PubKey:                pub.Serialize(),
-			ProofOfPossession:     proofOfPossession.Serialize(),
-			WithdrawalShard:       1,
-			WithdrawalCredentials: chainhash.Hash{},
-			DepositSize:           c.MaxDeposit * config.UnitInCoin,
-		})
 	}
 
-	logger.WithField("numValidators", len(validators)).Info("initializing blockchain with validators")
+	if *genesisTime == 0 {
+		*genesisTime = uint64(time.Now().Unix())
+	}
 
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true)
+	logger.WithField("numValidators", len(validators)).WithField("genesisTime", *genesisTime).Info("initializing blockchain with validators")
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true, *genesisTime)
 	if err != nil {
 		panic(err)
 	}
@@ -101,17 +131,17 @@ func main() {
 				panic(err)
 			}
 
-			var blockProto *pb.Block
+			blockProto := new(pb.Block)
 
 			err = proto.Unmarshal(msg.Data, blockProto)
 			if err != nil {
 				continue
 			}
 
-			block := &primitives.Block{}
-			// if err != nil {
-			// 	continue
-			// }
+			block, err := primitives.BlockFromProto(blockProto)
+			if err != nil {
+				continue
+			}
 
 			newBlocks <- *block
 		}
@@ -119,7 +149,7 @@ func main() {
 
 	logger.Info("initializing RPC")
 
-	err = rpc.Serve(*rpcConnect, blockchain)
+	err = rpc.Serve(*rpcConnect, blockchain, p2p)
 	if err != nil {
 		panic(err)
 	}

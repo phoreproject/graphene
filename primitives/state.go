@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -422,18 +421,22 @@ func (s *State) InitiateValidatorExit(index uint32) error {
 
 // GetBeaconProposerIndex gets the validator index of the block proposer at a certain
 // slot.
-func (s *State) GetBeaconProposerIndex(slot uint64, c *config.Config) uint32 {
-	firstCommittee := s.GetShardCommitteesAtSlot(slot, c)[0].Committee
-	return firstCommittee[int(slot)%len(firstCommittee)]
+func (s *State) GetBeaconProposerIndex(stateSlot uint64, slot uint64, c *config.Config) (uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, c)
+	if err != nil {
+		return 0, err
+	}
+	firstCommittee := committees[0].Committee
+	return firstCommittee[int(slot)%len(firstCommittee)], nil
 }
 
 // ExitValidator handles state changes when a validator exits.
-func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) {
+func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) error {
 	validator := s.ValidatorRegistry[index]
 	prevStatus := validator.Status
 
 	if prevStatus == ExitedWithPenalty {
-		return
+		return nil
 	}
 
 	validator.Status = status
@@ -442,23 +445,27 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) {
 	if status == ExitedWithPenalty {
 		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
 
-		whistleblowerIndex := s.GetBeaconProposerIndex(s.Slot, c)
+		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, s.Slot, c)
+		if err != nil {
+			return err
+		}
 		whistleblowerReward := s.GetEffectiveBalance(index, c) / c.WhistleblowerRewardQuotient
 		s.ValidatorBalances[whistleblowerIndex] += whistleblowerReward
 		s.ValidatorBalances[index] -= whistleblowerReward
 	}
 
 	if prevStatus == ExitedWithoutPenalty {
-		return
+		return nil
 	}
 
 	s.ValidatorRegistryExitCount++
 	validator.ExitCount = s.ValidatorRegistryExitCount
 	deltaChainTip, err := GetNewValidatorRegistryDeltaChainTip(s.ValidatorRegistryDeltaChainTip, index, validator.Pubkey, ExitFlag)
 	if err != nil {
-		return
+		return err
 	}
 	s.ValidatorRegistryDeltaChainTip = deltaChainTip
+	return nil
 }
 
 // UpdateValidatorStatus moves a validator to a specific status.
@@ -470,7 +477,8 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 		err := s.InitiateValidatorExit(index)
 		return err
 	} else if status == ExitedWithPenalty || status == ExitedWithoutPenalty {
-		s.ExitValidator(index, status, c)
+		err := s.ExitValidator(index, status, c)
+		return err
 	}
 	return nil
 }
@@ -550,26 +558,13 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 	return nil, fmt.Errorf("unable to find committee based on shard: %v", shardID)
 }
 
-// CommitteeInShardAndSlot gets the committee of validator indices at a specific
-// shard and slot given the relative slot number [0, CYCLE_LENGTH] and shard ID.
-func CommitteeInShardAndSlot(slotIndex uint64, shardID uint64, shardCommittees [][]ShardAndCommittee) ([]uint32, error) {
-	shardCommittee := shardCommittees[slotIndex]
-
-	return ShardCommitteeByShardID(shardID, shardCommittee)
-}
-
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
-func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) []ShardAndCommittee {
-	earliestSlot := slot - (slot % c.EpochLength) - c.EpochLength
-	return s.ShardAndCommitteeForSlots[slot-earliestSlot]
-}
-
-// GetAttesterIndices gets all of the validator indices involved with the committee
-// assigned to the shard and slot of the committee.
-func (s *State) GetAttesterIndices(slot uint64, shard uint64, con *config.Config) ([]uint32, error) {
-	slotsStart := (s.Slot % con.EpochLength) - con.EpochLength
-	slotIndex := (slot - slotsStart) % uint64(con.EpochLength)
-	return CommitteeInShardAndSlot(slotIndex, shard, s.ShardAndCommitteeForSlots)
+func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
+	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
+	if int64(slot)-earliestSlot < 0 || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
+		return nil, fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot)
+	}
+	return s.ShardAndCommitteeForSlots[int64(slot)-earliestSlot], nil
 }
 
 // GetAttesterCommitteeSize gets the size of committee
@@ -581,25 +576,23 @@ func (s *State) GetAttesterCommitteeSize(slot uint64, con *config.Config) uint32
 
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
-	slotsStart := (s.Slot % con.EpochLength) - con.EpochLength
-	slotIndex := (slot - slotsStart) % uint64(con.EpochLength)
-	return CommitteeInShardAndSlot(slotIndex, shardID, s.ShardAndCommitteeForSlots)
+func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, con)
+	if err != nil {
+		return nil, err
+	}
+	return ShardCommitteeByShardID(shardID, committees)
 }
 
 // ValidateProofOfPossession validates a proof of possession for a new validator.
-func (s *State) ValidateProofOfPossession(pubkey [96]byte, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
+func (s *State) ValidateProofOfPossession(pubkey *bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
 	// fixme
 
-	h, err := ssz.TreeHash(pubkey)
+	h, err := ssz.TreeHash(pubkey.Serialize())
 	if err != nil {
 		return false, err
 	}
-	pub, err := bls.DeserializePublicKey(pubkey)
-	if err != nil {
-		return false, err
-	}
-	valid, err := bls.VerifySig(pub, h[:], &proofOfPossession, bls.DomainDeposit)
+	valid, err := bls.VerifySig(pubkey, h[:], &proofOfPossession, bls.DomainDeposit)
 	if err != nil {
 		return false, err
 	}
@@ -632,7 +625,7 @@ func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config 
 	if err != nil {
 		return err
 	}
-	pub, err := bls.DeserializePublicKey(proposer.Pubkey)
+	pub, err := proposer.GetPublicKey()
 	if err != nil {
 		return err
 	}
@@ -699,7 +692,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	pubKey1 := bls.NewAggregatePublicKey()
 
 	for _, i := range voteData.AggregateSignaturePoC0Indices {
-		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[i].Pubkey)
+		p, err := s.ValidatorRegistry[i].GetPublicKey()
 		if err != nil {
 			panic(err)
 		}
@@ -707,7 +700,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	}
 
 	for _, i := range voteData.AggregateSignaturePoC1Indices {
-		p, err := bls.DeserializePublicKey(s.ValidatorRegistry[i].Pubkey)
+		p, err := s.ValidatorRegistry[i].GetPublicKey()
 		if err != nil {
 			panic(err)
 		}
@@ -800,7 +793,7 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 		return errors.New("exit is not yet valid")
 	}
 
-	validatorPub, err := bls.DeserializePublicKey(validator.Pubkey)
+	validatorPub, err := validator.GetPublicKey()
 	if err != nil {
 		return err
 	}
@@ -829,22 +822,30 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 
 // GetAttestationParticipants gets the indices of participants.
 func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
-	shardCommittees := s.GetShardCommitteesAtSlot(data.Slot, c)
+	shardCommittees, err := s.GetShardCommitteesAtSlot(s.Slot-1, data.Slot, c)
+	if err != nil {
+		return nil, err
+	}
 	var shardCommittee ShardAndCommittee
+	found := false
 	for i := range shardCommittees {
 		if shardCommittees[i].Shard == data.Shard {
 			shardCommittee = shardCommittees[i]
+			found = true
 		}
 	}
+	if !found {
+		return nil, fmt.Errorf("could not find committee at slot %d and shard %d", data.Slot, data.Shard)
+	}
 
-	if len(participationBitfield) != int(math.Ceil(float64(len(shardCommittee.Committee))/8)) {
+	if len(participationBitfield) != (len(shardCommittee.Committee)+7)/8 {
 		return nil, errors.New("participation bitfield is of incorrect length")
 	}
 
 	participants := []uint32{}
 	for i, validatorIndex := range shardCommittee.Committee {
-		participationBit := (participationBitfield[i/8] >> (7 - (uint(i) % 8))) % 2
-		if participationBit == 1 {
+		participationBit := (participationBitfield[i/8] & (1 << (uint(i) % 8)))
+		if participationBit != 0 {
 			participants = append(participants, validatorIndex)
 		}
 	}
@@ -862,9 +863,14 @@ func MinEmptyValidator(validators []Validator, validatorBalances []uint64, c *co
 }
 
 // ProcessDeposit processes a deposit with the context of the current state.
-func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
+func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPossession [48]byte, withdrawalCredentials chainhash.Hash, skipValidation bool, c *config.Config) (uint32, error) {
 	if !skipValidation {
-		sigValid, err := s.ValidateProofOfPossession(pubkey, proofOfPossession, withdrawalCredentials)
+		sig, err := bls.DeserializeSignature(proofOfPossession)
+		if err != nil {
+			return 0, err
+		}
+
+		sigValid, err := s.ValidateProofOfPossession(pubkey, *sig, withdrawalCredentials)
 		if err != nil {
 			return 0, err
 		}
@@ -873,10 +879,12 @@ func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession
 		}
 	}
 
+	pubSer := pubkey.Serialize()
+
 	validatorAlreadyRegisteredIndex := -1
 
 	for i := range s.ValidatorRegistry {
-		if bytes.Equal(s.ValidatorRegistry[i].Pubkey[:], pubkey[:]) {
+		if bytes.Equal(s.ValidatorRegistry[i].Pubkey[:], pubSer[:]) {
 			validatorAlreadyRegisteredIndex = i
 		}
 	}
@@ -885,7 +893,8 @@ func (s *State) ProcessDeposit(pubkey [96]byte, amount uint64, proofOfPossession
 
 	if validatorAlreadyRegisteredIndex == -1 {
 		validator := Validator{
-			Pubkey:                  pubkey,
+			Pubkey:                  pubSer,
+			XXXPubkeyCached:         pubkey,
 			WithdrawalCredentials:   withdrawalCredentials,
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,
@@ -931,7 +940,8 @@ const (
 // Validator is a single validator session (logging in and out)
 type Validator struct {
 	// BLS public key
-	Pubkey [96]byte
+	Pubkey          [96]byte
+	XXXPubkeyCached *bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
 	// Status code
@@ -946,6 +956,18 @@ type Validator struct {
 	LastPoCChangeSlot uint64
 	// SecondLastPoCChangeSlot is the second to last time the PoC was changed
 	SecondLastPoCChangeSlot uint64
+}
+
+// GetPublicKey gets the cached validator pubkey.
+func (v *Validator) GetPublicKey() (*bls.PublicKey, error) {
+	if v.XXXPubkeyCached == nil {
+		pub, err := bls.DeserializePublicKey(v.Pubkey)
+		if err != nil {
+			return nil, err
+		}
+		v.XXXPubkeyCached = pub
+	}
+	return v.XXXPubkeyCached, nil
 }
 
 // Copy copies a validator instance.

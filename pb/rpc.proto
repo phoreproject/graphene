@@ -1,4 +1,3 @@
-// This is for RPC only
 syntax = "proto3";
 
 package pb;
@@ -12,11 +11,17 @@ service BlockchainRPC {
 
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
 
-    rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
+    rpc GetLastBlockHash(google.protobuf.Empty) returns (GetBlockHashResponse);
 
-    rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
+    rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
 
-    rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
+    rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);
+
+    rpc GetEpochInformation(google.protobuf.Empty) returns (EpochInformation);
+
+    rpc GetForkData(google.protobuf.Empty) returns (ForkData);
+
+    rpc GetProposerSlots(GetProposerSlotsRequest) returns (GetProposerSlotsResponse);
 }
 
 service P2PRPC {
@@ -35,6 +40,21 @@ service P2PRPC {
     rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
 
     rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+}
+
+message EpochInformation {
+    repeated SlotInformation Slots = 1;
+    int64 Slot = 3;
+    bytes EpochBoundaryRoot = 4;
+    repeated Crosslink LatestCrosslinks = 5;
+    uint64 JustifiedSlot = 6;
+    bytes JustifiedHash = 7;
+}
+
+message SlotInformation {
+    int64 Slot = 1;
+    repeated ShardCommittee Committees = 2;
+    uint64 ProposeAt = 3;
 }
 
 message ConnectionStatus {
@@ -86,6 +106,18 @@ enum Role {
     PROPOSER = 1;
 }
 
+message GetProposerSlotsRequest {
+    uint32 ValidatorID = 1;
+}
+
+message GetProposerSlotsResponse {
+    uint64 ProposerSlots = 2;
+}
+
+message GetCommitteesForSlotRequest {
+    uint64 Slot = 1;
+}
+
 message GetSlotAndShardAssignmentRequest {
     uint32 ValidatorID = 1;
 }
@@ -106,6 +138,7 @@ message SubmitBlockResponse {
 
 message SlotNumberResponse {
     uint64 SlotNumber = 1;
+    bytes BlockHash = 2;
 }
 
 message GetBlockHashRequest {
@@ -129,8 +162,20 @@ message GetCommitteeValidatorsRequest {
     uint32 Shard = 2;
 }
 
+message GetStateResponse {
+    State state = 1;
+}
+
+message GetStateRootResponse {
+    bytes StateRoot = 1;
+}
+
 message GetCommitteeValidatorsResponse {
     repeated Validator Validators = 1;
+}
+
+message GetCommitteeValidatorIndicesResponse {
+    repeated uint32 Validators = 1;
 }
 
 message ProposalSignedData {
@@ -294,5 +339,18 @@ message ValidatorRegistryDeltaBlock {
     uint32 ValidatorIndex = 2;
     bytes Pubkey = 3;
     uint64 Flag = 4;
+}
+
+message TestMessage {
+    string message = 1;
+}
+
+message AttestationRequest { // possibly sign this message to prevent DoS
+    bytes ParticipationBitfield = 1;
+}
+
+// This will be renamed to P2PRPC later
+service MainRPC {
+    rpc Test(TestMessage) returns (TestMessage);
 }
 

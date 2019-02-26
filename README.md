@@ -24,6 +24,14 @@ This is loosely based on the Ethereum sharding system.
 make test
 ```
 
+Also, to test validator code, run the following commands in 3 separate terminals in order:
+
+```bash
+go run cmd/p2p/synapsep2p.go
+go run cmd/beacon/synapsebeacon.go
+go run cmd/validator/synapsevalidator.go -validators 0-4095
+```
+
 ## Building
 
 ```bash

@@ -47,11 +47,11 @@ func (imdb *InMemoryDB) SetBlock(b primitives.Block) error {
 }
 
 // GetLatestAttestation gets the latest attestation from a validator.
-func (imdb *InMemoryDB) GetLatestAttestation(validator uint32) (primitives.Attestation, error) {
+func (imdb *InMemoryDB) GetLatestAttestation(validator uint32) (*primitives.Attestation, error) {
 	if att, found := imdb.AttestationDB[validator]; found {
-		return att, nil
+		return &att, nil
 	}
-	return primitives.Attestation{}, errors.New("could not find attestation for validator")
+	return nil, errors.New("could not find attestation for validator")
 }
 
 // SetLatestAttestation sets the latest attestation received from a validator.

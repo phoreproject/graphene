@@ -10,7 +10,7 @@ import (
 type Database interface {
 	GetBlockForHash(h chainhash.Hash) (*primitives.Block, error)
 	SetBlock(b primitives.Block) error
-	GetLatestAttestation(validator uint32) (primitives.Attestation, error)
+	GetLatestAttestation(validator uint32) (*primitives.Attestation, error)
 	SetLatestAttestation(validator uint32, attestation primitives.Attestation) error
 	Close()
 }

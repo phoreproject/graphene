@@ -53,6 +53,7 @@ require (
 	github.com/mattn/go-colorable v0.1.0 // indirect
 	github.com/miekg/dns v1.1.4 // indirect
 	github.com/minio/sha256-simd v0.0.0-20190131020904-2d45a736cd16 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/multiformats/go-multiaddr v1.4.0
 	github.com/multiformats/go-multiaddr-net v1.7.1
 	github.com/multiformats/go-multibase v0.3.0 // indirect

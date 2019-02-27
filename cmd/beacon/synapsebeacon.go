@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -34,10 +35,21 @@ func main() {
 	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
 	flag.Parse()
 
+	dir, err := config.GetBaseDirectory(true)
+	if err != nil {
+		panic(err)
+	}
+
+	dbDir := filepath.Join(dir, "db")
+	dbValuesDir := filepath.Join(dir, "dbv")
+
+	os.MkdirAll(dbDir, 0777)
+	os.MkdirAll(dbValuesDir, 0777)
+
 	logger.WithField("version", clientVersion).Info("initializing client")
 
 	logger.Info("initializing database")
-	database := db.NewInMemoryDB()
+	database := db.NewBadgerDB(dbDir, dbValuesDir)
 
 	defer database.Close()
 

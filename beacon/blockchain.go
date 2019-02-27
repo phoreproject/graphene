@@ -112,7 +112,7 @@ func (b *Blockchain) GetEpochBoundaryHash() (chainhash.Hash, error) {
 	return b.GetHashBySlot(epochBoundaryHeight)
 }
 
-func (b *Blockchain) getLatestAttestation(validator uint32) (primitives.Attestation, error) {
+func (b *Blockchain) getLatestAttestation(validator uint32) (*primitives.Attestation, error) {
 	return b.db.GetLatestAttestation(validator)
 }
 

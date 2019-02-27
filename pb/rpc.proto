@@ -22,6 +22,10 @@ service BlockchainRPC {
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
 
     rpc GetProposerSlots(GetProposerSlotsRequest) returns (GetProposerSlotsResponse);
+
+    rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
+
+    rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
 }
 
 service P2PRPC {
@@ -40,6 +44,22 @@ service P2PRPC {
     rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
 
     rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+}
+
+message GetBlockRequest {
+    bytes Hash = 1;
+}
+
+message GetBlockResponse {
+    Block Block = 1;
+}
+
+message GetProposerForSlotRequest {
+    uint64 Slot = 1;
+}
+
+message GetProposerForSlotResponse {
+    uint32 Proposer = 2;
 }
 
 message EpochInformation {

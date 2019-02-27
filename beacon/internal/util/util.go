@@ -168,7 +168,7 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 			justifiedSlot = s.PreviousJustifiedSlot
 		}
 
-		justifiedHash, err := b.GetHashByHeight(justifiedSlot)
+		justifiedHash, err := b.GetHashBySlot(justifiedSlot)
 		if err != nil {
 			return nil, err
 		}

@@ -22,6 +22,7 @@ var zeroHash = chainhash.Hash{}
 type blockNode struct {
 	hash     chainhash.Hash
 	height   uint64
+	slot     uint64
 	parent   *blockNode
 	children []*blockNode
 }
@@ -80,6 +81,7 @@ func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chai
 	node := &blockNode{
 		hash:     blockHash,
 		height:   height,
+		slot:     block.BlockHeader.SlotNumber,
 		parent:   parentNode,
 		children: []*blockNode{},
 	}
@@ -95,11 +97,9 @@ func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chai
 
 // getAncestor gets the ancestor of a block at a certain slot.
 func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
-	if slot > node.height {
-		return nil, errors.New("could not get block that is not ancestor of node")
-	}
 	current := node
-	for slot != current.height {
+	// go up to the slot after the slot we're searching for
+	for slot < current.slot {
 		current = current.parent
 	}
 	return current, nil
@@ -109,7 +109,7 @@ func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
 func (b *Blockchain) GetEpochBoundaryHash() (chainhash.Hash, error) {
 	height := b.Height()
 	epochBoundaryHeight := height - (height % b.config.EpochLength)
-	return b.GetHashByHeight(epochBoundaryHeight)
+	return b.GetHashBySlot(epochBoundaryHeight)
 }
 
 func (b *Blockchain) getLatestAttestation(validator uint32) (primitives.Attestation, error) {
@@ -314,10 +314,10 @@ func (b Blockchain) Tip() chainhash.Hash {
 	return tip
 }
 
-// GetHashByHeight gets the block hash at a certain height.
-func (b Blockchain) GetHashByHeight(height uint64) (chainhash.Hash, error) {
+// GetHashBySlot gets the block hash at a certain slot.
+func (b Blockchain) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
 	b.chain.lock.Lock()
-	node, err := getAncestor(b.chain.tip, height)
+	node, err := getAncestor(b.chain.tip, slot)
 	b.chain.lock.Unlock()
 	if err != nil {
 		return chainhash.Hash{}, err
@@ -337,6 +337,16 @@ func (b *Blockchain) LastBlock() (*primitives.Block, error) {
 		return nil, err
 	}
 	block, err := b.db.GetBlockForHash(bl.hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
+
+// GetBlockByHash gets a block by hash.
+func (b *Blockchain) GetBlockByHash(h chainhash.Hash) (*primitives.Block, error) {
+	block, err := b.db.GetBlockForHash(h)
 	if err != nil {
 		return nil, err
 	}

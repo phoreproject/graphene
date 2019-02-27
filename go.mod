@@ -15,6 +15,8 @@ require (
 	github.com/ipfs/go-ipfs-util v1.2.8 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.0.0-20150120210811-aac704a3f4f2 // indirect
 	github.com/jbenet/goprocess v0.0.0-20160826012719-b497e2f366b8 // indirect
+	github.com/labstack/echo v3.3.10+incompatible // indirect
+	github.com/labstack/gommon v0.2.8 // indirect
 	github.com/libp2p/go-addr-util v2.0.7+incompatible // indirect
 	github.com/libp2p/go-buffer-pool v0.1.3 // indirect
 	github.com/libp2p/go-conn-security v0.1.15 // indirect
@@ -60,6 +62,8 @@ require (
 	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051 // indirect
 	github.com/sirupsen/logrus v1.3.0
 	github.com/stretchr/testify v1.3.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 // indirect
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect
 	github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f // indirect
 	github.com/whyrusleeping/go-smux-multiplex v3.0.16+incompatible // indirect

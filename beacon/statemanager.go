@@ -176,7 +176,9 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 		return errors.New("justified slot did not match expected justified slot")
 	}
 
-	node, err := sm.blockchain.GetHashByHeight(att.Data.JustifiedSlot)
+	fmt.Println(att.Data.JustifiedSlot)
+
+	node, err := sm.blockchain.GetHashBySlot(att.Data.JustifiedSlot)
 	if err != nil {
 		return err
 	}
@@ -408,7 +410,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
-	previousEpochBoundaryHash, err := sm.blockchain.GetHashByHeight(newState.Slot - sm.config.EpochLength)
+	previousEpochBoundaryHash, err := sm.blockchain.GetHashBySlot(newState.Slot - sm.config.EpochLength)
 	if err != nil {
 		return err
 	}
@@ -482,7 +484,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	epochBoundaryHashMinus2 := chainhash.Hash{}
 	if newState.Slot >= 2*sm.config.EpochLength {
-		ebhm2, err := sm.blockchain.GetHashByHeight(newState.Slot - 2*sm.config.EpochLength)
+		ebhm2, err := sm.blockchain.GetHashBySlot(newState.Slot - 2*sm.config.EpochLength)
 		epochBoundaryHashMinus2 = ebhm2
 		if err != nil {
 			return err
@@ -513,7 +515,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	previousEpochHeadAttestations := []primitives.PendingAttestation{}
 	for _, a := range previousEpochAttestations {
-		blockRoot, err := sm.blockchain.GetHashByHeight(a.Data.Slot)
+		blockRoot, err := sm.blockchain.GetHashBySlot(a.Data.Slot)
 		if err != nil {
 			return err
 		}

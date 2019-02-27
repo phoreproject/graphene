@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/phoreproject/synapse/primitives"
 
@@ -73,7 +74,7 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 }
 
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
-	h, err := s.chain.GetHashByHeight(in.SlotNumber)
+	h, err := s.chain.GetHashBySlot(in.SlotNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +140,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		return nil, err
 	}
 
-	justifiedRoot, err := s.chain.GetHashByHeight(state.JustifiedSlot)
+	justifiedRoot, err := s.chain.GetHashBySlot(state.JustifiedSlot)
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +200,32 @@ func (s *server) GetProposerSlots(ctx context.Context, in *pb.GetProposerSlotsRe
 
 	return &pb.GetProposerSlotsResponse{
 		ProposerSlots: state.ValidatorRegistry[in.ValidatorID].ProposerSlots,
+	}, nil
+}
+
+func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSlotRequest) (*pb.GetProposerForSlotResponse, error) {
+	state := s.chain.GetState()
+	idx, err := state.GetBeaconProposerIndex(state.Slot, in.Slot, s.chain.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetProposerForSlotResponse{
+		Proposer: idx,
+	}, nil
+}
+
+func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
+	h, err := chainhash.NewHash(in.Hash)
+	if err != nil {
+		return nil, err
+	}
+	block, err := s.chain.GetBlockByHash(*h)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetBlockResponse{
+		Block: block.ToProto(),
 	}, nil
 }
 

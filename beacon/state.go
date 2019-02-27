@@ -15,7 +15,7 @@ import (
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
-	logger.Debug("adding block to cache and updating head if needed")
+	logger.Debug("storing block to database")
 
 	err := b.db.SetBlock(*block)
 	if err != nil {
@@ -78,14 +78,14 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 	logger.WithField("hash", blockHashStr).Debug("processing new block")
 
-	err = b.AddBlock(block)
+	logger.Debug("calculating new state and validating state transition")
+
+	newState, err := b.stateManager.AddBlockToStateMap(block)
 	if err != nil {
 		return err
 	}
 
-	logger.Debug("applying block")
-
-	newState, err := b.stateManager.AddBlockToStateMap(block)
+	err = b.AddBlock(block)
 	if err != nil {
 		return err
 	}

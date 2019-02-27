@@ -12,4 +12,5 @@ type Database interface {
 	SetBlock(b primitives.Block) error
 	GetLatestAttestation(validator uint32) (primitives.Attestation, error)
 	SetLatestAttestation(validator uint32, attestation primitives.Attestation) error
+	Close()
 }

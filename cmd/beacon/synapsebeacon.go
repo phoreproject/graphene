@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -37,6 +38,9 @@ func main() {
 
 	logger.Info("initializing database")
 	database := db.NewInMemoryDB()
+
+	defer database.Close()
+
 	c := config.MainNetConfig
 
 	logger.Info("initializing blockchain")
@@ -142,8 +146,16 @@ func main() {
 
 	logger.Info("initializing RPC")
 
-	err = rpc.Serve(*rpcConnect, blockchain, p2p)
-	if err != nil {
-		panic(err)
-	}
+	go func() {
+		err = rpc.Serve(*rpcConnect, blockchain, p2p)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	signalHandler := make(chan os.Signal, 1)
+	signal.Notify(signalHandler, os.Interrupt)
+	<-signalHandler
+
+	logger.Info("exiting")
 }

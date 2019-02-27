@@ -59,3 +59,9 @@ func (imdb *InMemoryDB) SetLatestAttestation(validator uint32, att primitives.At
 	imdb.AttestationDB[validator] = att
 	return nil
 }
+
+// Close closes the database.
+func (imdb *InMemoryDB) Close() {
+}
+
+var _ Database = &InMemoryDB{}

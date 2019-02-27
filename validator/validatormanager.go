@@ -256,8 +256,8 @@ func (vm *Manager) UpdateSlotNumber() error {
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
 
 		if b.SlotNumber%uint64(vm.config.EpochLength) == 0 {
-			slot := b.SlotNumber - vm.config.MinAttestationInclusionDelay - vm.config.EpochLength
-			if b.SlotNumber < vm.config.MinAttestationInclusionDelay+vm.config.EpochLength {
+			slot := b.SlotNumber - vm.config.EpochLength
+			if b.SlotNumber < vm.config.EpochLength {
 				slot = 0
 			}
 			vm.mempool.attestationMempool.removeAttestationsBeforeSlot(slot)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
@@ -57,8 +56,6 @@ func main() {
 
 	length := binary.BigEndian.Uint32(lengthBytes[:])
 
-	fmt.Println(length)
-
 	validators := make([]beacon.InitialValidatorEntry, length)
 
 	for i := uint32(0); i < length; i++ {
@@ -74,7 +71,6 @@ func main() {
 		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
 
 		if validatorID != i {
-			fmt.Println(validatorID, i)
 			panic("malformatted pubkey file")
 		}
 

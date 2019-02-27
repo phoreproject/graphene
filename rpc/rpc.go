@@ -69,7 +69,10 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	if currentSlot < 0 {
 		currentSlot = 0
 	}
-	block := s.chain.Tip()
+	block, err := s.chain.GetHashBySlot(uint64(currentSlot))
+	if err != nil {
+		return nil, err
+	}
 	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block[:]}, nil
 }
 

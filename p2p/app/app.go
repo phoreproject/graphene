@@ -3,6 +3,7 @@ package app
 import (
 	"crypto/rand"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/phoreproject/synapse/pb"
@@ -14,11 +15,13 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/p2p"
 	logger "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 // Config is the config of an App
 type Config struct {
 	ListeningPort      int
+	RPCPort            int
 	MinPeerCountToWait int
 	HeartBeatInterval  int
 	TimeOutInterval    int
@@ -30,6 +33,7 @@ type Config struct {
 func NewConfig() Config {
 	return Config{
 		ListeningPort:      20000,
+		RPCPort:            20001,
 		MinPeerCountToWait: 5,
 		HeartBeatInterval:  2 * 60 * 1000,
 		TimeOutInterval:    20 * 60 * 1000,
@@ -43,6 +47,7 @@ type App struct {
 	privateKey crypto.PrivKey
 	publicKey  crypto.PubKey
 	hostNode   *p2p.HostNode
+	grpcServer *grpc.Server
 }
 
 // NewApp creates a new instance of App
@@ -93,6 +98,24 @@ func (app *App) doStateCreateHost() {
 	app.hostNode = hostNode
 
 	app.registerMessageHandlers()
+
+	app.doStateCreateRPCServer()
+}
+
+func (app *App) doStateCreateRPCServer() {
+	app.grpcServer = grpc.NewServer()
+
+	pb.RegisterP2PRPCServer(app.grpcServer, p2p.NewRPCServer(app.hostNode))
+
+	addr := fmt.Sprintf("127.0.0.1:%d", app.config.RPCPort)
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+	err = app.grpcServer.Serve(lis)
+	if err != nil {
+		panic(err)
+	}
 
 	app.doStateConnectAddedPeers()
 }

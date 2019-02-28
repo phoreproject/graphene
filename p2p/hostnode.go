@@ -25,7 +25,8 @@ type anyMessageHandler func(peer *PeerNode, message proto.Message) bool
 type onPeerConnectedHandler func(peer *PeerNode)
 
 // HostNode is the node for p2p host
-// It's used only for do P2P communication to the internet
+// It's the low level P2P communication layer, the App class handles high level protocols
+// The RPC communication is hanlded by App, not HostNode
 type HostNode struct {
 	publicKey  crypto.PubKey
 	privateKey crypto.PrivKey
@@ -33,8 +34,6 @@ type HostNode struct {
 	gossipSub  *pubsub.PubSub
 	ctx        context.Context
 	cancel     context.CancelFunc
-	// TODO: the local RPC related stuff may be put in the shared RPC folder in shared code base
-	grpcServer *grpc.Server
 	// a messageHandler is called when a message with certain name is received
 	messageHandlerMap map[string]messageHandler
 	// anyMessagehandler is called upon any message is received
@@ -51,7 +50,7 @@ type HostNode struct {
 	connectingPeerList []*PeerNode
 }
 
-var protocolID = protocol.ID("/grpc/0.0.1")
+var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
 func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
@@ -82,7 +81,6 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	grpcServer := grpc.NewServer()
 	hostNode := HostNode{
 		publicKey:         publicKey,
 		privateKey:        privateKey,
@@ -90,13 +88,10 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
-		grpcServer:        grpcServer,
 		messageHandlerMap: make(map[string]messageHandler),
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
-
-	//pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer(chain))
 
 	return &hostNode, nil
 }
@@ -175,12 +170,6 @@ func (node *HostNode) createPeerNodeFromStream(stream inet.Stream, outbound bool
 	}
 
 	return peer
-}
-
-// GetGRPCServer returns the grpc server.
-// TODO: the local RPC related stuff may be put in the shared RPC folder in shared code base
-func (node *HostNode) GetGRPCServer() *grpc.Server {
-	return node.grpcServer
 }
 
 // GetDialOption returns the WithDialer option to dial via libp2p.

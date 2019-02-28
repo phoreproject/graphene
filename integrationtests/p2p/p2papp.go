@@ -1,8 +1,14 @@
 package p2p
 
 import (
+	"context"
+	"fmt"
 	"math/rand"
 	"time"
+
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/phoreproject/synapse/pb"
+	"google.golang.org/grpc"
 
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/phoreproject/synapse/integrationtests/framework"
@@ -10,6 +16,7 @@ import (
 )
 
 var startPort = 19000
+var startRPCPort = 20000
 var appCount = 10
 var peerCount = 1
 
@@ -35,7 +42,25 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 
 	test.connectApps()
 
+	ctx := context.Background()
+	rpcAddr := fmt.Sprintf("127.0.0.1:%d", startRPCPort+3)
+	conn, err := grpc.Dial(rpcAddr, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+	client := pb.NewP2PRPCClient(conn)
+
 	for {
+		s, err := client.GetConnectionStatus(ctx, &empty.Empty{})
+		if s != nil {
+			if s.Connected {
+				fmt.Printf("=============RPC connected \n")
+			} else {
+				fmt.Printf("=============NNNNNNNNNNNNNNNN connected \n")
+			}
+		} else {
+			panic(err)
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -43,6 +68,7 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 func (test TestCase) createApp(index int) *app.App {
 	config := app.NewConfig()
 	config.ListeningPort = startPort + index
+	config.RPCPort = startRPCPort + index
 	config.MinPeerCountToWait = 0
 	config.HeartBeatInterval = 10 * 1000
 	app := app.NewApp(config)

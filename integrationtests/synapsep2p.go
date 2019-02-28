@@ -10,7 +10,6 @@ import (
 	"github.com/phoreproject/synapse/integrationtests/framework"
 
 	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/pb"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -93,7 +92,7 @@ func (test SynapseP2pTest) Execute(service *testframework.TestService) error {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterP2PRPCServer(s, p2p.NewRPCServer(&network))
+	//pb.RegisterP2PRPCServer(s, p2p.NewRPCServer(&network))
 	reflection.Register(s)
 	err = s.Serve(lis)
 	if err != nil {

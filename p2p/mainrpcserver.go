@@ -111,7 +111,7 @@ func (s mainRPCServer) GetCommitteeValidators(ctx context.Context, in *pb.GetCom
 }
 
 // StartMainRPCServe serves the RPC mainRPCServer
-func StartMainRPCServe(listenAddr string, b *beacon.Blockchain) error {
+func StartMainRPCServe(listenAddr string) error {
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err

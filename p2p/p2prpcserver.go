@@ -12,7 +12,6 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/net"
 	"github.com/phoreproject/synapse/pb"
 )
 
@@ -32,7 +31,7 @@ func StringToPeerInfo(addrStr string) (*peerstore.PeerInfo, error) {
 // RPCServer is a server to manager the P2P module
 // RPC server.
 type RPCServer struct {
-	service        *net.NetworkingService
+	hostNode       *HostNode
 	subscriptions  map[uint64]*pubsub.Subscription
 	subChannels    map[uint64]chan []byte
 	cancelChannels map[uint64]chan bool
@@ -41,9 +40,9 @@ type RPCServer struct {
 }
 
 // NewRPCServer sets up a server for handling P2P module RPC requests.
-func NewRPCServer(netService *net.NetworkingService) RPCServer {
+func NewRPCServer(hostNode *HostNode) RPCServer {
 	p := RPCServer{
-		service:        netService,
+		hostNode:       hostNode,
 		subscriptions:  make(map[uint64]*pubsub.Subscription),
 		subChannels:    make(map[uint64]chan []byte),
 		cancelChannels: make(map[uint64]chan bool),
@@ -58,17 +57,22 @@ func NewRPCServer(netService *net.NetworkingService) RPCServer {
 func (p RPCServer) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return &pb.ConnectionStatus{Connected: p.service.IsConnected()}, nil
+	return &pb.ConnectionStatus{Connected: len(p.hostNode.GetLivePeerList()) > 0}, nil
 }
 
 // GetPeers gets the peers for the P2P connection.
 func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersResponse, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	peers := p.service.GetPeers()
+	peers := p.hostNode.GetLivePeerList()
 	peersPb := []*pb.Peer{}
-	for _, p := range peers {
-		peersPb = append(peersPb, &pb.Peer{Address: p.String()})
+	for range peers {
+		//peersPb = append(peersPb, &pb.Peer{Address: p.String()})
+		// TODO: we need either to see how to get the peer address in handler of SetStreamHandler
+		// or to see if we need to return the peer address, we may return more meaningful information
+		// such as public keys
+		// Now the PeerNode can't know the address if the connection is established in SetStreamHandler
+		peersPb = append(peersPb, &pb.Peer{Address: ""})
 	}
 	return &pb.GetPeersResponse{Peers: peersPb}, nil
 }
@@ -111,7 +115,7 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 	p.subChannels[subID] = subChan
 	p.cancelChannels[subID] = make(chan bool)
 
-	s, err := p.service.RegisterHandler(in.Topic, func(b []byte) error {
+	s, err := p.hostNode.SubscribeMessage(in.Topic, func(b []byte) error {
 		select {
 		case subChan <- b:
 		default:
@@ -145,7 +149,7 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 
 	close(p.cancelChannels[in.ID])
 	close(p.subChannels[in.ID])
-	p.subscriptions[in.ID].Cancel()
+	p.hostNode.UnsubscribeMessage(p.subscriptions[in.ID])
 
 	delete(p.cancelChannels, in.ID)
 	delete(p.subChannels, in.ID)
@@ -158,7 +162,7 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 func (p RPCServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*empty.Empty, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return &empty.Empty{}, p.service.Broadcast(in.Topic, in.Data)
+	return &empty.Empty{}, p.hostNode.Broadcast(in.Topic, in.Data)
 }
 
 // Connect connects to more peers.
@@ -171,7 +175,7 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 		if err != nil {
 			return nil, err
 		}
-		err = p.service.Connect(pInfo)
+		_, err = p.hostNode.Connect(pInfo)
 		if err != nil {
 			success = false
 			logrus.WithField("addr", peer.Address).Warn("could not connect to peer")

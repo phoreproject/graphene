@@ -52,8 +52,13 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		return err
 	}
 
+	slots, err := v.blockchainRPC.GetProposerSlots(context.Background(), &pb.GetProposerSlotsRequest{ValidatorID: v.id})
+	if err != nil {
+		return err
+	}
+
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], v.proposerSlots+1)
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], slots.ProposerSlots)
 
 	key := v.keystore.GetKeyForValidator(v.id)
 
@@ -141,6 +146,5 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		v.mempool.attestationMempool.removeAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
 	}
 
-	v.proposerSlots++
 	return err
 }

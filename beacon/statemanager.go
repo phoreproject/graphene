@@ -311,6 +311,9 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		return err
 	}
 
+	// increase the randao skips of the proposer
+	newState.ValidatorRegistry[proposerIndex].ProposerSlots++
+
 	valid, err = bls.VerifySig(proposerPub, proposerSlotsBytes[:], randaoSig, bls.DomainRandao)
 	if err != nil {
 		return err
@@ -380,16 +383,8 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 }
 
 func (sm *StateManager) processSlot(newState *primitives.State, lastBlockHash chainhash.Hash) error {
-	beaconProposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, sm.config)
-	if err != nil {
-		return err
-	}
-
 	// increase the slot number
 	newState.Slot++
-
-	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[beaconProposerIndex].ProposerSlots++
 
 	newState.LatestBlockHashes[(newState.Slot-1)%sm.config.LatestBlockRootsLength] = lastBlockHash
 
@@ -420,7 +415,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	previousEpochBoundaryHash, err := sm.blockchain.GetHashBySlot(newState.Slot - sm.config.EpochLength)
 	if err != nil {
-		return err
+		previousEpochBoundaryHash = chainhash.Hash{}
 	}
 
 	// currentEpochBoundaryAttestations is any attestation in the last epoch that has its boundary hash set to
@@ -498,10 +493,10 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	epochBoundaryHashMinus2 := chainhash.Hash{}
 	if newState.Slot >= 2*sm.config.EpochLength {
 		ebhm2, err := sm.blockchain.GetHashBySlot(newState.Slot - 2*sm.config.EpochLength)
-		epochBoundaryHashMinus2 = ebhm2
 		if err != nil {
-			return err
+			ebhm2 = chainhash.Hash{}
 		}
+		epochBoundaryHashMinus2 = ebhm2
 	}
 
 	// previousEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
@@ -530,12 +525,10 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	for _, a := range previousEpochAttestations {
 		blockRoot, err := sm.blockchain.GetHashBySlot(a.Data.Slot)
 		if err != nil {
-			return err
+			break
 		}
 		if a.Data.BeaconBlockHash.IsEqual(&blockRoot) {
 			previousEpochHeadAttestations = append(previousEpochHeadAttestations, a)
-		} else {
-			fmt.Println("ERROR!", a.Data.BeaconBlockHash, blockRoot, a.Data.Slot)
 		}
 	}
 

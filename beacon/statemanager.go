@@ -729,7 +729,6 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		// any validator not in previous_epoch_head_attester_indices is slashed
 		// any validator not in previous_epoch_boundary_attester_indices is slashed
 		// any validator not in previous_epoch_justified_attester_indices is slashed
-		fmt.Println(len(previousEpochHeadAttesterIndices), len(previousEpochBoundaryAttesterIndices), len(previousEpochJustifiedAttesterIndices), len(previousEpochAttesterIndices))
 
 		if newState.Slot >= 2*sm.config.EpochLength {
 			for idx, validator := range newState.ValidatorRegistry {

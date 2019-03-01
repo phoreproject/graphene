@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -204,7 +203,6 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	}
 
 	if h, err := db.GetHeadBlock(); err == nil {
-		fmt.Println(h)
 		headBlock, err := db.GetBlockForHash(*h)
 		if err != nil {
 			return nil, err
@@ -212,7 +210,6 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		blocks := []*primitives.Block{headBlock}
 		currentBlock := headBlock
 		for !currentBlock.BlockHeader.ParentRoot.IsEqual(&zeroHash) {
-			fmt.Println("A", currentBlock.BlockHeader.SlotNumber, blocks)
 			block, err := db.GetBlockForHash(currentBlock.BlockHeader.ParentRoot)
 			if err != nil {
 				return nil, err
@@ -222,14 +219,9 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 			}
 			currentBlock = block
 		}
-		fmt.Println("starting processing")
 
 		for i := len(blocks) - 1; i >= 0; i-- {
 			block := blocks[i]
-
-			fmt.Println(block.BlockHeader.SlotNumber, i, blocks)
-
-			fmt.Println("processing block")
 
 			err := b.ProcessBlock(block)
 			if err != nil {

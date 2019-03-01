@@ -22,7 +22,11 @@ type InMemoryDB struct {
 
 // NewInMemoryDB initializes a new in-memory DB
 func NewInMemoryDB() *InMemoryDB {
-	return &InMemoryDB{DB: make(map[chainhash.Hash]primitives.Block), lock: &sync.Mutex{}}
+	return &InMemoryDB{
+		DB:            make(map[chainhash.Hash]primitives.Block),
+		AttestationDB: make(map[uint32]primitives.Attestation),
+		lock:          new(sync.Mutex),
+	}
 }
 
 // GetBlockForHash is a database lookup function

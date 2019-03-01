@@ -285,23 +285,40 @@ const (
 	InitialForkVersion = iota
 )
 
+type blockNodeAndValidator struct {
+	node      *blockNode
+	validator uint32
+}
+
 // UpdateChainHead updates the blockchain head if needed
 func (b *Blockchain) UpdateChainHead() error {
 	b.chain.lock.Lock()
 	defer b.chain.lock.Unlock()
 	validators := b.chain.justifiedHead.State.ValidatorRegistry
 	activeValidatorIndices := primitives.GetActiveValidatorIndices(validators)
-	targets := []*blockNode{}
+	targets := []blockNodeAndValidator{}
 	for _, i := range activeValidatorIndices {
 		bl, err := b.getLatestAttestationTarget(i)
 		if err != nil {
 			continue
 		}
-		targets = append(targets, bl)
+		targets = append(targets, blockNodeAndValidator{
+			node:      bl,
+			validator: i})
 	}
 
-	getVoteCount := func(block *blockNode) int {
-		return len(block.children)
+	getVoteCount := func(block *blockNode) uint64 {
+		votes := uint64(0)
+		for _, target := range targets {
+			node, err := getAncestor(target.node, block.slot)
+			if err != nil {
+				return 0
+			}
+			if node.hash.IsEqual(&block.hash) {
+				votes += b.chain.justifiedHead.State.GetEffectiveBalance(target.validator, b.config) / 1e8
+			}
+		}
+		return votes
 	}
 
 	head := b.chain.justifiedHead.blockNode

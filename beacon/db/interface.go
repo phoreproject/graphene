@@ -18,3 +18,8 @@ type Database interface {
 	GetHeadBlock() (*chainhash.Hash, error)
 	Close()
 }
+
+// to load chain, we need:
+// - all block nodes
+// - some block nodes states
+// - chain tip

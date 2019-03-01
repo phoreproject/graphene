@@ -97,6 +97,17 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
+	for _, a := range block.BlockBody.Attestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		if err != nil {
+			return err
+		}
+
+		for _, p := range participants {
+			b.db.SetLatestAttestation(p, a)
+		}
+	}
+
 	logger.Debug("updating chain head")
 
 	err = b.UpdateChainHead()

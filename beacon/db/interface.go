@@ -12,5 +12,9 @@ type Database interface {
 	SetBlock(b primitives.Block) error
 	GetLatestAttestation(validator uint32) (*primitives.Attestation, error)
 	SetLatestAttestation(validator uint32, attestation primitives.Attestation) error
+	SetHeadState(state primitives.State) error
+	GetHeadState() (*primitives.State, error)
+	SetHeadBlock(h chainhash.Hash) error
+	GetHeadBlock() (*chainhash.Hash, error)
 	Close()
 }

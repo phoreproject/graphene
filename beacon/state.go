@@ -99,7 +99,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 	logger.Debug("updating chain head")
 
-	err = b.UpdateChainHead(block)
+	err = b.UpdateChainHead()
 	if err != nil {
 		return err
 	}

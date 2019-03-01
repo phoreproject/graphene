@@ -15,6 +15,8 @@ import (
 type InMemoryDB struct {
 	DB            map[chainhash.Hash]primitives.Block
 	AttestationDB map[uint32]primitives.Attestation
+	headState     primitives.State
+	headBlock     chainhash.Hash
 	lock          *sync.Mutex
 }
 
@@ -62,6 +64,26 @@ func (imdb *InMemoryDB) SetLatestAttestation(validator uint32, att primitives.At
 
 // Close closes the database.
 func (imdb *InMemoryDB) Close() {
+}
+
+// SetHeadState sets the head state.
+func (imdb *InMemoryDB) SetHeadState(state primitives.State) error {
+	return nil
+}
+
+// GetHeadState gets the head state.
+func (imdb *InMemoryDB) GetHeadState() (*primitives.State, error) {
+	return nil, errors.New("no head state yet")
+}
+
+// SetHeadBlock sets the head block.
+func (imdb *InMemoryDB) SetHeadBlock(h chainhash.Hash) error {
+	return nil
+}
+
+// GetHeadBlock gets the head block.
+func (imdb *InMemoryDB) GetHeadBlock() (*chainhash.Hash, error) {
+	return nil, errors.New("no head block yet")
 }
 
 var _ Database = &InMemoryDB{}

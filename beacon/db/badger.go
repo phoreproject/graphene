@@ -52,7 +52,7 @@ func (b *BadgerDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, error) 
 	if err != nil {
 		return nil, err
 	}
-	var blockProto *pb.Block
+	blockProto := new(pb.Block)
 	err = proto.Unmarshal(blockBytesCopy, blockProto)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (b *BadgerDB) GetLatestAttestation(validator uint32) (*primitives.Attestati
 	if err != nil {
 		return nil, err
 	}
-	var attProto *pb.Attestation
+	attProto := new(pb.Attestation)
 	err = proto.Unmarshal(attestationBytesCopy, attProto)
 	if err != nil {
 		return nil, err
@@ -122,6 +122,66 @@ func (b *BadgerDB) SetLatestAttestation(validator uint32, attestation primitives
 	return b.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, attSer)
 	})
+}
+
+var headStateKey = []byte("head_state")
+var headBlockKey = []byte("head_block")
+
+// SetHeadState sets the head state for the chain.
+func (b *BadgerDB) SetHeadState(state primitives.State) error {
+	stateProto := state.ToProto()
+	stateSer, err := proto.Marshal(stateProto)
+	if err != nil {
+		return err
+	}
+
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(headStateKey, stateSer)
+	})
+}
+
+// GetHeadState gets the head state for the chain.
+func (b *BadgerDB) GetHeadState() (*primitives.State, error) {
+	txn := b.db.NewTransaction(false)
+	defer txn.Discard()
+	i, err := txn.Get(headStateKey)
+	if err != nil {
+		return nil, err
+	}
+	stateBytesCopy, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+	stateProto := new(pb.State)
+	err = proto.Unmarshal(stateBytesCopy, stateProto)
+	if err != nil {
+		return nil, err
+	}
+
+	return primitives.StateFromProto(stateProto)
+}
+
+// SetHeadBlock sets the head block for the chain.
+func (b *BadgerDB) SetHeadBlock(h chainhash.Hash) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(headBlockKey, h[:])
+	})
+}
+
+// GetHeadBlock gets the head block for the chain.
+func (b *BadgerDB) GetHeadBlock() (*chainhash.Hash, error) {
+	txn := b.db.NewTransaction(false)
+	defer txn.Discard()
+	i, err := txn.Get(headBlockKey)
+	if err != nil {
+		return nil, err
+	}
+	blockBytesCopy, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return chainhash.NewHash(blockBytesCopy)
 }
 
 // Close closes the database.

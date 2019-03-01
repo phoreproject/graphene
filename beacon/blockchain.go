@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -202,6 +203,41 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		return nil, err
 	}
 
+	if h, err := db.GetHeadBlock(); err == nil {
+		fmt.Println(h)
+		headBlock, err := db.GetBlockForHash(*h)
+		if err != nil {
+			return nil, err
+		}
+		blocks := []*primitives.Block{headBlock}
+		currentBlock := headBlock
+		for !currentBlock.BlockHeader.ParentRoot.IsEqual(&zeroHash) {
+			fmt.Println("A", currentBlock.BlockHeader.SlotNumber, blocks)
+			block, err := db.GetBlockForHash(currentBlock.BlockHeader.ParentRoot)
+			if err != nil {
+				return nil, err
+			}
+			if block.BlockHeader.SlotNumber != 0 {
+				blocks = append(blocks, block)
+			}
+			currentBlock = block
+		}
+		fmt.Println("starting processing")
+
+		for i := len(blocks) - 1; i >= 0; i-- {
+			block := blocks[i]
+
+			fmt.Println(block.BlockHeader.SlotNumber, i, blocks)
+
+			fmt.Println("processing block")
+
+			err := b.ProcessBlock(block)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return b, nil
 }
 
@@ -258,7 +294,7 @@ const (
 )
 
 // UpdateChainHead updates the blockchain head if needed
-func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
+func (b *Blockchain) UpdateChainHead() error {
 	b.chain.lock.Lock()
 	defer b.chain.lock.Unlock()
 	validators := b.chain.justifiedHead.State.ValidatorRegistry
@@ -282,6 +318,16 @@ func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
 		if len(children) == 0 {
 			b.chain.tip = head
 			err := b.stateManager.UpdateHead(head.hash)
+			if err != nil {
+				return err
+			}
+
+			err = b.db.SetHeadState(b.stateManager.GetHeadState())
+			if err != nil {
+				return err
+			}
+
+			err = b.db.SetHeadBlock(head.hash)
 			if err != nil {
 				return err
 			}

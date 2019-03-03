@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/rand"
-	"fmt"
 	"net"
 	"time"
 
@@ -16,12 +15,13 @@ import (
 	"github.com/phoreproject/synapse/p2p"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 // Config is the config of an App
 type Config struct {
-	ListeningPort      int
-	RPCPort            int
+	ListeningAddress   string
+	RPCAddress         string
 	MinPeerCountToWait int
 	HeartBeatInterval  int
 	TimeOutInterval    int
@@ -32,8 +32,8 @@ type Config struct {
 // NewConfig creates a default Config
 func NewConfig() Config {
 	return Config{
-		ListeningPort:      20000,
-		RPCPort:            20001,
+		ListeningAddress:   "/ip4/127.0.0.1/tcp/20000",
+		RPCAddress:         "127.0.0.1:20001",
 		MinPeerCountToWait: 5,
 		HeartBeatInterval:  2 * 60 * 1000,
 		TimeOutInterval:    20 * 60 * 1000,
@@ -85,7 +85,7 @@ func (app *App) doStateLoadConfig() {
 }
 
 func (app *App) doStateCreateHost() {
-	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", app.config.ListeningPort))
+	addr, err := ma.NewMultiaddr(app.config.ListeningAddress)
 	if err != nil {
 		panic(err)
 	}
@@ -104,11 +104,11 @@ func (app *App) doStateCreateHost() {
 
 func (app *App) doStateCreateRPCServer() {
 	app.grpcServer = grpc.NewServer()
+	reflection.Register(app.grpcServer)
 
 	pb.RegisterP2PRPCServer(app.grpcServer, p2p.NewRPCServer(app.hostNode))
 
-	addr := fmt.Sprintf("127.0.0.1:%d", app.config.RPCPort)
-	lis, err := net.Listen("tcp", addr)
+	lis, err := net.Listen("tcp", app.config.RPCAddress)
 	if err != nil {
 		panic(err)
 	}
@@ -143,23 +143,6 @@ func (app *App) doStateWaitPeersReady() {
 		}
 	}
 }
-
-/* TODO: Need to move to beacon module
-// Synchronize the blockchain from peers
-func (app *App) doStateSyncBeaconBlocks() {
-	peerList := app.hostNode.GetLivePeerList()
-
-	for _, peer := range peerList {
-		locatorHash := chainhash.Hash{}
-		hashStop := chainhash.Hash{}
-		message := &pb.GetBlockMessage{}
-		message.LocatorHahes = make([][]byte, 1)
-		message.LocatorHahes[0] = locatorHash.CloneBytes()
-		message.HashStop = hashStop.CloneBytes()
-		peer.SendMessage(message)
-	}
-}
-*/
 
 func (app *App) onPeerConnected(peer *p2p.PeerNode) {
 	peer.SendMessage(&pb.VersionMessage{

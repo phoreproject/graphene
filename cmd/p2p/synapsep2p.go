@@ -1,20 +1,12 @@
 package main
 
 import (
-	"crypto/rand"
 	"flag"
-	"net"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 
 	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/p2p/app"
 
-	crypto "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
-	network "github.com/phoreproject/synapse/net"
 	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
@@ -56,45 +48,11 @@ func main() {
 		panic(err)
 	}
 
-	sourceMultiAddr, err := multiaddr.NewMultiaddr(*listen)
-	if err != nil {
-		logger.WithField("addr", *listen).Fatal("address is invalid")
-		return
-	}
+	config := app.NewConfig()
+	config.ListeningAddress = *listen
+	config.RPCAddress = *rpcConnect
+	config.AddedPeers = ps
+	app := app.NewApp(config)
 
-	priv, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
-	network, err := network.NewNetworkingService(&sourceMultiAddr, priv)
-	if err != nil {
-		panic(err)
-	}
-
-	logger.Info("connecting to bootnodes")
-
-	for _, p := range ps {
-		err = network.Connect(p)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if err != nil {
-		panic(err)
-	}
-
-	logger.Info("starting P2P RPC service")
-	lis, err := net.Listen("tcp", *rpcConnect)
-	if err != nil {
-		panic(err)
-	}
-
-	s := grpc.NewServer()
-	pb.RegisterP2PRPCServer(s, p2p.NewRPCServer(&network))
-	reflection.Register(s)
-	err = s.Serve(lis)
-	if err != nil {
-		panic(err)
-	}
+	app.Run()
 }

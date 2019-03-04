@@ -13,6 +13,7 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/p2p/rpc"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -106,7 +107,7 @@ func (app *App) doStateCreateRPCServer() {
 	app.grpcServer = grpc.NewServer()
 	reflection.Register(app.grpcServer)
 
-	pb.RegisterP2PRPCServer(app.grpcServer, p2p.NewRPCServer(app.hostNode))
+	pb.RegisterP2PRPCServer(app.grpcServer, rpc.NewRPCServer(app.hostNode))
 
 	lis, err := net.Listen("tcp", app.config.RPCAddress)
 	if err != nil {

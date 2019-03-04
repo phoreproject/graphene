@@ -1,4 +1,4 @@
-package p2p
+package rpc
 
 import (
 	"context"
@@ -7,31 +7,17 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	iaddr "github.com/ipfs/go-ipfs-addr"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sirupsen/logrus"
 
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 )
-
-// StringToPeerInfo converts a string to a peer info.
-func StringToPeerInfo(addrStr string) (*peerstore.PeerInfo, error) {
-	addr, err := iaddr.ParseString(addrStr)
-	if err != nil {
-		return nil, err
-	}
-	peerinfo, err := peerstore.InfoFromP2pAddr(addr.Multiaddr())
-	if err != nil {
-		return nil, err
-	}
-	return peerinfo, nil
-}
 
 // RPCServer is a server to manager the P2P module
 // RPC server.
 type RPCServer struct {
-	hostNode       *HostNode
+	hostNode       *p2p.HostNode
 	subscriptions  map[uint64]*pubsub.Subscription
 	subChannels    map[uint64]chan []byte
 	cancelChannels map[uint64]chan bool
@@ -40,7 +26,7 @@ type RPCServer struct {
 }
 
 // NewRPCServer sets up a server for handling P2P module RPC requests.
-func NewRPCServer(hostNode *HostNode) RPCServer {
+func NewRPCServer(hostNode *p2p.HostNode) RPCServer {
 	p := RPCServer{
 		hostNode:       hostNode,
 		subscriptions:  make(map[uint64]*pubsub.Subscription),
@@ -171,7 +157,7 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 	defer p.lock.Unlock()
 	success := true
 	for _, peer := range in.Peers {
-		pInfo, err := StringToPeerInfo(peer.Address)
+		pInfo, err := p2p.StringToPeerInfo(peer.Address)
 		if err != nil {
 			return nil, err
 		}

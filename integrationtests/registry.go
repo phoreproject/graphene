@@ -25,6 +25,7 @@ var EntryList = []testframework.Entry{
 		Creator: func() testframework.IntegrationTest { return p2p.TestCase{} },
 	},
 
+	/* This test was removed, but leave the entry here to show how to use EntryArgs
 	testframework.Entry{
 		Name:    "SynapseP2P",
 		Creator: func() testframework.IntegrationTest { return SynapseP2pTest{} },
@@ -34,4 +35,5 @@ var EntryList = []testframework.Entry{
 			"rpcConnect":         flag.String("rpclisten", "127.0.0.1:11783", "host and port for RPC server to listen on"),
 		},
 	},
+	*/
 }

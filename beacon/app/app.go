@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Config is the config of an App
+// Config is the config of an BeaconApp
 type Config struct {
 	P2PAddress           string
 	RPCAddress           string
@@ -35,8 +35,8 @@ func NewConfig() Config {
 	}
 }
 
-// App contains all the high level states and workflow for P2P module
-type App struct {
+// BeaconApp contains all the high level states and workflow for P2P module
+type BeaconApp struct {
 	config       Config
 	privateKey   crypto.PrivKey
 	publicKey    crypto.PubKey
@@ -47,36 +47,75 @@ type App struct {
 	p2pListener  pb.P2PRPC_ListenForMessagesClient
 }
 
-// NewApp creates a new instance of App
-func NewApp(config Config) *App {
-	app := &App{
+// NewBeaconApp creates a new instance of BeaconApp
+func NewBeaconApp(config Config) *BeaconApp {
+	app := &BeaconApp{
 		config: config,
 	}
 	return app
 }
 
-// Run runs the main loop of App
-func (app *App) Run() {
-	app.doStateInitialize()
+const (
+	stateInitialize = iota
+	stateLoadConfig
+	stateLoadDatabase
+	stateLoadBlockchain
+	stateConnectP2PRPC
+	stateCreateRPCServer
+	stateMainLoop
+)
+
+func (app *BeaconApp) transitState(state int) {
+	switch state {
+	case stateInitialize:
+		app.initialize()
+
+	case stateLoadConfig:
+		app.loadConfig()
+
+	case stateLoadDatabase:
+		app.loadDatabase()
+
+	case stateLoadBlockchain:
+		app.loadBlockchain()
+
+	case stateConnectP2PRPC:
+		app.connectP2PRPC()
+
+	case stateCreateRPCServer:
+		app.createRPCServer()
+
+	case stateMainLoop:
+		app.runMainLoop()
+
+	default:
+		panic("Unknow state")
+	}
+}
+
+// Run runs the main loop of BeaconApp
+func (app *BeaconApp) Run() {
+	app.transitState(stateInitialize)
+	app.initialize()
 }
 
 // Setup necessary variable
-func (app *App) doStateInitialize() {
-	app.doStateLoadConfig()
+func (app *BeaconApp) initialize() {
+	app.transitState(stateLoadConfig)
 }
 
 // Load user config from configure file
-func (app *App) doStateLoadConfig() {
-	app.doStateLoadDatabase()
+func (app *BeaconApp) loadConfig() {
+	app.transitState(stateLoadDatabase)
 }
 
-func (app *App) doStateLoadDatabase() {
+func (app *BeaconApp) loadDatabase() {
 	app.database = db.NewInMemoryDB()
 
-	app.doStateLoadBlockchain()
+	app.transitState(stateLoadBlockchain)
 }
 
-func (app *App) doStateLoadBlockchain() {
+func (app *BeaconApp) loadBlockchain() {
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(app.database, app.config.NetworkConfig, app.config.InitialValidatorList, true, app.config.GenesisTime)
 	if err != nil {
 		panic(err)
@@ -84,10 +123,10 @@ func (app *App) doStateLoadBlockchain() {
 
 	app.blockchain = blockchain
 
-	app.doStateConnectP2PRPC()
+	app.transitState(stateConnectP2PRPC)
 }
 
-func (app *App) doStateConnectP2PRPC() {
+func (app *BeaconApp) connectP2PRPC() {
 	conn, err := grpc.Dial(app.config.P2PAddress, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
@@ -107,45 +146,47 @@ func (app *App) doStateConnectP2PRPC() {
 
 	app.p2pListener = listener
 
-	app.doStateCreateRPCServer()
+	app.transitState(stateCreateRPCServer)
 }
 
-func (app *App) doStateCreateRPCServer() {
+func (app *BeaconApp) createRPCServer() {
 	err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.p2pRPCClient)
 	if err != nil {
 		panic(err)
 	}
 
-	go app.doMainLoop()
+	app.transitState(stateMainLoop)
 }
 
-func (app *App) doMainLoop() {
-	newBlocks := make(chan primitives.Block)
+func (app *BeaconApp) runMainLoop() {
 	go func() {
-		err := app.blockchain.HandleNewBlocks(newBlocks)
-		if err != nil {
-			panic(err)
+		newBlocks := make(chan primitives.Block)
+		go func() {
+			err := app.blockchain.HandleNewBlocks(newBlocks)
+			if err != nil {
+				panic(err)
+			}
+		}()
+
+		for {
+			msg, err := app.p2pListener.Recv()
+			if err != nil {
+				panic(err)
+			}
+
+			blockProto := new(pb.Block)
+
+			err = proto.Unmarshal(msg.Data, blockProto)
+			if err != nil {
+				continue
+			}
+
+			block, err := primitives.BlockFromProto(blockProto)
+			if err != nil {
+				continue
+			}
+
+			newBlocks <- *block
 		}
 	}()
-
-	for {
-		msg, err := app.p2pListener.Recv()
-		if err != nil {
-			panic(err)
-		}
-
-		blockProto := new(pb.Block)
-
-		err = proto.Unmarshal(msg.Data, blockProto)
-		if err != nil {
-			continue
-		}
-
-		block, err := primitives.BlockFromProto(blockProto)
-		if err != nil {
-			continue
-		}
-
-		newBlocks <- *block
-	}
 }

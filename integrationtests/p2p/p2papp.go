@@ -22,7 +22,7 @@ var peerCount = 1
 
 // TestCase implements IntegrationTest
 type TestCase struct {
-	appList []*app.App
+	appList []*app.P2PApp
 }
 
 // Execute implements IntegrationTest
@@ -65,13 +65,13 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 	}
 }
 
-func (test TestCase) createApp(index int) *app.App {
+func (test TestCase) createApp(index int) *app.P2PApp {
 	config := app.NewConfig()
 	config.ListeningAddress = fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", startPort+index)
 	config.RPCAddress = fmt.Sprintf("127.0.0.1:%d", startRPCPort+index)
 	config.MinPeerCountToWait = 0
 	config.HeartBeatInterval = 10 * 1000
-	app := app.NewApp(config)
+	app := app.NewP2PApp(config)
 
 	return app
 }

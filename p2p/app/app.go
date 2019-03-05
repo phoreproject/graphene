@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// Config is the config of an App
+// Config is the config of an P2PApp
 type Config struct {
 	ListeningAddress   string
 	RPCAddress         string
@@ -42,8 +42,8 @@ func NewConfig() Config {
 	}
 }
 
-// App contains all the high level states and workflow for P2P module
-type App struct {
+// P2PApp contains all the high level states and workflow for P2P module
+type P2PApp struct {
 	config     Config
 	privateKey crypto.PrivKey
 	publicKey  crypto.PubKey
@@ -51,41 +51,79 @@ type App struct {
 	grpcServer *grpc.Server
 }
 
-// NewApp creates a new instance of App
-func NewApp(config Config) *App {
-	app := &App{
+// NewP2PApp creates a new instance of P2PApp
+func NewP2PApp(config Config) *P2PApp {
+	app := &P2PApp{
 		config: config,
 	}
 	return app
 }
 
-// Run runs the main loop of App
-func (app *App) Run() {
+const (
+	stateInitialize = iota
+	stateLoadConfig
+	stateCreateHost
+	stateCreateRPCServer
+	stateConnectAddedPeers
+	stateDiscoverPeers
+	stateWaitPeersReady
+)
+
+func (app *P2PApp) transitState(state int) {
+	switch state {
+	case stateInitialize:
+		app.initialize()
+
+	case stateLoadConfig:
+		app.loadConfig()
+
+	case stateCreateHost:
+		app.createHost()
+
+	case stateCreateRPCServer:
+		app.createRPCServer()
+
+	case stateConnectAddedPeers:
+		app.connectAddedPeers()
+
+	case stateDiscoverPeers:
+		app.discoverPeers()
+
+	case stateWaitPeersReady:
+		app.waitPeersReady()
+
+	default:
+		panic("Unknow state")
+	}
+}
+
+// Run runs the main loop of P2PApp
+func (app *P2PApp) Run() {
 	go app.doMainLoop()
-	app.doStateInitialize()
+	app.transitState(stateInitialize)
 }
 
 // GetHostNode gets the host node
-func (app *App) GetHostNode() *p2p.HostNode {
+func (app *P2PApp) GetHostNode() *p2p.HostNode {
 	return app.hostNode
 }
 
 // Setup necessary variable
-func (app *App) doStateInitialize() {
-	app.doStateLoadConfig()
+func (app *P2PApp) initialize() {
+	app.transitState(stateLoadConfig)
 }
 
 // Load user config from configure file
-func (app *App) doStateLoadConfig() {
+func (app *P2PApp) loadConfig() {
 	// TODO: need to load the variables from config file
 	privateKey, publicKey, _ := crypto.GenerateSecp256k1Key(rand.Reader)
 	app.privateKey = privateKey
 	app.publicKey = publicKey
 
-	app.doStateCreateHost()
+	app.transitState(stateCreateHost)
 }
 
-func (app *App) doStateCreateHost() {
+func (app *P2PApp) createHost() {
 	addr, err := ma.NewMultiaddr(app.config.ListeningAddress)
 	if err != nil {
 		panic(err)
@@ -100,10 +138,10 @@ func (app *App) doStateCreateHost() {
 
 	app.registerMessageHandlers()
 
-	app.doStateCreateRPCServer()
+	app.transitState(stateCreateRPCServer)
 }
 
-func (app *App) doStateCreateRPCServer() {
+func (app *P2PApp) createRPCServer() {
 	app.grpcServer = grpc.NewServer()
 	reflection.Register(app.grpcServer)
 
@@ -118,24 +156,24 @@ func (app *App) doStateCreateRPCServer() {
 		panic(err)
 	}
 
-	app.doStateConnectAddedPeers()
+	app.transitState(stateConnectAddedPeers)
 }
 
-func (app *App) doStateConnectAddedPeers() {
+func (app *P2PApp) connectAddedPeers() {
 	for _, peerInfo := range app.config.AddedPeers {
 		app.hostNode.Connect(peerInfo)
 	}
 
-	app.doStateDiscoverPeers()
+	app.transitState(stateDiscoverPeers)
 }
 
-func (app *App) doStateDiscoverPeers() {
+func (app *P2PApp) discoverPeers() {
 	p2p.StartDiscovery(app.hostNode, app.config.DiscoveryOptions)
 
-	app.doStateWaitPeersReady()
+	app.transitState(stateWaitPeersReady)
 }
 
-func (app *App) doStateWaitPeersReady() {
+func (app *P2PApp) waitPeersReady() {
 	for {
 		// TODO: the count 5 should be loaded from config file
 		if len(app.hostNode.GetLivePeerList()) >= app.config.MinPeerCountToWait {
@@ -145,13 +183,13 @@ func (app *App) doStateWaitPeersReady() {
 	}
 }
 
-func (app *App) onPeerConnected(peer *p2p.PeerNode) {
+func (app *P2PApp) onPeerConnected(peer *p2p.PeerNode) {
 	peer.SendMessage(&pb.VersionMessage{
 		Version: 0,
 	})
 }
 
-func (app *App) registerMessageHandlers() {
+func (app *P2PApp) registerMessageHandlers() {
 	app.hostNode.SetAnyMessageHandler(app.onAnyMessage)
 
 	app.hostNode.RegisterMessageHandler("pb.VersionMessage", app.onMessageVersion)
@@ -162,45 +200,45 @@ func (app *App) registerMessageHandlers() {
 	app.hostNode.RegisterMessageHandler("pb.PongMessage", app.onMessagePong)
 }
 
-func (app *App) onMessageVersion(peer *p2p.PeerNode, message proto.Message) {
+func (app *P2PApp) onMessageVersion(peer *p2p.PeerNode, message proto.Message) {
 	logger.Debug("Received version")
 
 	peer.SendMessage(&pb.VerackMessage{})
 }
 
-func (app *App) onMessageVerack(peer *p2p.PeerNode, message proto.Message) {
+func (app *P2PApp) onMessageVerack(peer *p2p.PeerNode, message proto.Message) {
 	logger.Debug("Received verack")
 
 	app.hostNode.PeerDoneHandShake(peer)
 }
 
-func (app *App) onMessageGetBlock(peer *p2p.PeerNode, message proto.Message) {
+func (app *P2PApp) onMessageGetBlock(peer *p2p.PeerNode, message proto.Message) {
 	blockMessage := &pb.BlockMessage{}
 	peer.SendMessage(blockMessage)
 }
 
-func (app *App) onMessageBlock(peer *p2p.PeerNode, message proto.Message) {
+func (app *P2PApp) onMessageBlock(peer *p2p.PeerNode, message proto.Message) {
 	logger.Debug("Received block")
 }
 
-func (app *App) onMessagePing(peer *p2p.PeerNode, message proto.Message) {
+func (app *P2PApp) onMessagePing(peer *p2p.PeerNode, message proto.Message) {
 	peer.SendMessage(&pb.PongMessage{
 		Nonce: message.(*pb.PingMessage).Nonce,
 	})
 }
 
-func (app *App) onMessagePong(peer *p2p.PeerNode, message proto.Message) {
+func (app *P2PApp) onMessagePong(peer *p2p.PeerNode, message proto.Message) {
 	if peer.LastPingNonce == message.(*pb.PongMessage).Nonce {
 	}
 }
 
-func (app *App) onAnyMessage(peer *p2p.PeerNode, message proto.Message) bool {
+func (app *P2PApp) onAnyMessage(peer *p2p.PeerNode, message proto.Message) bool {
 	peer.LastMessageTime = utils.GetCurrentMilliseconds()
 
 	return true
 }
 
-func (app *App) doMainLoop() {
+func (app *P2PApp) doMainLoop() {
 	for {
 		app.doHeartBeat()
 
@@ -208,7 +246,7 @@ func (app *App) doMainLoop() {
 	}
 }
 
-func (app *App) doHeartBeat() {
+func (app *P2PApp) doHeartBeat() {
 	if !app.isHostReady() {
 		return
 	}
@@ -242,6 +280,6 @@ func (app *App) doHeartBeat() {
 	}
 }
 
-func (app *App) isHostReady() bool {
+func (app *P2PApp) isHostReady() bool {
 	return app.hostNode != nil
 }

@@ -212,6 +212,6 @@ func main() {
 		}
 	}
 
-	app := app.NewApp(appConfig)
+	app := app.NewBeaconApp(appConfig)
 	app.Run()
 }

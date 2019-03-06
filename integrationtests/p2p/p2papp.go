@@ -10,8 +10,8 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"google.golang.org/grpc"
 
-	"github.com/libp2p/go-libp2p-peerstore"
-	"github.com/phoreproject/synapse/integrationtests/framework"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	testframework "github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/p2p/app"
 )
 
@@ -33,7 +33,12 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 	}
 
 	for _, app := range test.appList {
-		go app.Run()
+		go func() {
+			err := app.Run()
+			if err != nil {
+				panic(err)
+			}
+		}()
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -54,9 +59,7 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 		s, err := client.GetConnectionStatus(ctx, &empty.Empty{})
 		if s != nil {
 			if s.Connected {
-				fmt.Printf("=============RPC connected \n")
-			} else {
-				fmt.Printf("=============NNNNNNNNNNNNNNNN connected \n")
+				return nil
 			}
 		} else {
 			panic(err)

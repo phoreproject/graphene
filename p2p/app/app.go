@@ -2,6 +2,7 @@ package app
 
 import (
 	"crypto/rand"
+	"errors"
 	"net"
 	"time"
 
@@ -69,7 +70,7 @@ const (
 	stateWaitPeersReady
 )
 
-func (app *P2PApp) transitState(state int) {
+func (app *P2PApp) transitState(state int) error {
 	switch state {
 	case stateInitialize:
 		app.initialize()
@@ -84,7 +85,10 @@ func (app *P2PApp) transitState(state int) {
 		app.createRPCServer()
 
 	case stateConnectAddedPeers:
-		app.connectAddedPeers()
+		err := app.connectAddedPeers()
+		if err != nil {
+			return err
+		}
 
 	case stateDiscoverPeers:
 		app.discoverPeers()
@@ -93,14 +97,19 @@ func (app *P2PApp) transitState(state int) {
 		app.waitPeersReady()
 
 	default:
-		panic("Unknow state")
+		return errors.New("Unknow state")
 	}
+	return nil
 }
 
 // Run runs the main loop of P2PApp
-func (app *P2PApp) Run() {
+func (app *P2PApp) Run() error {
 	go app.doMainLoop()
-	app.transitState(stateInitialize)
+	err := app.transitState(stateInitialize)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetHostNode gets the host node
@@ -159,12 +168,16 @@ func (app *P2PApp) createRPCServer() {
 	app.transitState(stateConnectAddedPeers)
 }
 
-func (app *P2PApp) connectAddedPeers() {
+func (app *P2PApp) connectAddedPeers() error {
 	for _, peerInfo := range app.config.AddedPeers {
-		app.hostNode.Connect(peerInfo)
+		_, err := app.hostNode.Connect(peerInfo)
+		if err != nil {
+			return err
+		}
 	}
 
 	app.transitState(stateDiscoverPeers)
+	return nil
 }
 
 func (app *P2PApp) discoverPeers() {

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"net"
 	"time"
 
@@ -134,6 +135,10 @@ func (node *HostNode) SetOnPeerConnectedHandler(handler onPeerConnectedHandler) 
 
 // Connect connects to a peer
 func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
+	if peerInfo.ID == node.GetHost().ID() {
+		return nil, errors.New("cannot connect to self")
+	}
+
 	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
 		if p == peerInfo.ID {
 			logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("connecting to self, abort")

@@ -228,5 +228,8 @@ func main() {
 	}
 
 	app := app.NewBeaconApp(appConfig)
-	app.Run()
+	err := app.Run()
+	if err != nil {
+		panic(err)
+	}
 }

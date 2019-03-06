@@ -94,9 +94,10 @@ func (app *BeaconApp) transitState(state int) {
 }
 
 // Run runs the main loop of BeaconApp
-func (app *BeaconApp) Run() {
+func (app *BeaconApp) Run() error {
 	app.transitState(stateInitialize)
 	app.initialize()
+	return nil
 }
 
 // Setup necessary variable

@@ -54,5 +54,8 @@ func main() {
 	config.AddedPeers = ps
 	app := app.NewP2PApp(config)
 
-	app.Run()
+	err = app.Run()
+	if err != nil {
+		panic(err)
+	}
 }

@@ -101,12 +101,11 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 	p.subChannels[subID] = subChan
 	p.cancelChannels[subID] = make(chan bool)
 
-	s, err := p.hostNode.SubscribeMessage(in.Topic, func(b []byte) error {
+	s, err := p.hostNode.SubscribeMessage(in.Topic, func(peer *p2p.PeerNode, data []byte) {
 		select {
-		case subChan <- b:
+		case subChan <- data:
 		default:
 		}
-		return nil
 	})
 
 	if err != nil {

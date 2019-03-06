@@ -231,7 +231,7 @@ func (node *HostNode) Broadcast(topic string, data []byte) error {
 }
 
 // SubscribeMessage registers a handler for a network topic.
-func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
+func (node *HostNode) SubscribeMessage(topic string, handler func(*PeerNode, []byte)) (*pubsub.Subscription, error) {
 	subscription, err := node.gossipSub.Subscribe(topic)
 	if err != nil {
 		return nil, err
@@ -242,13 +242,22 @@ func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error)
 			msg, err := subscription.Next(node.ctx)
 			if err != nil {
 				logger.WithField("error", err).Warn("error when getting next topic message")
-				return
+				continue
 			}
 
-			err = handler(msg.Data)
+			id, err := peer.IDFromBytes(msg.From)
 			if err != nil {
-				logger.WithField("topic", topic).WithField("error", err).Warn("error when handling message")
+				logger.WithField("error", err).Warn("error when getting ID from topic message")
+				continue
 			}
+
+			peer := node.FindPeerByID(id)
+			if peer != nil {
+				logger.Warn("Can't find peer from ID")
+				continue
+			}
+
+			handler(peer, msg.Data)
 		}
 	}()
 
@@ -316,4 +325,14 @@ func (node *HostNode) removePeer(peer *PeerNode) {
 func (node *HostNode) DisconnectPeer(peer *PeerNode) {
 	peer.disconnect()
 	node.removePeer(peer)
+}
+
+// FindPeerByID finds a peer node by ID, returns nil if not found
+func (node *HostNode) FindPeerByID(id peer.ID) *PeerNode {
+	for _, p := range node.livePeerList {
+		if p.GetID() == id {
+			return p
+		}
+	}
+	return nil
 }

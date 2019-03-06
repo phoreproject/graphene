@@ -186,6 +186,7 @@ func (app *P2PApp) waitPeersReady() {
 func (app *P2PApp) onPeerConnected(peer *p2p.PeerNode) {
 	peer.SendMessage(&pb.VersionMessage{
 		Version: 0,
+		Id:      []byte(app.GetHostNode().GetHost().ID()),
 	})
 }
 
@@ -203,6 +204,7 @@ func (app *P2PApp) registerMessageHandlers() {
 func (app *P2PApp) onMessageVersion(peer *p2p.PeerNode, message proto.Message) {
 	logger.Debug("Received version")
 
+	peer.HandleVersionMessage(message.(*pb.VersionMessage))
 	peer.SendMessage(&pb.VerackMessage{})
 }
 

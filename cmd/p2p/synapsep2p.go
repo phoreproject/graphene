@@ -52,7 +52,7 @@ func main() {
 	config.ListeningAddress = *listen
 	config.RPCAddress = *rpcConnect
 	config.AddedPeers = ps
-	app := app.NewApp(config)
+	app := app.NewP2PApp(config)
 
 	app.Run()
 }

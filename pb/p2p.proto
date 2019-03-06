@@ -16,6 +16,7 @@ service MainRPC {
 
 message VersionMessage {
     uint32 version = 1;
+    bytes id = 2;
 }
 
 message VerackMessage {

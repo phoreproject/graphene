@@ -3,8 +3,11 @@ package p2p
 import (
 	"bufio"
 
+	"github.com/phoreproject/synapse/pb"
+
 	proto "github.com/golang/protobuf/proto"
 	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 // PeerNode is the node for the peer
@@ -12,6 +15,7 @@ type PeerNode struct {
 	stream   inet.Stream
 	writer   *bufio.Writer
 	outbound bool
+	id       peer.ID
 
 	LastPingNonce   uint64
 	LastPingTime    uint64
@@ -46,6 +50,16 @@ func (node *PeerNode) IsInbound() bool {
 	return !node.IsOutbound()
 }
 
+// GetID returns the ID
+func (node *PeerNode) GetID() peer.ID {
+	return node.id
+}
+
 func (node *PeerNode) disconnect() {
 	node.stream.Reset()
+}
+
+// HandleVersionMessage handles VersionMessage
+func (node *PeerNode) HandleVersionMessage(message *pb.VersionMessage) {
+	node.id, _ = peer.IDFromBytes(message.Id)
 }

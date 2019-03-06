@@ -1,12 +1,16 @@
 module github.com/phoreproject/synapse
 
 require (
-	github.com/btcsuite/btcd v0.0.0-20190209000034-12ce2fc7d321 // indirect
+	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
+	github.com/btcsuite/btcd v0.0.0-20190209000034-12ce2fc7d321
 	github.com/btcsuite/btcutil v0.0.0-20190207003914-4c204d697803
 	github.com/btcsuite/golangcrypto v0.0.0-20150304025918-53f62d9b43e8
 	github.com/coreos/go-semver v0.2.0 // indirect
+	github.com/dgraph-io/badger v1.5.4
+	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
 	github.com/fd/go-nat v1.0.0 // indirect
 	github.com/go-test/deep v1.0.1
+	github.com/gogo/protobuf v1.2.0
 	github.com/golang/protobuf v1.2.0
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
@@ -15,7 +19,7 @@ require (
 	github.com/ipfs/go-ipfs-util v1.2.8 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.0.0-20150120210811-aac704a3f4f2 // indirect
 	github.com/jbenet/goprocess v0.0.0-20160826012719-b497e2f366b8 // indirect
-	github.com/labstack/echo v3.3.10+incompatible // indirect
+	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.8 // indirect
 	github.com/libp2p/go-addr-util v2.0.7+incompatible // indirect
 	github.com/libp2p/go-buffer-pool v0.1.3 // indirect
@@ -53,14 +57,14 @@ require (
 	github.com/mattn/go-colorable v0.1.0 // indirect
 	github.com/miekg/dns v1.1.4 // indirect
 	github.com/minio/sha256-simd v0.0.0-20190131020904-2d45a736cd16 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v1.4.0
 	github.com/multiformats/go-multiaddr-net v1.7.1
 	github.com/multiformats/go-multibase v0.3.0 // indirect
 	github.com/multiformats/go-multistream v0.3.9 // indirect
 	github.com/phoreproject/bls v0.0.0-20190219000203-afaefda3ea64
 	github.com/phoreproject/prysm v0.0.0-20190208054636-b485eebbb134
-	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051 // indirect
+	github.com/prysmaticlabs/prysm v0.0.0-20190208215336-7ae19ec37051
 	github.com/sirupsen/logrus v1.3.0
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

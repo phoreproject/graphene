@@ -8,6 +8,7 @@ synapsep2p
 integration_tests
 integration
 *.exe
+/.vscode
 
 .idea
 validators.pubs

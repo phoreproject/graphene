@@ -1,4 +1,4 @@
-package p2p
+package rpc
 
 import (
 	"context"
@@ -7,32 +7,17 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	iaddr "github.com/ipfs/go-ipfs-addr"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/net"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 )
-
-// StringToPeerInfo converts a string to a peer info.
-func StringToPeerInfo(addrStr string) (*peerstore.PeerInfo, error) {
-	addr, err := iaddr.ParseString(addrStr)
-	if err != nil {
-		return nil, err
-	}
-	peerinfo, err := peerstore.InfoFromP2pAddr(addr.Multiaddr())
-	if err != nil {
-		return nil, err
-	}
-	return peerinfo, nil
-}
 
 // RPCServer is a server to manager the P2P module
 // RPC server.
 type RPCServer struct {
-	service        *net.NetworkingService
+	hostNode       *p2p.HostNode
 	subscriptions  map[uint64]*pubsub.Subscription
 	subChannels    map[uint64]chan []byte
 	cancelChannels map[uint64]chan bool
@@ -41,9 +26,9 @@ type RPCServer struct {
 }
 
 // NewRPCServer sets up a server for handling P2P module RPC requests.
-func NewRPCServer(netService *net.NetworkingService) RPCServer {
+func NewRPCServer(hostNode *p2p.HostNode) RPCServer {
 	p := RPCServer{
-		service:        netService,
+		hostNode:       hostNode,
 		subscriptions:  make(map[uint64]*pubsub.Subscription),
 		subChannels:    make(map[uint64]chan []byte),
 		cancelChannels: make(map[uint64]chan bool),
@@ -58,17 +43,22 @@ func NewRPCServer(netService *net.NetworkingService) RPCServer {
 func (p RPCServer) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return &pb.ConnectionStatus{Connected: p.service.IsConnected()}, nil
+	return &pb.ConnectionStatus{Connected: len(p.hostNode.GetLivePeerList()) > 0}, nil
 }
 
 // GetPeers gets the peers for the P2P connection.
 func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersResponse, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	peers := p.service.GetPeers()
+	peers := p.hostNode.GetLivePeerList()
 	peersPb := []*pb.Peer{}
-	for _, p := range peers {
-		peersPb = append(peersPb, &pb.Peer{Address: p.String()})
+	for range peers {
+		//peersPb = append(peersPb, &pb.Peer{Address: p.String()})
+		// TODO: we need either to see how to get the peer address in handler of SetStreamHandler
+		// or to see if we need to return the peer address, we may return more meaningful information
+		// such as public keys
+		// Now the PeerNode can't know the address if the connection is established in SetStreamHandler
+		peersPb = append(peersPb, &pb.Peer{Address: ""})
 	}
 	return &pb.GetPeersResponse{Peers: peersPb}, nil
 }
@@ -111,12 +101,11 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 	p.subChannels[subID] = subChan
 	p.cancelChannels[subID] = make(chan bool)
 
-	s, err := p.service.RegisterHandler(in.Topic, func(b []byte) error {
+	s, err := p.hostNode.SubscribeMessage(in.Topic, func(peer *p2p.PeerNode, data []byte) {
 		select {
-		case subChan <- b:
+		case subChan <- data:
 		default:
 		}
-		return nil
 	})
 
 	if err != nil {
@@ -145,7 +134,7 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 
 	close(p.cancelChannels[in.ID])
 	close(p.subChannels[in.ID])
-	p.subscriptions[in.ID].Cancel()
+	p.hostNode.UnsubscribeMessage(p.subscriptions[in.ID])
 
 	delete(p.cancelChannels, in.ID)
 	delete(p.subChannels, in.ID)
@@ -158,7 +147,7 @@ func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty
 func (p RPCServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*empty.Empty, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return &empty.Empty{}, p.service.Broadcast(in.Topic, in.Data)
+	return &empty.Empty{}, p.hostNode.Broadcast(in.Topic, in.Data)
 }
 
 // Connect connects to more peers.
@@ -167,11 +156,11 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 	defer p.lock.Unlock()
 	success := true
 	for _, peer := range in.Peers {
-		pInfo, err := StringToPeerInfo(peer.Address)
+		pInfo, err := p2p.StringToPeerInfo(peer.Address)
 		if err != nil {
 			return nil, err
 		}
-		err = p.service.Connect(pInfo)
+		_, err = p.hostNode.Connect(pInfo)
 		if err != nil {
 			success = false
 			logrus.WithField("addr", peer.Address).Warn("could not connect to peer")

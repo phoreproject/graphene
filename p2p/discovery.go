@@ -81,7 +81,7 @@ var mDNSTag = mdns.ServiceTag
 // DNS peer discovery.
 //
 // TODO(287): add other discovery protocols such as DHT, etc.
-func startDiscovery(node *HostNode, options *DiscoveryOptions) error {
+func StartDiscovery(node *HostNode, options *DiscoveryOptions) error {
 	if len(options.PeerAddresses) > 0 {
 		go discoverFromPeerInfos(node, options.PeerAddresses)
 	}

@@ -30,7 +30,6 @@ src_depend: $(SRC)
 
 integrationtests: src_depend
 	go build -o integration$(EXE) integrationtests/cmd/integrationtests.go
-	./integration
 
 clean:
 	go clean

@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	proto "github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
@@ -15,12 +16,17 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	multiaddr "github.com/multiformats/go-multiaddr"
-	pb "github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
-// HostNode is the node for host
+type messageHandler func(peer *PeerNode, message proto.Message)
+type anyMessageHandler func(peer *PeerNode, message proto.Message) bool
+type onPeerConnectedHandler func(peer *PeerNode)
+
+// HostNode is the node for p2p host
+// It's the low level P2P communication layer, the App class handles high level protocols
+// The RPC communication is hanlded by App, not HostNode
 type HostNode struct {
 	publicKey  crypto.PubKey
 	privateKey crypto.PrivKey
@@ -28,12 +34,23 @@ type HostNode struct {
 	gossipSub  *pubsub.PubSub
 	ctx        context.Context
 	cancel     context.CancelFunc
-	grpcServer *grpc.Server
-	streamCh   chan inet.Stream
-	peerList   []*PeerNode
+	// a messageHandler is called when a message with certain name is received
+	messageHandlerMap map[string]messageHandler
+	// anyMessagehandler is called upon any message is received
+	anyMessagehandler anyMessageHandler
+	onPeerConnected   onPeerConnectedHandler
+
+	// All peers that connected successfully with correct handshake
+	livePeerList []*PeerNode
+	// All live peers that are inbound
+	inboundPeerList []*PeerNode
+	// All live peers that are outbound
+	outboundPeerList []*PeerNode
+	// Connecting but not handshaked peers
+	connectingPeerList []*PeerNode
 }
 
-var protocolID = protocol.ID("/grpc/0.0.1")
+var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
 func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
@@ -64,56 +81,69 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	grpcServer := grpc.NewServer()
-	stream := make(chan inet.Stream)
 	hostNode := HostNode{
-		publicKey:  publicKey,
-		privateKey: privateKey,
-		host:       host,
-		gossipSub:  g,
-		ctx:        ctx,
-		cancel:     cancel,
-		grpcServer: grpcServer,
-		streamCh:   stream,
+		publicKey:         publicKey,
+		privateKey:        privateKey,
+		host:              host,
+		gossipSub:         g,
+		ctx:               ctx,
+		cancel:            cancel,
+		messageHandlerMap: make(map[string]messageHandler),
 	}
 
 	host.SetStreamHandler(protocolID, hostNode.handleStream)
-
-	pb.RegisterMainRPCServer(grpcServer, NewMainRPCServer())
 
 	return &hostNode, nil
 }
 
 // handleStream handles an incoming stream.
 func (node *HostNode) handleStream(stream inet.Stream) {
-	select {
-	case <-node.ctx.Done():
-		return
-	case node.streamCh <- stream:
+	node.createPeerNodeFromStream(stream, false)
+}
+
+func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
+	logger.Infof("Received message: %s", proto.MessageName(message))
+
+	if node.anyMessagehandler != nil {
+		if !node.anyMessagehandler(peer, message) {
+			return
+		}
 	}
+
+	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
+	if ok {
+		handler(peer, message)
+	}
+}
+
+// RegisterMessageHandler registers a message handler
+func (node *HostNode) RegisterMessageHandler(messageName string, handler messageHandler) {
+	node.messageHandlerMap[messageName] = handler
+}
+
+// SetAnyMessageHandler sets a message handler for any message
+// The handler return false to prevent the message from dispatching
+func (node *HostNode) SetAnyMessageHandler(handler anyMessageHandler) {
+	node.anyMessagehandler = handler
+}
+
+// SetOnPeerConnectedHandler sets the onPeerConnected handler
+func (node *HostNode) SetOnPeerConnectedHandler(handler onPeerConnectedHandler) {
+	node.onPeerConnected = handler
 }
 
 // Connect connects to a peer
 func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
 		if p == peerInfo.ID {
+			logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("connecting to self, abort")
 			return nil, nil
 		}
 	}
 
 	logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("attempting to connect to a peer")
 
-	ctx, cancel := context.WithTimeout(node.ctx, 10*time.Second)
-	defer cancel()
-
 	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
-
-	grpcConn, err := node.Dial(ctx, peerInfo.ID, grpc.WithInsecure(), grpc.WithBlock())
-
-	if err != nil {
-		logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to connect to peer")
-		return nil, err
-	}
 
 	stream, err := node.host.NewStream(context.Background(), peerInfo.ID, protocolID)
 
@@ -122,26 +152,24 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	client := pb.NewMainRPCClient(grpcConn)
-
-	peerNode := &PeerNode{
-		stream: stream,
-		client: client,
-	}
-
-	node.peerList = append(node.peerList, peerNode)
-
-	return peerNode, err
+	return node.createPeerNodeFromStream(stream, true), nil
 }
 
 // Run runs the main loop of the host node
-func (node *HostNode) Run() {
-	go node.grpcServer.Serve(newGrpcListener(node))
-}
+func (node *HostNode) createPeerNodeFromStream(stream inet.Stream, outbound bool) *PeerNode {
+	peer := newPeerNode(stream, outbound)
 
-// GetGRPCServer returns the grpc server.
-func (node *HostNode) GetGRPCServer() *grpc.Server {
-	return node.grpcServer
+	node.connectingPeerList = append(node.connectingPeerList, peer)
+
+	go processMessages(stream, func(message proto.Message) {
+		node.handleMessage(peer, message)
+	})
+
+	if node.onPeerConnected != nil {
+		node.onPeerConnected(peer)
+	}
+
+	return peer
 }
 
 // GetDialOption returns the WithDialer option to dial via libp2p.
@@ -197,28 +225,13 @@ func (node *HostNode) GetHost() host.Host {
 	return node.host
 }
 
-// GetPeerList returns the peer list
-func (node *HostNode) GetPeerList() []*PeerNode {
-	return node.peerList
-}
-
-// Discover discovers the peers
-func (node *HostNode) Discover(options *DiscoveryOptions) error {
-	return startDiscovery(node, options)
-}
-
-// GetConnectedPeerCount returns the connected peer count
-func (node *HostNode) GetConnectedPeerCount() int {
-	return node.host.Peerstore().Peers().Len()
-}
-
 // Broadcast broadcasts a message to the network for a topic.
 func (node *HostNode) Broadcast(topic string, data []byte) error {
 	return node.gossipSub.Publish(topic, data)
 }
 
 // SubscribeMessage registers a handler for a network topic.
-func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error) (*pubsub.Subscription, error) {
+func (node *HostNode) SubscribeMessage(topic string, handler func(*PeerNode, []byte)) (*pubsub.Subscription, error) {
 	subscription, err := node.gossipSub.Subscribe(topic)
 	if err != nil {
 		return nil, err
@@ -229,13 +242,22 @@ func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error)
 			msg, err := subscription.Next(node.ctx)
 			if err != nil {
 				logger.WithField("error", err).Warn("error when getting next topic message")
-				return
+				continue
 			}
 
-			err = handler(msg.Data)
+			id, err := peer.IDFromBytes(msg.From)
 			if err != nil {
-				logger.WithField("topic", topic).WithField("error", err).Warn("error when handling message")
+				logger.WithField("error", err).Warn("error when getting ID from topic message")
+				continue
 			}
+
+			peer := node.FindPeerByID(id)
+			if peer != nil {
+				logger.Warn("Can't find peer from ID")
+				continue
+			}
+
+			handler(peer, msg.Data)
 		}
 	}()
 
@@ -245,4 +267,72 @@ func (node *HostNode) SubscribeMessage(topic string, handler func([]byte) error)
 // UnsubscribeMessage cancels a subscription to a topic.
 func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
 	subscription.Cancel()
+}
+
+// GetLivePeerList returns all peer list, including both inbound and outbound
+func (node *HostNode) GetLivePeerList() []*PeerNode {
+	return node.livePeerList
+}
+
+// GetInboundPeerList returns the inbound peer list
+func (node *HostNode) GetInboundPeerList() []*PeerNode {
+	return node.inboundPeerList
+}
+
+// GetOutboundPeerList returns the outbound peer list
+func (node *HostNode) GetOutboundPeerList() []*PeerNode {
+	return node.outboundPeerList
+}
+
+// PeerDoneHandShake is called when handshaking is finished
+func (node *HostNode) PeerDoneHandShake(peer *PeerNode) {
+	for i, p := range node.connectingPeerList {
+		if p == peer {
+			node.connectingPeerList = append(node.connectingPeerList[:i], node.connectingPeerList[i+1:]...)
+			break
+		}
+	}
+	node.livePeerList = append(node.livePeerList, peer)
+	if peer.IsOutbound() {
+		node.outboundPeerList = append(node.outboundPeerList, peer)
+	} else {
+		node.inboundPeerList = append(node.inboundPeerList, peer)
+	}
+}
+
+func (node *HostNode) removePeer(peer *PeerNode) {
+	for i, p := range node.livePeerList {
+		if p == peer {
+			node.livePeerList = append(node.livePeerList[:i], node.livePeerList[i+1:]...)
+			break
+		}
+	}
+	for i, p := range node.outboundPeerList {
+		if p == peer {
+			node.outboundPeerList = append(node.outboundPeerList[:i], node.outboundPeerList[i+1:]...)
+			break
+		}
+	}
+	for i, p := range node.inboundPeerList {
+		if p == peer {
+			node.inboundPeerList = append(node.inboundPeerList[:i], node.inboundPeerList[i+1:]...)
+			break
+		}
+	}
+}
+
+// DisconnectPeer disconnects a peer
+func (node *HostNode) DisconnectPeer(peer *PeerNode) {
+	peer.disconnect()
+	node.removePeer(peer)
+}
+
+// FindPeerByID finds a peer node by ID, returns nil if not found
+func (node *HostNode) FindPeerByID(id peer.ID) *PeerNode {
+	for _, p := range node.livePeerList {
+		if p.GetID() == id {
+			return p
+		}
+	}
+	return nil
 }

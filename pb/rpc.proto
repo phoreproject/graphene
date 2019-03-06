@@ -361,16 +361,7 @@ message ValidatorRegistryDeltaBlock {
     uint64 Flag = 4;
 }
 
-message TestMessage {
-    string message = 1;
-}
-
 message AttestationRequest { // possibly sign this message to prevent DoS
     bytes ParticipationBitfield = 1;
-}
-
-// This will be renamed to P2PRPC later
-service MainRPC {
-    rpc Test(TestMessage) returns (TestMessage);
 }
 

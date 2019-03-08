@@ -162,7 +162,7 @@ func (app *P2PApp) waitPeersReady() {
 func (app *P2PApp) onPeerConnected(peer *p2p.PeerNode) {
 	peer.SendMessage(&pb.VersionMessage{
 		Version: 0,
-		Id:      []byte(app.GetHostNode().GetHost().ID()),
+		ID:      []byte(app.GetHostNode().GetHost().ID()),
 	})
 }
 

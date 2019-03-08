@@ -69,6 +69,6 @@ func (node *PeerNode) disconnect() {
 
 // HandleVersionMessage handles VersionMessage
 func (node *PeerNode) HandleVersionMessage(message *pb.VersionMessage) {
-	node.id, _ = peer.IDFromBytes(message.Id)
+	node.id, _ = peer.IDFromBytes(message.ID)
 	node.peerInfo, _ = AddrStringToPeerInfo(message.GetAddress())
 }

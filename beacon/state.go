@@ -132,7 +132,6 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("finalized hash", finalizedNode.hash)
 	finalizedState, found := b.stateManager.GetStateForHash(finalizedNode.hash)
 	if !found {
 		return errors.New("could not find finalized block hash in state map")
@@ -169,21 +168,6 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	}
 
 	return nil
-}
-
-// GetNewRecentBlockHashes will take a list of recent block hashes and
-// shift them to the right, filling them in with the parentHash provided.
-func GetNewRecentBlockHashes(oldHashes []chainhash.Hash, parentSlot uint64, currentSlot uint64, parentHash chainhash.Hash) []chainhash.Hash {
-	d := currentSlot - parentSlot
-	newHashes := oldHashes[:]
-	numberToAdd := int(d)
-	if numberToAdd > len(oldHashes) {
-		numberToAdd = len(oldHashes)
-	}
-	for i := 0; i < numberToAdd; i++ {
-		newHashes = append(newHashes, parentHash)
-	}
-	return newHashes
 }
 
 // GetState gets a copy of the current state of the blockchain.

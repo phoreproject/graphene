@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/rand"
-	"errors"
 	"net"
 	"time"
 
@@ -70,45 +69,20 @@ const (
 	stateWaitPeersReady
 )
 
-func (app *P2PApp) transitState(state int) error {
-	switch state {
-	case stateInitialize:
-		app.initialize()
-
-	case stateLoadConfig:
-		app.loadConfig()
-
-	case stateCreateHost:
-		app.createHost()
-
-	case stateCreateRPCServer:
-		app.createRPCServer()
-
-	case stateConnectAddedPeers:
-		err := app.connectAddedPeers()
-		if err != nil {
-			return err
-		}
-
-	case stateDiscoverPeers:
-		app.discoverPeers()
-
-	case stateWaitPeersReady:
-		app.waitPeersReady()
-
-	default:
-		return errors.New("Unknow state")
-	}
-	return nil
-}
-
 // Run runs the main loop of P2PApp
 func (app *P2PApp) Run() error {
-	go app.doMainLoop()
-	err := app.transitState(stateInitialize)
+	app.initialize()
+	app.loadConfig()
+	app.createHost()
+	app.createRPCServer()
+	err := app.connectAddedPeers()
 	if err != nil {
 		return err
 	}
+	app.discoverPeers()
+	app.waitPeersReady()
+	go app.runMainLoop()
+
 	return nil
 }
 
@@ -119,7 +93,6 @@ func (app *P2PApp) GetHostNode() *p2p.HostNode {
 
 // Setup necessary variable
 func (app *P2PApp) initialize() {
-	app.transitState(stateLoadConfig)
 }
 
 // Load user config from configure file
@@ -128,8 +101,6 @@ func (app *P2PApp) loadConfig() {
 	privateKey, publicKey, _ := crypto.GenerateSecp256k1Key(rand.Reader)
 	app.privateKey = privateKey
 	app.publicKey = publicKey
-
-	app.transitState(stateCreateHost)
 }
 
 func (app *P2PApp) createHost() {
@@ -146,8 +117,6 @@ func (app *P2PApp) createHost() {
 	app.hostNode = hostNode
 
 	app.registerMessageHandlers()
-
-	app.transitState(stateCreateRPCServer)
 }
 
 func (app *P2PApp) createRPCServer() {
@@ -164,8 +133,6 @@ func (app *P2PApp) createRPCServer() {
 	if err != nil {
 		panic(err)
 	}
-
-	app.transitState(stateConnectAddedPeers)
 }
 
 func (app *P2PApp) connectAddedPeers() error {
@@ -175,15 +142,11 @@ func (app *P2PApp) connectAddedPeers() error {
 			return err
 		}
 	}
-
-	app.transitState(stateDiscoverPeers)
 	return nil
 }
 
 func (app *P2PApp) discoverPeers() {
 	p2p.StartDiscovery(app.hostNode, app.config.DiscoveryOptions)
-
-	app.transitState(stateWaitPeersReady)
 }
 
 func (app *P2PApp) waitPeersReady() {
@@ -253,7 +216,7 @@ func (app *P2PApp) onAnyMessage(peer *p2p.PeerNode, message proto.Message) bool 
 	return true
 }
 
-func (app *P2PApp) doMainLoop() {
+func (app *P2PApp) runMainLoop() {
 	for {
 		app.doHeartBeat()
 

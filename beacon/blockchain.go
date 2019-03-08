@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -61,6 +62,28 @@ type Blockchain struct {
 	stateManager *StateManager
 }
 
+func blockNodeToHash(b *blockNode) chainhash.Hash {
+	if b == nil {
+		return chainhash.Hash{}
+	}
+	return b.hash
+}
+
+func blockNodeToDisk(b blockNode) db.BlockNodeDisk {
+	childrenHashes := make([]chainhash.Hash, len(b.children))
+	for i, c := range b.children {
+		childrenHashes[i] = blockNodeToHash(c)
+	}
+
+	return db.BlockNodeDisk{
+		Hash:     b.hash,
+		Height:   b.height,
+		Slot:     b.slot,
+		Parent:   blockNodeToHash(b.parent),
+		Children: childrenHashes,
+	}
+}
+
 func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash) (*blockNode, error) {
 	if node, found := b.chain.index[blockHash]; found {
 		return node, nil
@@ -98,6 +121,11 @@ func (b *Blockchain) addBlockNodeToIndex(block *primitives.Block, blockHash chai
 // getAncestor gets the ancestor of a block at a certain slot.
 func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
 	current := node
+
+	//if node == nil || node.slot < slot {
+	//	return nil, errors.New("no ancestors with this slot number")
+	//}
+
 	// go up to the slot after the slot we're searching for
 	for slot < current.slot {
 		current = current.parent
@@ -148,7 +176,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		},
 	}
 
-	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b)
+	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)
 	if err != nil {
 		return nil, err
 	}
@@ -188,49 +216,97 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	if err != nil {
 		return nil, err
 	}
-	node, err := b.addBlockNodeToIndex(&block0, blockHash)
+
+	_, err = b.db.GetBlockNode(blockHash)
 	if err != nil {
-		return nil, err
-	}
-
-	b.chain.finalizedHead = blockNodeAndState{node, initialState}
-	b.chain.justifiedHead = blockNodeAndState{node, initialState}
-	b.chain.tip = node
-
-	err = b.stateManager.SetBlockState(blockHash, &initialState)
-	if err != nil {
-		return nil, err
-	}
-
-	if h, err := db.GetHeadBlock(); err == nil {
-		headBlock, err := db.GetBlockForHash(*h)
+		// this is a new database, so let's populate it with default values
+		node, err := b.addBlockNodeToIndex(&block0, blockHash)
 		if err != nil {
 			return nil, err
 		}
-		blocks := []*primitives.Block{headBlock}
-		currentBlock := headBlock
-		for !currentBlock.BlockHeader.ParentRoot.IsEqual(&zeroHash) {
-			block, err := db.GetBlockForHash(currentBlock.BlockHeader.ParentRoot)
-			if err != nil {
-				return nil, err
-			}
-			if block.BlockHeader.SlotNumber != 0 {
-				blocks = append(blocks, block)
-			}
-			currentBlock = block
+		b.chain.tip = node
+
+		b.chain.finalizedHead = blockNodeAndState{node, initialState}
+		b.chain.justifiedHead = blockNodeAndState{node, initialState}
+		err = b.db.SetJustifiedHead(node.hash)
+		if err != nil {
+			return nil, err
+		}
+		err = b.db.SetFinalizedHead(node.hash)
+		if err != nil {
+			return nil, err
+		}
+		b.chain.tip = node
+
+		err = b.stateManager.SetBlockState(blockHash, &initialState)
+		if err != nil {
+			return nil, err
 		}
 
-		for i := len(blocks) - 1; i >= 0; i-- {
-			block := blocks[i]
+		err = b.db.SetBlockState(blockHash, initialState)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		logrus.Debug("loading block index...")
+		err := b.populateBlockIndexFromDatabase(blockHash)
+		if err != nil {
+			return nil, err
+		}
 
-			err := b.ProcessBlock(block)
-			if err != nil {
-				return nil, err
-			}
+		logrus.Debug("loading justified and finalized states...")
+		err = b.populateJustifiedAndFinalizedNodes()
+		if err != nil {
+			return nil, err
+		}
+
+		logrus.Debug("populating state map...")
+		err = b.populateStateMap()
+		if err != nil {
+			return nil, err
+		}
+
+		logrus.Debug("loading chain tip...")
+		err = b.populateChainTip()
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	return b, nil
+}
+
+func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) error {
+	queue := []chainhash.Hash{genesisHash}
+
+	for len(queue) > 0 {
+		nodeToFind := queue[0]
+		queue = queue[1:]
+
+		node, err := b.db.GetBlockNode(nodeToFind)
+		if err != nil {
+			return err
+		}
+
+		parent := b.chain.index[node.Parent]
+
+		newNode := &blockNode{
+			hash:     node.Hash,
+			height:   node.Height,
+			slot:     node.Slot,
+			parent:   parent,
+			children: make([]*blockNode, 0),
+		}
+
+		b.chain.index[node.Hash] = newNode
+
+		if parent != nil {
+			parent.children = append(parent.children, newNode)
+		}
+
+		queue = append(queue, node.Children...)
+	}
+	return nil
 }
 
 // UpdateStateIfNeeded updates the state to a certain slot.
@@ -240,12 +316,22 @@ func (b *Blockchain) UpdateStateIfNeeded(upTo uint64) error {
 		return err
 	}
 
-	err = b.stateManager.SetBlockState(b.Tip(), newState)
+	tip := b.Tip()
+
+	err = b.stateManager.SetBlockState(tip, newState)
 	if err != nil {
 		return err
 	}
 
-	b.stateManager.UpdateHead(b.Tip())
+	err = b.db.SetBlockState(tip, *newState)
+	if err != nil {
+		return err
+	}
+
+	err = b.stateManager.UpdateHead(b.Tip())
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -331,11 +417,6 @@ func (b *Blockchain) UpdateChainHead() error {
 				return err
 			}
 
-			err = b.db.SetHeadState(b.stateManager.GetHeadState())
-			if err != nil {
-				return err
-			}
-
 			err = b.db.SetHeadBlock(head.hash)
 			if err != nil {
 				return err
@@ -412,4 +493,83 @@ func (b *Blockchain) GetBlockByHash(h chainhash.Hash) (*primitives.Block, error)
 // GetConfig returns the config used by this blockchain
 func (b *Blockchain) GetConfig() *config.Config {
 	return b.config
+}
+
+func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
+	finalizedHead, err := b.db.GetFinalizedHead()
+	if err != nil {
+		return err
+	}
+
+	finalizedHeadState, err := b.db.GetBlockState(*finalizedHead)
+	if err != nil {
+		return err
+	}
+
+	finalizedBlockNode, found := b.chain.index[*finalizedHead]
+	if !found {
+		return fmt.Errorf("could not find finalized block node in block index (hash: %s)", finalizedHead)
+	}
+
+	b.chain.finalizedHead = blockNodeAndState{finalizedBlockNode, *finalizedHeadState}
+
+	justifiedHead, err := b.db.GetJustifiedHead()
+	if err != nil {
+		return err
+	}
+
+	justifiedHeadState, err := b.db.GetBlockState(*justifiedHead)
+	if err != nil {
+		return err
+	}
+
+	justifiedBlockNode, found := b.chain.index[*finalizedHead]
+	if !found {
+		return fmt.Errorf("could not find justified block node in block index (hash: %s)", justifiedHead)
+	}
+
+	b.chain.justifiedHead = blockNodeAndState{justifiedBlockNode, *justifiedHeadState}
+
+	return nil
+}
+
+func (b *Blockchain) populateStateMap() error {
+	finalizedNode := b.chain.finalizedHead.blockNode
+
+	loadQueue := []*blockNode{finalizedNode}
+
+	for len(loadQueue) > 0 {
+		itemToLoad := loadQueue[0]
+
+		loadQueue = loadQueue[1:]
+
+		state, err := b.db.GetBlockState(itemToLoad.hash)
+		if err != nil {
+			return err
+		}
+
+		err = b.stateManager.SetBlockState(itemToLoad.hash, state)
+		if err != nil {
+			return err
+		}
+
+		loadQueue = append(loadQueue, itemToLoad.children...)
+	}
+
+	return nil
+}
+
+func (b *Blockchain) populateChainTip() error {
+	head, err := b.db.GetHeadBlock()
+	if err != nil {
+		return err
+	}
+
+	tipNode, found := b.chain.index[*head]
+	if !found {
+		return errors.New("could not find tip block in index")
+	}
+
+	b.chain.tip = tipNode
+	return nil
 }

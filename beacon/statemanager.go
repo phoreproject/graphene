@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/phoreproject/synapse/beacon/db"
+
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/sirupsen/logrus"
@@ -23,6 +25,7 @@ type StateManager struct {
 	config       *config.Config
 	state        primitives.State // state of the head
 	stateMap     map[chainhash.Hash]primitives.State
+	db           db.Database
 	blockchain   *Blockchain
 	stateMapLock *sync.RWMutex
 	stateLock    *sync.Mutex
@@ -31,7 +34,7 @@ type StateManager struct {
 }
 
 // NewStateManager creates a new state manager.
-func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool, blockchain *Blockchain) (*StateManager, error) {
+func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool, blockchain *Blockchain, db db.Database) (*StateManager, error) {
 	s := &StateManager{
 		config:       c,
 		stateMap:     make(map[chainhash.Hash]primitives.State),
@@ -39,6 +42,7 @@ func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry
 		stateLock:    new(sync.Mutex),
 		genesisTime:  genesisTime,
 		blockchain:   blockchain,
+		db:           db,
 	}
 	intialState, err := InitializeState(c, initialValidators, genesisTime, skipValidation)
 	if err != nil {
@@ -375,7 +379,10 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 	// process deposits here
 
 	for _, e := range block.BlockBody.Exits {
-		newState.ApplyExit(e, sm.config)
+		err := newState.ApplyExit(e, sm.config)
+		if err != nil {
+			return err
+		}
 	}
 
 	// VERIFY BLOCK STATE ROOT MATCHES STATE ROOT FROM PREVIOUS BLOCK IF NEEDED
@@ -700,29 +707,32 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
+	totalPenalized := uint64(0)
+	totalRewarded := uint64(0)
+
 	if epochsSinceFinality <= 4 {
 		// any validator in previous_epoch_justified_attester_indices is rewarded
 		for index := range previousEpochJustifiedAttesterIndices {
-			logrus.WithField("validatorID", index).WithField("amount", baseReward(index)*previousEpochJustifiedAttestingBalance/totalBalance).Debug("rewarding validator for attesting to the previous justified slot")
+			totalRewarded += baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
 			newState.ValidatorBalances[index] += baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
 		}
 
 		// any validator in previous_epoch_boundary_attester_indices is rewarded
 		for index := range previousEpochBoundaryAttesterIndices {
-			logrus.WithField("validatorID", index).WithField("amount", baseReward(index)*previousEpochBoundaryAttestingBalance/totalBalance).Debug("rewarding validator for attesting to the previous epoch boundary")
+			totalRewarded += baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
 			newState.ValidatorBalances[index] += baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
 		}
 
 		// any validator in previous_epoch_head_attester_indices is rewarded
 		for index := range previousEpochHeadAttesterIndices {
-			logrus.WithField("validatorID", index).WithField("amount", baseReward(index)*previousEpochHeadAttestingBalance/totalBalance).Debug("rewarding validator for attesting to the correct BeaconBlockHash")
+			totalRewarded += baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
 			newState.ValidatorBalances[index] += baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
 		}
 
 		// any validator in previous_epoch_head_attester_indices is rewarded
 		for index := range previousEpochAttesterIndices {
 			inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
-			logrus.WithField("validatorID", index).WithField("amount", baseReward(index)*sm.config.MinAttestationInclusionDelay/inclusionDistance).Debug("rewarding validator for inclusion distance")
+			totalRewarded += baseReward(index) * sm.config.MinAttestationInclusionDelay / inclusionDistance
 			newState.ValidatorBalances[index] += baseReward(index) * sm.config.MinAttestationInclusionDelay / inclusionDistance
 		}
 
@@ -737,15 +747,15 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 					continue
 				}
 				if _, found := previousEpochHeadAttesterIndices[index]; !found {
-					logrus.WithField("validatorID", index).WithField("amount", baseReward(index)).Debug("penalizing validator for not attesting to the correct beacon block hash")
+					totalPenalized += baseReward(index)
 					newState.ValidatorBalances[index] -= baseReward(index)
 				}
 				if _, found := previousEpochBoundaryAttesterIndices[index]; !found {
-					logrus.WithField("validatorID", index).WithField("amount", baseReward(index)).Debug("penalizing validator for not attesting to the correct epoch boundary")
+					totalPenalized += baseReward(index)
 					newState.ValidatorBalances[index] -= baseReward(index)
 				}
 				if _, found := previousEpochJustifiedAttesterIndices[index]; !found {
-					logrus.WithField("validatorID", index).WithField("amount", baseReward(index)).Debug("penalizing validator for not attesting to the correct justified slot")
+					totalPenalized += baseReward(index)
 					newState.ValidatorBalances[index] -= baseReward(index)
 				}
 			}
@@ -756,25 +766,25 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 			index := uint32(idx)
 			if validator.Status == primitives.Active {
 				if _, found := previousEpochJustifiedAttesterIndices[index]; !found {
-					logrus.WithField("validatorID", index).WithField("amount", inactivityPenalty(index, epochsSinceFinality)).Debug("inactivity penalty for not attesting to justified slot")
+					totalPenalized += inactivityPenalty(index, epochsSinceFinality)
 					newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality)
 				}
 				if _, found := previousEpochBoundaryAttesterIndices[index]; !found {
-					logrus.WithField("validatorID", index).WithField("amount", inactivityPenalty(index, epochsSinceFinality)).Debug("inactivity penalty for not attesting to correct epoch boundary")
+					totalPenalized += inactivityPenalty(index, epochsSinceFinality)
 					newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality)
 				}
 				if _, found := previousEpochHeadAttesterIndices[index]; !found {
-					logrus.WithField("validatorID", index).WithField("amount", baseReward(index)).Debug("inactivity penalty for not attesting to correct block hash")
+					totalPenalized += baseReward(index)
 					newState.ValidatorBalances[index] -= baseReward(index)
 				}
 			} else if validator.Status == primitives.ExitedWithPenalty {
-				logrus.WithField("validatorID", index).WithField("amount", inactivityPenalty(index, epochsSinceFinality)+baseReward(index)).Debug("inactivity penalty for exited validator")
+				totalPenalized += inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
 				newState.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
 			}
 		}
 		for index := range previousEpochAttesterIndices {
 			inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
-			logrus.WithField("validatorID", index).WithField("amount", baseReward(index)-baseReward(index)*sm.config.MinAttestationInclusionDelay/inclusionDistance).Debug("penalty for non-inclusion")
+			totalPenalized += baseReward(index) - baseReward(index)*sm.config.MinAttestationInclusionDelay/inclusionDistance
 			newState.ValidatorBalances[index] -= baseReward(index) - baseReward(index)*sm.config.MinAttestationInclusionDelay/inclusionDistance
 		}
 	}
@@ -784,7 +794,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		if err != nil {
 			return err
 		}
-		logrus.WithField("validatorID", index).WithField("amount", baseReward(index)/sm.config.IncluderRewardQuotient).Debug("reward for including attestation in block")
+		totalRewarded += baseReward(index) / sm.config.IncluderRewardQuotient
 		newState.ValidatorBalances[proposerIndex] += baseReward(index) / sm.config.IncluderRewardQuotient
 	}
 
@@ -807,10 +817,10 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 				for _, index := range shardCommittee.Committee {
 					if _, found := participationIndicesMap[index]; found {
-						logrus.WithField("validatorID", index).WithField("amount", baseReward(index)*totalAttestingBalance/totalBalance).Debug("rewarding validator for attesting in the last epoch")
+						totalRewarded += baseReward(index) * totalAttestingBalance / totalBalance
 						newState.ValidatorBalances[index] += baseReward(index) * totalAttestingBalance / totalBalance
 					} else {
-						logrus.WithField("validatorID", index).WithField("amount", baseReward(index)).Debug("penalizing validator because they did not attest in the last epoch")
+						totalPenalized += baseReward(index)
 						newState.ValidatorBalances[index] -= baseReward(index)
 					}
 				}
@@ -820,9 +830,13 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	for index, validator := range newState.ValidatorRegistry {
 		if validator.Status == primitives.Active && newState.ValidatorBalances[index] < sm.config.EjectionBalance {
-			newState.UpdateValidatorStatus(uint32(index), primitives.ExitedWithoutPenalty, sm.config)
+			err := newState.UpdateValidatorStatus(uint32(index), primitives.ExitedWithoutPenalty, sm.config)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	logrus.WithField("totalRewarded", totalRewarded).WithField("totalPenalized", totalPenalized).WithField("netRewards", int64(totalRewarded)-int64(totalPenalized)).Debug("finished processing rewards")
 
 	shouldUpdateRegistry := true
 
@@ -841,7 +855,10 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 done:
 
 	if shouldUpdateRegistry {
-		newState.UpdateValidatorRegistry(sm.config)
+		err := newState.UpdateValidatorRegistry(sm.config)
+		if err != nil {
+			return err
+		}
 
 		newState.ValidatorRegistryLatestChangeSlot = newState.Slot
 		copy(newState.ShardAndCommitteeForSlots[:sm.config.EpochLength], newState.ShardAndCommitteeForSlots[sm.config.EpochLength:])
@@ -862,7 +879,7 @@ done:
 		}
 	}
 
-	newLatestAttestations := []primitives.PendingAttestation{}
+	newLatestAttestations := make([]primitives.PendingAttestation, 0)
 	for _, a := range newState.LatestAttestations {
 		if a.Data.Slot >= newState.Slot-2*sm.config.EpochLength {
 			newLatestAttestations = append(newLatestAttestations, a)
@@ -915,9 +932,9 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitives.State) error {
 	// add the state to the statemap
 	sm.stateMapLock.Lock()
+	defer sm.stateMapLock.Unlock()
+	logrus.WithField("hash", blockHash.String()).Debug("setting block state")
 	sm.stateMap[blockHash] = *state
-	sm.stateMapLock.Unlock()
-
 	return nil
 }
 
@@ -952,6 +969,11 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives
 		return nil, err
 	}
 
+	err = sm.db.SetBlockState(blockHash, *newState)
+	if err != nil {
+		return nil, err
+	}
+
 	err = sm.SetBlockState(blockHash, newState)
 	if err != nil {
 		return nil, err
@@ -961,14 +983,19 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives
 }
 
 // DeleteStateBeforeFinalizedSlot deletes any states before the current finalized slot.
-func (sm *StateManager) DeleteStateBeforeFinalizedSlot(finalizedSlot uint64) {
+func (sm *StateManager) DeleteStateBeforeFinalizedSlot(finalizedSlot uint64) error {
 	sm.stateMapLock.Lock()
+	defer sm.stateMapLock.Unlock()
 	// once we finalize the block, we can get rid of any states before finalizedSlot
 	for i := range sm.stateMap {
 		// if it happened before finalized slot, we don't need it
-		if sm.stateMap[i].Slot <= finalizedSlot {
+		if sm.stateMap[i].Slot < finalizedSlot {
 			delete(sm.stateMap, i)
+			err := sm.db.DeleteStateForBlock(i)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	sm.stateMapLock.Unlock()
+	return nil
 }

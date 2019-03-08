@@ -2,6 +2,7 @@ module github.com/phoreproject/synapse
 
 require (
 	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
+	github.com/go-test/deep v1.0.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.0
 	github.com/ipfs/go-ipfs-addr v0.0.1

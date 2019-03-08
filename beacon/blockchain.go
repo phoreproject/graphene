@@ -323,6 +323,7 @@ func (b *Blockchain) UpdateStateIfNeeded(upTo uint64) error {
 		return err
 	}
 
+	// set the state of the tip
 	err = b.db.SetBlockState(tip, *newState)
 	if err != nil {
 		return err
@@ -357,19 +358,6 @@ type InitialValidatorEntryAndPrivateKey struct {
 
 	PrivateKey [32]byte
 }
-
-const (
-	// RoleProposer is assigned to validators who need to propose a shard block.
-	RoleProposer = iota
-
-	// RoleAttester is assigned to validators who need to attest to a shard block.
-	RoleAttester
-)
-
-const (
-	// InitialForkVersion is version #1 of the chain.
-	InitialForkVersion = iota
-)
 
 type blockNodeAndValidator struct {
 	node      *blockNode
@@ -571,5 +559,6 @@ func (b *Blockchain) populateChainTip() error {
 	}
 
 	b.chain.tip = tipNode
-	return nil
+
+	return b.stateManager.UpdateHead(tipNode.hash)
 }

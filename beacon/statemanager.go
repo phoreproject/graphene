@@ -893,8 +893,7 @@ done:
 
 // ProcessSlots uses the current head to process slots up to a certain slot, applying
 // slot transitions and epoch transitions, and returns the updated state. Note that this should
-// only process up to the current slot number so that the lastBlockHash remains constant. Also,
-// stateLock should already be held when running this.
+// only process up to the current slot number so that the lastBlockHash remains constant.
 func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) (*primitives.State, error) {
 	sm.stateLock.Lock()
 	defer sm.stateLock.Unlock()

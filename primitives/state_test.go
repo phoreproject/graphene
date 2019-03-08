@@ -274,7 +274,7 @@ func TestValidator_Copy(t *testing.T) {
 
 func TestValidator_ToFromProto(t *testing.T) {
 	baseValidator := &primitives.Validator{
-		Pubkey:                  [96]byte{},
+		Pubkey:                  [96]byte{1},
 		WithdrawalCredentials:   chainhash.Hash{},
 		Status:                  0,
 		LatestStatusChangeSlot:  0,

@@ -39,6 +39,11 @@ func NewBadgerDB(databaseDir string, databaseValueDir string) *BadgerDB {
 
 var blockPrefix = []byte("block")
 
+// Flush flushes all block data.
+func (b *BadgerDB) Flush() error {
+	return b.db.DropAll()
+}
+
 // GetBlockForHash gets a block for a certain block hash.
 func (b *BadgerDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, error) {
 	key := append(blockPrefix, h[:]...)
@@ -187,4 +192,31 @@ func (b *BadgerDB) GetHeadBlock() (*chainhash.Hash, error) {
 // Close closes the database.
 func (b *BadgerDB) Close() {
 	b.db.Close()
+}
+
+var genesisTimeKey = []byte("genesis_time")
+
+// GetGenesisTime gets the genesis time of the blockchain.
+func (b *BadgerDB) GetGenesisTime() (uint64, error) {
+	txn := b.db.NewTransaction(false)
+	defer txn.Discard()
+	i, err := txn.Get(genesisTimeKey)
+	if err != nil {
+		return 0, err
+	}
+	genesisTimeBytes, err := i.ValueCopy(nil)
+	if err != nil {
+		return 0, err
+	}
+
+	return binary.BigEndian.Uint64(genesisTimeBytes), nil
+}
+
+// SetGenesisTime sets the head block for the chain.
+func (b *BadgerDB) SetGenesisTime(time uint64) error {
+	genesisTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(genesisTimeBytes[:], time)
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(genesisTimeKey, genesisTimeBytes[:])
+	})
 }

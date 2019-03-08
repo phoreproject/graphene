@@ -15,8 +15,6 @@ import (
 // AddBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) AddBlock(block *primitives.Block) error {
-	logger.Debug("storing block to database")
-
 	err := b.db.SetBlock(*block)
 	if err != nil {
 		return err
@@ -76,9 +74,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 	blockHashStr := fmt.Sprintf("%x", blockHash)
 
-	logger.WithField("hash", blockHashStr).Debug("processing new block")
-
-	logger.Debug("calculating new state and validating state transition")
+	logger.WithField("hash", blockHashStr).Info("processing new block")
 
 	newState, err := b.stateManager.AddBlockToStateMap(block)
 	if err != nil {
@@ -97,6 +93,20 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
+	// TODO: these two database operations should be in a single transaction
+
+	// set the block node in the database
+	err = b.db.SetBlockNode(blockNodeToDisk(*node))
+	if err != nil {
+		return err
+	}
+
+	// update the parent node in the database
+	err = b.db.SetBlockNode(blockNodeToDisk(*node.parent))
+	if err != nil {
+		return err
+	}
+
 	for _, a := range block.BlockBody.Attestations {
 		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
 		if err != nil {
@@ -104,7 +114,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		}
 
 		for _, p := range participants {
-			b.db.SetLatestAttestation(p, a)
+			err := b.db.SetLatestAttestationIfNeeded(p, a)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -119,6 +132,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("finalized hash", finalizedNode.hash)
 	finalizedState, found := b.stateManager.GetStateForHash(finalizedNode.hash)
 	if !found {
 		return errors.New("could not find finalized block hash in state map")
@@ -126,6 +140,11 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 	finalizedNodeAndState := blockNodeAndState{finalizedNode, *finalizedState}
 	b.chain.finalizedHead = finalizedNodeAndState
+
+	err = b.db.SetFinalizedHead(finalizedNode.hash)
+	if err != nil {
+		return err
+	}
 
 	justifiedNode, err := getAncestor(node, newState.JustifiedSlot)
 	if err != nil {
@@ -138,6 +157,16 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	}
 	justifiedNodeAndState := blockNodeAndState{justifiedNode, *justifiedState}
 	b.chain.justifiedHead = justifiedNodeAndState
+
+	err = b.db.SetJustifiedHead(justifiedNode.hash)
+	if err != nil {
+		return err
+	}
+
+	err = b.stateManager.DeleteStateBeforeFinalizedSlot(finalizedNode.slot)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

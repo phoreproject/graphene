@@ -2,13 +2,14 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -62,59 +63,43 @@ func NewBeaconApp(config Config) *BeaconApp {
 	return app
 }
 
-const (
-	stateInitialize = iota
-	stateLoadConfig
-	stateLoadDatabase
-	stateLoadBlockchain
-	stateConnectP2PRPC
-	stateCreateRPCServer
-	stateMainLoop
-)
-
-func (app *BeaconApp) transitState(state int) {
-	switch state {
-	case stateInitialize:
-		app.initialize()
-
-	case stateLoadConfig:
-		app.loadConfig()
-
-	case stateLoadDatabase:
-		app.loadDatabase()
-
-	case stateLoadBlockchain:
-		app.loadBlockchain()
-
-	case stateConnectP2PRPC:
-		app.connectP2PRPC()
-
-	case stateCreateRPCServer:
-		app.createRPCServer()
-
-	case stateMainLoop:
-		app.runMainLoop()
-
-	default:
-		panic("Unknow state")
-	}
-}
-
 // Run runs the main loop of BeaconApp
 func (app *BeaconApp) Run() error {
-	app.transitState(stateInitialize)
-	app.initialize()
-	return nil
+	err := app.initialize()
+	if err != nil {
+		return err
+	}
+	err = app.loadConfig()
+	if err != nil {
+		return err
+	}
+	err = app.loadDatabase()
+	if err != nil {
+		return err
+	}
+	err = app.loadBlockchain()
+	if err != nil {
+		return err
+	}
+	err = app.connectP2PRPC()
+	if err != nil {
+		return err
+	}
+	err = app.createRPCServer()
+	if err != nil {
+		return err
+	}
+	return app.runMainLoop()
 }
 
 // Setup necessary variable
-func (app *BeaconApp) initialize() {
-	app.transitState(stateLoadConfig)
+func (app *BeaconApp) initialize() error {
+	return nil
 }
 
 // Load user config from configure file
-func (app *BeaconApp) loadConfig() {
-	app.transitState(stateLoadDatabase)
+func (app *BeaconApp) loadConfig() error {
+	return nil
 }
 
 func (app *BeaconApp) loadDatabase() error {
@@ -126,24 +111,19 @@ func (app *BeaconApp) loadDatabase() error {
 	dbDir := filepath.Join(dir, "db")
 	dbValuesDir := filepath.Join(dir, "dbv")
 
-	os.MkdirAll(dbDir, 0777)
-	os.MkdirAll(dbValuesDir, 0777)
+	err = os.MkdirAll(dbDir, 0777)
+	if err != nil {
+		panic(err)
+	}
+	err = os.MkdirAll(dbValuesDir, 0777)
+	if err != nil {
+		panic(err)
+	}
 
 	logger.Info("initializing client")
 
 	logger.Info("initializing database")
 	database := db.NewBadgerDB(dbDir, dbValuesDir)
-
-	if time, err := database.GetGenesisTime(); err != nil {
-		logger.Debug("using time from database")
-		app.genesisTime = time
-	} else {
-		logger.Debug("using time from config")
-		err := database.SetGenesisTime(app.config.GenesisTime)
-		if err != nil {
-			return err
-		}
-	}
 
 	if app.config.Resync {
 		logger.Info("dropping all keys in database to resync")
@@ -153,16 +133,25 @@ func (app *BeaconApp) loadDatabase() error {
 		}
 	}
 
-	defer database.Close()
+	if t, err := database.GetGenesisTime(); err == nil {
+		fmt.Println(t, err == nil)
+		logger.Debug("using time from database")
+		app.genesisTime = t
+	} else {
+		logger.WithField("genesisTime", app.config.GenesisTime).Debug("using time from config")
+		err := database.SetGenesisTime(app.config.GenesisTime)
+		if err != nil {
+			return err
+		}
+		app.genesisTime = app.config.GenesisTime
+	}
 
 	app.database = database
-
-	app.transitState(stateLoadBlockchain)
 
 	return nil
 }
 
-func (app *BeaconApp) loadBlockchain() {
+func (app *BeaconApp) loadBlockchain() error {
 	blockchain, err := beacon.NewBlockchainWithInitialValidators(app.database, app.config.NetworkConfig, app.config.InitialValidatorList, true, app.genesisTime)
 	if err != nil {
 		panic(err)
@@ -170,33 +159,33 @@ func (app *BeaconApp) loadBlockchain() {
 
 	app.blockchain = blockchain
 
-	app.transitState(stateConnectP2PRPC)
+	return nil
 }
 
-func (app *BeaconApp) connectP2PRPC() {
+func (app *BeaconApp) connectP2PRPC() error {
 	conn, err := grpc.Dial(app.config.P2PAddress, grpc.WithInsecure())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	app.p2pRPCClient = pb.NewP2PRPCClient(conn)
 
 	sub, err := app.p2pRPCClient.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	listener, err := app.p2pRPCClient.ListenForMessages(context.Background(), sub)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	app.p2pListener = listener
 
-	app.transitState(stateCreateRPCServer)
+	return nil
 }
 
-func (app *BeaconApp) createRPCServer() {
+func (app *BeaconApp) createRPCServer() error {
 	go func() {
 		err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.p2pRPCClient)
 		if err != nil {
@@ -204,10 +193,10 @@ func (app *BeaconApp) createRPCServer() {
 		}
 	}()
 
-	app.transitState(stateMainLoop)
+	return nil
 }
 
-func (app *BeaconApp) runMainLoop() {
+func (app *BeaconApp) runMainLoop() error {
 	go func() {
 		newBlocks := make(chan primitives.Block)
 		go func() {
@@ -240,10 +229,10 @@ func (app *BeaconApp) runMainLoop() {
 	}()
 
 	// the main loop for this thread is waiting for the exit and cleaning up
-	app.waitForExit()
+	return app.waitForExit()
 }
 
-func (app BeaconApp) waitForExit() {
+func (app BeaconApp) waitForExit() error {
 	defer app.exit()
 
 	signalHandler := make(chan os.Signal, 1)
@@ -251,6 +240,7 @@ func (app BeaconApp) waitForExit() {
 	<-signalHandler
 
 	logger.Info("exiting")
+	return nil
 }
 
 func (app BeaconApp) exit() {

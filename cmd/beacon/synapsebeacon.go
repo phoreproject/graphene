@@ -47,47 +47,6 @@ func main() {
 
 	logger.Info("initializing blockchain")
 
-	// we should load the keys from the validator keystore
-	f, err := os.Open(*initialpubkeys)
-	if err != nil {
-		panic(err)
-	}
-
-	var lengthBytes [4]byte
-
-	_, err = f.Read(lengthBytes[:])
-	if err != nil {
-		panic(err)
-	}
-
-	length := binary.BigEndian.Uint32(lengthBytes[:])
-
-	validators := make([]beacon.InitialValidatorEntry, length)
-
-	for i := uint32(0); i < length; i++ {
-		var validatorIDBytes [4]byte
-		n, err := f.Read(validatorIDBytes[:])
-		if err != nil {
-			panic(err)
-		}
-		if n != 4 {
-			panic("unexpected end of pubkey file")
-		}
-
-		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
-
-		if validatorID != i {
-			panic("malformatted pubkey file")
-		}
-
-		var iv beacon.InitialValidatorEntry
-		err = binary.Read(f, binary.BigEndian, &iv)
-		if err != nil {
-			panic(err)
-		}
-		validators[i] = iv
-	}
-
 	if *genesisTime == 0 {
 		*genesisTime = uint64(time.Now().Unix())
 	}
@@ -169,7 +128,8 @@ func main() {
 	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
-	fakeValidatorKeyStore := flag.String("fakevalidatorkeys", "keypairs.bin", "key file of fake validators")
+	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
+	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
 	flag.Parse()
 
 	logger.WithField("version", clientVersion).Info("initializing client")
@@ -177,58 +137,55 @@ func main() {
 	appConfig := app.NewConfig()
 	appConfig.P2PAddress = *p2pConnect
 	appConfig.RPCAddress = *rpcConnect
+
+	appConfig.Resync = *resync
 	if *genesisTime != 0 {
 		appConfig.GenesisTime = *genesisTime
 	}
 
-	if fakeValidatorKeyStore == nil {
-		// we should load this data from chain config file
-		// for i := uint64(0); i <= c.EpochLength*(uint64(c.TargetCommitteeSize)*2); i++ {
-		// 	priv := keystore.GetKeyForValidator(uint32(i))
-		// 	pub := priv.DerivePublicKey()
-		// 	hashPub, err := ssz.TreeHash(pub.Serialize())
-		// 	if err != nil {
-		// 		panic(err)
-		// 	}
-		// 	proofOfPossession, err := bls.Sign(priv, hashPub[:], bls.DomainDeposit)
-		// 	if err != nil {
-		// 		panic(err)
-		// 	}
-		// 	validators = append(validators, beacon.InitialValidatorEntry{
-		// 		PubKey:                pub.Serialize(),
-		// 		ProofOfPossession:     proofOfPossession.Serialize(),
-		// 		WithdrawalShard:       1,
-		// 		WithdrawalCredentials: chainhash.Hash{},
-		// 		DepositSize:           c.MaxDeposit * config.UnitInCoin,
-		// 	})
-		// }
-	} else {
-		// we should load the keys from the validator keystore
-		f, err := os.Open(*fakeValidatorKeyStore)
+	// we should load the keys from the validator keystore
+	f, err := os.Open(*initialpubkeys)
+	if err != nil {
+		panic(err)
+	}
+
+	var lengthBytes [4]byte
+
+	_, err = f.Read(lengthBytes[:])
+	if err != nil {
+		panic(err)
+	}
+
+	length := binary.BigEndian.Uint32(lengthBytes[:])
+
+	appConfig.InitialValidatorList = make([]beacon.InitialValidatorEntry, length)
+
+	for i := uint32(0); i < length; i++ {
+		var validatorIDBytes [4]byte
+		n, err := f.Read(validatorIDBytes[:])
 		if err != nil {
 			panic(err)
 		}
+		if n != 4 {
+			panic("unexpected end of pubkey file")
+		}
 
-		var lengthBytes [4]byte
+		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
 
-		_, err = f.Read(lengthBytes[:])
+		if validatorID != i {
+			panic("malformatted pubkey file")
+		}
+
+		var iv beacon.InitialValidatorEntry
+		err = binary.Read(f, binary.BigEndian, &iv)
 		if err != nil {
 			panic(err)
 		}
-
-		length := binary.BigEndian.Uint32(lengthBytes[:])
-
-		appConfig.InitialValidatorList = make([]beacon.InitialValidatorEntry, length)
-
-		for i := uint32(0); i < length; i++ {
-			var iv beacon.InitialValidatorEntryAndPrivateKey
-			binary.Read(f, binary.BigEndian, &iv)
-			appConfig.InitialValidatorList[i] = iv.Entry
-		}
+		appConfig.InitialValidatorList[i] = iv
 	}
 
 	app := app.NewBeaconApp(appConfig)
-	err := app.Run()
+	err = app.Run()
 	if err != nil {
 		panic(err)
 	}

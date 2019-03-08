@@ -90,4 +90,14 @@ func (imdb *InMemoryDB) GetHeadBlock() (*chainhash.Hash, error) {
 	return nil, errors.New("no head block yet")
 }
 
+// SetGenesisTime sets the genesis time.
+func (imdb *InMemoryDB) SetGenesisTime(uint64) error {
+	return nil
+}
+
+// GetGenesisTime gets the genesis time.
+func (imdb *InMemoryDB) GetGenesisTime() (uint64, error) {
+	return 0, errors.New("no head block yet")
+}
+
 var _ Database = &InMemoryDB{}

@@ -16,6 +16,8 @@ type Database interface {
 	GetHeadState() (*primitives.State, error)
 	SetHeadBlock(h chainhash.Hash) error
 	GetHeadBlock() (*chainhash.Hash, error)
+	SetGenesisTime(genesisTime uint64) error
+	GetGenesisTime() (uint64, error)
 	Close()
 }
 

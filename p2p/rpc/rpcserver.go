@@ -52,13 +52,9 @@ func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersR
 	defer p.lock.Unlock()
 	peers := p.hostNode.GetLivePeerList()
 	peersPb := []*pb.Peer{}
-	for range peers {
-		//peersPb = append(peersPb, &pb.Peer{Address: p.String()})
-		// TODO: we need either to see how to get the peer address in handler of SetStreamHandler
-		// or to see if we need to return the peer address, we may return more meaningful information
-		// such as public keys
-		// Now the PeerNode can't know the address if the connection is established in SetStreamHandler
-		peersPb = append(peersPb, &pb.Peer{Address: ""})
+	for _, peer := range peers {
+		pi, _ := p2p.PeerInfoToAddrString(peer.GetPeerInfo())
+		peersPb = append(peersPb, &pb.Peer{Address: pi})
 	}
 	return &pb.GetPeersResponse{Peers: peersPb}, nil
 }
@@ -156,10 +152,11 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 	defer p.lock.Unlock()
 	success := true
 	for _, peer := range in.Peers {
-		pInfo, err := p2p.StringToPeerInfo(peer.Address)
+		pInfo, err := p2p.AddrStringToPeerInfo(peer.Address)
 		if err != nil {
 			return nil, err
 		}
+		//pInfo := peerstore.PeerInfo
 		_, err = p.hostNode.Connect(pInfo)
 		if err != nil {
 			success = false

@@ -3,6 +3,8 @@ package p2p
 import (
 	"bufio"
 
+	"github.com/libp2p/go-libp2p-peerstore"
+
 	"github.com/phoreproject/synapse/pb"
 
 	proto "github.com/golang/protobuf/proto"
@@ -16,6 +18,7 @@ type PeerNode struct {
 	writer   *bufio.Writer
 	outbound bool
 	id       peer.ID
+	peerInfo *peerstore.PeerInfo
 
 	LastPingNonce   uint64
 	LastPingTime    uint64
@@ -55,6 +58,11 @@ func (node *PeerNode) GetID() peer.ID {
 	return node.id
 }
 
+// GetPeerInfo returns the peer info
+func (node *PeerNode) GetPeerInfo() *peerstore.PeerInfo {
+	return node.peerInfo
+}
+
 func (node *PeerNode) disconnect() {
 	node.stream.Reset()
 }
@@ -62,4 +70,5 @@ func (node *PeerNode) disconnect() {
 // HandleVersionMessage handles VersionMessage
 func (node *PeerNode) HandleVersionMessage(message *pb.VersionMessage) {
 	node.id, _ = peer.IDFromBytes(message.Id)
+	node.peerInfo, _ = AddrStringToPeerInfo(message.GetAddress())
 }

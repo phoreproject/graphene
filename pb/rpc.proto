@@ -28,24 +28,6 @@ service BlockchainRPC {
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
 }
 
-service P2PRPC {
-    rpc GetConnectionStatus(google.protobuf.Empty) returns (ConnectionStatus);
-
-    rpc GetPeers(google.protobuf.Empty) returns (GetPeersResponse);
-
-    rpc Subscribe(SubscriptionRequest) returns (Subscription);
-
-    rpc ListenForMessages(Subscription) returns (stream Message);
-
-    rpc Unsubscribe(Subscription) returns (google.protobuf.Empty);
-
-    rpc Connect(Peers) returns (ConnectResponse);
-
-    rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
-
-    rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
-}
-
 message GetBlockRequest {
     bytes Hash = 1;
 }
@@ -77,48 +59,8 @@ message SlotInformation {
     uint64 ProposeAt = 3;
 }
 
-message ConnectionStatus {
-    bool Connected = 1;
-}
-
-message Peer {
-    string Address = 1;
-}
-
-message SubscriptionRequest {
-    string Topic = 1;
-}
-
-message Subscription {
-    uint64 ID = 1;
-}
-
-message GetPeersResponse {
-    repeated Peer Peers = 1;
-}
-
-message Message {
-    bytes Data = 1;
-}
-
-message MessageAndTopic {
-    bytes Data = 1;
-    string Topic = 2;
-}
-
-message Peers {
-    repeated Peer Peers = 1;
-}
-
-message ConnectResponse {
-    bool Success = 1;
-}
-
 message DisconnectResponse {
     bool Success = 1;
-}
-
-message P2PSettings {
 }
 
 enum Role {

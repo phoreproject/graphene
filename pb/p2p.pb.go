@@ -7,6 +7,7 @@ import (
 	context "context"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	math "math"
 )
@@ -22,48 +23,10 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type TestMessage struct {
-	Message              string   `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TestMessage) Reset()         { *m = TestMessage{} }
-func (m *TestMessage) String() string { return proto.CompactTextString(m) }
-func (*TestMessage) ProtoMessage()    {}
-func (*TestMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{0}
-}
-
-func (m *TestMessage) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TestMessage.Unmarshal(m, b)
-}
-func (m *TestMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TestMessage.Marshal(b, m, deterministic)
-}
-func (m *TestMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TestMessage.Merge(m, src)
-}
-func (m *TestMessage) XXX_Size() int {
-	return xxx_messageInfo_TestMessage.Size(m)
-}
-func (m *TestMessage) XXX_DiscardUnknown() {
-	xxx_messageInfo_TestMessage.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TestMessage proto.InternalMessageInfo
-
-func (m *TestMessage) GetMessage() string {
-	if m != nil {
-		return m.Message
-	}
-	return ""
-}
-
 type VersionMessage struct {
 	Version              uint32   `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	Id                   []byte   `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Address              string   `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -73,7 +36,7 @@ func (m *VersionMessage) Reset()         { *m = VersionMessage{} }
 func (m *VersionMessage) String() string { return proto.CompactTextString(m) }
 func (*VersionMessage) ProtoMessage()    {}
 func (*VersionMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{1}
+	return fileDescriptor_e7fdddb109e6467a, []int{0}
 }
 
 func (m *VersionMessage) XXX_Unmarshal(b []byte) error {
@@ -108,6 +71,13 @@ func (m *VersionMessage) GetId() []byte {
 	return nil
 }
 
+func (m *VersionMessage) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
 type VerackMessage struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -118,7 +88,7 @@ func (m *VerackMessage) Reset()         { *m = VerackMessage{} }
 func (m *VerackMessage) String() string { return proto.CompactTextString(m) }
 func (*VerackMessage) ProtoMessage()    {}
 func (*VerackMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{2}
+	return fileDescriptor_e7fdddb109e6467a, []int{1}
 }
 
 func (m *VerackMessage) XXX_Unmarshal(b []byte) error {
@@ -150,7 +120,7 @@ func (m *PingMessage) Reset()         { *m = PingMessage{} }
 func (m *PingMessage) String() string { return proto.CompactTextString(m) }
 func (*PingMessage) ProtoMessage()    {}
 func (*PingMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{3}
+	return fileDescriptor_e7fdddb109e6467a, []int{2}
 }
 
 func (m *PingMessage) XXX_Unmarshal(b []byte) error {
@@ -189,7 +159,7 @@ func (m *PongMessage) Reset()         { *m = PongMessage{} }
 func (m *PongMessage) String() string { return proto.CompactTextString(m) }
 func (*PongMessage) ProtoMessage()    {}
 func (*PongMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{4}
+	return fileDescriptor_e7fdddb109e6467a, []int{3}
 }
 
 func (m *PongMessage) XXX_Unmarshal(b []byte) error {
@@ -228,7 +198,7 @@ func (m *RejectMessage) Reset()         { *m = RejectMessage{} }
 func (m *RejectMessage) String() string { return proto.CompactTextString(m) }
 func (*RejectMessage) ProtoMessage()    {}
 func (*RejectMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{5}
+	return fileDescriptor_e7fdddb109e6467a, []int{4}
 }
 
 func (m *RejectMessage) XXX_Unmarshal(b []byte) error {
@@ -268,7 +238,7 @@ func (m *GetBlockMessage) Reset()         { *m = GetBlockMessage{} }
 func (m *GetBlockMessage) String() string { return proto.CompactTextString(m) }
 func (*GetBlockMessage) ProtoMessage()    {}
 func (*GetBlockMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{6}
+	return fileDescriptor_e7fdddb109e6467a, []int{5}
 }
 
 func (m *GetBlockMessage) XXX_Unmarshal(b []byte) error {
@@ -315,7 +285,7 @@ func (m *BlockMessage) Reset()         { *m = BlockMessage{} }
 func (m *BlockMessage) String() string { return proto.CompactTextString(m) }
 func (*BlockMessage) ProtoMessage()    {}
 func (*BlockMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{7}
+	return fileDescriptor_e7fdddb109e6467a, []int{6}
 }
 
 func (m *BlockMessage) XXX_Unmarshal(b []byte) error {
@@ -343,8 +313,397 @@ func (m *BlockMessage) GetHash() []byte {
 	return nil
 }
 
+type SubscriptionRequest struct {
+	Topic                string   `protobuf:"bytes,1,opt,name=Topic,proto3" json:"Topic,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SubscriptionRequest) Reset()         { *m = SubscriptionRequest{} }
+func (m *SubscriptionRequest) String() string { return proto.CompactTextString(m) }
+func (*SubscriptionRequest) ProtoMessage()    {}
+func (*SubscriptionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{7}
+}
+
+func (m *SubscriptionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SubscriptionRequest.Unmarshal(m, b)
+}
+func (m *SubscriptionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SubscriptionRequest.Marshal(b, m, deterministic)
+}
+func (m *SubscriptionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubscriptionRequest.Merge(m, src)
+}
+func (m *SubscriptionRequest) XXX_Size() int {
+	return xxx_messageInfo_SubscriptionRequest.Size(m)
+}
+func (m *SubscriptionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SubscriptionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SubscriptionRequest proto.InternalMessageInfo
+
+func (m *SubscriptionRequest) GetTopic() string {
+	if m != nil {
+		return m.Topic
+	}
+	return ""
+}
+
+type Subscription struct {
+	ID                   uint64   `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Subscription) Reset()         { *m = Subscription{} }
+func (m *Subscription) String() string { return proto.CompactTextString(m) }
+func (*Subscription) ProtoMessage()    {}
+func (*Subscription) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{8}
+}
+
+func (m *Subscription) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Subscription.Unmarshal(m, b)
+}
+func (m *Subscription) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Subscription.Marshal(b, m, deterministic)
+}
+func (m *Subscription) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Subscription.Merge(m, src)
+}
+func (m *Subscription) XXX_Size() int {
+	return xxx_messageInfo_Subscription.Size(m)
+}
+func (m *Subscription) XXX_DiscardUnknown() {
+	xxx_messageInfo_Subscription.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Subscription proto.InternalMessageInfo
+
+func (m *Subscription) GetID() uint64 {
+	if m != nil {
+		return m.ID
+	}
+	return 0
+}
+
+type MessageAndTopic struct {
+	Data                 []byte   `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
+	Topic                string   `protobuf:"bytes,2,opt,name=Topic,proto3" json:"Topic,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *MessageAndTopic) Reset()         { *m = MessageAndTopic{} }
+func (m *MessageAndTopic) String() string { return proto.CompactTextString(m) }
+func (*MessageAndTopic) ProtoMessage()    {}
+func (*MessageAndTopic) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{9}
+}
+
+func (m *MessageAndTopic) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MessageAndTopic.Unmarshal(m, b)
+}
+func (m *MessageAndTopic) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MessageAndTopic.Marshal(b, m, deterministic)
+}
+func (m *MessageAndTopic) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageAndTopic.Merge(m, src)
+}
+func (m *MessageAndTopic) XXX_Size() int {
+	return xxx_messageInfo_MessageAndTopic.Size(m)
+}
+func (m *MessageAndTopic) XXX_DiscardUnknown() {
+	xxx_messageInfo_MessageAndTopic.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MessageAndTopic proto.InternalMessageInfo
+
+func (m *MessageAndTopic) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (m *MessageAndTopic) GetTopic() string {
+	if m != nil {
+		return m.Topic
+	}
+	return ""
+}
+
+type Peer struct {
+	Address              string   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Peer) Reset()         { *m = Peer{} }
+func (m *Peer) String() string { return proto.CompactTextString(m) }
+func (*Peer) ProtoMessage()    {}
+func (*Peer) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{10}
+}
+
+func (m *Peer) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Peer.Unmarshal(m, b)
+}
+func (m *Peer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Peer.Marshal(b, m, deterministic)
+}
+func (m *Peer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Peer.Merge(m, src)
+}
+func (m *Peer) XXX_Size() int {
+	return xxx_messageInfo_Peer.Size(m)
+}
+func (m *Peer) XXX_DiscardUnknown() {
+	xxx_messageInfo_Peer.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Peer proto.InternalMessageInfo
+
+func (m *Peer) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+type GetPeersResponse struct {
+	Peers                []*Peer  `protobuf:"bytes,1,rep,name=Peers,proto3" json:"Peers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetPeersResponse) Reset()         { *m = GetPeersResponse{} }
+func (m *GetPeersResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPeersResponse) ProtoMessage()    {}
+func (*GetPeersResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{11}
+}
+
+func (m *GetPeersResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetPeersResponse.Unmarshal(m, b)
+}
+func (m *GetPeersResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetPeersResponse.Marshal(b, m, deterministic)
+}
+func (m *GetPeersResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPeersResponse.Merge(m, src)
+}
+func (m *GetPeersResponse) XXX_Size() int {
+	return xxx_messageInfo_GetPeersResponse.Size(m)
+}
+func (m *GetPeersResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPeersResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPeersResponse proto.InternalMessageInfo
+
+func (m *GetPeersResponse) GetPeers() []*Peer {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
+type Message struct {
+	Data                 []byte   `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Message) Reset()         { *m = Message{} }
+func (m *Message) String() string { return proto.CompactTextString(m) }
+func (*Message) ProtoMessage()    {}
+func (*Message) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{12}
+}
+
+func (m *Message) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Message.Unmarshal(m, b)
+}
+func (m *Message) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Message.Marshal(b, m, deterministic)
+}
+func (m *Message) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Message.Merge(m, src)
+}
+func (m *Message) XXX_Size() int {
+	return xxx_messageInfo_Message.Size(m)
+}
+func (m *Message) XXX_DiscardUnknown() {
+	xxx_messageInfo_Message.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Message proto.InternalMessageInfo
+
+func (m *Message) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+type Peers struct {
+	Peers                []*Peer  `protobuf:"bytes,1,rep,name=Peers,proto3" json:"Peers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Peers) Reset()         { *m = Peers{} }
+func (m *Peers) String() string { return proto.CompactTextString(m) }
+func (*Peers) ProtoMessage()    {}
+func (*Peers) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{13}
+}
+
+func (m *Peers) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Peers.Unmarshal(m, b)
+}
+func (m *Peers) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Peers.Marshal(b, m, deterministic)
+}
+func (m *Peers) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Peers.Merge(m, src)
+}
+func (m *Peers) XXX_Size() int {
+	return xxx_messageInfo_Peers.Size(m)
+}
+func (m *Peers) XXX_DiscardUnknown() {
+	xxx_messageInfo_Peers.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Peers proto.InternalMessageInfo
+
+func (m *Peers) GetPeers() []*Peer {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
+type P2PSettings struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *P2PSettings) Reset()         { *m = P2PSettings{} }
+func (m *P2PSettings) String() string { return proto.CompactTextString(m) }
+func (*P2PSettings) ProtoMessage()    {}
+func (*P2PSettings) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{14}
+}
+
+func (m *P2PSettings) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_P2PSettings.Unmarshal(m, b)
+}
+func (m *P2PSettings) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_P2PSettings.Marshal(b, m, deterministic)
+}
+func (m *P2PSettings) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_P2PSettings.Merge(m, src)
+}
+func (m *P2PSettings) XXX_Size() int {
+	return xxx_messageInfo_P2PSettings.Size(m)
+}
+func (m *P2PSettings) XXX_DiscardUnknown() {
+	xxx_messageInfo_P2PSettings.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_P2PSettings proto.InternalMessageInfo
+
+type ConnectionStatus struct {
+	Connected            bool     `protobuf:"varint,1,opt,name=Connected,proto3" json:"Connected,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConnectionStatus) Reset()         { *m = ConnectionStatus{} }
+func (m *ConnectionStatus) String() string { return proto.CompactTextString(m) }
+func (*ConnectionStatus) ProtoMessage()    {}
+func (*ConnectionStatus) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{15}
+}
+
+func (m *ConnectionStatus) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConnectionStatus.Unmarshal(m, b)
+}
+func (m *ConnectionStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConnectionStatus.Marshal(b, m, deterministic)
+}
+func (m *ConnectionStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectionStatus.Merge(m, src)
+}
+func (m *ConnectionStatus) XXX_Size() int {
+	return xxx_messageInfo_ConnectionStatus.Size(m)
+}
+func (m *ConnectionStatus) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConnectionStatus.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConnectionStatus proto.InternalMessageInfo
+
+func (m *ConnectionStatus) GetConnected() bool {
+	if m != nil {
+		return m.Connected
+	}
+	return false
+}
+
+type ConnectResponse struct {
+	Success              bool     `protobuf:"varint,1,opt,name=Success,proto3" json:"Success,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConnectResponse) Reset()         { *m = ConnectResponse{} }
+func (m *ConnectResponse) String() string { return proto.CompactTextString(m) }
+func (*ConnectResponse) ProtoMessage()    {}
+func (*ConnectResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e7fdddb109e6467a, []int{16}
+}
+
+func (m *ConnectResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConnectResponse.Unmarshal(m, b)
+}
+func (m *ConnectResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConnectResponse.Marshal(b, m, deterministic)
+}
+func (m *ConnectResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectResponse.Merge(m, src)
+}
+func (m *ConnectResponse) XXX_Size() int {
+	return xxx_messageInfo_ConnectResponse.Size(m)
+}
+func (m *ConnectResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConnectResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConnectResponse proto.InternalMessageInfo
+
+func (m *ConnectResponse) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
 func init() {
-	proto.RegisterType((*TestMessage)(nil), "pb.TestMessage")
 	proto.RegisterType((*VersionMessage)(nil), "pb.VersionMessage")
 	proto.RegisterType((*VerackMessage)(nil), "pb.VerackMessage")
 	proto.RegisterType((*PingMessage)(nil), "pb.PingMessage")
@@ -352,28 +711,58 @@ func init() {
 	proto.RegisterType((*RejectMessage)(nil), "pb.RejectMessage")
 	proto.RegisterType((*GetBlockMessage)(nil), "pb.GetBlockMessage")
 	proto.RegisterType((*BlockMessage)(nil), "pb.BlockMessage")
+	proto.RegisterType((*SubscriptionRequest)(nil), "pb.SubscriptionRequest")
+	proto.RegisterType((*Subscription)(nil), "pb.Subscription")
+	proto.RegisterType((*MessageAndTopic)(nil), "pb.MessageAndTopic")
+	proto.RegisterType((*Peer)(nil), "pb.Peer")
+	proto.RegisterType((*GetPeersResponse)(nil), "pb.GetPeersResponse")
+	proto.RegisterType((*Message)(nil), "pb.Message")
+	proto.RegisterType((*Peers)(nil), "pb.Peers")
+	proto.RegisterType((*P2PSettings)(nil), "pb.P2PSettings")
+	proto.RegisterType((*ConnectionStatus)(nil), "pb.ConnectionStatus")
+	proto.RegisterType((*ConnectResponse)(nil), "pb.ConnectResponse")
 }
 
 func init() { proto.RegisterFile("p2p.proto", fileDescriptor_e7fdddb109e6467a) }
 
 var fileDescriptor_e7fdddb109e6467a = []byte{
-	// 255 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0x31, 0x4f, 0xc3, 0x30,
-	0x10, 0x85, 0x95, 0x10, 0x28, 0xbd, 0x3a, 0x8d, 0x64, 0x31, 0x44, 0x9d, 0x22, 0x33, 0x10, 0x96,
-	0x0c, 0xed, 0xc6, 0x08, 0x03, 0x2c, 0x95, 0x8a, 0x41, 0xdd, 0x9d, 0xf4, 0xd4, 0x18, 0x8a, 0xcf,
-	0x8a, 0x2d, 0x7e, 0x3f, 0xaa, 0xd3, 0x54, 0x2d, 0x0b, 0x6c, 0xf7, 0x9e, 0x3f, 0xdf, 0xf9, 0x9e,
-	0x61, 0x6c, 0xe7, 0xb6, 0xb2, 0x1d, 0x79, 0xe2, 0xb1, 0xad, 0xc5, 0x1d, 0x4c, 0xde, 0xd1, 0xf9,
-	0x25, 0x3a, 0xa7, 0xb6, 0xc8, 0x73, 0x18, 0x7d, 0xf5, 0x65, 0x1e, 0x15, 0x51, 0x39, 0x96, 0x83,
-	0x14, 0x0f, 0x30, 0x5d, 0x63, 0xe7, 0x34, 0x99, 0x13, 0xf6, 0xbb, 0x77, 0x02, 0x9b, 0xca, 0x41,
-	0xf2, 0x29, 0xc4, 0x7a, 0x93, 0xc7, 0x45, 0x54, 0x32, 0x19, 0xeb, 0x8d, 0xc8, 0x20, 0x5d, 0x63,
-	0xa7, 0x9a, 0xcf, 0xc3, 0x55, 0x71, 0x0b, 0x93, 0x95, 0x36, 0xdb, 0xa1, 0xd3, 0x0d, 0x5c, 0x1a,
-	0x32, 0x4d, 0x3f, 0x33, 0x91, 0xbd, 0x08, 0x10, 0xfd, 0x05, 0xdd, 0x43, 0x2a, 0xf1, 0x03, 0x9b,
-	0x7f, 0x6c, 0xf0, 0x0a, 0xd9, 0x33, 0xfa, 0xc7, 0x1d, 0x1d, 0xdf, 0xc1, 0x05, 0xb0, 0x1d, 0x35,
-	0xca, 0x53, 0xf7, 0xa2, 0x5a, 0x74, 0x79, 0x54, 0x5c, 0x94, 0x4c, 0x9e, 0x79, 0x7c, 0x06, 0xd7,
-	0xad, 0x72, 0xed, 0x9b, 0x27, 0x7b, 0x58, 0xe9, 0xa8, 0x85, 0x00, 0x76, 0xd6, 0x8f, 0x43, 0xb2,
-	0x3f, 0x0b, 0x93, 0x99, 0x0c, 0xf5, 0x7c, 0x01, 0xa3, 0xa5, 0xd2, 0x46, 0xae, 0x9e, 0x78, 0x09,
-	0xc9, 0x3e, 0x6c, 0x9e, 0x55, 0xb6, 0xae, 0x4e, 0x62, 0x9f, 0xfd, 0x36, 0xea, 0xab, 0xf0, 0x43,
-	0x8b, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x1b, 0x83, 0xce, 0x2e, 0xae, 0x01, 0x00, 0x00,
+	// 576 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x53, 0x5d, 0x6f, 0xd3, 0x30,
+	0x14, 0x55, 0xbb, 0x8f, 0x36, 0xb7, 0xed, 0x3a, 0xdc, 0x09, 0xaa, 0x00, 0x53, 0x65, 0x1e, 0xe8,
+	0x34, 0x29, 0x9b, 0x02, 0x82, 0x49, 0x3c, 0xed, 0x03, 0xca, 0x24, 0x90, 0x82, 0x3b, 0xf6, 0x9e,
+	0x8f, 0x4b, 0x17, 0xd8, 0xec, 0x10, 0xbb, 0x48, 0xfc, 0x46, 0xfe, 0x14, 0xb2, 0x63, 0x77, 0xd9,
+	0x4a, 0xd9, 0x5b, 0xce, 0xf5, 0xf1, 0x3d, 0xe7, 0x9e, 0x1b, 0x83, 0x57, 0x84, 0x45, 0x50, 0x94,
+	0x42, 0x09, 0xd2, 0x2c, 0x12, 0xff, 0xe9, 0x4c, 0x88, 0xd9, 0x35, 0x1e, 0x98, 0x4a, 0x32, 0xff,
+	0x76, 0x80, 0x37, 0x85, 0xfa, 0x5d, 0x11, 0xe8, 0x05, 0x6c, 0x5d, 0x62, 0x29, 0x73, 0xc1, 0x3f,
+	0xa3, 0x94, 0xf1, 0x0c, 0xc9, 0x10, 0x5a, 0xbf, 0xaa, 0xca, 0xb0, 0x31, 0x6a, 0x8c, 0x7b, 0xcc,
+	0x41, 0xb2, 0x05, 0xcd, 0x3c, 0x1b, 0x36, 0x47, 0x8d, 0x71, 0x97, 0x35, 0xf3, 0x4c, 0x33, 0xe3,
+	0x2c, 0x2b, 0x51, 0xca, 0xe1, 0xda, 0xa8, 0x31, 0xf6, 0x98, 0x83, 0xb4, 0x0f, 0xbd, 0x4b, 0x2c,
+	0xe3, 0xf4, 0x87, 0x6d, 0x4a, 0x5f, 0x40, 0x27, 0xca, 0xf9, 0xcc, 0x69, 0xec, 0xc0, 0x06, 0x17,
+	0x3c, 0x45, 0xa3, 0xb0, 0xce, 0x2a, 0x60, 0x48, 0xe2, 0x21, 0xd2, 0x1e, 0xf4, 0x18, 0x7e, 0xc7,
+	0x54, 0xd5, 0xfc, 0xde, 0x54, 0x9f, 0x86, 0xe8, 0x31, 0x07, 0xe9, 0x17, 0xe8, 0x4f, 0x50, 0x9d,
+	0x5c, 0x8b, 0x85, 0x0f, 0x42, 0xa1, 0x7b, 0x2d, 0xd2, 0x58, 0x89, 0xf2, 0x63, 0x7c, 0x85, 0x72,
+	0xd8, 0x18, 0xad, 0x8d, 0xbb, 0xec, 0x4e, 0x8d, 0xf8, 0xd0, 0xbe, 0x8a, 0xe5, 0xd5, 0x54, 0x89,
+	0xc2, 0x0e, 0xbb, 0xc0, 0x94, 0x42, 0xf7, 0x4e, 0x3f, 0x02, 0xeb, 0xfa, 0xcc, 0x28, 0x77, 0x99,
+	0xf9, 0xa6, 0xfb, 0x30, 0x98, 0xce, 0x13, 0x99, 0x96, 0x79, 0xa1, 0x72, 0xc1, 0x19, 0xfe, 0x9c,
+	0xa3, 0x54, 0x7a, 0x9c, 0x0b, 0x51, 0xe4, 0xa9, 0x75, 0x59, 0x01, 0xba, 0x0b, 0xdd, 0x3a, 0x59,
+	0x67, 0x7c, 0x7e, 0x66, 0x27, 0x6e, 0x9e, 0x9f, 0xd1, 0x77, 0xd0, 0xb7, 0x5a, 0xc7, 0x3c, 0x33,
+	0x57, 0xb4, 0xe6, 0x59, 0xac, 0x62, 0xa7, 0xa9, 0xbf, 0x6f, 0x9b, 0x37, 0xeb, 0xcd, 0x47, 0xb0,
+	0x1e, 0x21, 0x96, 0x3a, 0xa2, 0x63, 0xbb, 0x28, 0x1b, 0x91, 0x85, 0x34, 0x84, 0xed, 0x09, 0x2a,
+	0x4d, 0x92, 0x0c, 0x65, 0x21, 0xb8, 0x44, 0xb2, 0x0b, 0x1b, 0xa6, 0x60, 0xc2, 0xe9, 0x84, 0xed,
+	0xa0, 0x48, 0x02, 0x5d, 0x60, 0x55, 0x99, 0x3e, 0x87, 0x56, 0x6d, 0xfc, 0xfb, 0x56, 0xe8, 0x4b,
+	0x7b, 0xfd, 0xc1, 0x3e, 0x3d, 0xe8, 0x44, 0x61, 0x34, 0x45, 0xa5, 0x72, 0x3e, 0x93, 0xf4, 0x10,
+	0xb6, 0x4f, 0x05, 0xe7, 0x98, 0xea, 0x1c, 0xa6, 0x2a, 0x56, 0x73, 0x49, 0x9e, 0x81, 0x67, 0x6b,
+	0x98, 0x19, 0x91, 0x36, 0xbb, 0x2d, 0xd0, 0x7d, 0xe8, 0x5b, 0xb0, 0xf0, 0x3e, 0x84, 0xd6, 0x74,
+	0x9e, 0xa6, 0x6e, 0xd2, 0x36, 0x73, 0x30, 0xfc, 0xb3, 0x06, 0x9b, 0x51, 0x18, 0xb1, 0xe8, 0x94,
+	0x9c, 0xc2, 0x60, 0x82, 0x6a, 0x49, 0xec, 0x71, 0x50, 0x3d, 0x94, 0xc0, 0x3d, 0x94, 0xe0, 0xbd,
+	0x7e, 0x28, 0xfe, 0x8e, 0x36, 0xbe, 0xc4, 0x3e, 0x82, 0xb6, 0x4b, 0xee, 0xff, 0x37, 0x97, 0xf2,
+	0x7d, 0x03, 0x9e, 0x5d, 0x79, 0x82, 0xe4, 0x89, 0xa6, 0xfc, 0xe3, 0x77, 0xf1, 0xb7, 0xef, 0x1f,
+	0x90, 0xd7, 0xf0, 0xe8, 0x53, 0x2e, 0x15, 0xf2, 0x0f, 0xa2, 0xb4, 0x0b, 0x90, 0x64, 0x89, 0xe6,
+	0x77, 0x74, 0xc5, 0x9e, 0x1f, 0x36, 0xc8, 0x5b, 0xe8, 0x7c, 0xe5, 0x72, 0xa1, 0xb7, 0xcc, 0x5f,
+	0x61, 0x9e, 0xec, 0x41, 0xcb, 0x0e, 0x4d, 0x3c, 0xb7, 0x3a, 0xe9, 0x0f, 0x6a, 0x61, 0xd4, 0x26,
+	0xea, 0x4c, 0x50, 0xb9, 0x4d, 0xae, 0x8c, 0xa3, 0x6f, 0xda, 0xdc, 0xae, 0x9c, 0x1c, 0x81, 0x77,
+	0x52, 0x8a, 0x38, 0x4b, 0x63, 0xa9, 0xc8, 0xa0, 0xe6, 0xdb, 0xfd, 0xeb, 0xab, 0xcc, 0x25, 0x9b,
+	0x06, 0xbf, 0xfa, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x06, 0xb8, 0x47, 0x35, 0xeb, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -384,66 +773,325 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// MainRPCClient is the client API for MainRPC service.
+// P2PRPCClient is the client API for P2PRPC service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type MainRPCClient interface {
-	Test(ctx context.Context, in *TestMessage, opts ...grpc.CallOption) (*TestMessage, error)
+type P2PRPCClient interface {
+	GetConnectionStatus(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ConnectionStatus, error)
+	GetPeers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetPeersResponse, error)
+	Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (*Subscription, error)
+	ListenForMessages(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (P2PRPC_ListenForMessagesClient, error)
+	Unsubscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*empty.Empty, error)
+	Connect(ctx context.Context, in *Peers, opts ...grpc.CallOption) (*ConnectResponse, error)
+	GetSettings(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*P2PSettings, error)
+	Broadcast(ctx context.Context, in *MessageAndTopic, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
-type mainRPCClient struct {
+type p2PRPCClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewMainRPCClient(cc *grpc.ClientConn) MainRPCClient {
-	return &mainRPCClient{cc}
+func NewP2PRPCClient(cc *grpc.ClientConn) P2PRPCClient {
+	return &p2PRPCClient{cc}
 }
 
-func (c *mainRPCClient) Test(ctx context.Context, in *TestMessage, opts ...grpc.CallOption) (*TestMessage, error) {
-	out := new(TestMessage)
-	err := c.cc.Invoke(ctx, "/pb.MainRPC/Test", in, out, opts...)
+func (c *p2PRPCClient) GetConnectionStatus(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ConnectionStatus, error) {
+	out := new(ConnectionStatus)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/GetConnectionStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// MainRPCServer is the server API for MainRPC service.
-type MainRPCServer interface {
-	Test(context.Context, *TestMessage) (*TestMessage, error)
+func (c *p2PRPCClient) GetPeers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetPeersResponse, error) {
+	out := new(GetPeersResponse)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/GetPeers", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func RegisterMainRPCServer(s *grpc.Server, srv MainRPCServer) {
-	s.RegisterService(&_MainRPC_serviceDesc, srv)
+func (c *p2PRPCClient) Subscribe(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (*Subscription, error) {
+	out := new(Subscription)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Subscribe", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func _MainRPC_Test_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TestMessage)
+func (c *p2PRPCClient) ListenForMessages(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (P2PRPC_ListenForMessagesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_P2PRPC_serviceDesc.Streams[0], "/pb.P2PRPC/ListenForMessages", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &p2PRPCListenForMessagesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type P2PRPC_ListenForMessagesClient interface {
+	Recv() (*Message, error)
+	grpc.ClientStream
+}
+
+type p2PRPCListenForMessagesClient struct {
+	grpc.ClientStream
+}
+
+func (x *p2PRPCListenForMessagesClient) Recv() (*Message, error) {
+	m := new(Message)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *p2PRPCClient) Unsubscribe(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Unsubscribe", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) Connect(ctx context.Context, in *Peers, opts ...grpc.CallOption) (*ConnectResponse, error) {
+	out := new(ConnectResponse)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Connect", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) GetSettings(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*P2PSettings, error) {
+	out := new(P2PSettings)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/GetSettings", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *p2PRPCClient) Broadcast(ctx context.Context, in *MessageAndTopic, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/pb.P2PRPC/Broadcast", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// P2PRPCServer is the server API for P2PRPC service.
+type P2PRPCServer interface {
+	GetConnectionStatus(context.Context, *empty.Empty) (*ConnectionStatus, error)
+	GetPeers(context.Context, *empty.Empty) (*GetPeersResponse, error)
+	Subscribe(context.Context, *SubscriptionRequest) (*Subscription, error)
+	ListenForMessages(*Subscription, P2PRPC_ListenForMessagesServer) error
+	Unsubscribe(context.Context, *Subscription) (*empty.Empty, error)
+	Connect(context.Context, *Peers) (*ConnectResponse, error)
+	GetSettings(context.Context, *empty.Empty) (*P2PSettings, error)
+	Broadcast(context.Context, *MessageAndTopic) (*empty.Empty, error)
+}
+
+func RegisterP2PRPCServer(s *grpc.Server, srv P2PRPCServer) {
+	s.RegisterService(&_P2PRPC_serviceDesc, srv)
+}
+
+func _P2PRPC_GetConnectionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MainRPCServer).Test(ctx, in)
+		return srv.(P2PRPCServer).GetConnectionStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pb.MainRPC/Test",
+		FullMethod: "/pb.P2PRPC/GetConnectionStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MainRPCServer).Test(ctx, req.(*TestMessage))
+		return srv.(P2PRPCServer).GetConnectionStatus(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _MainRPC_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pb.MainRPC",
-	HandlerType: (*MainRPCServer)(nil),
+func _P2PRPC_GetPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).GetPeers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/GetPeers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).GetPeers(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_Subscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Subscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Subscribe",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Subscribe(ctx, req.(*SubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_ListenForMessages_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Subscription)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(P2PRPCServer).ListenForMessages(m, &p2PRPCListenForMessagesServer{stream})
+}
+
+type P2PRPC_ListenForMessagesServer interface {
+	Send(*Message) error
+	grpc.ServerStream
+}
+
+type p2PRPCListenForMessagesServer struct {
+	grpc.ServerStream
+}
+
+func (x *p2PRPCListenForMessagesServer) Send(m *Message) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _P2PRPC_Unsubscribe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Subscription)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Unsubscribe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Unsubscribe",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Unsubscribe(ctx, req.(*Subscription))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_Connect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Peers)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Connect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Connect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Connect(ctx, req.(*Peers))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_GetSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).GetSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/GetSettings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).GetSettings(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _P2PRPC_Broadcast_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MessageAndTopic)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PRPCServer).Broadcast(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.P2PRPC/Broadcast",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PRPCServer).Broadcast(ctx, req.(*MessageAndTopic))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _P2PRPC_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pb.P2PRPC",
+	HandlerType: (*P2PRPCServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Test",
-			Handler:    _MainRPC_Test_Handler,
+			MethodName: "GetConnectionStatus",
+			Handler:    _P2PRPC_GetConnectionStatus_Handler,
+		},
+		{
+			MethodName: "GetPeers",
+			Handler:    _P2PRPC_GetPeers_Handler,
+		},
+		{
+			MethodName: "Subscribe",
+			Handler:    _P2PRPC_Subscribe_Handler,
+		},
+		{
+			MethodName: "Unsubscribe",
+			Handler:    _P2PRPC_Unsubscribe_Handler,
+		},
+		{
+			MethodName: "Connect",
+			Handler:    _P2PRPC_Connect_Handler,
+		},
+		{
+			MethodName: "GetSettings",
+			Handler:    _P2PRPC_GetSettings_Handler,
+		},
+		{
+			MethodName: "Broadcast",
+			Handler:    _P2PRPC_Broadcast_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ListenForMessages",
+			Handler:       _P2PRPC_ListenForMessages_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "p2p.proto",
 }

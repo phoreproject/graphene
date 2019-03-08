@@ -20,7 +20,7 @@ func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 
 	for i := range in {
 		if in[i] == ',' {
-			peerinfo, err := p2p.StringToPeerInfo(currentAddr)
+			peerinfo, err := p2p.AddrStringToPeerInfo(currentAddr)
 			if err != nil {
 				return nil, err
 			}

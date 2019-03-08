@@ -3,20 +3,12 @@ syntax = "proto3";
 
 package pb;
 
-//import "google/protobuf/empty.proto";
-
-message TestMessage {
-    string message = 1;
-}
-
-// This will be renamed to P2PRPC later
-service MainRPC {
-    rpc Test(TestMessage) returns (TestMessage);
-}
+import "google/protobuf/empty.proto";
 
 message VersionMessage {
     uint32 version = 1;
     bytes id = 2;
+    string address = 3;
 }
 
 message VerackMessage {
@@ -42,5 +34,63 @@ message GetBlockMessage {
 // Response to GetBlockMessage
 message BlockMessage {
     bytes hash = 1;
+}
+
+service P2PRPC {
+    rpc GetConnectionStatus(google.protobuf.Empty) returns (ConnectionStatus);
+
+    rpc GetPeers(google.protobuf.Empty) returns (GetPeersResponse);
+
+    rpc Subscribe(SubscriptionRequest) returns (Subscription);
+
+    rpc ListenForMessages(Subscription) returns (stream Message);
+
+    rpc Unsubscribe(Subscription) returns (google.protobuf.Empty);
+
+    rpc Connect(Peers) returns (ConnectResponse);
+
+    rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
+
+    rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+}
+
+message SubscriptionRequest {
+    string Topic = 1;
+}
+
+message Subscription {
+    uint64 ID = 1;
+}
+
+message MessageAndTopic {
+    bytes Data = 1;
+    string Topic = 2;
+}
+
+message Peer {
+    string Address = 1;
+}
+
+message GetPeersResponse {
+    repeated Peer Peers = 1;
+}
+
+message Message {
+    bytes Data = 1;
+}
+
+message Peers {
+    repeated Peer Peers = 1;
+}
+
+message P2PSettings {
+}
+
+message ConnectionStatus {
+    bool Connected = 1;
+}
+
+message ConnectResponse {
+    bool Success = 1;
 }
 

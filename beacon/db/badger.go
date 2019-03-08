@@ -3,7 +3,6 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 
 	"github.com/phoreproject/prysm/shared/ssz"
@@ -242,7 +241,6 @@ type BlockNodeDiskWithoutChildren struct {
 
 // SetBlockNode sets a block node in the database.
 func (b *BadgerDB) SetBlockNode(node BlockNodeDisk) error {
-	fmt.Printf("setting: %s\n", node.Hash)
 	nodeWithoutChildren := BlockNodeDiskWithoutChildren{
 		Hash:   node.Hash,
 		Height: node.Height,
@@ -273,7 +271,6 @@ func (b *BadgerDB) SetBlockNode(node BlockNodeDisk) error {
 
 // GetBlockNode gets a block node from the database.
 func (b *BadgerDB) GetBlockNode(h chainhash.Hash) (*BlockNodeDisk, error) {
-	fmt.Printf("retrieving: %s\n", h)
 	key := append(blockNodePrefix, h[:]...)
 	txn := b.db.NewTransaction(false)
 	defer txn.Discard()
@@ -365,8 +362,8 @@ func (b *BadgerDB) DeleteStateForBlock(h chainhash.Hash) error {
 }
 
 // Close closes the database.
-func (b *BadgerDB) Close() {
-	b.db.Close()
+func (b *BadgerDB) Close() error {
+	return b.db.Close()
 }
 
 var genesisTimeKey = []byte("genesis_time")

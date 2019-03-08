@@ -901,7 +901,7 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 
 	for newState.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
-		if newState.Slot > 1 && sm.currentEpoch < (newState.Slot-1)/sm.config.EpochLength && (newState.Slot-1)%sm.config.EpochLength == 0 {
+		if newState.Slot > 1 && sm.currentEpoch < newState.Slot/sm.config.EpochLength && newState.Slot%sm.config.EpochLength == 0 {
 			logrus.Info("processing epoch transition")
 			t := time.Now()
 			err := sm.processEpochTransition(&newState)
@@ -909,7 +909,7 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 				return nil, err
 			}
 			logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
-			sm.currentEpoch = (newState.Slot - 1) / sm.config.EpochLength
+			sm.currentEpoch = newState.Slot / sm.config.EpochLength
 		}
 
 		err := sm.processSlot(&newState, lastBlockHash)

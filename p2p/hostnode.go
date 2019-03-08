@@ -6,17 +6,17 @@ import (
 	"net"
 	"time"
 
-	proto "github.com/golang/protobuf/proto"
-	libp2p "github.com/libp2p/go-libp2p"
-	crypto "github.com/libp2p/go-libp2p-crypto"
-	host "github.com/libp2p/go-libp2p-host"
+	"github.com/golang/protobuf/proto"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-peerstore"
 	ps "github.com/libp2p/go-libp2p-peerstore"
-	protocol "github.com/libp2p/go-libp2p-protocol"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/libp2p/go-libp2p-protocol"
+	"github.com/libp2p/go-libp2p-pubsub"
+	"github.com/multiformats/go-multiaddr"
 	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -56,7 +56,7 @@ var protocolID = protocol.ID("/grpc/phore/0.0.1")
 // NewHostNode creates a host node
 func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	host, err := libp2p.New(
+	h, err := libp2p.New(
 		ctx,
 		libp2p.ListenAddrs(listenAddress),
 		libp2p.Identity(privateKey),
@@ -67,7 +67,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	for _, a := range host.Addrs() {
+	for _, a := range h.Addrs() {
 		logger.WithField("address", a.String()).Debug("binding to port")
 	}
 
@@ -76,7 +76,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	g, err := pubsub.NewGossipSub(ctx, host)
+	g, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -85,14 +85,14 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 	hostNode := HostNode{
 		publicKey:         publicKey,
 		privateKey:        privateKey,
-		host:              host,
+		host:              h,
 		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
 		messageHandlerMap: make(map[string]messageHandler),
 	}
 
-	host.SetStreamHandler(protocolID, hostNode.handleStream)
+	h.SetStreamHandler(protocolID, hostNode.handleStream)
 
 	return &hostNode, nil
 }
@@ -162,19 +162,19 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 
 // Run runs the main loop of the host node
 func (node *HostNode) createPeerNodeFromStream(stream inet.Stream, outbound bool) *PeerNode {
-	peer := newPeerNode(stream, outbound)
+	peerNode := newPeerNode(stream, outbound)
 
-	node.connectingPeerList = append(node.connectingPeerList, peer)
+	node.connectingPeerList = append(node.connectingPeerList, peerNode)
 
 	go processMessages(stream, func(message proto.Message) {
-		node.handleMessage(peer, message)
+		node.handleMessage(peerNode, message)
 	})
 
 	if node.onPeerConnected != nil {
-		node.onPeerConnected(peer)
+		node.onPeerConnected(peerNode)
 	}
 
-	return peer
+	return peerNode
 }
 
 // GetDialOption returns the WithDialer option to dial via libp2p.
@@ -256,13 +256,13 @@ func (node *HostNode) SubscribeMessage(topic string, handler func(*PeerNode, []b
 				continue
 			}
 
-			peer := node.FindPeerByID(id)
-			if peer != nil {
-				logger.Warn("Can't find peer from ID")
+			p := node.FindPeerByID(id)
+			if p != nil {
+				logger.Warn("Can't find p from ID")
 				continue
 			}
 
-			handler(peer, msg.Data)
+			handler(p, msg.Data)
 		}
 	}()
 

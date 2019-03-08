@@ -34,7 +34,7 @@ type Database interface {
 	GetGenesisTime() (uint64, error)
 	SetGenesisTime(uint64) error
 	DeleteStateForBlock(blockHash chainhash.Hash) error
-	Close()
+	Close() error
 }
 
 // to load chain, we need:

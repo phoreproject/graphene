@@ -7,17 +7,17 @@ import (
 	"context"
 	"time"
 
-	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-crypto"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 
 	logger "github.com/sirupsen/logrus"
 
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multiaddr"
 
-	libp2p "github.com/libp2p/go-libp2p"
-	host "github.com/libp2p/go-libp2p-host"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-host"
+	"github.com/libp2p/go-libp2p-pubsub"
 )
 
 // NetworkingService handles networking throughout the network.
@@ -92,13 +92,13 @@ func (n *NetworkingService) IsConnected() bool {
 // run on the given IP.
 func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) (NetworkingService, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	host, err := libp2p.New(
+	h, err := libp2p.New(
 		ctx,
 		libp2p.ListenAddrs(*addr),
 		libp2p.Identity(privateKey),
 	)
 
-	for _, a := range host.Addrs() {
+	for _, a := range h.Addrs() {
 		logger.WithField("address", a.String()).Debug("binding to port")
 	}
 
@@ -107,20 +107,20 @@ func NewNetworkingService(addr *multiaddr.Multiaddr, privateKey crypto.PrivKey) 
 		return NetworkingService{}, err
 	}
 
-	g, err := pubsub.NewGossipSub(ctx, host)
+	g, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		cancel()
 		return NetworkingService{}, err
 	}
 
-	err = StartDiscovery(ctx, host, NewDiscoveryOptions())
+	err = StartDiscovery(ctx, h, NewDiscoveryOptions())
 	if err != nil {
 		cancel()
 		return NetworkingService{}, err
 	}
 
 	n := NetworkingService{
-		host:      host,
+		host:      h,
 		gossipSub: g,
 		ctx:       ctx,
 		cancel:    cancel,

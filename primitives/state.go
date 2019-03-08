@@ -822,7 +822,7 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 
 // GetAttestationParticipants gets the indices of participants.
 func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
-	shardCommittees, err := s.GetShardCommitteesAtSlot(s.Slot-2, data.Slot, c)
+	shardCommittees, err := s.GetShardCommitteesAtSlot(s.Slot-1, data.Slot, c)
 	if err != nil {
 		return nil, err
 	}
@@ -844,7 +844,7 @@ func (s *State) GetAttestationParticipants(data AttestationData, participationBi
 
 	participants := []uint32{}
 	for i, validatorIndex := range shardCommittee.Committee {
-		participationBit := (participationBitfield[i/8] & (1 << (uint(i) % 8)))
+		participationBit := participationBitfield[i/8] & (1 << (uint(i) % 8))
 		if participationBit != 0 {
 			participants = append(participants, validatorIndex)
 		}

@@ -70,7 +70,8 @@ func (db *InMemoryDB) SetLatestAttestationIfNeeded(validator uint32, att primiti
 }
 
 // Close closes the database.
-func (db *InMemoryDB) Close() {
+func (db *InMemoryDB) Close() error {
+	return nil
 }
 
 // SetHeadState sets the head state.

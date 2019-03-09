@@ -7,7 +7,7 @@ import "google/protobuf/empty.proto";
 
 message VersionMessage {
     uint32 Version = 1;
-    bytes ID = 2;
+    string ID = 2;
     string Address = 3;
 }
 
@@ -52,6 +52,13 @@ service P2PRPC {
     rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
 
     rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+
+    rpc SendDirectMessage(SendDirectMessageRequest) returns (google.protobuf.Empty);
+}
+
+message SendDirectMessageRequest {
+    string MessageName = 1;
+    bytes Message = 2;
 }
 
 message SubscriptionRequest {

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	iaddr "github.com/ipfs/go-ipfs-addr"
+	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
@@ -18,6 +19,16 @@ func BytesToPeerInfo(b []byte) (*peerstore.PeerInfo, error) {
 		return nil, err
 	}
 	return peerInfo, nil
+}
+
+// IDToString converts ID to string
+func IDToString(id peer.ID) string {
+	return id.String()
+}
+
+// StringToID converts string to ID
+func StringToID(s string) (peer.ID, error) {
+	return peer.IDFromString(s)
 }
 
 // PeerInfoToAddrString converts a peer address to string.

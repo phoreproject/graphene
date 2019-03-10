@@ -2,10 +2,12 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sirupsen/logrus"
@@ -23,6 +25,10 @@ type RPCServer struct {
 	cancelChannels map[uint64]chan bool
 	currentSubID   *uint64 // this is weird, but all of the methods have to pass the struct in by value
 	lock           *sync.Mutex
+
+	directMessageSubscriptions  map[uint64]uint64
+	directMessageSubChannels    map[uint64]chan []byte
+	directMessageCancelChannels map[uint64]chan bool
 }
 
 // NewRPCServer sets up a server for handling P2P module RPC requests.
@@ -172,4 +178,83 @@ func (p RPCServer) GetSettings(ctx context.Context, in *empty.Empty) (*pb.P2PSet
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	return &pb.P2PSettings{}, nil
+}
+
+// SendDirectMessage sends a direct message
+func (p RPCServer) SendDirectMessage(ctx context.Context, in *pb.SendDirectMessageRequest) (*empty.Empty, error) {
+	id, err := p2p.StringToID(in.PeerID)
+	if err != nil {
+		return nil, err
+	}
+	peer := p.hostNode.FindPeerByID(id)
+	if peer == nil {
+		return nil, errors.New("Can't find peer by ID")
+	}
+
+	message, err := p2p.BytesToMessage(in.GetMessage())
+	if err != nil {
+		return nil, err
+	}
+
+	peer.SendMessage(message)
+
+	return nil, nil
+}
+
+// SubscribeDirectMessage subscribes a direct message
+func (p RPCServer) SubscribeDirectMessage(ctx context.Context, in *pb.SubscribeDirectMessageRequest) (*pb.DirectMessageSubscription, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	subID := *p.currentSubID
+	*p.currentSubID++
+
+	subChan := make(chan []byte)
+	p.directMessageSubChannels[subID] = subChan
+	p.directMessageCancelChannels[subID] = make(chan bool)
+
+	s := p.hostNode.RegisterMessageHandler(in.MessageName, func(peer *p2p.PeerNode, message proto.Message) {
+		data, _ := p2p.MessageToBytes(message)
+		select {
+		case subChan <- data:
+		default:
+		}
+	})
+
+	p.directMessageSubscriptions[subID] = s
+
+	return &pb.DirectMessageSubscription{
+		ID:          subID,
+		MessageName: in.MessageName,
+	}, nil
+}
+
+// UnsubscribeDirectMessage unsubscribes a direct message
+func (p RPCServer) UnsubscribeDirectMessage(ctx context.Context, in *pb.DirectMessageSubscription) (*empty.Empty, error) {
+	p.hostNode.UnregisterMessageHandler(in.MessageName, in.ID)
+	return nil, nil
+}
+
+// ListenForDirectMessages listens for direct messages
+func (p RPCServer) ListenForDirectMessages(in *pb.DirectMessageSubscription, out pb.P2PRPC_ListenForDirectMessagesServer) error {
+	p.lock.Lock()
+	if _, success := p.directMessageSubscriptions[in.ID]; !success {
+		return fmt.Errorf("could not find subscription with ID %d", in.ID)
+	}
+
+	messages := p.directMessageSubChannels[in.ID]
+	cancelChan := p.directMessageCancelChannels[in.ID]
+
+	p.lock.Unlock()
+
+	for {
+		select {
+		case msg := <-messages:
+			err := out.Send(&pb.Message{Data: msg})
+			if err != nil {
+				return err
+			}
+		case <-cancelChan:
+			return io.EOF
+		}
+	}
 }

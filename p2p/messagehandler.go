@@ -114,3 +114,26 @@ func processMessages(stream inet.Stream, handler func(message proto.Message)) {
 		}
 	}
 }
+
+// MessageToBytes converts a message to byte array
+func MessageToBytes(message proto.Message) ([]byte, error) {
+	// How to create auto grow in-memory writer?
+	// Currently we have to use a 4M byte array as the writer.
+	buffer := make([]byte, 1024*1024*4)
+	writer := bufio.NewWriter(bytes.NewBuffer(buffer))
+	err := writeMessage(message, writer)
+	if err != nil {
+		return nil, err
+	}
+
+	len := writer.Buffered()
+	result := make([]byte, len)
+	copy(result, buffer)
+	return result, nil
+}
+
+// BytesToMessage converts byte array to message
+func BytesToMessage(messageBuffer []byte) (proto.Message, error) {
+	message, err := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
+	return message, err
+}

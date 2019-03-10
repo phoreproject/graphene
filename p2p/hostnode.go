@@ -36,7 +36,8 @@ type HostNode struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	// a messageHandler is called when a message with certain name is received
-	messageHandlerMap map[string]messageHandler
+	messageHandlerMap map[string]map[uint64]messageHandler
+	messageHandlerID  uint64
 	// anyMessagehandler is called upon any message is received
 	anyMessagehandler anyMessageHandler
 	onPeerConnected   onPeerConnectedHandler
@@ -89,7 +90,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
-		messageHandlerMap: make(map[string]messageHandler),
+		messageHandlerMap: make(map[string]map[uint64]messageHandler),
 	}
 
 	h.SetStreamHandler(protocolID, hostNode.handleStream)
@@ -111,15 +112,32 @@ func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
 		}
 	}
 
-	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
+	handlerMap, ok := node.messageHandlerMap[proto.MessageName(message)]
 	if ok {
-		handler(peer, message)
+		for _, handler := range handlerMap {
+			handler(peer, message)
+		}
 	}
 }
 
 // RegisterMessageHandler registers a message handler
-func (node *HostNode) RegisterMessageHandler(messageName string, handler messageHandler) {
-	node.messageHandlerMap[messageName] = handler
+func (node *HostNode) RegisterMessageHandler(messageName string, handler messageHandler) uint64 {
+	_, ok := node.messageHandlerMap[messageName]
+	if !ok {
+		node.messageHandlerMap[messageName] = make(map[uint64]messageHandler)
+	}
+	id := node.messageHandlerID
+	node.messageHandlerID++
+	node.messageHandlerMap[messageName][id] = handler
+	return id
+}
+
+// UnregisterMessageHandler unregisters a message handler
+func (node *HostNode) UnregisterMessageHandler(messageName string, id uint64) {
+	_, ok := node.messageHandlerMap[messageName]
+	if ok {
+		delete(node.messageHandlerMap[messageName], id)
+	}
 }
 
 // SetAnyMessageHandler sets a message handler for any message

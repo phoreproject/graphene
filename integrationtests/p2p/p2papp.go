@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"google.golang.org/grpc"
 
@@ -55,6 +56,7 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 	client := pb.NewP2PRPCClient(conn)
 
 	sub, err := client.SubscribeDirectMessage(ctx, &pb.SubscribeDirectMessageRequest{
+		PeerID:      p2p.IDToString(test.appList[0].GetHostNode().GetLivePeerList()[0].GetID()),
 		MessageName: "pb.PingMessage",
 	})
 	if err != nil {
@@ -67,11 +69,11 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 	}
 
 	for {
-		m, err := listener.Recv()
+		_, err := listener.Recv()
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Received direct message pb.PingMessage: ID=%s\n", m.PeerID)
+		fmt.Println("Received direct message pb.PingMessage")
 
 		break
 	}
@@ -84,7 +86,7 @@ func (test TestCase) createApp(index int) *app.P2PApp {
 	config.ListeningAddress = fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", startPort+index)
 	config.RPCAddress = fmt.Sprintf("127.0.0.1:%d", startRPCPort+index)
 	config.MinPeerCountToWait = 0
-	config.HeartBeatInterval = 3 * 1000
+	config.HeartBeatInterval = 10 * 1000
 	app := app.NewP2PApp(config)
 
 	return app

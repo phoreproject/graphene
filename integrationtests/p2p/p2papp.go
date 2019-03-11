@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"google.golang.org/grpc"
 
@@ -55,17 +55,30 @@ func (test TestCase) Execute(service *testframework.TestService) error {
 	}
 	client := pb.NewP2PRPCClient(conn)
 
+	sub, err := client.SubscribeDirectMessage(ctx, &pb.SubscribeDirectMessageRequest{
+		PeerID:      p2p.IDToString(test.appList[0].GetHostNode().GetLivePeerList()[0].GetID()),
+		MessageName: "pb.PingMessage",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	listener, err := client.ListenForDirectMessages(ctx, sub)
+	if err != nil {
+		panic(err)
+	}
+
 	for {
-		s, err := client.GetConnectionStatus(ctx, &empty.Empty{})
-		if s != nil {
-			if s.Connected {
-				return nil
-			}
-		} else {
+		_, err := listener.Recv()
+		if err != nil {
 			panic(err)
 		}
-		time.Sleep(100 * time.Millisecond)
+		fmt.Println("Received direct message pb.PingMessage")
+
+		break
 	}
+
+	return nil
 }
 
 func (test TestCase) createApp(index int) *app.P2PApp {

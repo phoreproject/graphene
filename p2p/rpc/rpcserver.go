@@ -34,12 +34,15 @@ type RPCServer struct {
 // NewRPCServer sets up a server for handling P2P module RPC requests.
 func NewRPCServer(hostNode *p2p.HostNode) RPCServer {
 	p := RPCServer{
-		hostNode:       hostNode,
-		subscriptions:  make(map[uint64]*pubsub.Subscription),
-		subChannels:    make(map[uint64]chan []byte),
-		cancelChannels: make(map[uint64]chan bool),
-		currentSubID:   new(uint64),
-		lock:           new(sync.Mutex),
+		hostNode:                    hostNode,
+		subscriptions:               make(map[uint64]*pubsub.Subscription),
+		subChannels:                 make(map[uint64]chan []byte),
+		cancelChannels:              make(map[uint64]chan bool),
+		currentSubID:                new(uint64),
+		lock:                        new(sync.Mutex),
+		directMessageSubscriptions:  make(map[uint64]uint64),
+		directMessageSubChannels:    make(map[uint64]chan []byte),
+		directMessageCancelChannels: make(map[uint64]chan bool),
 	}
 	*p.currentSubID = 0
 	return p

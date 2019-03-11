@@ -129,10 +129,12 @@ func (app *P2PApp) createRPCServer() {
 	if err != nil {
 		panic(err)
 	}
-	err = app.grpcServer.Serve(lis)
-	if err != nil {
-		panic(err)
-	}
+	go func() {
+		err = app.grpcServer.Serve(lis)
+		if err != nil {
+			panic(err)
+		}
+	}()
 }
 
 func (app *P2PApp) connectAddedPeers() error {

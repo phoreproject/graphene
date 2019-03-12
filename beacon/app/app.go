@@ -14,6 +14,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/rpc"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"google.golang.org/grpc"
@@ -89,6 +90,9 @@ func (app *BeaconApp) Run() error {
 	if err != nil {
 		return err
 	}
+
+	app.registerMessageHandlers()
+
 	return app.runMainLoop()
 }
 
@@ -241,6 +245,67 @@ func (app BeaconApp) waitForExit() error {
 
 	logger.Info("exiting")
 	return nil
+}
+
+func (app BeaconApp) registerMessageHandlers() error {
+	err := app.registerDirectMessage("pb.GetBlockMessage", app.onMessageGetBlock)
+	if err != nil {
+		return err
+	}
+
+	err = app.registerDirectMessage("pb.BlockMessage", app.onMessageBlock)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (app BeaconApp) registerDirectMessage(messageName string, handler func(string, proto.Message)) error {
+	ctx := context.Background()
+	{
+		sub, err := app.p2pRPCClient.SubscribeDirectMessage(ctx, &pb.SubscribeDirectMessageRequest{
+			MessageName: messageName,
+		})
+		if err != nil {
+			return err
+		}
+		listener, err := app.p2pRPCClient.ListenForDirectMessages(ctx, sub)
+		if err != nil {
+			return err
+		}
+		go func() {
+			for {
+				msg, err := listener.Recv()
+				if err != nil {
+					panic(err)
+				}
+				m, err := p2p.BytesToMessage(msg.Data)
+				if err != nil {
+					panic(err)
+				}
+				handler(msg.PeerID, m)
+			}
+		}()
+	}
+
+	return nil
+}
+
+func (app BeaconApp) onMessageGetBlock(peerID string, message proto.Message) {
+	blockMessage := &pb.BlockMessage{}
+	data, err := p2p.MessageToBytes(blockMessage)
+	if err != nil {
+		return
+	}
+	app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
+		PeerID:  peerID,
+		Message: data,
+	})
+}
+
+func (app BeaconApp) onMessageBlock(peerID string, message proto.Message) {
+	logger.Debug("Received block")
 }
 
 func (app BeaconApp) exit() {

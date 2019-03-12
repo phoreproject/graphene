@@ -56,7 +56,7 @@ service P2PRPC {
     rpc SendDirectMessage(SendDirectMessageRequest) returns (google.protobuf.Empty);
     rpc SubscribeDirectMessage(SubscribeDirectMessageRequest) returns (DirectMessageSubscription);
     rpc UnsubscribeDirectMessage(DirectMessageSubscription) returns (google.protobuf.Empty);
-    rpc ListenForDirectMessages(DirectMessageSubscription) returns (stream Message);
+    rpc ListenForDirectMessages(DirectMessageSubscription) returns (stream ListenForDirectMessagesResponse);
 }
 
 message SendDirectMessageRequest {
@@ -65,13 +65,17 @@ message SendDirectMessageRequest {
 }
 
 message SubscribeDirectMessageRequest {
-    string PeerID = 1;
-    string MessageName = 2;
+    string MessageName = 1;
 }
 
 message DirectMessageSubscription {
     uint64 ID = 1;
     string MessageName = 2;
+}
+
+message ListenForDirectMessagesResponse {
+    string PeerID = 1;
+    bytes Data = 2;
 }
 
 message SubscriptionRequest {

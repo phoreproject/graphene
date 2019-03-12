@@ -27,7 +27,7 @@ type RPCServer struct {
 	lock           *sync.Mutex
 
 	directMessageSubscriptions  map[uint64]uint64
-	directMessageSubChannels    map[uint64]chan []byte
+	directMessageSubChannels    map[uint64]chan pb.ListenForDirectMessagesResponse
 	directMessageCancelChannels map[uint64]chan bool
 }
 
@@ -41,7 +41,7 @@ func NewRPCServer(hostNode *p2p.HostNode) RPCServer {
 		currentSubID:                new(uint64),
 		lock:                        new(sync.Mutex),
 		directMessageSubscriptions:  make(map[uint64]uint64),
-		directMessageSubChannels:    make(map[uint64]chan []byte),
+		directMessageSubChannels:    make(map[uint64]chan pb.ListenForDirectMessagesResponse),
 		directMessageCancelChannels: make(map[uint64]chan bool),
 	}
 	*p.currentSubID = 0
@@ -211,14 +211,18 @@ func (p RPCServer) SubscribeDirectMessage(ctx context.Context, in *pb.SubscribeD
 	subID := *p.currentSubID
 	*p.currentSubID++
 
-	subChan := make(chan []byte)
+	subChan := make(chan pb.ListenForDirectMessagesResponse)
 	p.directMessageSubChannels[subID] = subChan
 	p.directMessageCancelChannels[subID] = make(chan bool)
 
 	s := p.hostNode.RegisterMessageHandler(in.MessageName, func(peer *p2p.PeerNode, message proto.Message) {
 		data, _ := p2p.MessageToBytes(message)
+		m := pb.ListenForDirectMessagesResponse{
+			PeerID: p2p.IDToString(peer.GetID()),
+			Data:   data,
+		}
 		select {
-		case subChan <- data:
+		case subChan <- m:
 		default:
 		}
 	})
@@ -252,7 +256,7 @@ func (p RPCServer) ListenForDirectMessages(in *pb.DirectMessageSubscription, out
 	for {
 		select {
 		case msg := <-messages:
-			err := out.Send(&pb.Message{Data: msg})
+			err := out.Send(&msg)
 			if err != nil {
 				return err
 			}

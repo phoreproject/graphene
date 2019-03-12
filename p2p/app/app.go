@@ -173,8 +173,6 @@ func (app *P2PApp) registerMessageHandlers() {
 
 	app.hostNode.RegisterMessageHandler("pb.VersionMessage", app.onMessageVersion)
 	app.hostNode.RegisterMessageHandler("pb.VerackMessage", app.onMessageVerack)
-	app.hostNode.RegisterMessageHandler("pb.GetBlockMessage", app.onMessageGetBlock)
-	app.hostNode.RegisterMessageHandler("pb.BlockMessage", app.onMessageBlock)
 	app.hostNode.RegisterMessageHandler("pb.PingMessage", app.onMessagePing)
 	app.hostNode.RegisterMessageHandler("pb.PongMessage", app.onMessagePong)
 }
@@ -190,15 +188,6 @@ func (app *P2PApp) onMessageVerack(peer *p2p.PeerNode, message proto.Message) {
 	logger.Debug("Received verack")
 
 	app.hostNode.PeerDoneHandShake(peer)
-}
-
-func (app *P2PApp) onMessageGetBlock(peer *p2p.PeerNode, message proto.Message) {
-	blockMessage := &pb.BlockMessage{}
-	peer.SendMessage(blockMessage)
-}
-
-func (app *P2PApp) onMessageBlock(peer *p2p.PeerNode, message proto.Message) {
-	logger.Debug("Received block")
 }
 
 func (app *P2PApp) onMessagePing(peer *p2p.PeerNode, message proto.Message) {

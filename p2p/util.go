@@ -23,12 +23,12 @@ func BytesToPeerInfo(b []byte) (*peerstore.PeerInfo, error) {
 
 // IDToString converts ID to string
 func IDToString(id peer.ID) string {
-	return id.String()
+	return peer.IDB58Encode(id)
 }
 
 // StringToID converts string to ID
 func StringToID(s string) (peer.ID, error) {
-	return peer.IDFromString(s)
+	return peer.IDB58Decode(s)
 }
 
 // PeerInfoToAddrString converts a peer address to string.

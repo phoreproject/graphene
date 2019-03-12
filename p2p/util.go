@@ -4,7 +4,6 @@ import (
 	iaddr "github.com/ipfs/go-ipfs-addr"
 	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 // PeerInfoToBytes converts a peer info to bytes array.
@@ -32,14 +31,9 @@ func StringToID(s string) (peer.ID, error) {
 	return peer.IDB58Decode(s)
 }
 
-// AddressToAddrString converts a peer address to string.
-func AddressToAddrString(addr ma.Multiaddr) string {
-	return addr.String()
-}
-
 // PeerInfoToAddrString converts a peer address to string.
-func PeerInfoToAddrString(peerInfo *peerstore.PeerInfo) string {
-	return AddressToAddrString(peerInfo.Addrs[0])
+func PeerInfoToAddrString(peerInfo *peerstore.PeerInfo) (string, error) {
+	return peerInfo.Addrs[0].String(), nil
 }
 
 // AddrStringToPeerInfo converts a string to a peer info.

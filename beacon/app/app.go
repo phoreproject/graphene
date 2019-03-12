@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
@@ -55,14 +54,12 @@ type BeaconApp struct {
 	p2pRPCClient pb.P2PRPCClient
 	p2pListener  pb.P2PRPC_ListenForMessagesClient
 	genesisTime  uint64
-	needInitSync bool
 }
 
 // NewBeaconApp creates a new instance of BeaconApp
 func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
-		config:       config,
-		needInitSync: true,
+		config: config,
 	}
 	return app
 }
@@ -94,15 +91,7 @@ func (app *BeaconApp) Run() error {
 		return err
 	}
 
-	err = app.registerMessageHandlers()
-	if err != nil {
-		return err
-	}
-
-	err = app.startInitSync()
-	if err != nil {
-		return err
-	}
+	app.registerMessageHandlers()
 
 	return app.runMainLoop()
 }
@@ -205,53 +194,6 @@ func (app *BeaconApp) createRPCServer() error {
 		err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.p2pRPCClient)
 		if err != nil {
 			panic(err)
-		}
-	}()
-
-	return nil
-}
-
-func (app *BeaconApp) startInitSync() error {
-	go func() {
-		for {
-			// nest for..loop to allow sleep at the end of the outter loop
-			for {
-				peerListResponse, err := app.p2pRPCClient.GetPeers(context.Background(), &empty.Empty{})
-				if err != nil {
-					break
-				}
-
-				peerList := peerListResponse.Peers
-				if len(peerList) == 0 {
-					break
-				}
-
-				peerID := peerList[0].PeerID
-
-				headHash, err := app.database.GetHeadBlock()
-				if err != nil {
-					break
-				}
-
-				message := &pb.GetBlockMessage{}
-				message.LocatorHahes = make([][]byte, 1)
-				message.LocatorHahes[0] = headHash.CloneBytes()
-
-				data, err := p2p.MessageToBytes(message)
-				if err != nil {
-					break
-				}
-				app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
-					PeerID:  peerID,
-					Message: data,
-				})
-
-				logger.Debugf("Start init sync with %s", peerID)
-
-				return
-			}
-
-			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 

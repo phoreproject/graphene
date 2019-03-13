@@ -55,14 +55,12 @@ type BeaconApp struct {
 	p2pRPCClient pb.P2PRPCClient
 	p2pListener  pb.P2PRPC_ListenForMessagesClient
 	genesisTime  uint64
-	needInitSync bool
 }
 
 // NewBeaconApp creates a new instance of BeaconApp
 func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
-		config:       config,
-		needInitSync: true,
+		config: config,
 	}
 	return app
 }

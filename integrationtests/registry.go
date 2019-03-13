@@ -19,4 +19,9 @@ var EntryList = []testframework.Entry{
 		Name:    "p2papp",
 		Creator: func() testframework.IntegrationTest { return p2p.TestCase{} },
 	},
+
+	testframework.Entry{
+		Name:    "p2pbeacon",
+		Creator: func() testframework.IntegrationTest { return p2p.TestCaseP2PBeacon{} },
+	},
 }

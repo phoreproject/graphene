@@ -165,6 +165,8 @@ func (app *P2PApp) onPeerConnected(peer *p2p.PeerNode) {
 	peer.SendMessage(&pb.VersionMessage{
 		Version: 0,
 		ID:      p2p.IDToString(app.GetHostNode().GetHost().ID()),
+		//Address: p2p.AddressToAddrString(app.GetHostNode().GetHost().Addrs()[1]),
+		Address: app.config.ListeningAddress,
 	})
 }
 

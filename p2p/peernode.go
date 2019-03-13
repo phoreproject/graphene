@@ -67,8 +67,18 @@ func (node *PeerNode) disconnect() {
 	node.stream.Reset()
 }
 
+// Reject sends reject message and disconnect from the peer
+func (node *PeerNode) Reject(message string) {
+	node.SendMessage(&pb.RejectMessage{
+		Message: message,
+	})
+
+	node.disconnect()
+}
+
 // HandleVersionMessage handles VersionMessage
 func (node *PeerNode) HandleVersionMessage(message *pb.VersionMessage) {
 	node.id, _ = StringToID(message.ID)
 	node.peerInfo, _ = AddrStringToPeerInfo(message.GetAddress())
+	//utils.Assert(node.peerInfo != nil, fmt.Sprintf("Can't parse peer info of address: %s", message.GetAddress()))
 }

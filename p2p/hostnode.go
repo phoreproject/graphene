@@ -104,7 +104,7 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
-	logger.Infof("Received message: %s", proto.MessageName(message))
+	//logger.Infof("Received message: %s", proto.MessageName(message))
 
 	if node.anyMessagehandler != nil {
 		if !node.anyMessagehandler(peer, message) {

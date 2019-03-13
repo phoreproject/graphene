@@ -62,8 +62,11 @@ func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersR
 	peers := p.hostNode.GetLivePeerList()
 	peersPb := []*pb.Peer{}
 	for _, peer := range peers {
-		pi, _ := p2p.PeerInfoToAddrString(peer.GetPeerInfo())
-		peersPb = append(peersPb, &pb.Peer{Address: pi})
+		//pi := p2p.PeerInfoToAddrString(peer.GetPeerInfo())
+		peersPb = append(peersPb, &pb.Peer{
+			PeerID: p2p.IDToString(peer.GetID()),
+			//Address: pi,
+		})
 	}
 	return &pb.GetPeersResponse{Peers: peersPb}, nil
 }

@@ -92,7 +92,8 @@ message MessageAndTopic {
 }
 
 message Peer {
-    string Address = 1;
+    string PeerID = 1;
+    string Address = 2;
 }
 
 message GetPeersResponse {

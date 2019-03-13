@@ -18,7 +18,7 @@ func writeMessage(message proto.Message, writer *bufio.Writer) error {
 		return err
 	}
 
-	logger.WithField("Function", "writeMessage").Infof("Sending %s", proto.MessageName(message))
+	//logger.WithField("Function", "writeMessage").Infof("Sending %s", proto.MessageName(message))
 	messageName := proto.MessageName(message)
 	nameBytes := []byte(messageName)
 	nameLength := len(nameBytes)
@@ -60,7 +60,7 @@ func writeMessage(message proto.Message, writer *bufio.Writer) error {
 
 	proto.Unmarshal(data, message)
 
-	logger.WithField("Function", "writeMessage").Debugf("Written message %s %v Length: %d", messageName, reflect.TypeOf(message), len(data))
+	//logger.WithField("Function", "writeMessage").Debugf("Written message %s %v Length: %d", messageName, reflect.TypeOf(message), len(data))
 
 	return nil
 }

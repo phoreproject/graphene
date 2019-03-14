@@ -209,44 +209,47 @@ func (app *BeaconApp) createRPCServer() error {
 	return nil
 }
 
+func (app *BeaconApp) tryStartInitSync() bool {
+	peerListResponse, err := app.p2pRPCClient.GetPeers(context.Background(), &empty.Empty{})
+	if err != nil {
+		return false
+	}
+
+	peerList := peerListResponse.Peers
+	if len(peerList) == 0 {
+		return false
+	}
+
+	peerID := peerList[0].PeerID
+
+	headHash, err := app.database.GetHeadBlock()
+	if err != nil {
+		return false
+	}
+
+	message := &pb.GetBlockMessage{}
+	message.LocatorHahes = make([][]byte, 1)
+	message.LocatorHahes[0] = headHash.CloneBytes()
+
+	data, err := p2p.MessageToBytes(message)
+	if err != nil {
+		return false
+	}
+	app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
+		PeerID:  peerID,
+		Message: data,
+	})
+
+	logger.Debugf("Start init sync with %s", peerID)
+
+	return true
+}
+
 func (app *BeaconApp) startInitSync() error {
 	go func() {
 		for {
-			// nest for..loop to allow sleep at the end of the outter loop
-			for {
-				peerListResponse, err := app.p2pRPCClient.GetPeers(context.Background(), &empty.Empty{})
-				if err != nil {
-					break
-				}
-
-				peerList := peerListResponse.Peers
-				if len(peerList) == 0 {
-					break
-				}
-
-				peerID := peerList[0].PeerID
-
-				headHash, err := app.database.GetHeadBlock()
-				if err != nil {
-					break
-				}
-
-				message := &pb.GetBlockMessage{}
-				message.LocatorHahes = make([][]byte, 1)
-				message.LocatorHahes[0] = headHash.CloneBytes()
-
-				data, err := p2p.MessageToBytes(message)
-				if err != nil {
-					break
-				}
-				app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
-					PeerID:  peerID,
-					Message: data,
-				})
-
-				logger.Debugf("Start init sync with %s", peerID)
-
-				return
+			if app.tryStartInitSync() {
+				break
 			}
 
 			time.Sleep(10 * time.Millisecond)

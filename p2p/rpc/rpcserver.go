@@ -219,9 +219,15 @@ func (p RPCServer) SubscribeDirectMessage(ctx context.Context, in *pb.SubscribeD
 	p.directMessageCancelChannels[subID] = make(chan bool)
 
 	s := p.hostNode.RegisterMessageHandler(in.MessageName, func(peer *p2p.PeerNode, message proto.Message) {
+		peerID := p2p.IDToString(peer.GetID())
+		if in.PeerID != "" {
+			if peerID != in.PeerID {
+				return
+			}
+		}
 		data, _ := p2p.MessageToBytes(message)
 		m := pb.ListenForDirectMessagesResponse{
-			PeerID: p2p.IDToString(peer.GetID()),
+			PeerID: peerID,
 			Data:   data,
 		}
 		select {

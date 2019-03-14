@@ -65,7 +65,8 @@ message SendDirectMessageRequest {
 }
 
 message SubscribeDirectMessageRequest {
-    string MessageName = 1;
+    string PeerID = 1;  // If PeerID == "", listen to all peers, otherwise, only listen to specified peer
+    string MessageName = 2;
 }
 
 message DirectMessageSubscription {

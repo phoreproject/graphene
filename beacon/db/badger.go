@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"runtime"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/pb"
@@ -28,6 +29,12 @@ func NewBadgerDB(databaseDir string, databaseValueDir string) *BadgerDB {
 	opts := badger.DefaultOptions
 	opts.Dir = databaseDir
 	opts.ValueDir = databaseValueDir
+	if runtime.GOOS == "windows" {
+		opts.Truncate = true
+		opts.ValueLogFileSize = 1024 * 1024
+		// Not sure how this option takes effect.
+		//opts.CompactL0OnClose = false
+	}
 	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal(err)

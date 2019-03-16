@@ -17,8 +17,6 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 )
 
-var zeroHash = chainhash.Hash{}
-
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
 func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()

@@ -25,6 +25,9 @@ func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 				return nil, err
 			}
 			info, err := peerstore.InfoFromP2pAddr(maddr)
+			if err != nil {
+				return nil, err
+			}
 			currentAddr = ""
 
 			peers = append(peers, info)

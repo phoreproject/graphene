@@ -18,14 +18,6 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 )
 
-const maxAttemptsAttestation = 10
-
-func hammingWeight(b uint8) int {
-	b = b - ((b >> 1) & 0x55)
-	b = (b & 0x33) + ((b >> 2) & 0x33)
-	return int(((b + (b >> 4)) & 0x0F) * 0x01)
-}
-
 func (v *Validator) proposeBlock(information proposerAssignment) error {
 	// wait for slot to happen to submit
 	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))

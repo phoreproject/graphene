@@ -10,7 +10,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -51,9 +50,6 @@ func NewConfig() Config {
 // BeaconApp contains all the high level states and workflow for P2P module
 type BeaconApp struct {
 	config       Config
-	privateKey   crypto.PrivKey
-	publicKey    crypto.PubKey
-	grpcServer   *grpc.Server
 	database     db.Database
 	blockchain   *beacon.Blockchain
 	p2pRPCClient pb.P2PRPCClient

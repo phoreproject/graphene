@@ -15,8 +15,6 @@ import (
 type InMemoryDB struct {
 	DB            map[chainhash.Hash]primitives.Block
 	AttestationDB map[uint32]primitives.Attestation
-	headState     primitives.State
-	headBlock     chainhash.Hash
 	lock          *sync.Mutex
 }
 

@@ -3,14 +3,11 @@ package shard
 import (
 	"encoding/binary"
 	"fmt"
-	"math/big"
-	"sync"
-
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/db"
 	beacondb "github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"math/big"
 )
 
 // BlockHeader represents a single shard chain block header.
@@ -39,21 +36,8 @@ type BlockHeader struct {
 type BlockBody struct {
 }
 
-// Block represents a single shard chain block
-type Block struct {
-	header BlockHeader
-	body   BlockBody
-}
-
-type blockchainView struct {
-	chain []chainhash.Hash
-	lock  *sync.Mutex
-}
-
 // Blockchain represents a chain of shard blocks.
 type Blockchain struct {
-	chain  blockchainView
-	db     db.Database
 	config *config.Config
 }
 

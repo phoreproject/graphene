@@ -68,6 +68,9 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 	nameBytes := make([]byte, nameLength)
 
 	_, err = reader.Read(nameBytes)
+	if err != nil {
+		return nil, err
+	}
 	messageName := string(nameBytes)
 	messageType := proto.MessageType(messageName)
 	message := reflect.New(messageType.Elem()).Interface().(proto.Message)

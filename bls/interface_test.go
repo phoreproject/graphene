@@ -55,9 +55,9 @@ func (xor *XORShift) Read(b []byte) (int, error) {
 func TestAggregateSignatures(t *testing.T) {
 	r := NewXORShift(1)
 
-	s0, nil := bls.RandSecretKey(r)
-	s1, nil := bls.RandSecretKey(r)
-	s2, nil := bls.RandSecretKey(r)
+	s0, _ := bls.RandSecretKey(r)
+	s1, _ := bls.RandSecretKey(r)
+	s2, _ := bls.RandSecretKey(r)
 
 	p0 := s0.DerivePublicKey()
 	p1 := s1.DerivePublicKey()
@@ -92,9 +92,9 @@ func TestAggregateSignatures(t *testing.T) {
 func TestVerifyAggregate(t *testing.T) {
 	r := NewXORShift(1)
 
-	s0, nil := bls.RandSecretKey(r)
-	s1, nil := bls.RandSecretKey(r)
-	s2, nil := bls.RandSecretKey(r)
+	s0, _ := bls.RandSecretKey(r)
+	s1, _ := bls.RandSecretKey(r)
+	s2, _ := bls.RandSecretKey(r)
 
 	p0 := s0.DerivePublicKey()
 	p1 := s1.DerivePublicKey()
@@ -131,9 +131,9 @@ func TestVerifyAggregate(t *testing.T) {
 func TestVerifyAggregateSeparate(t *testing.T) {
 	r := NewXORShift(1)
 
-	s0, nil := bls.RandSecretKey(r)
-	s1, nil := bls.RandSecretKey(r)
-	s2, nil := bls.RandSecretKey(r)
+	s0, _ := bls.RandSecretKey(r)
+	s1, _ := bls.RandSecretKey(r)
+	s2, _ := bls.RandSecretKey(r)
 
 	p0 := s0.DerivePublicKey()
 	p1 := s1.DerivePublicKey()

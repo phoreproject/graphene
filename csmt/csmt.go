@@ -329,14 +329,6 @@ func getMinKey(keyA *Key, keyB *Key) *Key {
 	return keyA
 }
 
-func xorKey(keyA *Key, keyB *Key) Key {
-	var result Key
-	for i := 0; i < chainhash.HashSize; i++ {
-		result[i] = keyA[i] ^ keyB[i]
-	}
-	return result
-}
-
 func compareKey(keyA *Key, keyB *Key) int {
 	for i := 0; i < chainhash.HashSize; i++ {
 		a := int(keyA[i])

@@ -247,6 +247,11 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		if err != nil {
 			return nil, err
 		}
+
+		err = b.db.SetHeadBlock(blockHash)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		logrus.Debug("loading block index...")
 		err := b.populateBlockIndexFromDatabase(blockHash)

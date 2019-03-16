@@ -4,111 +4,119 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"reflect"
 
-	proto "github.com/golang/protobuf/proto"
-	inet "github.com/libp2p/go-libp2p-net"
-	logger "github.com/sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 )
 
+// writeMessage writes a message and message name to the provided writer.
 func writeMessage(message proto.Message, writer *bufio.Writer) error {
 	data, err := proto.Marshal(message)
 	if err != nil {
-		logger.WithField("Function", "writeMessage").Warn(err)
 		return err
 	}
 
-	//logger.WithField("Function", "writeMessage").Infof("Sending %s", proto.MessageName(message))
 	messageName := proto.MessageName(message)
 	nameBytes := []byte(messageName)
 	nameLength := len(nameBytes)
 	buf := make([]byte, 4)
+
+	// 1 byte for name length + name length + data length
 	binary.LittleEndian.PutUint32(buf, uint32(len(data)+1+nameLength))
-	written, err := writer.Write(buf)
+	_, err = writer.Write(buf)
 	if err != nil {
-		logger.WithField("Function", "writeMessage").Warn(err)
 		return err
 	}
-	if written != len(buf) {
-		logger.WithField("Function", "writeMessage").Warn("written < len(buf)")
-		return nil
-	}
 
-	writer.WriteByte(byte(nameLength))
-
-	written, err = writer.Write(nameBytes)
+	_, err = writer.Write([]byte{byte(nameLength)})
 	if err != nil {
-		logger.WithField("Function", "writeMessage").Warn(err)
 		return err
 	}
-	if written != len(nameBytes) {
-		logger.WithField("Function", "writeMessage").Warn("written < len(nameBytes)")
-		return nil
-	}
 
-	written, err = writer.Write(data)
+	_, err = writer.Write(nameBytes)
 	if err != nil {
-		logger.WithField("Function", "writeMessage").Warn(err)
 		return err
 	}
-	if written != len(data) {
-		logger.WithField("Function", "writeMessage").Warn("written < len(data)")
-		return nil
+
+	_, err = writer.Write(data)
+	if err != nil {
+		return err
 	}
 
-	writer.Flush()
+	err = proto.Unmarshal(data, message)
+	if err != nil {
+		return err
+	}
 
-	proto.Unmarshal(data, message)
-
-	//logger.WithField("Function", "writeMessage").Debugf("Written message %s %v Length: %d", messageName, reflect.TypeOf(message), len(data))
+	err = writer.Flush()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
+// readMessage reads a message name and message from the provided reader.
 func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
-	nameLength, err := reader.ReadByte()
+	nameByte := make([]byte, 1)
+	_, err := reader.Read(nameByte)
 	if err != nil {
 		return nil, err
 	}
+	nameLength := uint8(nameByte[0])
 	nameBytes := make([]byte, nameLength)
-	reader.Read(nameBytes)
+
+	_, err = reader.Read(nameBytes)
 	messageName := string(nameBytes)
 	messageType := proto.MessageType(messageName)
 	message := reflect.New(messageType.Elem()).Interface().(proto.Message)
 	if message == nil {
-		logger.WithField("Function", "readMessage").Warnf("Message is nil! %s %v", messageName, messageType)
+		return nil, fmt.Errorf("could not find message type \"%s\"", messageName)
 	}
 
 	data := make([]byte, length-1-uint32(nameLength))
-	reader.Read(data)
-	proto.Unmarshal(data, message)
+	_, err = reader.Read(data)
+	if err != nil {
+		return nil, err
+	}
+	err = proto.Unmarshal(data, message)
+	if err != nil {
+		return nil, err
+	}
 
 	return message, nil
 }
 
-func processMessages(stream inet.Stream, handler func(message proto.Message)) {
+func processMessages(stream *bufio.Reader, handler func(message proto.Message) error) error {
 	const stateReadHeader = 1
 	const stateReadMessage = 2
 
-	streamReader := NewStreamReader(stream)
 	headerBuffer := make([]byte, 4)
 	state := stateReadHeader
 	var messageBuffer []byte
 	for {
 		switch state {
 		case stateReadHeader:
-			if streamReader.Read(headerBuffer) {
+			if _, err := stream.Read(headerBuffer); err == nil {
 				messageLength := binary.LittleEndian.Uint32(headerBuffer)
 				messageBuffer = make([]byte, messageLength)
 				state = stateReadMessage
+			} else {
+				return err
 			}
 			break
 
 		case stateReadMessage:
-			if streamReader.Read(messageBuffer) {
+			if _, err := stream.Read(messageBuffer); err == nil {
 				state = stateReadHeader
 				message, _ := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
-				handler(message)
+				err := handler(message)
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
 			}
 			break
 		}
@@ -117,18 +125,15 @@ func processMessages(stream inet.Stream, handler func(message proto.Message)) {
 
 // MessageToBytes converts a message to byte array
 func MessageToBytes(message proto.Message) ([]byte, error) {
-	// How to create auto grow in-memory writer?
-	// Currently we have to use a 4M byte array as the writer.
-	buffer := make([]byte, 1024*1024*4)
-	writer := bufio.NewWriter(bytes.NewBuffer(buffer))
-	err := writeMessage(message, writer)
+	var buf bytes.Buffer
+	err := writeMessage(message, bufio.NewWriter(&buf))
 	if err != nil {
 		return nil, err
 	}
 
-	len := writer.Buffered()
-	result := make([]byte, len)
-	copy(result, buffer)
+	messageLen := buf.Len()
+	result := make([]byte, messageLen)
+	copy(result, buf.Bytes())
 	return result, nil
 }
 

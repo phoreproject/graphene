@@ -4,21 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-peerstore"
+	"github.com/multiformats/go-multiaddr"
 	"io"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 )
 
-// RPCServer is a server to manager the P2P module
+// Server is a server to manager the P2P module
 // RPC server.
-type RPCServer struct {
+type Server struct {
 	hostNode       *p2p.HostNode
 	subscriptions  map[uint64]*pubsub.Subscription
 	subChannels    map[uint64]chan []byte
@@ -32,8 +35,8 @@ type RPCServer struct {
 }
 
 // NewRPCServer sets up a server for handling P2P module RPC requests.
-func NewRPCServer(hostNode *p2p.HostNode) RPCServer {
-	p := RPCServer{
+func NewRPCServer(hostNode *p2p.HostNode) Server {
+	p := Server{
 		hostNode:                    hostNode,
 		subscriptions:               make(map[uint64]*pubsub.Subscription),
 		subChannels:                 make(map[uint64]chan []byte),
@@ -49,23 +52,21 @@ func NewRPCServer(hostNode *p2p.HostNode) RPCServer {
 }
 
 // GetConnectionStatus gets the status of the P2P connection.
-func (p RPCServer) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	return &pb.ConnectionStatus{Connected: len(p.hostNode.GetLivePeerList()) > 0}, nil
+func (s Server) GetConnectionStatus(ctx context.Context, in *empty.Empty) (*pb.ConnectionStatus, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return &pb.ConnectionStatus{Connected: s.hostNode.Connected()}, nil
 }
 
 // GetPeers gets the peers for the P2P connection.
-func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersResponse, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	peers := p.hostNode.GetLivePeerList()
-	peersPb := []*pb.Peer{}
-	for _, peer := range peers {
-		//pi := p2p.PeerInfoToAddrString(peer.GetPeerInfo())
+func (s Server) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersResponse, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	peers := s.hostNode.GetPeerList()
+	peersPb := make([]*pb.Peer, 0)
+	for _, p := range peers {
 		peersPb = append(peersPb, &pb.Peer{
-			PeerID: p2p.IDToString(peer.GetID()),
-			//Address: pi,
+			PeerID: p.ID.String(),
 		})
 	}
 	return &pb.GetPeersResponse{Peers: peersPb}, nil
@@ -73,16 +74,16 @@ func (p RPCServer) GetPeers(ctx context.Context, in *empty.Empty) (*pb.GetPeersR
 
 // ListenForMessages listens to a subscription and receives
 // a stream of messages.
-func (p RPCServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenForMessagesServer) error {
-	p.lock.Lock()
-	if _, success := p.subscriptions[in.ID]; !success {
+func (s Server) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenForMessagesServer) error {
+	s.lock.Lock()
+	if _, success := s.subscriptions[in.ID]; !success {
 		return fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
-	messages := p.subChannels[in.ID]
-	cancelChan := p.cancelChannels[in.ID]
+	messages := s.subChannels[in.ID]
+	cancelChan := s.cancelChannels[in.ID]
 
-	p.lock.Unlock()
+	s.lock.Unlock()
 
 	for {
 		select {
@@ -99,17 +100,17 @@ func (p RPCServer) ListenForMessages(in *pb.Subscription, out pb.P2PRPC_ListenFo
 }
 
 // Subscribe subscribes to a topic returning a subscription ID.
-func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*pb.Subscription, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	subID := *p.currentSubID
-	*p.currentSubID++
+func (s Server) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*pb.Subscription, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	subID := *s.currentSubID
+	*s.currentSubID++
 
 	subChan := make(chan []byte)
-	p.subChannels[subID] = subChan
-	p.cancelChannels[subID] = make(chan bool)
+	s.subChannels[subID] = subChan
+	s.cancelChannels[subID] = make(chan bool)
 
-	s, err := p.hostNode.SubscribeMessage(in.Topic, func(peer *p2p.PeerNode, data []byte) {
+	sub, err := s.hostNode.SubscribeMessage(in.Topic, func(data []byte) {
 		select {
 		case subChan <- data:
 		default:
@@ -120,59 +121,68 @@ func (p RPCServer) Subscribe(ctx context.Context, in *pb.SubscriptionRequest) (*
 		return nil, err
 	}
 
-	p.subscriptions[subID] = s
+	s.subscriptions[subID] = sub
 
 	return &pb.Subscription{ID: subID}, nil
 }
 
 // Unsubscribe unsubscribes from a subscription given a subscription ID.
-func (p RPCServer) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty.Empty, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	if _, success := p.subscriptions[in.ID]; !success {
+func (s Server) Unsubscribe(ctx context.Context, in *pb.Subscription) (*empty.Empty, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if _, success := s.subscriptions[in.ID]; !success {
 		return nil, fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
 	// either send it or not. we don't really care if it works.
 	// this is dependent on whether the channel is being listened on
 	select {
-	case p.cancelChannels[in.ID] <- true:
+	case s.cancelChannels[in.ID] <- true:
 	default:
 	}
 
-	close(p.cancelChannels[in.ID])
-	close(p.subChannels[in.ID])
-	p.hostNode.UnsubscribeMessage(p.subscriptions[in.ID])
+	close(s.cancelChannels[in.ID])
+	close(s.subChannels[in.ID])
+	s.hostNode.UnsubscribeMessage(s.subscriptions[in.ID])
 
-	delete(p.cancelChannels, in.ID)
-	delete(p.subChannels, in.ID)
-	delete(p.subscriptions, in.ID)
+	delete(s.cancelChannels, in.ID)
+	delete(s.subChannels, in.ID)
+	delete(s.subscriptions, in.ID)
 
 	return &empty.Empty{}, nil
 }
 
 // Broadcast broadcasts a message to a topic.
-func (p RPCServer) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*empty.Empty, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	return &empty.Empty{}, p.hostNode.Broadcast(in.Topic, in.Data)
+func (s Server) Broadcast(ctx context.Context, in *pb.MessageAndTopic) (*empty.Empty, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return &empty.Empty{}, s.hostNode.Broadcast(in.Topic, in.Data)
 }
 
 // Connect connects to more peers.
-func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectResponse, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+func (s Server) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectResponse, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	success := true
-	for _, peer := range in.Peers {
-		pInfo, err := p2p.AddrStringToPeerInfo(peer.Address)
+	for _, peerToConnect := range in.Peers {
+		peerID, err := peer.IDFromString(peerToConnect.PeerID)
 		if err != nil {
 			return nil, err
 		}
-		//pInfo := peerstore.PeerInfo
-		_, err = p.hostNode.Connect(pInfo)
+		if peerID == s.hostNode.GetHost().ID() {
+			continue
+		}
+		pInfo := peerstore.PeerInfo{
+			ID:    peerID,
+			Addrs: []multiaddr.Multiaddr{multiaddr.StringCast(peerToConnect.Address)},
+		}
+		if err != nil {
+			return nil, err
+		}
+		_, err = s.hostNode.Connect(pInfo)
 		if err != nil {
 			success = false
-			logrus.WithField("addr", peer.Address).Warn("could not connect to peer")
+			logrus.WithField("addr", peerToConnect.Address).Warn("could not connect to peerToConnect")
 			continue
 		}
 	}
@@ -180,21 +190,21 @@ func (p RPCServer) Connect(ctx context.Context, in *pb.Peers) (*pb.ConnectRespon
 }
 
 // GetSettings gets the settings of the P2P connection.
-func (p RPCServer) GetSettings(ctx context.Context, in *empty.Empty) (*pb.P2PSettings, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+func (s Server) GetSettings(ctx context.Context, in *empty.Empty) (*pb.P2PSettings, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	return &pb.P2PSettings{}, nil
 }
 
 // SendDirectMessage sends a direct message
-func (p RPCServer) SendDirectMessage(ctx context.Context, in *pb.SendDirectMessageRequest) (*empty.Empty, error) {
-	id, err := p2p.StringToID(in.PeerID)
+func (s Server) SendDirectMessage(ctx context.Context, in *pb.SendDirectMessageRequest) (*empty.Empty, error) {
+	id, err := peer.IDFromString(in.PeerID)
 	if err != nil {
 		return nil, err
 	}
-	peer := p.hostNode.FindPeerByID(id)
-	if peer == nil {
-		return nil, errors.New("Can't find peer by ID")
+	peerToSend, found := s.hostNode.FindPeerByID(id)
+	if !found {
+		return nil, errors.New("could not find peer")
 	}
 
 	message, err := p2p.BytesToMessage(in.GetMessage())
@@ -202,65 +212,77 @@ func (p RPCServer) SendDirectMessage(ctx context.Context, in *pb.SendDirectMessa
 		return nil, err
 	}
 
-	peer.SendMessage(message)
+	err = peerToSend.SendMessage(message)
+	if err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }
 
 // SubscribeDirectMessage subscribes a direct message
-func (p RPCServer) SubscribeDirectMessage(ctx context.Context, in *pb.SubscribeDirectMessageRequest) (*pb.DirectMessageSubscription, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	subID := *p.currentSubID
-	*p.currentSubID++
+func (s Server) SubscribeDirectMessage(ctx context.Context, req *pb.SubscribeDirectMessageRequest) (*pb.DirectMessageSubscription, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	subID := *s.currentSubID
+	*s.currentSubID++
 
 	subChan := make(chan pb.ListenForDirectMessagesResponse)
-	p.directMessageSubChannels[subID] = subChan
-	p.directMessageCancelChannels[subID] = make(chan bool)
+	s.directMessageSubChannels[subID] = subChan
+	s.directMessageCancelChannels[subID] = make(chan bool)
 
-	s := p.hostNode.RegisterMessageHandler(in.MessageName, func(peer *p2p.PeerNode, message proto.Message) {
-		peerID := p2p.IDToString(peer.GetID())
-		if in.PeerID != "" {
-			if peerID != in.PeerID {
-				return
+	requestedPeerID := (*peer.ID)(nil)
+	if req.PeerID != "" {
+		requestedPeerIDDecoded, err := peer.IDFromString(req.PeerID)
+		if err != nil {
+			return nil, err
+		}
+		requestedPeerID = &requestedPeerIDDecoded
+	}
+
+	sub := s.hostNode.RegisterMessageHandler(req.MessageName, func(sentBy *p2p.Peer, message proto.Message) error {
+		if requestedPeerID != nil {
+			if sentBy.ID != *requestedPeerID {
+				return nil
 			}
 		}
 		data, _ := p2p.MessageToBytes(message)
 		m := pb.ListenForDirectMessagesResponse{
-			PeerID: peerID,
+			PeerID: sentBy.ID.String(),
 			Data:   data,
 		}
 		select {
 		case subChan <- m:
 		default:
 		}
+		return nil
 	})
 
-	p.directMessageSubscriptions[subID] = s
+	s.directMessageSubscriptions[subID] = sub
 
 	return &pb.DirectMessageSubscription{
 		ID:          subID,
-		MessageName: in.MessageName,
+		MessageName: req.MessageName,
 	}, nil
 }
 
 // UnsubscribeDirectMessage unsubscribes a direct message
-func (p RPCServer) UnsubscribeDirectMessage(ctx context.Context, in *pb.DirectMessageSubscription) (*empty.Empty, error) {
-	p.hostNode.UnregisterMessageHandler(in.MessageName, in.ID)
+func (s Server) UnsubscribeDirectMessage(ctx context.Context, in *pb.DirectMessageSubscription) (*empty.Empty, error) {
+	s.hostNode.UnregisterMessageHandler(in.MessageName, in.ID)
 	return nil, nil
 }
 
 // ListenForDirectMessages listens for direct messages
-func (p RPCServer) ListenForDirectMessages(in *pb.DirectMessageSubscription, out pb.P2PRPC_ListenForDirectMessagesServer) error {
-	p.lock.Lock()
-	if _, success := p.directMessageSubscriptions[in.ID]; !success {
+func (s Server) ListenForDirectMessages(in *pb.DirectMessageSubscription, out pb.P2PRPC_ListenForDirectMessagesServer) error {
+	s.lock.Lock()
+	if _, success := s.directMessageSubscriptions[in.ID]; !success {
 		return fmt.Errorf("could not find subscription with ID %d", in.ID)
 	}
 
-	messages := p.directMessageSubChannels[in.ID]
-	cancelChan := p.directMessageCancelChannels[in.ID]
+	messages := s.directMessageSubChannels[in.ID]
+	cancelChan := s.directMessageCancelChannels[in.ID]
 
-	p.lock.Unlock()
+	s.lock.Unlock()
 
 	for {
 		select {

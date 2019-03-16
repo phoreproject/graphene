@@ -6,15 +6,12 @@ import (
 	"time"
 
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/utils"
 
-	"github.com/golang/protobuf/proto"
-	crypto "github.com/libp2p/go-libp2p-crypto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/p2p/rpc"
-	logger "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -26,7 +23,7 @@ type Config struct {
 	MinPeerCountToWait int
 	HeartBeatInterval  int
 	TimeOutInterval    int
-	DiscoveryOptions   *p2p.DiscoveryOptions
+	DiscoveryOptions   p2p.DiscoveryOptions
 	AddedPeers         []*peerstore.PeerInfo
 }
 
@@ -59,40 +56,32 @@ func NewP2PApp(config Config) *P2PApp {
 	return app
 }
 
-const (
-	stateInitialize = iota
-	stateLoadConfig
-	stateCreateHost
-	stateCreateRPCServer
-	stateConnectAddedPeers
-	stateDiscoverPeers
-	stateWaitPeersReady
-)
-
-// Run runs the main loop of P2PApp
-func (app *P2PApp) Run() error {
-	app.initialize()
+// Initialize initializes the P2PApp by loading the config and setting up networking.
+func (app *P2PApp) Initialize() error {
 	app.loadConfig()
 	app.createHost()
 	app.createRPCServer()
+
+	return nil
+}
+
+// Run runs the main loop of P2PApp
+func (app *P2PApp) Run() error {
 	err := app.connectAddedPeers()
 	if err != nil {
 		return err
 	}
-	app.discoverPeers()
+	err = app.discoverPeers()
+	if err != nil {
+		return err
+	}
 	app.waitPeersReady()
-	go app.runMainLoop()
-
 	return nil
 }
 
 // GetHostNode gets the host node
 func (app *P2PApp) GetHostNode() *p2p.HostNode {
 	return app.hostNode
-}
-
-// Setup necessary variable
-func (app *P2PApp) initialize() {
 }
 
 // Load user config from configure file
@@ -109,14 +98,11 @@ func (app *P2PApp) createHost() {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, app.publicKey, app.privateKey)
+	hostNode, err := p2p.NewHostNode(addr, app.publicKey, app.privateKey, app.config.DiscoveryOptions)
 	if err != nil {
 		panic(err)
 	}
-	hostNode.SetOnPeerConnectedHandler(app.onPeerConnected)
 	app.hostNode = hostNode
-
-	app.registerMessageHandlers()
 }
 
 func (app *P2PApp) createRPCServer() {
@@ -139,7 +125,7 @@ func (app *P2PApp) createRPCServer() {
 
 func (app *P2PApp) connectAddedPeers() error {
 	for _, peerInfo := range app.config.AddedPeers {
-		_, err := app.hostNode.Connect(peerInfo)
+		_, err := app.hostNode.Connect(*peerInfo)
 		if err != nil {
 			return err
 		}
@@ -147,105 +133,19 @@ func (app *P2PApp) connectAddedPeers() error {
 	return nil
 }
 
-func (app *P2PApp) discoverPeers() {
-	p2p.StartDiscovery(app.hostNode, app.config.DiscoveryOptions)
+func (app *P2PApp) discoverPeers() error {
+	return app.hostNode.StartDiscovery()
 }
 
 func (app *P2PApp) waitPeersReady() {
 	for {
 		// TODO: the count 5 should be loaded from config file
-		if len(app.hostNode.GetLivePeerList()) >= app.config.MinPeerCountToWait {
+		if app.hostNode.PeersConnected() >= app.config.MinPeerCountToWait {
 			//app.doStateSyncBeaconBlocks()
 			break
 		}
-	}
-}
 
-func (app *P2PApp) onPeerConnected(peer *p2p.PeerNode) {
-	peer.SendMessage(&pb.VersionMessage{
-		Version: 0,
-		ID:      p2p.IDToString(app.GetHostNode().GetHost().ID()),
-	})
-}
-
-func (app *P2PApp) registerMessageHandlers() {
-	app.hostNode.SetAnyMessageHandler(app.onAnyMessage)
-
-	app.hostNode.RegisterMessageHandler("pb.VersionMessage", app.onMessageVersion)
-	app.hostNode.RegisterMessageHandler("pb.VerackMessage", app.onMessageVerack)
-	app.hostNode.RegisterMessageHandler("pb.PingMessage", app.onMessagePing)
-	app.hostNode.RegisterMessageHandler("pb.PongMessage", app.onMessagePong)
-}
-
-func (app *P2PApp) onMessageVersion(peer *p2p.PeerNode, message proto.Message) {
-	logger.Debug("Received version")
-
-	peer.HandleVersionMessage(message.(*pb.VersionMessage))
-	peer.SendMessage(&pb.VerackMessage{})
-}
-
-func (app *P2PApp) onMessageVerack(peer *p2p.PeerNode, message proto.Message) {
-	logger.Debug("Received verack")
-
-	app.hostNode.PeerDoneHandShake(peer)
-}
-
-func (app *P2PApp) onMessagePing(peer *p2p.PeerNode, message proto.Message) {
-	peer.SendMessage(&pb.PongMessage{
-		Nonce: message.(*pb.PingMessage).Nonce,
-	})
-}
-
-func (app *P2PApp) onMessagePong(peer *p2p.PeerNode, message proto.Message) {
-	if peer.LastPingNonce == message.(*pb.PongMessage).Nonce {
-	}
-}
-
-func (app *P2PApp) onAnyMessage(peer *p2p.PeerNode, message proto.Message) bool {
-	peer.LastMessageTime = utils.GetCurrentMilliseconds()
-
-	return true
-}
-
-func (app *P2PApp) runMainLoop() {
-	for {
-		app.doHeartBeat()
-
-		time.Sleep(100 * time.Millisecond)
-	}
-}
-
-func (app *P2PApp) doHeartBeat() {
-	if !app.isHostReady() {
-		return
-	}
-
-	heartBeatInterval := uint64(app.config.HeartBeatInterval)
-	timeOutInterval := uint64(app.config.TimeOutInterval)
-	currentTime := utils.GetCurrentMilliseconds()
-
-	cotinueChecking := true
-
-	for cotinueChecking {
-		cotinueChecking = false
-
-		for _, peer := range app.hostNode.GetLivePeerList() {
-			if peer.LastPingTime > 0 && currentTime > peer.LastPingTime+timeOutInterval {
-				// time out, drop the peer
-				app.hostNode.DisconnectPeer(peer)
-				// DisconnectPeer will pollute live peer list and we can't continue the loop
-				// let's restart over
-				cotinueChecking = true
-				break
-			} else if currentTime > peer.LastMessageTime+heartBeatInterval || currentTime > peer.LastPingTime+heartBeatInterval {
-				peer.LastPingTime = currentTime
-				peer.LastMessageTime = currentTime
-				peer.LastPingNonce = 1
-				peer.SendMessage(&pb.PingMessage{
-					Nonce: peer.LastPingNonce,
-				})
-			}
-		}
+		time.Sleep(1 * time.Second)
 	}
 }
 

@@ -1,19 +1,18 @@
 package p2p
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-	"strings"
+	"context"
 	"time"
 
-	"github.com/multiformats/go-multiaddr"
-
-	peer "github.com/libp2p/go-libp2p-peer"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
-	logger "github.com/sirupsen/logrus"
 )
+
+// MDNSOptions are options for the MDNS discovery mechanism.
+type MDNSOptions struct {
+	Enabled  bool
+	Interval time.Duration
+}
 
 // DiscoveryOptions is the options used to discover peers
 type DiscoveryOptions struct {
@@ -28,70 +27,45 @@ type DiscoveryOptions struct {
 	// A seed file has the same format as AddressFileNames
 	SeedAddresses []string
 
-	UseMDNS bool
+	MDNS MDNSOptions
 }
 
 // NewDiscoveryOptions creates a DiscoveryOptions with default values
-func NewDiscoveryOptions() *DiscoveryOptions {
-	return &DiscoveryOptions{
-		UseMDNS: true,
+func NewDiscoveryOptions() DiscoveryOptions {
+	return DiscoveryOptions{
+		MDNS: MDNSOptions{
+			Enabled:  true,
+			Interval: 1 * time.Minute,
+		},
 	}
 }
 
-func lineToPeerInfo(line string) (*ps.PeerInfo, error) {
-	parts := strings.Split(line, " ")
-	var id string
-	var addresses []string
-
-	for i, s := range parts {
-		if i == 0 {
-			id = strings.TrimSpace(s)
-		} else {
-			addresses = append(addresses, strings.TrimSpace(s))
-		}
-	}
-
-	if id == "" {
-		return nil, fmt.Errorf("Not found ID")
-	}
-	if len(addresses) == 0 {
-		return nil, fmt.Errorf("Not found address")
-	}
-
-	var peerInfo ps.PeerInfo
-	peerInfo.ID = peer.ID(id)
-	for _, a := range addresses {
-		addr, err := multiaddr.NewMultiaddr(a)
-		if err == nil {
-			peerInfo.Addrs = append(peerInfo.Addrs, addr)
-		} else {
-			logger.Warn(err)
-		}
-	}
-	return &peerInfo, nil
+// Discovery is the service to discover other peers.
+type Discovery struct {
+	host    *HostNode
+	options DiscoveryOptions
+	ctx     context.Context
 }
 
-// Discovery interval for multicast DNS querying.
-var discoveryInterval = 1 * time.Minute
+// NewDiscovery creates a new discovery service.
+func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions) *Discovery {
+	return &Discovery{
+		host:    host,
+		ctx:     ctx,
+		options: options,
+	}
+}
 
 // mDNSTag is the name of the mDNS service.
-var mDNSTag = mdns.ServiceTag
+const mDNSTag = "_phore-discovery._udp"
 
 // StartDiscovery protocols. Currently, this supports discovery via multicast
 // DNS peer discovery.
 //
-// TODO(287): add other discovery protocols such as DHT, etc.
-func StartDiscovery(node *HostNode, options *DiscoveryOptions) error {
-	if len(options.PeerAddresses) > 0 {
-		go discoverFromPeerInfos(node, options.PeerAddresses)
-	}
-
-	if len(options.AddressFileNames) > 0 {
-		go discoverFromFiles(node, options.AddressFileNames)
-	}
-
-	if options.UseMDNS {
-		err := discoverFromMDNS(node)
+// TODO: add other discovery protocols such as DHT, etc.
+func (d Discovery) StartDiscovery() error {
+	if d.options.MDNS.Enabled {
+		err := d.discoverFromMDNS()
 		if err != nil {
 			return err
 		}
@@ -100,60 +74,18 @@ func StartDiscovery(node *HostNode, options *DiscoveryOptions) error {
 	return nil
 }
 
-func discoverFromFiles(node *HostNode, fileNames []string) {
-	for _, fileName := range fileNames {
-		file, err := os.Open(fileName)
-		if err != nil {
-			logger.Error(err)
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-			peerInfo, err := lineToPeerInfo(line)
-			if err != nil {
-				logger.Error(err)
-			} else {
-				node.Connect(peerInfo)
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			logger.Error(err)
-		}
-	}
-}
-
-func discoverFromPeerInfos(node *HostNode, peerInfoList []ps.PeerInfo) {
-}
-
-func discoverFromLines(node *HostNode, lines []string) {
-	for _, a := range lines {
-		peerInfo, err := lineToPeerInfo(a)
-		if err == nil {
-			node.Connect(peerInfo)
-		}
-	}
-}
-
-func discoverFromMDNS(node *HostNode) error {
-	mdnsService, err := mdns.NewMdnsService(node.GetContext(), node.GetHost(), discoveryInterval, mDNSTag)
+func (d Discovery) discoverFromMDNS() error {
+	mdnsService, err := mdns.NewMdnsService(d.ctx, d.host.GetHost(), d.options.MDNS.Interval, mDNSTag)
 	if err != nil {
 		return err
 	}
 
-	mdnsService.RegisterNotifee(&discovery{node})
+	mdnsService.RegisterNotifee(d)
 
 	return nil
 }
 
-// Discovery implements mDNS notifee interface.
-type discovery struct {
-	node *HostNode
-}
-
 // HandlePeerFound registers the peer with the host.
-func (d *discovery) HandlePeerFound(pi ps.PeerInfo) {
-	d.node.Connect(&pi)
+func (d Discovery) HandlePeerFound(pi ps.PeerInfo) {
+	d.host.PeerDiscovered(pi)
 }

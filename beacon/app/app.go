@@ -28,9 +28,11 @@ type Config struct {
 	P2PAddress           string
 	RPCAddress           string
 	GenesisTime          uint64
+	DataDirectory        string
 	InitialValidatorList []beacon.InitialValidatorEntry
 	NetworkConfig        *config.Config
 	Resync               bool
+	IsIntegrationTest    bool
 }
 
 // NewConfig creates a default Config
@@ -41,6 +43,8 @@ func NewConfig() Config {
 		GenesisTime:          uint64(time.Now().Unix()),
 		InitialValidatorList: []beacon.InitialValidatorEntry{},
 		NetworkConfig:        &config.MainNetConfig,
+		IsIntegrationTest:    false,
+		DataDirectory:        "",
 	}
 }
 
@@ -55,12 +59,14 @@ type BeaconApp struct {
 	p2pRPCClient pb.P2PRPCClient
 	p2pListener  pb.P2PRPC_ListenForMessagesClient
 	genesisTime  uint64
+	exitChan     chan struct{}
 }
 
 // NewBeaconApp creates a new instance of BeaconApp
 func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
-		config: config,
+		config:   config,
+		exitChan: make(chan struct{}),
 	}
 	return app
 }
@@ -116,15 +122,21 @@ func (app *BeaconApp) loadConfig() error {
 }
 
 func (app *BeaconApp) loadDatabase() error {
-	dir, err := config.GetBaseDirectory(true)
-	if err != nil {
-		panic(err)
+	var dir string
+	if app.config.DataDirectory == "" {
+		dataDir, err := config.GetBaseDirectory(true)
+		if err != nil {
+			panic(err)
+		}
+		dir = dataDir
+	} else {
+		dir = app.config.DataDirectory
 	}
 
 	dbDir := filepath.Join(dir, "db")
 	dbValuesDir := filepath.Join(dir, "dbv")
 
-	err = os.MkdirAll(dbDir, 0777)
+	err := os.MkdirAll(dbDir, 0777)
 	if err != nil {
 		panic(err)
 	}
@@ -228,17 +240,20 @@ func (app *BeaconApp) tryStartInitSync() bool {
 	}
 
 	message := &pb.GetBlockMessage{}
-	message.LocatorHahes = make([][]byte, 1)
-	message.LocatorHahes[0] = headHash.CloneBytes()
+	message.LocatorHashes = make([][]byte, 1)
+	message.LocatorHashes[0] = headHash.CloneBytes()
 
 	data, err := p2p.MessageToBytes(message)
 	if err != nil {
 		return false
 	}
-	app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
+	_, err = app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
 		PeerID:  peerID,
 		Message: data,
 	})
+	if err != nil {
+		return false
+	}
 
 	logger.Debugf("Start init sync with %s", peerID)
 
@@ -291,19 +306,30 @@ func (app *BeaconApp) runMainLoop() error {
 		}
 	}()
 
+	if !app.config.IsIntegrationTest {
+		go app.listenForInterrupt()
+	}
+
 	// the main loop for this thread is waiting for the exit and cleaning up
-	return app.waitForExit()
+	app.waitForExit()
+
+	return nil
 }
 
-func (app BeaconApp) waitForExit() error {
-	defer app.exit()
-
+func (app BeaconApp) listenForInterrupt() {
 	signalHandler := make(chan os.Signal, 1)
 	signal.Notify(signalHandler, os.Interrupt)
 	<-signalHandler
 
+	app.exitChan <- struct{}{}
+}
+
+func (app BeaconApp) waitForExit() {
+	<-app.exitChan
+
+	app.exit()
+
 	logger.Info("exiting")
-	return nil
 }
 
 func (app BeaconApp) registerMessageHandlers() error {
@@ -320,7 +346,7 @@ func (app BeaconApp) registerMessageHandlers() error {
 	return nil
 }
 
-func (app BeaconApp) registerDirectMessage(messageName string, handler func(string, proto.Message)) error {
+func (app BeaconApp) registerDirectMessage(messageName string, handler func(string, proto.Message) error) error {
 	ctx := context.Background()
 	{
 		sub, err := app.p2pRPCClient.SubscribeDirectMessage(ctx, &pb.SubscribeDirectMessageRequest{
@@ -343,7 +369,10 @@ func (app BeaconApp) registerDirectMessage(messageName string, handler func(stri
 				if err != nil {
 					panic(err)
 				}
-				handler(msg.PeerID, m)
+				err = handler(msg.PeerID, m)
+				if err != nil {
+					panic(err)
+				}
 			}
 		}()
 	}
@@ -351,22 +380,32 @@ func (app BeaconApp) registerDirectMessage(messageName string, handler func(stri
 	return nil
 }
 
-func (app BeaconApp) onMessageGetBlock(peerID string, message proto.Message) {
+func (app BeaconApp) onMessageGetBlock(peerID string, message proto.Message) error {
 	blockMessage := &pb.BlockMessage{}
 	data, err := p2p.MessageToBytes(blockMessage)
 	if err != nil {
-		return
+		return err
 	}
-	app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
+	_, err = app.p2pRPCClient.SendDirectMessage(context.Background(), &pb.SendDirectMessageRequest{
 		PeerID:  peerID,
 		Message: data,
 	})
+	return err
 }
 
-func (app BeaconApp) onMessageBlock(peerID string, message proto.Message) {
+func (app BeaconApp) onMessageBlock(peerID string, message proto.Message) error {
 	logger.Debug("Received block")
+	return nil
 }
 
 func (app BeaconApp) exit() {
-	app.database.Close()
+	err := app.database.Close()
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Exit sends a request to exit the application.
+func (app BeaconApp) Exit() {
+	app.exitChan <- struct{}{}
 }

@@ -2,83 +2,131 @@ package p2p
 
 import (
 	"bufio"
-
+	"errors"
 	"github.com/libp2p/go-libp2p-peerstore"
+	"time"
 
 	"github.com/phoreproject/synapse/pb"
 
-	proto "github.com/golang/protobuf/proto"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/golang/protobuf/proto"
+	"github.com/libp2p/go-libp2p-peer"
 )
 
-// PeerNode is the node for the peer
-type PeerNode struct {
-	stream   inet.Stream
-	writer   *bufio.Writer
-	outbound bool
-	id       peer.ID
-	peerInfo *peerstore.PeerInfo
+// ClientVersion is the version of the client.
+const ClientVersion = 0
 
+// Peer is a representation of an external peer.
+type Peer struct {
+	stream   *bufio.ReadWriter
+	peerInfo *peerstore.PeerInfo
+	host     *HostNode
+
+	ID              peer.ID
+	Outbound        bool
+	Connecting      bool
 	LastPingNonce   uint64
 	LastPingTime    uint64
 	LastMessageTime uint64
+	Version         uint64
 }
 
-// newPeerNode creates a P2pPeerNode
-func newPeerNode(stream inet.Stream, outbound bool) *PeerNode {
-	return &PeerNode{
-		stream:   stream,
-		writer:   bufio.NewWriter(stream),
-		outbound: outbound,
+// newPeer creates a P2pPeerNode
+func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode) *Peer {
+	return &Peer{
+		stream: stream,
+		ID:     id,
+		host:   host,
 
+		Outbound:        outbound,
 		LastPingNonce:   0,
 		LastPingTime:    0,
 		LastMessageTime: 0,
+		Connecting:      true,
 	}
 }
 
 // SendMessage sends a protobuf message to this peer
-func (node *PeerNode) SendMessage(message proto.Message) {
-	writeMessage(message, node.writer)
+func (node *Peer) SendMessage(message proto.Message) error {
+	return writeMessage(message, node.stream.Writer)
 }
 
 // IsOutbound returns true if the connection is an outbound
-func (node *PeerNode) IsOutbound() bool {
-	return node.outbound
+func (node *Peer) IsOutbound() bool {
+	return node.Outbound
 }
 
 // IsInbound returns true if the connection is an inbound
-func (node *PeerNode) IsInbound() bool {
-	return !node.IsOutbound()
-}
-
-// GetID returns the ID
-func (node *PeerNode) GetID() peer.ID {
-	return node.id
+func (node *Peer) IsInbound() bool {
+	return !node.Outbound
 }
 
 // GetPeerInfo returns the peer info
-func (node *PeerNode) GetPeerInfo() *peerstore.PeerInfo {
+func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 	return node.peerInfo
 }
 
-func (node *PeerNode) disconnect() {
-	node.stream.Reset()
+func (node *Peer) disconnect() error {
+	return nil
 }
 
 // Reject sends reject message and disconnect from the peer
-func (node *PeerNode) Reject(message string) {
-	node.SendMessage(&pb.RejectMessage{
+func (node *Peer) Reject(message string) error {
+	err := node.SendMessage(&pb.RejectMessage{
 		Message: message,
 	})
+	if err != nil {
+		return err
+	}
 
-	node.disconnect()
+	err = node.disconnect()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// HandleVersionMessage handles VersionMessage
-func (node *PeerNode) HandleVersionMessage(message *pb.VersionMessage) {
-	node.id, _ = StringToID(message.ID)
-	node.peerInfo, _ = AddrStringToPeerInfo(message.GetAddress())
-	//utils.Assert(node.peerInfo != nil, fmt.Sprintf("Can't parse peer info of address: %s", message.GetAddress()))
+// HandleVersionMessage handles VersionMessage from this peer
+func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
+	peerID, err := peer.IDFromBytes(message.PeerID)
+	if err != nil {
+		return err
+	}
+	node.ID = peerID
+	ourIDBytes, err := node.host.host.ID().MarshalBinary()
+	if err != nil {
+		return err
+	}
+	node.Connecting = false
+	return node.SendMessage(&pb.VerackMessage{
+		Version: ClientVersion,
+		PeerID:  ourIDBytes,
+	})
+}
+
+func (node *Peer) handleVerackMessage(message *pb.VerackMessage) error {
+	node.Connecting = false
+	return nil
+}
+
+func (node *Peer) handlePingMessage(message *pb.PingMessage) error {
+	if node.Connecting {
+		return errors.New("sent ping before connecting")
+	}
+	return node.SendMessage(&pb.PongMessage{
+		Nonce: message.Nonce,
+	})
+}
+
+func (node *Peer) handlePongMessage(message *pb.PongMessage) error {
+	if node.LastPingNonce != message.Nonce {
+		// ban peer
+		return errors.New("invalid pong nonce")
+	}
+	return nil
+}
+
+func (node *Peer) handleMessage(message proto.Message) error {
+	node.LastMessageTime = uint64(time.Now().Unix())
+	return nil
 }

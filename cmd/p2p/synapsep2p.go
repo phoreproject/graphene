@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
+	"github.com/multiformats/go-multiaddr"
 
-	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/p2p/app"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
@@ -16,17 +16,18 @@ func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 
 	currentAddr := ""
 
-	peers := []*peerstore.PeerInfo{}
+	peers := make([]*peerstore.PeerInfo, 0)
 
 	for i := range in {
 		if in[i] == ',' {
-			peerinfo, err := p2p.AddrStringToPeerInfo(currentAddr)
+			maddr, err := multiaddr.NewMultiaddr(currentAddr)
 			if err != nil {
 				return nil, err
 			}
+			info, err := peerstore.InfoFromP2pAddr(maddr)
 			currentAddr = ""
 
-			peers = append(peers, peerinfo)
+			peers = append(peers, info)
 		}
 		currentAddr = currentAddr + string(in[i])
 	}
@@ -52,9 +53,14 @@ func main() {
 	config.ListeningAddress = *listen
 	config.RPCAddress = *rpcConnect
 	config.AddedPeers = ps
-	app := app.NewP2PApp(config)
+	a := app.NewP2PApp(config)
 
-	err = app.Run()
+	err = a.Initialize()
+	if err != nil {
+		panic(err)
+	}
+
+	err = a.Run()
 	if err != nil {
 		panic(err)
 	}

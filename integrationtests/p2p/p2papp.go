@@ -1,23 +1,20 @@
 package p2p
 
 import (
-	"context"
 	"fmt"
-	"math/rand"
+	"github.com/sirupsen/logrus"
 	"time"
 
-	"github.com/phoreproject/synapse/pb"
-	"google.golang.org/grpc"
-
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	testframework "github.com/phoreproject/synapse/integrationtests/framework"
+	"github.com/libp2p/go-libp2p-peerstore"
+	"github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/p2p/app"
 )
 
-var startPort = 19000
-var startRPCPort = 20000
-var appCount = 10
-var peerCount = 1
+const startPort = 19000
+const startRPCPort = 20000
+const appCount = 10
+
+// This test ensures that clients can connect and handshake.
 
 // TestCase implements IntegrationTest
 type TestCase struct {
@@ -27,54 +24,27 @@ type TestCase struct {
 // Execute implements IntegrationTest
 func (test TestCase) Execute(service *testframework.TestService) error {
 	for i := 0; i < appCount; i++ {
-		app := test.createApp(i)
-		test.appList = append(test.appList, app)
+		a := test.createApp(i)
+		test.appList = append(test.appList, a)
 	}
 
-	for _, app := range test.appList {
-		go func() {
-			err := app.Run()
+	for _, a := range test.appList {
+		err := a.Initialize()
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, a := range test.appList {
+		go func(appToRun *app.P2PApp) {
+			err := appToRun.Run()
 			if err != nil {
 				panic(err)
 			}
-		}()
-		time.Sleep(100 * time.Millisecond)
+		}(a)
 	}
-
-	// Wait until host nodes are created
-	time.Sleep(300 * time.Millisecond)
 
 	test.connectApps()
-
-	ctx := context.Background()
-	rpcAddr := fmt.Sprintf("127.0.0.1:%d", startRPCPort+3)
-	conn, err := grpc.Dial(rpcAddr, grpc.WithInsecure())
-	if err != nil {
-		panic(err)
-	}
-	client := pb.NewP2PRPCClient(conn)
-
-	sub, err := client.SubscribeDirectMessage(ctx, &pb.SubscribeDirectMessageRequest{
-		MessageName: "pb.PingMessage",
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	listener, err := client.ListenForDirectMessages(ctx, sub)
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-		m, err := listener.Recv()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Received direct message pb.PingMessage: ID=%s\n", m.PeerID)
-
-		break
-	}
 
 	return nil
 }
@@ -85,19 +55,39 @@ func (test TestCase) createApp(index int) *app.P2PApp {
 	config.RPCAddress = fmt.Sprintf("127.0.0.1:%d", startRPCPort+index)
 	config.MinPeerCountToWait = 0
 	config.HeartBeatInterval = 3 * 1000
-	app := app.NewP2PApp(config)
+	a := app.NewP2PApp(config)
 
-	return app
+	return a
 }
 
 func (test TestCase) connectApps() {
-	for i := 0; i < len(test.appList); i++ {
-		for k := 0; k < peerCount; k++ {
-			peerIndex := rand.Int() % len(test.appList)
-			test.appList[i].GetHostNode().Connect(&peerstore.PeerInfo{
-				ID:    test.appList[peerIndex].GetHostNode().GetHost().ID(),
-				Addrs: test.appList[peerIndex].GetHostNode().GetHost().Addrs(),
+	for _, from := range test.appList {
+		for _, to := range test.appList {
+			if from == to {
+				continue
+			}
+			_, err := from.GetHostNode().Connect(peerstore.PeerInfo{
+				ID:    to.GetHostNode().GetHost().ID(),
+				Addrs: to.GetHostNode().GetHost().Addrs(),
 			})
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
+
+	for {
+		connecting := false
+		for _, a := range test.appList {
+			for _, peer := range a.GetHostNode().GetPeerList() {
+				connecting = connecting || peer.Connecting
+			}
+		}
+		if !connecting {
+			break
+		}
+		logrus.Debug("Waiting for peers to connect...")
+		time.Sleep(1 * time.Second)
+	}
+	logrus.Debug("Peers connected!")
 }

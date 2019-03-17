@@ -63,8 +63,15 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	for _, a := range h.Addrs() {
-		logger.WithField("address", a.String()).Debug("binding to port")
+	addrs, err := peerstore.InfoToP2pAddrs(&peerstore.PeerInfo{
+		ID: h.ID(),
+		Addrs: []multiaddr.Multiaddr{
+			listenAddress,
+		},
+	})
+
+	for _, a := range addrs {
+		logger.WithField("addr", a).Info("binding to address")
 	}
 
 	// setup gossipsub protocol

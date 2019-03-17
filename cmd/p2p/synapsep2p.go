@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/multiformats/go-multiaddr"
+	"strings"
 
 	"github.com/phoreproject/synapse/p2p/app"
 
@@ -14,25 +15,25 @@ import (
 func parseInitialConnections(in string) ([]*peerstore.PeerInfo, error) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	currentAddr := ""
-
+	peerStrings := strings.Split(in, ",")
 	peers := make([]*peerstore.PeerInfo, 0)
 
-	for i := range in {
-		if in[i] == ',' {
-			maddr, err := multiaddr.NewMultiaddr(currentAddr)
-			if err != nil {
-				return nil, err
-			}
-			info, err := peerstore.InfoFromP2pAddr(maddr)
-			if err != nil {
-				return nil, err
-			}
-			currentAddr = ""
-
-			peers = append(peers, info)
+	for _, currentAddr := range peerStrings {
+		if len(currentAddr) == 0 {
+			continue
 		}
-		currentAddr = currentAddr + string(in[i])
+		maddr, err := multiaddr.NewMultiaddr(currentAddr)
+		if err != nil {
+			logger.WithField("addr", currentAddr).Warn("invalid multiaddr")
+			continue
+		}
+		info, err := peerstore.InfoFromP2pAddr(maddr)
+		if err != nil {
+			logger.WithField("addr", currentAddr).Warn("invalid multiaddr")
+			continue
+		}
+
+		peers = append(peers, info)
 	}
 
 	return peers, nil

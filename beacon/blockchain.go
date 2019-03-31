@@ -575,24 +575,24 @@ func (b *Blockchain) populateChainTip() error {
 // GetBlockHashesAfterBlock gets all block hashes from the specified block to the tip. Returns an error if the specified
 // block is not in the current chain.
 func (b *Blockchain) GetBlockHashesAfterBlock(blockFrom chainhash.Hash) ([]chainhash.Hash, error) {
-	current := b.chain.tip
+	current := *b.chain.tip
 	count := 0
 
 	// first make sure the block they are requesting is in our current chain
 	for current.slot > 0 && !current.hash.IsEqual(&blockFrom) {
-		current = current.parent
+		current = *current.parent
 		count++
 	}
 	if current.slot == 0 && !current.hash.IsEqual(&blockFrom) {
 		return nil, errors.New("block is not in current chain")
 	}
 
-	current = b.chain.tip // go back to the tip
+	current = *b.chain.tip // go back to the tip
 
 	blockHashes := make([]chainhash.Hash, count)
 	for !current.hash.IsEqual(&blockFrom) {
 		blockHashes[uint64(len(blockHashes))+current.height-b.chain.tip.height-1] = current.hash
-		current = current.parent
+		current = *current.parent
 	}
 
 	return blockHashes, nil

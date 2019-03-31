@@ -73,7 +73,10 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 	}
 	messageName := string(nameBytes)
 	messageType := proto.MessageType(messageName)
-	message := reflect.New(messageType.Elem()).Interface().(proto.Message)
+	fmt.Println(messageName)
+	t := messageType.Elem()
+	messagePtr := reflect.New(t)
+	message := messagePtr.Interface().(proto.Message)
 	if message == nil {
 		return nil, fmt.Errorf("could not find message type \"%s\"", messageName)
 	}
@@ -127,17 +130,14 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 }
 
 // MessageToBytes converts a message to byte array
-func MessageToBytes(message proto.Message) ([]byte, error) {
+func MessageToBytes(message proto.Message) []byte {
 	var buf bytes.Buffer
-	err := writeMessage(message, bufio.NewWriter(&buf))
-	if err != nil {
-		return nil, err
-	}
+	_ = writeMessage(message, bufio.NewWriter(&buf))
 
 	messageLen := buf.Len()
 	result := make([]byte, messageLen)
 	copy(result, buf.Bytes())
-	return result, nil
+	return result
 }
 
 // BytesToMessage converts byte array to message

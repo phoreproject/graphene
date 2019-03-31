@@ -1,6 +1,8 @@
 // This is for P2P
 syntax = "proto3";
 
+import "common.proto";
+
 package pb;
 
 message VersionMessage {
@@ -32,6 +34,6 @@ message GetBlockMessage {
 
 // Response to GetBlockMessage
 message BlockMessage {
-    bytes Hash = 1;
+    repeated Block Blocks = 1;
 }
 

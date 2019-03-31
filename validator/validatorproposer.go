@@ -23,15 +23,14 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))
 	<-timer.C
 
-	attestations, err := v.mempool.attestationMempool.getAttestationsToInclude(information.slot, v.config)
+	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
 	if err != nil {
 		return err
 	}
 
 	v.logger.WithFields(logrus.Fields{
-		"attestationSize": len(attestations),
-		"mempoolSize":     v.mempool.attestationMempool.size(),
-		"slot":            information.slot,
+		"mempoolSize": len(mempool.Attestations) + len(mempool.Deposits) + len(mempool.CasperSlashings) + len(mempool.ProposerSlashings),
+		"slot":        information.slot,
 	}).Debug("creating block")
 
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})
@@ -69,6 +68,8 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		return err
 	}
 
+	blockBody, err := primitives.BlockBodyFromProto(mempool)
+
 	newBlock := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
 			SlotNumber:   information.slot,
@@ -77,13 +78,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 			RandaoReveal: randaoSig.Serialize(),
 			Signature:    bls.EmptySignature.Serialize(),
 		},
-		BlockBody: primitives.BlockBody{
-			Attestations:      attestations,
-			ProposerSlashings: []primitives.ProposerSlashing{},
-			CasperSlashings:   []primitives.CasperSlashing{},
-			Deposits:          []primitives.Deposit{},
-			Exits:             []primitives.Exit{},
-		},
+		BlockBody: *blockBody,
 	}
 
 	blockHash, err := ssz.TreeHash(newBlock)
@@ -133,10 +128,6 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		"blockHash": fmt.Sprintf("%x", hashWithSignature),
 		"slot":      information.slot,
 	}).Debug("submitted block")
-
-	for _, a := range attestations {
-		v.mempool.attestationMempool.removeAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
-	}
 
 	return err
 }

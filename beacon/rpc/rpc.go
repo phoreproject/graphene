@@ -4,6 +4,8 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
+	"github.com/phoreproject/synapse/p2p"
 	"net"
 	"time"
 
@@ -25,8 +27,38 @@ import (
 
 // server is used to implement rpc.BlockchainRPCServer.
 type server struct {
-	chain *beacon.Blockchain
-	p2p   pb.P2PRPCClient
+	chain   *beacon.Blockchain
+	p2p     *p2p.HostNode
+	mempool *beacon.Mempool
+}
+
+// SubmitAttestation submits an attestation to the mempool.
+func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*empty.Empty, error) {
+	a, err := primitives.AttestationFromProto(att)
+	if err != nil {
+		return nil, err
+	}
+	s.mempool.ProcessNewAttestation(*a)
+
+	return &empty.Empty{}, nil
+}
+
+// GetMempool gets the mempool for a block.
+func (s *server) GetMempool(context.Context, *empty.Empty) (*pb.BlockBody, error) {
+	atts, err := s.mempool.GetAttestationsToInclude(s.chain.GetCurrentSlot(), s.chain.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	bb := primitives.BlockBody{
+		Attestations:      atts,
+		ProposerSlashings: make([]primitives.ProposerSlashing, 0),
+		CasperSlashings:   make([]primitives.CasperSlashing, 0),
+		Deposits:          make([]primitives.Deposit, 0),
+		Exits:             make([]primitives.Exit, 0),
+	}
+
+	return bb.ToProto(), nil
 }
 
 // SubmitBlock submits a block to the network after verifying it
@@ -49,10 +81,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
-	_, err = s.p2p.Broadcast(context.Background(), &pb.MessageAndTopic{
-		Topic: "block",
-		Data:  data,
-	})
+	err = s.p2p.Broadcast("block", data)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +202,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 	}, nil
 }
 
+// GetCommitteesForSlot gets the current committees at a slot.
 func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesForSlotRequest) (*pb.ShardCommitteesForSlot, error) {
 	state := s.chain.GetState()
 
@@ -190,11 +220,13 @@ func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesF
 	}, nil
 }
 
+// GetForkData gets the current fork data.
 func (s *server) GetForkData(ctx context.Context, in *empty.Empty) (*pb.ForkData, error) {
 	state := s.chain.GetState()
 	return state.ForkData.ToProto(), nil
 }
 
+// GetProposerSlots gets the number of slots a proposer has proposed.
 func (s *server) GetProposerSlots(ctx context.Context, in *pb.GetProposerSlotsRequest) (*pb.GetProposerSlotsResponse, error) {
 	state := s.chain.GetState()
 	if in.ValidatorID >= uint32(len(state.ValidatorRegistry)) {
@@ -206,6 +238,7 @@ func (s *server) GetProposerSlots(ctx context.Context, in *pb.GetProposerSlotsRe
 	}, nil
 }
 
+// GetProposerForSlot gets the proposer for a certain slot.
 func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSlotRequest) (*pb.GetProposerForSlotResponse, error) {
 	state := s.chain.GetState()
 	idx, err := state.GetBeaconProposerIndex(state.Slot, in.Slot, s.chain.GetConfig())
@@ -217,11 +250,13 @@ func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSl
 	}, nil
 }
 
+// GetBlock gets a block by hash.
 func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
 	h, err := chainhash.NewHash(in.Hash)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(h)
 	block, err := s.chain.GetBlockByHash(*h)
 	if err != nil {
 		return nil, err
@@ -233,13 +268,13 @@ func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetB
 }
 
 // Serve serves the RPC server
-func Serve(listenAddr string, b *beacon.Blockchain, p2p pb.P2PRPCClient) error {
+func Serve(listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterBlockchainRPCServer(s, &server{b, p2p})
+	pb.RegisterBlockchainRPCServer(s, &server{b, hostNode, mempool})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	err = s.Serve(lis)

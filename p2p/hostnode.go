@@ -17,10 +17,17 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
+	"time"
 )
 
 // MessageHandler is a function to handle messages.
 type MessageHandler func(peer *Peer, message proto.Message) error
+
+// Message is a single message from a single peer.
+type Message struct {
+	From    *Peer
+	Message proto.Message
+}
 
 // HostNode is the node for p2p host
 // It's the low level P2P communication layer, the App class handles high level protocols
@@ -34,9 +41,10 @@ type HostNode struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
+	timeoutInterval time.Duration
+
 	// a messageHandler is called when a message with certain name is received
-	messageHandlerMap map[string]map[uint64]MessageHandler
-	messageHandlerID  uint64
+	messageHandlerMap map[string][]MessageHandler
 
 	// discovery handles peer discovery (mDNS, DHT, etc)
 	discovery *Discovery
@@ -51,7 +59,7 @@ type HostNode struct {
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
@@ -88,7 +96,8 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
-		messageHandlerMap: make(map[string]map[uint64]MessageHandler),
+		messageHandlerMap: make(map[string][]MessageHandler),
+		timeoutInterval:   timeoutInterval,
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -133,23 +142,12 @@ func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
 }
 
 // RegisterMessageHandler registers a message handler
-func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) uint64 {
+func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) {
 	_, ok := node.messageHandlerMap[messageName]
 	if !ok {
-		node.messageHandlerMap[messageName] = make(map[uint64]MessageHandler)
+		node.messageHandlerMap[messageName] = make([]MessageHandler, 0)
 	}
-	id := node.messageHandlerID
-	node.messageHandlerID++
-	node.messageHandlerMap[messageName][id] = handler
-	return id
-}
-
-// UnregisterMessageHandler unregisters a message handler
-func (node *HostNode) UnregisterMessageHandler(messageName string, id uint64) {
-	_, ok := node.messageHandlerMap[messageName]
-	if ok {
-		delete(node.messageHandlerMap[messageName], id)
-	}
+	node.messageHandlerMap[messageName] = append(node.messageHandlerMap[messageName], handler)
 }
 
 // Connect connects to a peer that we're not already connected to.
@@ -186,7 +184,7 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node)
+	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval)
 
 	node.peerList = append(node.peerList, peerNode)
 
@@ -310,7 +308,10 @@ func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
 
 // PeerDiscovered is run when peers are discovered.
 func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
-	node.peerChan <- pi
+	_, err := node.Connect(pi)
+	if err != nil {
+		logger.WithField("err", err).Debug("could not connect to peer")
+	}
 }
 
 // Connected checks if the host node is connected.

@@ -67,6 +67,11 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return errors.New("block slot too soon")
 	}
 
+	_, err := b.GetBlockByHash(block.BlockHeader.ParentRoot)
+	if err != nil {
+		return errors.New("do not have parent block")
+	}
+
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return err
@@ -127,6 +132,8 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	if err != nil {
 		return err
 	}
+
+	b.ConnectBlockNotifier.Signal(*block)
 
 	finalizedNode, err := getAncestor(node, newState.FinalizedSlot)
 	if err != nil {

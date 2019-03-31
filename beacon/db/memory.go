@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+	"github.com/libp2p/go-libp2p-crypto"
 	"sync"
 
 	"github.com/phoreproject/prysm/shared/ssz"
@@ -144,6 +145,16 @@ func (db *InMemoryDB) GetGenesisTime() (uint64, error) {
 
 // SetGenesisTime sets the genesis time for the chain represented by this database.
 func (db *InMemoryDB) SetGenesisTime(uint64) error {
+	return nil
+}
+
+// GetHostKey gets the host key
+func (db *InMemoryDB) GetHostKey() (crypto.PrivKey, error) {
+	return nil, errors.New("in-memory database does not keep track of host key")
+}
+
+// SetHostKey sets the host key
+func (db *InMemoryDB) SetHostKey(crypto.PrivKey) error {
 	return nil
 }
 

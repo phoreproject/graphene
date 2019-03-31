@@ -16,6 +16,7 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/chainhash"
+	utilsync "github.com/phoreproject/synapse/utils/sync"
 )
 
 var zeroHash = chainhash.Hash{}
@@ -60,6 +61,8 @@ type Blockchain struct {
 	db           db.Database
 	config       *config.Config
 	stateManager *StateManager
+
+	ConnectBlockNotifier *utilsync.Signal
 }
 
 func blockNodeToHash(b *blockNode) chainhash.Hash {
@@ -174,6 +177,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 			index: make(map[chainhash.Hash]*blockNode),
 			lock:  &sync.Mutex{},
 		},
+		ConnectBlockNotifier: utilsync.NewSignal(),
 	}
 
 	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)
@@ -566,4 +570,39 @@ func (b *Blockchain) populateChainTip() error {
 	b.chain.tip = tipNode
 
 	return b.stateManager.UpdateHead(tipNode.hash)
+}
+
+// GetBlockHashesAfterBlock gets all block hashes from the specified block to the tip. Returns an error if the specified
+// block is not in the current chain.
+func (b *Blockchain) GetBlockHashesAfterBlock(blockFrom chainhash.Hash) ([]chainhash.Hash, error) {
+	current := b.chain.tip
+	count := 0
+
+	// first make sure the block they are requesting is in our current chain
+	for current.slot > 0 && !current.hash.IsEqual(&blockFrom) {
+		current = current.parent
+		count++
+	}
+	if current.slot == 0 && !current.hash.IsEqual(&blockFrom) {
+		return nil, errors.New("block is not in current chain")
+	}
+
+	current = b.chain.tip // go back to the tip
+
+	blockHashes := make([]chainhash.Hash, count)
+	for !current.hash.IsEqual(&blockFrom) {
+		blockHashes[uint64(len(blockHashes))+current.height-b.chain.tip.height-1] = current.hash
+		current = current.parent
+	}
+
+	return blockHashes, nil
+}
+
+// GetCurrentSlot gets the current slot according to the time.
+func (b *Blockchain) GetCurrentSlot() uint64 {
+	currentTime := uint64(time.Now().Unix())
+
+	timeSinceGenesis := currentTime - b.stateManager.GetGenesisTime()
+
+	return timeSinceGenesis / uint64(b.config.SlotDuration)
 }

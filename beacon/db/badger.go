@@ -3,6 +3,7 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/libp2p/go-libp2p-crypto"
 	"log"
 	"runtime"
 
@@ -397,5 +398,35 @@ func (b *BadgerDB) SetGenesisTime(time uint64) error {
 	binary.BigEndian.PutUint64(genesisTimeBytes[:], time)
 	return b.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(genesisTimeKey, genesisTimeBytes[:])
+	})
+}
+
+var hostPrivateKeyKey = []byte("host_key")
+
+// GetHostKey gets the key used by the P2P interface for identity.
+func (b *BadgerDB) GetHostKey() (crypto.PrivKey, error) {
+	txn := b.db.NewTransaction(false)
+	defer txn.Discard()
+	i, err := txn.Get(hostPrivateKeyKey)
+	if err != nil {
+		return nil, err
+	}
+	privKeyBytes, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return crypto.UnmarshalPrivateKey(privKeyBytes)
+}
+
+// SetHostKey sets the key used by the P2P interface for identity.
+func (b *BadgerDB) SetHostKey(key crypto.PrivKey) error {
+	privKeyBytes, err := crypto.MarshalPrivateKey(key)
+	if err != nil {
+		return err
+	}
+
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(hostPrivateKeyKey, privKeyBytes)
 	})
 }

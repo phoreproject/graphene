@@ -315,9 +315,6 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		return err
 	}
 
-	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[proposerIndex].ProposerSlots++
-
 	valid, err = bls.VerifySig(proposerPub, proposerSlotsBytes[:], randaoSig, bls.DomainRandao)
 	if err != nil {
 		return err

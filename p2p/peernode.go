@@ -17,30 +17,32 @@ const ClientVersion = 0
 
 // Peer is a representation of an external peer.
 type Peer struct {
-	stream   *bufio.ReadWriter
-	peerInfo *peerstore.PeerInfo
-	host     *HostNode
+	stream          *bufio.ReadWriter
+	peerInfo        *peerstore.PeerInfo
+	host            *HostNode
+	timeoutInterval time.Duration
 
 	ID              peer.ID
 	Outbound        bool
 	Connecting      bool
 	LastPingNonce   uint64
-	LastPingTime    uint64
-	LastMessageTime uint64
+	LastPingTime    time.Time
+	LastMessageTime time.Time
 	Version         uint64
 }
 
 // newPeer creates a P2pPeerNode
-func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode) *Peer {
+func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration) *Peer {
 	return &Peer{
-		stream: stream,
-		ID:     id,
-		host:   host,
+		stream:          stream,
+		ID:              id,
+		host:            host,
+		timeoutInterval: timeoutInterval,
 
 		Outbound:        outbound,
 		LastPingNonce:   0,
-		LastPingTime:    0,
-		LastMessageTime: 0,
+		LastPingTime:    time.Unix(0, 0),
+		LastMessageTime: time.Unix(0, 0),
 		Connecting:      true,
 	}
 }
@@ -86,6 +88,11 @@ func (node *Peer) Reject(message string) error {
 	return nil
 }
 
+// IsConnected checks if the peers is considered connected.
+func (node *Peer) IsConnected() bool {
+	return time.Since(node.LastMessageTime) <= node.timeoutInterval
+}
+
 // HandleVersionMessage handles VersionMessage from this peer
 func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 	peerID, err := peer.IDFromBytes(message.PeerID)
@@ -127,6 +134,6 @@ func (node *Peer) handlePongMessage(message *pb.PongMessage) error {
 }
 
 func (node *Peer) handleMessage(message proto.Message) error {
-	node.LastMessageTime = uint64(time.Now().Unix())
+	node.LastMessageTime = time.Now()
 	return nil
 }

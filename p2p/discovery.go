@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	ps "github.com/libp2p/go-libp2p-peerstore"
@@ -16,16 +17,8 @@ type MDNSOptions struct {
 
 // DiscoveryOptions is the options used to discover peers
 type DiscoveryOptions struct {
-	// Optional. An address file contains a list of peer addresses to connect with.
-	// Each line has format: ID addr1 addr2...
-	// Addresses from addr2 are optional. Each parts are separated by blank space
-	// The address format for IPv4: /ip4/202.0.5.1/tcp/8080
-	AddressFileNames []string
 	// Optional. Each element is a peer address to connect with.
 	PeerAddresses []ps.PeerInfo
-	// Optional. A seed address is the URL to download a seed file from.
-	// A seed file has the same format as AddressFileNames
-	SeedAddresses []string
 
 	MDNS MDNSOptions
 }
@@ -67,8 +60,12 @@ func (d Discovery) StartDiscovery() error {
 	if d.options.MDNS.Enabled {
 		err := d.discoverFromMDNS()
 		if err != nil {
-			return err
+			logrus.Error(err)
 		}
+	}
+
+	for _, p := range d.options.PeerAddresses {
+		d.HandlePeerFound(p)
 	}
 
 	return nil

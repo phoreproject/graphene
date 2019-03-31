@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -72,8 +73,10 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 		return nil, err
 	}
 	messageName := string(nameBytes)
+	if !strings.HasPrefix(messageName, "pb.") {
+		return nil, fmt.Errorf("invalid message name")
+	}
 	messageType := proto.MessageType(messageName)
-	fmt.Println(messageName)
 	t := messageType.Elem()
 	messagePtr := reflect.New(t)
 	message := messagePtr.Interface().(proto.Message)

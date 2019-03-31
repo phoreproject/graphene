@@ -3,12 +3,14 @@ package app
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/phoreproject/synapse/chainhash"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"time"
+
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	homedir "github.com/mitchellh/go-homedir"
+	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/golang/protobuf/proto"
 	ma "github.com/multiformats/go-multiaddr"
@@ -184,7 +186,11 @@ func (app *BeaconApp) loadDatabase() error {
 		}
 		dir = dataDir
 	} else {
-		dir = app.config.DataDirectory
+		d, err := homedir.Expand(app.config.DataDirectory)
+		if err != nil {
+			panic(err)
+		}
+		dir = d
 	}
 
 	dbDir := filepath.Join(dir, "db")
@@ -398,7 +404,6 @@ func (app BeaconApp) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	blocks := make([]*pb.Block, len(blockHashes))
 
 	for i := range blockHashes {
-		fmt.Println("get", blockHashes[i])
 		block, err := app.blockchain.GetBlockByHash(blockHashes[i])
 		if err != nil {
 			return err

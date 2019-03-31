@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/rand"
-	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -226,7 +225,6 @@ func (app *BeaconApp) loadDatabase() error {
 func (app *BeaconApp) loadBlockchain() error {
 	var genesisTime uint64
 	if t, err := app.database.GetGenesisTime(); err == nil {
-		fmt.Println(t, err == nil)
 		logger.Debug("using time from database")
 		genesisTime = t
 	} else {
@@ -302,15 +300,11 @@ func (app *BeaconApp) trySync() error {
 
 	headHash := app.blockchain.Tip()
 
-	fmt.Println(headHash)
-
 	message := &pb.GetBlockMessage{}
 	message.LocatorHashes = make([][]byte, 1)
 	message.LocatorHashes[0] = headHash.CloneBytes()
 
 	peers := app.hostNode.GetPeerList()
-
-	fmt.Println(peers[0].ID)
 
 	err := peers[0].SendMessage(message)
 

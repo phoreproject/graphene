@@ -4,10 +4,10 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
-	"github.com/phoreproject/synapse/p2p"
 	"net"
 	"time"
+
+	"github.com/phoreproject/synapse/p2p"
 
 	"github.com/golang/protobuf/proto"
 
@@ -256,7 +256,6 @@ func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetB
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(h)
 	block, err := s.chain.GetBlockByHash(*h)
 	if err != nil {
 		return nil, err

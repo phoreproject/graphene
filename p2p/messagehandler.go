@@ -119,8 +119,11 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 		case stateReadMessage:
 			if _, err := stream.Read(messageBuffer); err == nil {
 				state = stateReadHeader
-				message, _ := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
-				err := handler(message)
+				message, err := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
+				if err != nil {
+					return err
+				}
+				err = handler(message)
 				if err != nil {
 					return err
 				}

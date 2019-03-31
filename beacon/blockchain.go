@@ -55,6 +55,13 @@ func (bv *blockchainView) Height() uint64 {
 	return bv.tip.height
 }
 
+func (bv *blockchainView) SeenBlock(blockHash chainhash.Hash) bool {
+	bv.lock.Lock()
+	_, found := bv.index[blockHash]
+	bv.lock.Unlock()
+	return found
+}
+
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
 	chain        blockchainView

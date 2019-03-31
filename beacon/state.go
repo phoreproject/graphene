@@ -67,14 +67,20 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return errors.New("block slot too soon")
 	}
 
-	_, err := b.GetBlockByHash(block.BlockHeader.ParentRoot)
-	if err != nil {
+	seen := b.chain.SeenBlock(block.BlockHeader.ParentRoot)
+	if !seen {
 		return errors.New("do not have parent block")
 	}
 
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return err
+	}
+
+	seen = b.chain.SeenBlock(blockHash)
+	if seen {
+		// we've already processed this block
+		return nil
 	}
 
 	blockHashStr := fmt.Sprintf("%x", blockHash)

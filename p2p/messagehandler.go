@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 
@@ -45,11 +46,6 @@ func writeMessage(message proto.Message, writer *bufio.Writer) error {
 		return err
 	}
 
-	err = proto.Unmarshal(data, message)
-	if err != nil {
-		return err
-	}
-
 	err = writer.Flush()
 	if err != nil {
 		return err
@@ -60,15 +56,14 @@ func writeMessage(message proto.Message, writer *bufio.Writer) error {
 
 // readMessage reads a message name and message from the provided reader.
 func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
-	nameByte := make([]byte, 1)
-	_, err := reader.Read(nameByte)
+	nameLengthByte, err := reader.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	nameLength := uint8(nameByte[0])
+	nameLength := uint8(nameLengthByte)
 	nameBytes := make([]byte, nameLength)
 
-	_, err = reader.Read(nameBytes)
+	_, err = io.ReadFull(reader, nameBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +72,10 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 		return nil, fmt.Errorf("invalid message name")
 	}
 	messageType := proto.MessageType(messageName)
+	if messageType == nil {
+		return nil, fmt.Errorf("could not get message type")
+	}
+
 	t := messageType.Elem()
 	messagePtr := reflect.New(t)
 	message := messagePtr.Interface().(proto.Message)
@@ -85,7 +84,7 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 	}
 
 	data := make([]byte, length-1-uint32(nameLength))
-	_, err = reader.Read(data)
+	_, err = io.ReadFull(reader, data)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +96,7 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 	return message, nil
 }
 
+// processMessages continuously reads from stream and handles any protobuf messages.
 func processMessages(stream *bufio.Reader, handler func(message proto.Message) error) error {
 	const stateReadHeader = 1
 	const stateReadMessage = 2
@@ -107,7 +107,7 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 	for {
 		switch state {
 		case stateReadHeader:
-			if _, err := stream.Read(headerBuffer); err == nil {
+			if _, err := io.ReadFull(stream, headerBuffer); err == nil {
 				messageLength := binary.LittleEndian.Uint32(headerBuffer)
 				messageBuffer = make([]byte, messageLength)
 				state = stateReadMessage
@@ -117,7 +117,7 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 			break
 
 		case stateReadMessage:
-			if _, err := stream.Read(messageBuffer); err == nil {
+			if _, err := io.ReadFull(stream, messageBuffer); err == nil {
 				state = stateReadHeader
 				message, err := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
 				if err != nil {

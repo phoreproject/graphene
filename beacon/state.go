@@ -62,6 +62,8 @@ func intSqrt(n uint64) uint64 {
 func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	genesisTime := b.stateManager.GetGenesisTime()
 
+	validationStart := time.Now()
+
 	// VALIDATE BLOCK HERE
 	if block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0 {
 		return errors.New("block slot too soon")
@@ -83,19 +85,29 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return nil
 	}
 
+	validationTime := time.Since(validationStart)
+
 	blockHashStr := fmt.Sprintf("%x", blockHash)
 
 	logger.WithField("hash", blockHashStr).Info("processing new block")
+
+	stateCalculationStart := time.Now()
 
 	newState, err := b.stateManager.AddBlockToStateMap(block)
 	if err != nil {
 		return err
 	}
 
+	stateCalculationTime := time.Since(stateCalculationStart)
+
+	blockStorageStart := time.Now()
+
 	err = b.AddBlock(block)
 	if err != nil {
 		return err
 	}
+
+	blockStorageTime := time.Since(blockStorageStart)
 
 	logger.Debug("applied with new state")
 
@@ -105,6 +117,8 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	}
 
 	// TODO: these two database operations should be in a single transaction
+
+	databaseTipUpdateStart := time.Now()
 
 	// set the block node in the database
 	err = b.db.SetBlockNode(blockNodeToDisk(*node))
@@ -117,6 +131,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 	if err != nil {
 		return err
 	}
+
+	databaseTipUpdateTime := time.Since(databaseTipUpdateStart)
+
+	attestationUpdateStart := time.Now()
 
 	for _, a := range block.BlockBody.Attestations {
 		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
@@ -132,14 +150,26 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		}
 	}
 
+	attestationUpdateEnd := time.Since(attestationUpdateStart)
+
 	logger.Debug("updating chain head")
+
+	updateChainHeadStart := time.Now()
 
 	err = b.UpdateChainHead()
 	if err != nil {
 		return err
 	}
 
+	updateChainHeadTime := time.Since(updateChainHeadStart)
+
+	connectBlockSignalStart := time.Now()
+
 	b.ConnectBlockNotifier.Signal(*block)
+
+	connectBlockSignalTime := time.Since(connectBlockSignalStart)
+
+	finalizedStateUpdateStart := time.Now()
 
 	finalizedNode, err := getAncestor(node, newState.FinalizedSlot)
 	if err != nil {
@@ -175,10 +205,30 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
+	finalizedStateUpdateTime := time.Since(finalizedStateUpdateStart)
+
+	stateCleanupStart := time.Now()
+
+	fmt.Printf("justified: %d, finalized: %d, justifiedSlots: %b\n", newState.JustifiedSlot, newState.FinalizedSlot, newState.JustificationBitfield)
+
 	err = b.stateManager.DeleteStateBeforeFinalizedSlot(finalizedNode.slot)
 	if err != nil {
 		return err
 	}
+
+	stateCleanupTime := time.Since(stateCleanupStart)
+
+	logger.WithFields(logger.Fields{
+		"validation":         validationTime,
+		"stateCalculation":   stateCalculationTime,
+		"storage":            blockStorageTime,
+		"databaseTipUpdate":  databaseTipUpdateTime,
+		"attestationUpdate":  attestationUpdateEnd,
+		"updateChainHead":    updateChainHeadTime,
+		"connectBlockSignal": connectBlockSignalTime,
+		"finalizedUpdate":    finalizedStateUpdateTime,
+		"stateCleanup":       stateCleanupTime,
+	}).Debug("performance report for processing")
 
 	return nil
 }

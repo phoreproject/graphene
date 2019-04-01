@@ -13,6 +13,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/sirupsen/logrus"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
@@ -551,6 +552,13 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	newState.PreviousJustifiedSlot = newState.JustifiedSlot
 	newState.JustificationBitfield = newState.JustificationBitfield * 2
+
+	logger.WithFields(logger.Fields{
+		"previousAttestingBalance": previousEpochBoundaryAttestingBalance,
+		"currentAttestingBalance":  currentEpochBoundaryAttestingBalance,
+		"totalBalance":             totalBalance,
+	}).Debug("updating justified/finalized state")
+
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
 		newState.JustificationBitfield |= 2 // mark the last epoch as justified
 		newState.JustifiedSlot = newState.Slot - 2*sm.config.EpochLength

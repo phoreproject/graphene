@@ -149,7 +149,7 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		if err != nil {
 			return nil, err
 		}
-		if initialState.GetEffectiveBalance(validatorIndex, c) == c.MaxDeposit*config.UnitInCoin {
+		if initialState.GetEffectiveBalance(validatorIndex, c) == c.MaxDeposit {
 			err := initialState.UpdateValidatorStatus(validatorIndex, primitives.Active, c)
 			if err != nil {
 				return nil, err

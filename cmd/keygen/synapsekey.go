@@ -93,7 +93,7 @@ func main() {
 			ProofOfPossession:     sigSer,
 			WithdrawalShard:       0,
 			WithdrawalCredentials: chainhash.Hash{},
-			DepositSize:           config.MainNetConfig.MaxDeposit * config.UnitInCoin,
+			DepositSize:           config.MainNetConfig.MaxDeposit,
 		}
 
 		err = binary.Write(f, binary.BigEndian, iv)

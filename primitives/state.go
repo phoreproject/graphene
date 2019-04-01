@@ -349,10 +349,10 @@ func StateFromProto(s *pb.State) (*State, error) {
 
 // GetEffectiveBalance gets the effective balance for a validator
 func (s *State) GetEffectiveBalance(index uint32, c *config.Config) uint64 {
-	if s.ValidatorBalances[index] <= c.MaxDeposit*config.UnitInCoin {
+	if s.ValidatorBalances[index] <= c.MaxDeposit {
 		return s.ValidatorBalances[index]
 	}
-	return c.MaxDeposit * config.UnitInCoin
+	return c.MaxDeposit
 }
 
 // GetTotalBalance gets the total balance of the provided validator indices.
@@ -487,7 +487,7 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
-	maxBalanceChurn := c.MaxDeposit * config.UnitInCoin
+	maxBalanceChurn := c.MaxDeposit
 	if maxBalanceChurn < (totalBalance / (2 * c.MaxBalanceChurnQuotient)) {
 		maxBalanceChurn = totalBalance / (2 * c.MaxBalanceChurnQuotient)
 	}
@@ -495,7 +495,7 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 	balanceChurn := uint64(0)
 	for idx, validator := range s.ValidatorRegistry {
 		index := uint32(idx)
-		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MaxDeposit*config.UnitInCoin {
+		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MaxDeposit {
 			balanceChurn += s.GetEffectiveBalance(index, c)
 			if balanceChurn > maxBalanceChurn {
 				break

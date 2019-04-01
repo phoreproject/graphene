@@ -39,7 +39,7 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
-			DepositSize:           c.MaxDeposit * config.UnitInCoin,
+			DepositSize:           c.MaxDeposit,
 		})
 	}
 

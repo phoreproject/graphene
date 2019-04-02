@@ -142,12 +142,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 			return err
 		}
 
-		for _, p := range participants {
-			err := b.db.SetLatestAttestationIfNeeded(p, a)
-			if err != nil {
-				return err
-			}
-		}
+		b.db.SetLatestAttestationsIfNeeded(participants, a)
 	}
 
 	attestationUpdateEnd := time.Since(attestationUpdateStart)
@@ -228,6 +223,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		"connectBlockSignal": connectBlockSignalTime,
 		"finalizedUpdate":    finalizedStateUpdateTime,
 		"stateCleanup":       stateCleanupTime,
+		"totalTime":          time.Since(validationStart),
 	}).Debug("performance report for processing")
 
 	return nil

@@ -3,9 +3,10 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/libp2p/go-libp2p-crypto"
 	"log"
 	"runtime"
+
+	crypto "github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/pb"
@@ -22,7 +23,8 @@ var _ Database = (*BadgerDB)(nil)
 // BadgerDB is a wrapper around the badger database to provide functions for
 // storing blocks and attestations.
 type BadgerDB struct {
-	db *badger.DB
+	db               *badger.DB
+	attestationCache map[uint32]uint64 // maps validator ID to latest attestation slot
 }
 
 // NewBadgerDB initializes the badger database with the supplied directories.
@@ -42,7 +44,8 @@ func NewBadgerDB(databaseDir string, databaseValueDir string) *BadgerDB {
 	}
 
 	return &BadgerDB{
-		db: db,
+		db:               db,
+		attestationCache: make(map[uint32]uint64),
 	}
 }
 
@@ -121,11 +124,14 @@ func (b *BadgerDB) GetLatestAttestation(validator uint32) (*primitives.Attestati
 	return primitives.AttestationFromProto(attProto)
 }
 
-// SetLatestAttestationIfNeeded sets the latest attestation from a validator.
-func (b *BadgerDB) SetLatestAttestationIfNeeded(validator uint32, attestation primitives.Attestation) error {
-	var validatorBytes [4]byte
-	binary.BigEndian.PutUint32(validatorBytes[:], validator)
-	key := append(attestationPrefix, validatorBytes[:]...)
+// SetLatestAttestationsIfNeeded sets the latest attestation from a validator.
+func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation) error {
+	validatorKeys := make([][]byte, len(validators))
+	for i := range validators {
+		var validatorBytes [4]byte
+		binary.BigEndian.PutUint32(validatorBytes[:], validators[i])
+		validatorKeys[i] = append(attestationPrefix, validatorBytes[:]...)
+	}
 
 	attProto := attestation.ToProto()
 	attSer, err := proto.Marshal(attProto)
@@ -134,33 +140,43 @@ func (b *BadgerDB) SetLatestAttestationIfNeeded(validator uint32, attestation pr
 	}
 
 	return b.db.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get(key)
-		// if there's no attestation yet, set this as the latest
-		if err == badger.ErrKeyNotFound {
-			return txn.Set(key, attSer)
-		}
-		if err != nil {
-			return err
+
+		for _, key := range validatorKeys {
+			item, err := txn.Get(key[:])
+			// if there's no attestation yet, set this as the latest
+			if err == badger.ErrKeyNotFound {
+				return txn.Set(key, attSer)
+			}
+			if err != nil {
+				return err
+			}
+
+			// if there is an attestation, set if the slot is greater
+			err = item.Value(func(val []byte) error {
+				currentAttProto := new(pb.Attestation)
+				err := proto.Unmarshal(val, currentAttProto)
+				if err != nil {
+					return err
+				}
+				currentAtt, err := primitives.AttestationFromProto(currentAttProto)
+				if err != nil {
+					return err
+				}
+				// if the current attestation has a slot gt/eq to the incoming one,
+				// keep the current one.
+				if currentAtt.Data.Slot >= attestation.Data.Slot {
+					return nil
+				}
+
+				return txn.Set(key, attSer)
+			})
+
+			if err != nil {
+				return err
+			}
 		}
 
-		// if there is an attestation, set if the slot is greater
-		return item.Value(func(val []byte) error {
-			currentAttProto := new(pb.Attestation)
-			err := proto.Unmarshal(val, currentAttProto)
-			if err != nil {
-				return err
-			}
-			currentAtt, err := primitives.AttestationFromProto(currentAttProto)
-			if err != nil {
-				return err
-			}
-			// if the current attestation has a slot gt/eq to the incoming one,
-			// keep the current one.
-			if currentAtt.Data.Slot >= attestation.Data.Slot {
-				return nil
-			}
-			return txn.Set(key, attSer)
-		})
+		return nil
 	})
 }
 

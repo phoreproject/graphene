@@ -32,9 +32,13 @@ message AttestationData {
     uint64 Slot = 1;
     uint64 Shard = 2;
     bytes BeaconBlockHash = 3;
+
+    // This is the destination root
     bytes EpochBoundaryHash = 4;
     bytes ShardBlockHash = 5;
     bytes LatestCrosslinkHash = 6;
+
+    // These are the source root and slot
     uint64 JustifiedSlot = 7;
     bytes JustifiedBlockHash = 8;
 }

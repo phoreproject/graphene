@@ -425,37 +425,6 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
-	// block hash of last epoch slot
-	previousEpochBoundaryHash, err := sm.blockchain.GetHashBySlot(newState.Slot - sm.config.EpochLength)
-	if err != nil {
-		previousEpochBoundaryHash = chainhash.Hash{}
-	}
-
-	// currentEpochBoundaryAttestations is any attestation in the last epoch that has its boundary hash set to
-	// the last epoch boundary
-	currentEpochBoundaryAttestations := []primitives.PendingAttestation{}
-	for _, a := range currentEpochAttestations {
-		// all of currentEpochAttestations conditions and:
-		// - epochBoundaryHash == previousEpochBoundaryHash
-		if a.Data.EpochBoundaryHash.IsEqual(&previousEpochBoundaryHash) {
-			currentEpochBoundaryAttestations = append(currentEpochBoundaryAttestations, a)
-		}
-	}
-
-	// currentEpochBoundaryAttesterIndices are all participant validator IDs of attestations
-	// with the epoch boundary set to the last epoch boundary.
-	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
-	for _, a := range currentEpochBoundaryAttestations {
-		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, sm.config)
-		if err != nil {
-			return err
-		}
-		for _, p := range participants {
-			currentEpochBoundaryAttesterIndices[p] = struct{}{}
-		}
-	}
-	currentEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(currentEpochBoundaryAttesterIndices, sm.config)
-
 	// previousEpochAttestations is any attestation in the last epoch
 	previousEpochAttestations := []primitives.PendingAttestation{}
 	for _, a := range newState.LatestAttestations {
@@ -565,20 +534,13 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	logger.WithFields(logger.Fields{
 		"previousAttestingBalance": previousEpochBoundaryAttestingBalance,
-		"currentAttestingBalance":  currentEpochBoundaryAttestingBalance,
 		"totalBalance":             totalBalance,
 	}).Debug("updating justified/finalized state")
 
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
-		newState.JustificationBitfield |= 2 // mark the last epoch as justified
+		newState.JustificationBitfield |= 1 // mark the last epoch as justified
 		newState.JustifiedSlot = newState.Slot - 2*sm.config.EpochLength
 	}
-
-	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
-		newState.JustificationBitfield |= 1 // mark the current epoch as justified
-		newState.JustifiedSlot = newState.Slot - sm.config.EpochLength
-	}
-
 	// if 3 of the last 4, 7 of the last 8, or 14 of the last 16 blocks were justified, finalize the last justified slot
 	if (newState.PreviousJustifiedSlot == newState.Slot-2*sm.config.EpochLength && newState.JustificationBitfield%4 == 3) ||
 		(newState.PreviousJustifiedSlot == newState.Slot-3*sm.config.EpochLength && newState.JustificationBitfield%8 == 7) ||

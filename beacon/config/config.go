@@ -46,7 +46,7 @@ var MainNetConfig = Config{
 	LatestBlockRootsLength:             8192,
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
-	SlotDuration:                       2,
+	SlotDuration:                       4,
 	EpochLength:                        8,
 	MinAttestationInclusionDelay:       2,
 	CollectivePenaltyCalculationPeriod: 1048576,

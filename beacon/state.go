@@ -142,7 +142,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 			return err
 		}
 
-		b.db.SetLatestAttestationsIfNeeded(participants, a)
+		err = b.db.SetLatestAttestationsIfNeeded(participants, a)
+		if err != nil {
+			return err
+		}
 	}
 
 	attestationUpdateEnd := time.Since(attestationUpdateStart)

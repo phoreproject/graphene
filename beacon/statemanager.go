@@ -300,14 +300,22 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		return err
 	}
 
-	valid, err := bls.VerifySig(proposerPub, proposalRoot[:], proposerSig, bls.DomainProposal)
-	if err != nil {
-		return err
-	}
+	// process block and randao verifications concurrently
 
-	if !valid {
-		return fmt.Errorf("block had invalid signature (expected signature from validator %d)", proposerIndex)
-	}
+	verificationResult := make(chan error)
+
+	go func() {
+		valid, err := bls.VerifySig(proposerPub, proposalRoot[:], proposerSig, bls.DomainProposal)
+		if err != nil {
+			verificationResult <- err
+		}
+
+		if !valid {
+			verificationResult <- fmt.Errorf("block had invalid signature (expected signature from validator %d)", proposerIndex)
+		}
+
+		verificationResult <- nil
+	}()
 
 	proposer := &newState.ValidatorRegistry[proposerIndex]
 
@@ -319,12 +327,27 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		return err
 	}
 
-	valid, err = bls.VerifySig(proposerPub, proposerSlotsBytes[:], randaoSig, bls.DomainRandao)
-	if err != nil {
-		return err
+	go func() {
+		valid, err := bls.VerifySig(proposerPub, proposerSlotsBytes[:], randaoSig, bls.DomainRandao)
+		if err != nil {
+			verificationResult <- err
+		}
+		if !valid {
+			verificationResult <- errors.New("block has invalid randao signature")
+		}
+
+		verificationResult <- nil
+	}()
+
+	result1 := <-verificationResult
+	result2 := <-verificationResult
+
+	if result1 != nil {
+		return result1
 	}
-	if !valid {
-		return errors.New("block has invalid randao signature")
+
+	if result2 != nil {
+		return result2
 	}
 
 	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)

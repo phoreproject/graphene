@@ -71,15 +71,19 @@ type BeaconApp struct {
 	mempool    beacon.Mempool
 
 	// P2P
-	hostNode *p2p.HostNode
+	hostNode   *p2p.HostNode
+	syncing    bool // this is true if we're processing blocks from peers during the initial sync
+	blockQueue chan primitives.Block
 }
 
 // NewBeaconApp creates a new instance of BeaconApp
 func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
-		config:   config,
-		exitChan: make(chan struct{}),
-		mempool:  beacon.NewMempool(),
+		config:     config,
+		exitChan:   make(chan struct{}),
+		mempool:    beacon.NewMempool(),
+		syncing:    true,
+		blockQueue: make(chan primitives.Block),
 	}
 	return app
 }
@@ -276,10 +280,14 @@ func (app *BeaconApp) ListenForBlocks() error {
 			return
 		}
 
-		err = app.blockchain.ProcessBlock(block)
-		if err != nil {
-			logger.Error(err)
-			return
+		if app.syncing {
+			app.blockQueue <- *block
+		} else {
+			err = app.blockchain.ProcessBlock(block)
+			if err != nil {
+				logger.Error(err)
+				return
+			}
 		}
 	})
 	return err
@@ -319,6 +327,7 @@ func (app *BeaconApp) trySync() error {
 
 func (app *BeaconApp) initialSync() {
 	if app.config.InitialSyncConnections == 0 {
+		app.syncing = false
 		return
 	}
 
@@ -340,6 +349,21 @@ func (app *BeaconApp) runMainLoop() error {
 		err := app.ListenForBlocks()
 		if err != nil {
 			panic(err)
+		}
+	}()
+
+	go func() {
+		for {
+			if !app.syncing {
+				block := <-app.blockQueue
+
+				err := app.blockchain.ProcessBlock(&block)
+				if err != nil {
+					logger.WithField("error", err).Error("error processing block")
+				}
+			}
+
+			time.Sleep(time.Second)
 		}
 	}()
 
@@ -428,6 +452,8 @@ func (app BeaconApp) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			return err
 		}
 	}
+
+	app.syncing = false
 
 	return nil
 }

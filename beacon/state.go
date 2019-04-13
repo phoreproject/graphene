@@ -12,9 +12,9 @@ import (
 	logger "github.com/sirupsen/logrus"
 )
 
-// AddBlock adds a block header to the current chain. The block should already
+// StoreBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
-func (b *Blockchain) AddBlock(block *primitives.Block) error {
+func (b *Blockchain) StoreBlock(block *primitives.Block) error {
 	err := b.db.SetBlock(*block)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 
 	blockStorageStart := time.Now()
 
-	err = b.AddBlock(block)
+	err = b.StoreBlock(block)
 	if err != nil {
 		return err
 	}

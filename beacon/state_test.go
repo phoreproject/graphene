@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
-	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/internal/util"
@@ -113,17 +111,13 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 		fmt.Printf("justified slot: %d, finalized slot: %d, justificationBitField: %b, previousJustifiedSlot: %d\n", s.JustifiedSlot, s.FinalizedSlot, s.JustificationBitfield, s.PreviousJustifiedSlot)
 	}
-
-	timer := time.NewTimer(time.Until(b.GetNextSlotTime().Add(time.Millisecond * 500)))
-	<-timer.C
-
 	stateAfterSlot20 := b.GetState()
 
 	firstValidator2 := stateAfterSlot20.ShardAndCommitteeForSlots[0][0].Committee[0]
 	if firstValidator == firstValidator2 {
 		t.Fatal("validators were not shuffled")
 	}
-	if stateAfterSlot20.FinalizedSlot != 8 || stateAfterSlot20.JustifiedSlot != 12 || stateAfterSlot20.JustificationBitfield != 7 || stateAfterSlot20.PreviousJustifiedSlot != 8 {
+	if stateAfterSlot20.FinalizedSlot != 12 || stateAfterSlot20.JustifiedSlot != 16 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedSlot != 12 {
 		t.Fatal("justification/finalization is working incorrectly")
 	}
 }

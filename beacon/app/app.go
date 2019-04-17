@@ -283,7 +283,7 @@ func (app *BeaconApp) ListenForBlocks() error {
 		if app.syncing {
 			app.blockQueue <- *block
 		} else {
-			err = app.blockchain.ProcessBlock(block)
+			err = app.blockchain.ProcessBlock(block, true)
 			if err != nil {
 				logger.Error(err)
 				return
@@ -357,7 +357,7 @@ func (app *BeaconApp) runMainLoop() error {
 			if !app.syncing {
 				block := <-app.blockQueue
 
-				err := app.blockchain.ProcessBlock(&block)
+				err := app.blockchain.ProcessBlock(&block, true)
 				if err != nil {
 					logger.WithField("error", err).Error("error processing block")
 				}
@@ -447,7 +447,7 @@ func (app BeaconApp) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		if err != nil {
 			return err
 		}
-		err = app.blockchain.ProcessBlock(block)
+		err = app.blockchain.ProcessBlock(block, true)
 		if err != nil {
 			return err
 		}

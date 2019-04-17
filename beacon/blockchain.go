@@ -144,8 +144,7 @@ func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
 }
 
 // GetEpochBoundaryHash gets the hash of the parent block at the epoch boundary.
-func (b *Blockchain) GetEpochBoundaryHash() (chainhash.Hash, error) {
-	slot := b.GetCurrentSlot()
+func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
 	epochBoundaryHeight := slot - (slot % b.config.EpochLength)
 	return b.GetHashBySlot(epochBoundaryHeight)
 }

@@ -33,13 +33,13 @@ func intSqrt(n uint64) uint64 {
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
+func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error {
 	genesisTime := b.stateManager.GetGenesisTime()
 
 	validationStart := time.Now()
 
 	// VALIDATE BLOCK HERE
-	if block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0 {
+	if checkTime && block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0 {
 		return errors.New("block slot too soon")
 	}
 

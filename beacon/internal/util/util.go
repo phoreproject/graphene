@@ -117,7 +117,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 	block1.BlockHeader.Signature = sig.Serialize()
 
-	err = b.ProcessBlock(&block1)
+	err = b.ProcessBlock(&block1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochBoundaryHash, err := b.GetEpochBoundaryHash()
+		epochBoundaryHash, err := b.GetEpochBoundaryHash(lb.BlockHeader.SlotNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -218,9 +218,6 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 
 // MineBlockWithFullAttestations generates attestations to include in a block and mines it.
 func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
-	timer := time.NewTimer(time.Until(b.GetNextSlotTime()))
-	<-timer.C
-
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err

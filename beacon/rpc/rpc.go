@@ -66,7 +66,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-	err = s.chain.ProcessBlock(b)
+	err = s.chain.ProcessBlock(b, true)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		state = s.chain.GetState()
 	}
 
-	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash()
+	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash(s.chain.GetCurrentSlot())
 	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
 	for i := range crosslinks {
 		crosslinks[i] = state.LatestCrosslinks[i].ToProto()

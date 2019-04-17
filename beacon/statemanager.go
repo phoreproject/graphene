@@ -420,7 +420,6 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	// currentEpochAttestations is any attestation that happened in the last epoch
 	var currentEpochAttestations []primitives.PendingAttestation
 	for _, a := range newState.LatestAttestations {
-
 		// slot is greater than last epoch slot and slot is less than current slot
 		if newState.Slot-sm.config.EpochLength <= a.Data.Slot && a.Data.Slot < newState.Slot {
 			currentEpochAttestations = append(currentEpochAttestations, a)
@@ -485,12 +484,30 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		epochBoundaryHashMinus2 = ebhm2
 	}
 
+	epochBoundaryHashMinus1 := chainhash.Hash{}
+	if newState.Slot >= sm.config.EpochLength {
+		ebhm1, err := sm.blockchain.GetHashBySlot(newState.Slot - sm.config.EpochLength)
+		if err != nil {
+			ebhm1 = chainhash.Hash{}
+		}
+		epochBoundaryHashMinus1 = ebhm1
+	}
+
 	// previousEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
 	// set to the epoch boundary two epochs ago
 	var previousEpochBoundaryAttestations []primitives.PendingAttestation
 	for _, a := range previousEpochJustifiedAttestations {
 		if epochBoundaryHashMinus2.IsEqual(&a.Data.EpochBoundaryHash) {
 			previousEpochBoundaryAttestations = append(previousEpochBoundaryAttestations, a)
+		}
+	}
+
+	// currentEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
+	// set to the epoch boundary two epochs ago
+	var currentEpochBoundaryAttestations []primitives.PendingAttestation
+	for _, a := range currentEpochAttestations {
+		if epochBoundaryHashMinus1.IsEqual(&a.Data.EpochBoundaryHash) {
+			currentEpochBoundaryAttestations = append(currentEpochBoundaryAttestations, a)
 		}
 	}
 
@@ -505,7 +522,19 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		}
 	}
 
+	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
+	for _, a := range currentEpochBoundaryAttestations {
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, sm.config)
+		if err != nil {
+			return err
+		}
+		for _, p := range participants {
+			currentEpochBoundaryAttesterIndices[p] = struct{}{}
+		}
+	}
+
 	previousEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(previousEpochBoundaryAttesterIndices, sm.config)
+	currentEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(currentEpochBoundaryAttesterIndices, sm.config)
 
 	var previousEpochHeadAttestations []primitives.PendingAttestation
 	for _, a := range previousEpochAttestations {
@@ -540,8 +569,12 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	}).Debug("updating justified/finalized state")
 
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
-		newState.JustificationBitfield |= 1 // mark the last epoch as justified
+		newState.JustificationBitfield |= 2 // mark the last epoch as justified
 		newState.JustifiedSlot = newState.Slot - 2*sm.config.EpochLength
+	}
+	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
+		newState.JustificationBitfield |= 1 // mark the last epoch as justified
+		newState.JustifiedSlot = newState.Slot - sm.config.EpochLength
 	}
 	// if 3 of the last 4, 7 of the last 8, or 14 of the last 16 blocks were justified, finalize the last justified slot
 	if (newState.PreviousJustifiedSlot == newState.Slot-2*sm.config.EpochLength && newState.JustificationBitfield%4 == 3) ||

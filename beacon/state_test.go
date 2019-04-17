@@ -176,3 +176,28 @@ func TestSlotTransition(t *testing.T) {
 	}
 
 }
+
+func BenchmarkSlotTransition(t *testing.B) {
+	b, _, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state := b.GetState()
+
+	t.ResetTimer()
+
+	for i := 0; i < t.N; i++ {
+		newState := state.Copy()
+
+		err = newState.ProcessSlot(b.Tip(), &config.RegtestConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		state = newState
+	}
+
+}

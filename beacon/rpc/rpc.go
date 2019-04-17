@@ -3,7 +3,6 @@
 package rpc
 
 import (
-	"errors"
 	"net"
 	"time"
 
@@ -224,18 +223,6 @@ func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesF
 func (s *server) GetForkData(ctx context.Context, in *empty.Empty) (*pb.ForkData, error) {
 	state := s.chain.GetState()
 	return state.ForkData.ToProto(), nil
-}
-
-// GetProposerSlots gets the number of slots a proposer has proposed.
-func (s *server) GetProposerSlots(ctx context.Context, in *pb.GetProposerSlotsRequest) (*pb.GetProposerSlotsResponse, error) {
-	state := s.chain.GetState()
-	if in.ValidatorID >= uint32(len(state.ValidatorRegistry)) {
-		return nil, errors.New("validator ID out of range")
-	}
-
-	return &pb.GetProposerSlotsResponse{
-		ProposerSlots: state.ValidatorRegistry[in.ValidatorID].ProposerSlots,
-	}, nil
 }
 
 // GetProposerForSlot gets the proposer for a certain slot.

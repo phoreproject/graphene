@@ -43,12 +43,12 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		return err
 	}
 
-	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], information.slot)
+	var slotBytes [8]byte
+	binary.BigEndian.PutUint64(slotBytes[:], information.slot)
 
 	key := v.keystore.GetKeyForValidator(v.id)
 
-	randaoSig, err := bls.Sign(key, proposerSlotsBytes[:], bls.DomainRandao)
+	randaoSig, err := bls.Sign(key, slotBytes[:], bls.DomainRandao)
 	if err != nil {
 		return err
 	}

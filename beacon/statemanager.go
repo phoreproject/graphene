@@ -318,8 +318,8 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		verificationResult <- nil
 	}()
 
-	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], block.BlockHeader.SlotNumber)
+	var slotBytes [8]byte
+	binary.BigEndian.PutUint64(slotBytes[:], block.BlockHeader.SlotNumber)
 
 	randaoSig, err := bls.DeserializeSignature(block.BlockHeader.RandaoReveal)
 	if err != nil {
@@ -327,7 +327,7 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 	}
 
 	go func() {
-		valid, err := bls.VerifySig(proposerPub, proposerSlotsBytes[:], randaoSig, bls.DomainRandao)
+		valid, err := bls.VerifySig(proposerPub, slotBytes[:], randaoSig, bls.DomainRandao)
 		if err != nil {
 			verificationResult <- err
 		}

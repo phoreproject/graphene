@@ -900,7 +900,6 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,
 			ExitCount:               0,
-			ProposerSlots:           0,
 			LastPoCChangeSlot:       0,
 			SecondLastPoCChangeSlot: 0,
 		}
@@ -971,8 +970,6 @@ type Validator struct {
 	LatestStatusChangeSlot uint64
 	// Sequence number when validator exited (or 0)
 	ExitCount uint64
-	// Number of proposer slots since genesis
-	ProposerSlots uint64
 	// LastPoCChangeSlot is the last time the PoC was changed
 	LastPoCChangeSlot uint64
 	// SecondLastPoCChangeSlot is the second to last time the PoC was changed
@@ -1010,7 +1007,6 @@ func ValidatorFromProto(validator *pb.Validator) (*Validator, error) {
 		Status:                  validator.Status,
 		LatestStatusChangeSlot:  validator.LatestStatusChangeSlot,
 		ExitCount:               validator.LatestStatusChangeSlot,
-		ProposerSlots:           validator.ProposerSlots,
 		LastPoCChangeSlot:       validator.LastPoCChangeSlot,
 		SecondLastPoCChangeSlot: validator.SecondLastPoCChangeSlot,
 	}
@@ -1039,7 +1035,6 @@ func (v *Validator) ToProto() *pb.Validator {
 	return &pb.Validator{
 		Pubkey:                  v.Pubkey[:],
 		WithdrawalCredentials:   v.WithdrawalCredentials[:],
-		ProposerSlots:           v.ProposerSlots,
 		LastPoCChangeSlot:       v.LastPoCChangeSlot,
 		SecondLastPoCChangeSlot: v.SecondLastPoCChangeSlot,
 		Status:                  v.Status,

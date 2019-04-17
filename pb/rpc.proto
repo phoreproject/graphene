@@ -22,8 +22,6 @@ service BlockchainRPC {
 
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
 
-    rpc GetProposerSlots(GetProposerSlotsRequest) returns (GetProposerSlotsResponse);
-
     rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
 
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
@@ -71,14 +69,6 @@ message DisconnectResponse {
 enum Role {
     ATTESTER = 0;
     PROPOSER = 1;
-}
-
-message GetProposerSlotsRequest {
-    uint32 ValidatorID = 1;
-}
-
-message GetProposerSlotsResponse {
-    uint64 ProposerSlots = 2;
 }
 
 message GetCommitteesForSlotRequest {

@@ -43,13 +43,8 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		return err
 	}
 
-	slots, err := v.blockchainRPC.GetProposerSlots(context.Background(), &pb.GetProposerSlotsRequest{ValidatorID: v.id})
-	if err != nil {
-		return err
-	}
-
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], slots.ProposerSlots)
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], information.slot)
 
 	key := v.keystore.GetKeyForValidator(v.id)
 

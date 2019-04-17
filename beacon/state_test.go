@@ -2,6 +2,8 @@ package beacon_test
 
 import (
 	"fmt"
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/chainhash"
 	"os"
 	"testing"
 	"time"
@@ -124,4 +126,53 @@ func TestCrystallizedStateTransition(t *testing.T) {
 	if stateAfterSlot20.FinalizedSlot != 12 || stateAfterSlot20.JustifiedSlot != 16 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedSlot != 12 {
 		t.Fatal("justification/finalization is working incorrectly")
 	}
+}
+
+func TestSlotTransition(t *testing.T) {
+	b, _, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state := b.GetState()
+
+	for i := 0; i < 1000; i++ {
+		newState := state.Copy()
+
+		err = newState.ProcessSlot(b.Tip(), &config.RegtestConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if newState.Slot != state.Slot+1 {
+			t.Fatal("expected slot to be incremented on slot transition")
+		}
+
+		tip := b.Tip()
+
+		if !newState.LatestBlockHashes[(newState.Slot-1)%config.RegtestConfig.LatestBlockRootsLength].IsEqual(&tip) {
+			t.Fatalf("expected latest block hashes to be updated on slot transition (expected: %d, got: %d)",
+				tip,
+				newState.LatestBlockHashes[(newState.Slot-1)%config.RegtestConfig.LatestBlockRootsLength])
+		}
+
+		if newState.Slot%config.RegtestConfig.LatestBlockRootsLength == 0 {
+			h, err := ssz.TreeHash(newState.LatestBlockHashes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ch := chainhash.Hash(h)
+
+			if !newState.BatchedBlockRoots[len(newState.BatchedBlockRoots)-1].IsEqual(&ch) {
+				t.Fatalf("expected batched block roots to be updated on slot transition (expected: %d, got: %d)",
+					ch,
+					newState.BatchedBlockRoots[len(newState.BatchedBlockRoots)-1])
+			}
+		}
+
+		state = newState
+	}
+
 }

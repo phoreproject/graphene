@@ -7,7 +7,6 @@ import (
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
-	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	logger "github.com/sirupsen/logrus"
 )
@@ -18,31 +17,6 @@ func (b *Blockchain) StoreBlock(block *primitives.Block) error {
 	err := b.db.SetBlock(*block)
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (b *Blockchain) processSlot(newState *primitives.State, previousBlockRoot chainhash.Hash) error {
-	beaconProposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot, newState.Slot, b.config)
-	if err != nil {
-		return err
-	}
-
-	// increase the slot number
-	newState.Slot++
-
-	// increase the randao skips of the proposer
-	newState.ValidatorRegistry[beaconProposerIndex].ProposerSlots++
-
-	newState.LatestBlockHashes[(newState.Slot-1)%b.config.LatestBlockRootsLength] = previousBlockRoot
-
-	if newState.Slot%b.config.LatestBlockRootsLength == 0 {
-		latestBlockHashesRoot, err := ssz.TreeHash(newState.LatestBlockHashes)
-		if err != nil {
-			return err
-		}
-		newState.BatchedBlockRoots = append(newState.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
 	return nil

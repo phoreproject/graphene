@@ -317,10 +317,8 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		verificationResult <- nil
 	}()
 
-	proposer := &newState.ValidatorRegistry[proposerIndex]
-
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposer.ProposerSlots)
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], block.BlockHeader.SlotNumber)
 
 	randaoSig, err := bls.DeserializeSignature(block.BlockHeader.RandaoReveal)
 	if err != nil {
@@ -410,25 +408,6 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 	}
 
 	// VERIFY BLOCK STATE ROOT MATCHES STATE ROOT FROM PREVIOUS BLOCK IF NEEDED
-	return nil
-}
-
-func (sm *StateManager) processSlot(newState *primitives.State, lastBlockHash chainhash.Hash) error {
-	logrus.WithField("slot", newState.Slot).Debug("slot transition")
-
-	// increase the slot number
-	newState.Slot++
-
-	newState.LatestBlockHashes[(newState.Slot-1)%sm.config.LatestBlockRootsLength] = lastBlockHash
-
-	if newState.Slot%sm.config.LatestBlockRootsLength == 0 {
-		latestBlockHashesRoot, err := ssz.TreeHash(newState.LatestBlockHashes)
-		if err != nil {
-			return err
-		}
-		newState.BatchedBlockRoots = append(newState.BatchedBlockRoots, latestBlockHashesRoot)
-	}
-
 	return nil
 }
 
@@ -912,7 +891,7 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 			sm.currentEpoch = newState.Slot / sm.config.EpochLength
 		}
 
-		err := sm.processSlot(&newState, lastBlockHash)
+		err := newState.ProcessSlot(lastBlockHash, sm.config)
 		if err != nil {
 			return nil, err
 		}

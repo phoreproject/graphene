@@ -16,6 +16,7 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/chainhash"
+	utilsync "github.com/phoreproject/synapse/utils/sync"
 )
 
 var zeroHash = chainhash.Hash{}
@@ -42,16 +43,23 @@ type blockchainView struct {
 	lock          *sync.Mutex
 }
 
-func (bv *blockchainView) GetBlock(n uint64) (*blockNode, error) {
+func (bv *blockchainView) getBlock(n uint64) (*blockNode, error) {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	return getAncestor(bv.tip, n)
 }
 
-func (bv *blockchainView) Height() uint64 {
+func (bv *blockchainView) height() uint64 {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	return bv.tip.height
+}
+
+func (bv *blockchainView) seenBlock(blockHash chainhash.Hash) bool {
+	bv.lock.Lock()
+	_, found := bv.index[blockHash]
+	bv.lock.Unlock()
+	return found
 }
 
 // Blockchain represents a chain of blocks.
@@ -60,6 +68,8 @@ type Blockchain struct {
 	db           db.Database
 	config       *config.Config
 	stateManager *StateManager
+
+	ConnectBlockNotifier *utilsync.Signal
 }
 
 func blockNodeToHash(b *blockNode) chainhash.Hash {
@@ -134,9 +144,8 @@ func getAncestor(node *blockNode, slot uint64) (*blockNode, error) {
 }
 
 // GetEpochBoundaryHash gets the hash of the parent block at the epoch boundary.
-func (b *Blockchain) GetEpochBoundaryHash() (chainhash.Hash, error) {
-	height := b.Height()
-	epochBoundaryHeight := height - (height % b.config.EpochLength)
+func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
+	epochBoundaryHeight := slot - (slot % b.config.EpochLength)
 	return b.GetHashBySlot(epochBoundaryHeight)
 }
 
@@ -174,6 +183,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 			index: make(map[chainhash.Hash]*blockNode),
 			lock:  &sync.Mutex{},
 		},
+		ConnectBlockNotifier: utilsync.NewSignal(),
 	}
 
 	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)
@@ -244,6 +254,11 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		}
 
 		err = b.db.SetBlockState(blockHash, initialState)
+		if err != nil {
+			return nil, err
+		}
+
+		err = b.db.SetHeadBlock(blockHash)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +385,7 @@ func (b *Blockchain) UpdateChainHead() error {
 	defer b.chain.lock.Unlock()
 	validators := b.chain.justifiedHead.State.ValidatorRegistry
 	activeValidatorIndices := primitives.GetActiveValidatorIndices(validators)
-	targets := []blockNodeAndValidator{}
+	var targets []blockNodeAndValidator
 	for _, i := range activeValidatorIndices {
 		bl, err := b.getLatestAttestationTarget(i)
 		if err != nil {
@@ -451,12 +466,12 @@ func (b Blockchain) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
 
 // Height returns the height of the chain.
 func (b *Blockchain) Height() uint64 {
-	return b.chain.Height()
+	return b.chain.height()
 }
 
 // LastBlock gets the last block in the chain
 func (b *Blockchain) LastBlock() (*primitives.Block, error) {
-	bl, err := b.chain.GetBlock(b.chain.Height())
+	bl, err := b.chain.getBlock(b.chain.height())
 	if err != nil {
 		return nil, err
 	}
@@ -561,4 +576,39 @@ func (b *Blockchain) populateChainTip() error {
 	b.chain.tip = tipNode
 
 	return b.stateManager.UpdateHead(tipNode.hash)
+}
+
+// GetBlockHashesAfterBlock gets all block hashes from the specified block to the tip. Returns an error if the specified
+// block is not in the current chain.
+func (b *Blockchain) GetBlockHashesAfterBlock(blockFrom chainhash.Hash) ([]chainhash.Hash, error) {
+	current := *b.chain.tip
+	count := 0
+
+	// first make sure the block they are requesting is in our current chain
+	for current.slot > 0 && !current.hash.IsEqual(&blockFrom) {
+		current = *current.parent
+		count++
+	}
+	if current.slot == 0 && !current.hash.IsEqual(&blockFrom) {
+		return nil, errors.New("block is not in current chain")
+	}
+
+	current = *b.chain.tip // go back to the tip
+
+	blockHashes := make([]chainhash.Hash, count)
+	for !current.hash.IsEqual(&blockFrom) {
+		blockHashes[uint64(len(blockHashes))+current.height-b.chain.tip.height-1] = current.hash
+		current = *current.parent
+	}
+
+	return blockHashes, nil
+}
+
+// GetCurrentSlot gets the current slot according to the time.
+func (b *Blockchain) GetCurrentSlot() uint64 {
+	currentTime := uint64(time.Now().Unix())
+
+	timeSinceGenesis := currentTime - b.stateManager.GetGenesisTime()
+
+	return timeSinceGenesis / uint64(b.config.SlotDuration)
 }

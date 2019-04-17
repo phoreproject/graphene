@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"flag"
+	"github.com/phoreproject/synapse/p2p"
 	"os"
 
 	"github.com/phoreproject/synapse/beacon/app"
@@ -15,128 +16,32 @@ import (
 
 const clientVersion = "0.0.1"
 
-/*
-func main() {
-	logrus.SetLevel(logrus.InfoLevel)
-
-	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
-	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
-	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
-	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
-	flag.Parse()
-
-	dir, err := config.GetBaseDirectory(true)
-	if err != nil {
-		panic(err)
-	}
-
-	dbDir := filepath.Join(dir, "db")
-	dbValuesDir := filepath.Join(dir, "dbv")
-
-	os.MkdirAll(dbDir, 0777)
-	os.MkdirAll(dbValuesDir, 0777)
-
-	logger.WithField("version", clientVersion).Info("initializing client")
-
-	logger.Info("initializing database")
-	database := db.NewBadgerDB(dbDir, dbValuesDir)
-
-	defer database.Close()
-
-	c := config.MainNetConfig
-
-	logger.Info("initializing blockchain")
-
-	if *genesisTime == 0 {
-		*genesisTime = uint64(time.Now().Unix())
-	}
-
-	logger.WithField("numValidators", len(validators)).WithField("genesisTime", *genesisTime).Info("initializing blockchain with validators")
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(database, &c, validators, true, *genesisTime)
-	if err != nil {
-		panic(err)
-	}
-
-	logger.Info("connecting to p2p RPC")
-	conn, err := grpc.Dial(*p2pConnect, grpc.WithInsecure())
-	if err != nil {
-		panic(err)
-	}
-
-	p2p := pb.NewP2PRPCClient(conn)
-
-	sub, err := p2p.Subscribe(context.Background(), &pb.SubscriptionRequest{Topic: "block"})
-	if err != nil {
-		panic(err)
-	}
-
-	listener, err := p2p.ListenForMessages(context.Background(), sub)
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		newBlocks := make(chan primitives.Block)
-		go func() {
-			err := blockchain.HandleNewBlocks(newBlocks)
-			if err != nil {
-				panic(err)
-			}
-		}()
-
-		for {
-			msg, err := listener.Recv()
-			if err != nil {
-				panic(err)
-			}
-
-			blockProto := new(pb.Block)
-
-			err = proto.Unmarshal(msg.Data, blockProto)
-			if err != nil {
-				continue
-			}
-
-			block, err := primitives.BlockFromProto(blockProto)
-			if err != nil {
-				continue
-			}
-
-			newBlocks <- *block
-		}
-	}()
-
-	logger.Info("initializing RPC")
-
-	go func() {
-		err = rpc.Serve(*rpcConnect, blockchain, p2p)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	signalHandler := make(chan os.Signal, 1)
-	signal.Notify(signalHandler, os.Interrupt)
-	<-signalHandler
-
-	logger.Info("exiting")
-}
-*/
-
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	p2pConnect := flag.String("p2pconnect", "127.0.0.1:11783", "host and port for P2P rpc connection")
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
 	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
 	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
+	datadir := flag.String("datadir", "", "location to store blockchain data")
+
+	// P2P
+	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
+	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
 	flag.Parse()
 
 	logger.WithField("version", clientVersion).Info("initializing client")
 
+	initialPeers, err := p2p.ParseInitialConnections(*initialConnections)
+	if err != nil {
+		panic(err)
+	}
+
 	appConfig := app.NewConfig()
-	appConfig.P2PAddress = *p2pConnect
+	appConfig.ListeningAddress = *listen
 	appConfig.RPCAddress = *rpcConnect
+	appConfig.DiscoveryOptions.PeerAddresses = initialPeers
+	appConfig.DataDirectory = *datadir
 
 	appConfig.Resync = *resync
 	if *genesisTime != 0 {
@@ -184,8 +89,8 @@ func main() {
 		appConfig.InitialValidatorList[i] = iv
 	}
 
-	app := app.NewBeaconApp(appConfig)
-	err = app.Run()
+	a := app.NewBeaconApp(appConfig)
+	err = a.Run()
 	if err != nil {
 		panic(err)
 	}

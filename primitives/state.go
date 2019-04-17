@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -349,10 +350,10 @@ func StateFromProto(s *pb.State) (*State, error) {
 
 // GetEffectiveBalance gets the effective balance for a validator
 func (s *State) GetEffectiveBalance(index uint32, c *config.Config) uint64 {
-	if s.ValidatorBalances[index] <= c.MaxDeposit*config.UnitInCoin {
+	if s.ValidatorBalances[index] <= c.MaxDeposit {
 		return s.ValidatorBalances[index]
 	}
-	return c.MaxDeposit * config.UnitInCoin
+	return c.MaxDeposit
 }
 
 // GetTotalBalance gets the total balance of the provided validator indices.
@@ -487,7 +488,7 @@ func (s *State) UpdateValidatorStatus(index uint32, status uint64, c *config.Con
 func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
-	maxBalanceChurn := c.MaxDeposit * config.UnitInCoin
+	maxBalanceChurn := c.MaxDeposit
 	if maxBalanceChurn < (totalBalance / (2 * c.MaxBalanceChurnQuotient)) {
 		maxBalanceChurn = totalBalance / (2 * c.MaxBalanceChurnQuotient)
 	}
@@ -495,7 +496,7 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 	balanceChurn := uint64(0)
 	for idx, validator := range s.ValidatorRegistry {
 		index := uint32(idx)
-		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MaxDeposit*config.UnitInCoin {
+		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MaxDeposit {
 			balanceChurn += s.GetEffectiveBalance(index, c)
 			if balanceChurn > maxBalanceChurn {
 				break
@@ -736,7 +737,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 
 // ApplyCasperSlashing applies a casper slashing claim to the current state.
 func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
-	intersection := []uint32{}
+	var intersection []uint32
 	indices1 := indices(casperSlashing.Votes1)
 	indices2 := indices(casperSlashing.Votes2)
 	for _, k := range indices1 {
@@ -842,7 +843,7 @@ func (s *State) GetAttestationParticipants(data AttestationData, participationBi
 		return nil, errors.New("participation bitfield is of incorrect length")
 	}
 
-	participants := []uint32{}
+	var participants []uint32
 	for i, validatorIndex := range shardCommittee.Committee {
 		participationBit := participationBitfield[i/8] & (1 << (uint(i) % 8))
 		if participationBit != 0 {
@@ -899,7 +900,6 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,
 			ExitCount:               0,
-			ProposerSlots:           0,
 			LastPoCChangeSlot:       0,
 			SecondLastPoCChangeSlot: 0,
 		}
@@ -922,6 +922,26 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 		s.ValidatorBalances[index] += amount
 	}
 	return uint32(index), nil
+}
+
+// ProcessSlot processes a single slot which should happen before the block transition and the epoch transition.
+func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) error {
+	logrus.WithField("slot", s.Slot).Debug("slot transition")
+
+	// increase the slot number
+	s.Slot++
+
+	s.LatestBlockHashes[(s.Slot-1)%c.LatestBlockRootsLength] = previousBlockRoot
+
+	if s.Slot%c.LatestBlockRootsLength == 0 {
+		latestBlockHashesRoot, err := ssz.TreeHash(s.LatestBlockHashes)
+		if err != nil {
+			return err
+		}
+		s.BatchedBlockRoots = append(s.BatchedBlockRoots, latestBlockHashesRoot)
+	}
+
+	return nil
 }
 
 const (
@@ -950,8 +970,6 @@ type Validator struct {
 	LatestStatusChangeSlot uint64
 	// Sequence number when validator exited (or 0)
 	ExitCount uint64
-	// Number of proposer slots since genesis
-	ProposerSlots uint64
 	// LastPoCChangeSlot is the last time the PoC was changed
 	LastPoCChangeSlot uint64
 	// SecondLastPoCChangeSlot is the second to last time the PoC was changed
@@ -989,7 +1007,6 @@ func ValidatorFromProto(validator *pb.Validator) (*Validator, error) {
 		Status:                  validator.Status,
 		LatestStatusChangeSlot:  validator.LatestStatusChangeSlot,
 		ExitCount:               validator.LatestStatusChangeSlot,
-		ProposerSlots:           validator.ProposerSlots,
 		LastPoCChangeSlot:       validator.LastPoCChangeSlot,
 		SecondLastPoCChangeSlot: validator.SecondLastPoCChangeSlot,
 	}
@@ -1004,7 +1021,7 @@ func ValidatorFromProto(validator *pb.Validator) (*Validator, error) {
 
 // GetActiveValidatorIndices gets validator indices that are active.
 func GetActiveValidatorIndices(validators []Validator) []uint32 {
-	active := []uint32{}
+	var active []uint32
 	for i, v := range validators {
 		if v.IsActive() {
 			active = append(active, uint32(i))
@@ -1018,7 +1035,6 @@ func (v *Validator) ToProto() *pb.Validator {
 	return &pb.Validator{
 		Pubkey:                  v.Pubkey[:],
 		WithdrawalCredentials:   v.WithdrawalCredentials[:],
-		ProposerSlots:           v.ProposerSlots,
 		LastPoCChangeSlot:       v.LastPoCChangeSlot,
 		SecondLastPoCChangeSlot: v.SecondLastPoCChangeSlot,
 		Status:                  v.Status,

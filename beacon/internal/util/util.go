@@ -17,13 +17,11 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 )
 
-var zeroHash = chainhash.Hash{}
-
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
 func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()
 
-	validators := []beacon.InitialValidatorEntry{}
+	var validators []beacon.InitialValidatorEntry
 
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
@@ -41,7 +39,7 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
-			DepositSize:           c.MaxDeposit * config.UnitInCoin,
+			DepositSize:           c.MaxDeposit,
 		})
 	}
 
@@ -72,18 +70,10 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 
 	slotNumber := lastBlock.BlockHeader.SlotNumber + 1
 
-	state := b.GetState()
+	var slotsBytes [8]byte
+	binary.BigEndian.PutUint64(slotsBytes[:], slotNumber)
 
-	proposerSlots := state.ValidatorRegistry[proposerIndex].ProposerSlots
-
-	if state.Slot != slotNumber {
-		proposerSlots++
-	}
-
-	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposerSlots)
-
-	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), proposerSlotsBytes[:], bls.DomainRandao)
+	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), slotsBytes[:], bls.DomainRandao)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +117,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 	block1.BlockHeader.Signature = sig.Serialize()
 
-	err = b.ProcessBlock(&block1)
+	err = b.ProcessBlock(&block1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -156,15 +146,15 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochBoundaryHash, err := b.GetEpochBoundaryHash()
+		epochBoundaryHash, err := b.GetEpochBoundaryHash(lb.BlockHeader.SlotNumber)
 		if err != nil {
 			return nil, err
 		}
 
-		nextSlot := s.Slot
+		prevSlot := s.Slot - 1
 
 		justifiedSlot := s.JustifiedSlot
-		if lb.BlockHeader.SlotNumber < nextSlot-(nextSlot%b.GetConfig().EpochLength) {
+		if lb.BlockHeader.SlotNumber < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
 			justifiedSlot = s.PreviousJustifiedSlot
 		}
 
@@ -228,9 +218,6 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 
 // MineBlockWithFullAttestations generates attestations to include in a block and mines it.
 func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
-	timer := time.NewTimer(time.Until(b.GetNextSlotTime()))
-	<-timer.C
-
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err

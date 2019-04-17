@@ -34,10 +34,14 @@ func (service *TestService) BindEntryArgs(entryArgs EntryArgList) {
 }
 
 // CleanUp acts as the destructor
-func (service *TestService) CleanUp() {
+func (service *TestService) CleanUp() error {
 	if service.tempDir != "" {
-		os.RemoveAll(service.tempDir)
+		err := os.RemoveAll(service.tempDir)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // GetTempFileName returns temporary file name

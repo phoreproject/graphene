@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"runtime"
+
+	"github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/pb"
@@ -20,7 +23,8 @@ var _ Database = (*BadgerDB)(nil)
 // BadgerDB is a wrapper around the badger database to provide functions for
 // storing blocks and attestations.
 type BadgerDB struct {
-	db *badger.DB
+	db               *badger.DB
+	attestationCache map[uint32]uint64 // maps validator ID to latest attestation slot
 }
 
 // NewBadgerDB initializes the badger database with the supplied directories.
@@ -28,13 +32,20 @@ func NewBadgerDB(databaseDir string, databaseValueDir string) *BadgerDB {
 	opts := badger.DefaultOptions
 	opts.Dir = databaseDir
 	opts.ValueDir = databaseValueDir
+	if runtime.GOOS == "windows" {
+		opts.Truncate = true
+		opts.ValueLogFileSize = 1024 * 1024
+		// Not sure how this option takes effect.
+		//opts.CompactL0OnClose = false
+	}
 	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return &BadgerDB{
-		db: db,
+		db:               db,
+		attestationCache: make(map[uint32]uint64),
 	}
 }
 
@@ -113,11 +124,14 @@ func (b *BadgerDB) GetLatestAttestation(validator uint32) (*primitives.Attestati
 	return primitives.AttestationFromProto(attProto)
 }
 
-// SetLatestAttestationIfNeeded sets the latest attestation from a validator.
-func (b *BadgerDB) SetLatestAttestationIfNeeded(validator uint32, attestation primitives.Attestation) error {
-	var validatorBytes [4]byte
-	binary.BigEndian.PutUint32(validatorBytes[:], validator)
-	key := append(attestationPrefix, validatorBytes[:]...)
+// SetLatestAttestationsIfNeeded sets the latest attestation from a validator.
+func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation) error {
+	validatorKeys := make([][]byte, len(validators))
+	for i := range validators {
+		var validatorBytes [4]byte
+		binary.BigEndian.PutUint32(validatorBytes[:], validators[i])
+		validatorKeys[i] = append(attestationPrefix, validatorBytes[:]...)
+	}
 
 	attProto := attestation.ToProto()
 	attSer, err := proto.Marshal(attProto)
@@ -126,33 +140,43 @@ func (b *BadgerDB) SetLatestAttestationIfNeeded(validator uint32, attestation pr
 	}
 
 	return b.db.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get(key)
-		// if there's no attestation yet, set this as the latest
-		if err == badger.ErrKeyNotFound {
-			return txn.Set(key, attSer)
-		}
-		if err != nil {
-			return err
+
+		for _, key := range validatorKeys {
+			item, err := txn.Get(key[:])
+			// if there's no attestation yet, set this as the latest
+			if err == badger.ErrKeyNotFound {
+				return txn.Set(key, attSer)
+			}
+			if err != nil {
+				return err
+			}
+
+			// if there is an attestation, set if the slot is greater
+			err = item.Value(func(val []byte) error {
+				currentAttProto := new(pb.Attestation)
+				err := proto.Unmarshal(val, currentAttProto)
+				if err != nil {
+					return err
+				}
+				currentAtt, err := primitives.AttestationFromProto(currentAttProto)
+				if err != nil {
+					return err
+				}
+				// if the current attestation has a slot gt/eq to the incoming one,
+				// keep the current one.
+				if currentAtt.Data.Slot >= attestation.Data.Slot {
+					return nil
+				}
+
+				return txn.Set(key, attSer)
+			})
+
+			if err != nil {
+				return err
+			}
 		}
 
-		// if there is an attestation, set if the slot is greater
-		return item.Value(func(val []byte) error {
-			currentAttProto := new(pb.Attestation)
-			err := proto.Unmarshal(val, currentAttProto)
-			if err != nil {
-				return err
-			}
-			currentAtt, err := primitives.AttestationFromProto(currentAttProto)
-			if err != nil {
-				return err
-			}
-			// if the current attestation has a slot gt/eq to the incoming one,
-			// keep the current one.
-			if currentAtt.Data.Slot >= attestation.Data.Slot {
-				return nil
-			}
-			return txn.Set(key, attSer)
-		})
+		return nil
 	})
 }
 
@@ -390,5 +414,35 @@ func (b *BadgerDB) SetGenesisTime(time uint64) error {
 	binary.BigEndian.PutUint64(genesisTimeBytes[:], time)
 	return b.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(genesisTimeKey, genesisTimeBytes[:])
+	})
+}
+
+var hostPrivateKeyKey = []byte("host_key")
+
+// GetHostKey gets the key used by the P2P interface for identity.
+func (b *BadgerDB) GetHostKey() (crypto.PrivKey, error) {
+	txn := b.db.NewTransaction(false)
+	defer txn.Discard()
+	i, err := txn.Get(hostPrivateKeyKey)
+	if err != nil {
+		return nil, err
+	}
+	privKeyBytes, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return crypto.UnmarshalPrivateKey(privKeyBytes)
+}
+
+// SetHostKey sets the key used by the P2P interface for identity.
+func (b *BadgerDB) SetHostKey(key crypto.PrivKey) error {
+	privKeyBytes, err := crypto.MarshalPrivateKey(key)
+	if err != nil {
+		return err
+	}
+
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(hostPrivateKeyKey, privKeyBytes)
 	})
 }

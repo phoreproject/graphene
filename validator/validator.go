@@ -13,10 +13,8 @@ import (
 type Validator struct {
 	keystore           Keystore
 	blockchainRPC      pb.BlockchainRPCClient
-	p2pRPC             pb.P2PRPCClient
 	id                 uint32
 	logger             *logrus.Entry
-	mempool            *mempool
 	config             *config.Config
 	forkData           *primitives.ForkData
 	attestationRequest chan attestationAssignment
@@ -24,13 +22,11 @@ type Validator struct {
 }
 
 // NewValidator gets a validator
-func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, p2pRPC pb.P2PRPCClient, id uint32, mempool *mempool, c *config.Config, f *primitives.ForkData) (*Validator, error) {
+func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, id uint32, c *config.Config, f *primitives.ForkData) (*Validator, error) {
 	v := &Validator{
 		keystore:           keystore,
 		blockchainRPC:      blockchainRPC,
-		p2pRPC:             p2pRPC,
 		id:                 id,
-		mempool:            mempool,
 		config:             c,
 		forkData:           f,
 		attestationRequest: make(chan attestationAssignment),

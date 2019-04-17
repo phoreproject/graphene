@@ -18,13 +18,12 @@ func main() {
 
 	logrus.Info("Starting validator manager")
 	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
-	p2pConnect := flag.String("p2pconnect", ":11783", "host and port for P2P rpc connection")
 	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
 	rootkey := flag.String("rootkey", "testnet", "root key to run validators")
 	flag.Parse()
 
 	validatorsStrings := strings.Split(*validators, ",")
-	validatorIndices := []uint32{}
+	var validatorIndices []uint32
 	validatorIndicesMap := map[int]struct{}{}
 	for _, s := range validatorsStrings {
 		if !strings.ContainsRune(s, '-') {
@@ -63,13 +62,7 @@ func main() {
 		panic(err)
 	}
 
-	logrus.Info("connecting to p2p RPC")
-	p2pConn, err := grpc.Dial(*p2pConnect, grpc.WithInsecure())
-	if err != nil {
-		panic(err)
-	}
-
-	vm, err := validator.NewManager(blockchainConn, p2pConn, validatorIndices, validator.NewRootKeyStore(*rootkey), &config.MainNetConfig)
+	vm, err := validator.NewManager(blockchainConn, validatorIndices, validator.NewRootKeyStore(*rootkey), &config.MainNetConfig)
 	if err != nil {
 		panic(err)
 	}

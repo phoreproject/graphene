@@ -12,10 +12,12 @@ type nodeBase struct {
 	hash Hash
 }
 
+// GetKey gets the key of the node.
 func (node nodeBase) GetKey() *Key {
 	return &node.key
 }
 
+// GetHash gets the hash of the node.
 func (node nodeBase) GetHash() *Hash {
 	return &node.hash
 }

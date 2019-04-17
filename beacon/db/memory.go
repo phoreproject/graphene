@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/phoreproject/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
@@ -15,8 +16,6 @@ import (
 type InMemoryDB struct {
 	DB            map[chainhash.Hash]primitives.Block
 	AttestationDB map[uint32]primitives.Attestation
-	headState     primitives.State
-	headBlock     chainhash.Hash
 	lock          *sync.Mutex
 }
 
@@ -60,12 +59,14 @@ func (db *InMemoryDB) GetLatestAttestation(validator uint32) (*primitives.Attest
 	return nil, errors.New("could not find attestation for validator")
 }
 
-// SetLatestAttestationIfNeeded sets the latest attestation received from a validator.
-func (db *InMemoryDB) SetLatestAttestationIfNeeded(validator uint32, att primitives.Attestation) error {
-	if a, found := db.AttestationDB[validator]; found && a.Data.Slot >= att.Data.Slot {
-		return nil
+// SetLatestAttestationsIfNeeded sets the latest attestation received from a validator.
+func (db *InMemoryDB) SetLatestAttestationsIfNeeded(validators []uint32, att primitives.Attestation) error {
+	for _, validator := range validators {
+		if a, found := db.AttestationDB[validator]; found && a.Data.Slot >= att.Data.Slot {
+			return nil
+		}
+		db.AttestationDB[validator] = att
 	}
-	db.AttestationDB[validator] = att
 	return nil
 }
 
@@ -146,6 +147,16 @@ func (db *InMemoryDB) GetGenesisTime() (uint64, error) {
 
 // SetGenesisTime sets the genesis time for the chain represented by this database.
 func (db *InMemoryDB) SetGenesisTime(uint64) error {
+	return nil
+}
+
+// GetHostKey gets the host key
+func (db *InMemoryDB) GetHostKey() (crypto.PrivKey, error) {
+	return nil, errors.New("in-memory database does not keep track of host key")
+}
+
+// SetHostKey sets the host key
+func (db *InMemoryDB) SetHostKey(crypto.PrivKey) error {
 	return nil
 }
 

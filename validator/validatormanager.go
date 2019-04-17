@@ -2,11 +2,8 @@ package validator
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
-
-	"github.com/golang/protobuf/proto"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -111,30 +108,24 @@ func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation
 
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
-	blockchainRPC           pb.BlockchainRPCClient
-	p2pRPC                  pb.P2PRPCClient
-	validatorMap            map[uint32]*Validator
-	keystore                Keystore
-	mempool                 *mempool
-	attestationAssignments  [][]primitives.ShardAndCommittee
-	epochBoundaryRoot       chainhash.Hash
-	latestCrosslinks        []primitives.Crosslink
-	justifiedRoot           chainhash.Hash
-	justifiedSlot           uint64
-	currentSlot             uint64
-	config                  *config.Config
-	synced                  bool
-	attestationSubscription *pb.Subscription
+	blockchainRPC          pb.BlockchainRPCClient
+	validatorMap           map[uint32]*Validator
+	keystore               Keystore
+	attestationAssignments [][]primitives.ShardAndCommittee
+	epochBoundaryRoot      chainhash.Hash
+	latestCrosslinks       []primitives.Crosslink
+	justifiedRoot          chainhash.Hash
+	justifiedSlot          uint64
+	currentSlot            uint64
+	config                 *config.Config
+	synced                 bool
 }
 
 // NewManager creates a new validator manager to manage some validators.
-func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
+func NewManager(blockchainConn *grpc.ClientConn, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
 	blockchainRPC := pb.NewBlockchainRPCClient(blockchainConn)
-	p2pRPC := pb.NewP2PRPCClient(p2pConn)
 
 	validatorObjs := make(map[uint32]*Validator)
-
-	m := newMempool()
 
 	forkDataProto, err := blockchainRPC.GetForkData(context.Background(), &empty.Empty{})
 	if err != nil {
@@ -147,7 +138,7 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 	}
 
 	for idx, id := range validators {
-		v, err := NewValidator(keystore, blockchainRPC, p2pRPC, validators[idx], &m, c, forkData)
+		v, err := NewValidator(keystore, blockchainRPC, validators[idx], c, forkData)
 		if err != nil {
 			return nil, err
 		}
@@ -156,19 +147,13 @@ func NewManager(blockchainConn *grpc.ClientConn, p2pConn *grpc.ClientConn, valid
 
 	vm := &Manager{
 		blockchainRPC: blockchainRPC,
-		p2pRPC:        p2pRPC,
 		validatorMap:  validatorObjs,
 		keystore:      keystore,
-		mempool:       &m,
 		config:        c,
 		currentSlot:   0,
 		synced:        false,
 	}
 	logrus.Debug("initializing attestation listener")
-	err = vm.ListenForNewAttestations()
-	if err != nil {
-		return nil, err
-	}
 
 	return vm, nil
 }
@@ -248,77 +233,18 @@ func (vm *Manager) UpdateSlotNumber() error {
 						return err
 					}
 
-					vm.mempool.attestationMempool.processNewAttestation(*att)
+					_, err = vm.blockchainRPC.SubmitAttestation(context.Background(), att.ToProto())
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
 
 		logrus.WithField("slot", b.SlotNumber).Debug("heard new slot")
 
-		if b.SlotNumber%uint64(vm.config.EpochLength) == 0 {
-			slot := b.SlotNumber - vm.config.EpochLength
-			if b.SlotNumber < vm.config.EpochLength {
-				slot = 0
-			}
-			vm.mempool.attestationMempool.removeAttestationsBeforeSlot(slot)
-		}
-
 		vm.currentSlot = b.SlotNumber + 1
 	}
-
-	return nil
-}
-
-// CancelAttestationsListener cancels the old subscription.
-func (vm *Manager) CancelAttestationsListener() error {
-	if vm.attestationSubscription != nil {
-		_, err := vm.p2pRPC.Unsubscribe(context.Background(), vm.attestationSubscription)
-		return err
-	}
-	return nil
-}
-
-// ListenForNewAttestations listens for new attestations from this epoch.
-func (vm *Manager) ListenForNewAttestations() error {
-	sub, err := vm.p2pRPC.Subscribe(context.Background(), &pb.SubscriptionRequest{
-		Topic: "attestations",
-	})
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	logrus.Debug("starting listener")
-
-	listener, err := vm.p2pRPC.ListenForMessages(context.Background(), sub)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for {
-			msg, err := listener.Recv()
-			if err != nil {
-				return
-			}
-
-			attestationProto := &pb.Attestation{}
-			err = proto.Unmarshal(msg.Data, attestationProto)
-			if err != nil {
-				continue
-			}
-
-			attestation, err := primitives.AttestationFromProto(attestationProto)
-			if err != nil {
-				continue
-			}
-
-			// do some checks to make sure the attestation is valid
-			vm.mempool.attestationMempool.processNewAttestation(*attestation)
-		}
-	}()
-
-	vm.attestationSubscription = sub
 
 	return nil
 }

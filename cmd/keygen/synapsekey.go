@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 
 	validatorsStrings := strings.Split(*validators, ",")
-	validatorIndices := []uint32{}
+	var validatorIndices []uint32
 	for _, s := range validatorsStrings {
 		if !strings.ContainsRune(s, '-') {
 			i, err := strconv.Atoi(s)
@@ -93,7 +93,7 @@ func main() {
 			ProofOfPossession:     sigSer,
 			WithdrawalShard:       0,
 			WithdrawalCredentials: chainhash.Hash{},
-			DepositSize:           config.MainNetConfig.MaxDeposit * config.UnitInCoin,
+			DepositSize:           config.MainNetConfig.MaxDeposit,
 		}
 
 		err = binary.Write(f, binary.BigEndian, iv)
@@ -102,5 +102,8 @@ func main() {
 		}
 	}
 
-	f.Close()
+	err = f.Close()
+	if err != nil {
+		panic(err)
+	}
 }

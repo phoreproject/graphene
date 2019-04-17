@@ -3,6 +3,7 @@ syntax = "proto3";
 package pb;
 
 import "google/protobuf/empty.proto";
+import "common.proto";
 
 service BlockchainRPC {
     rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
@@ -21,29 +22,13 @@ service BlockchainRPC {
 
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
 
-    rpc GetProposerSlots(GetProposerSlotsRequest) returns (GetProposerSlotsResponse);
-
     rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
 
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
-}
 
-service P2PRPC {
-    rpc GetConnectionStatus(google.protobuf.Empty) returns (ConnectionStatus);
+    rpc SubmitAttestation(Attestation) returns (google.protobuf.Empty);
 
-    rpc GetPeers(google.protobuf.Empty) returns (GetPeersResponse);
-
-    rpc Subscribe(SubscriptionRequest) returns (Subscription);
-
-    rpc ListenForMessages(Subscription) returns (stream Message);
-
-    rpc Unsubscribe(Subscription) returns (google.protobuf.Empty);
-
-    rpc Connect(Peers) returns (ConnectResponse);
-
-    rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
-
-    rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+    rpc GetMempool(google.protobuf.Empty) returns (BlockBody);
 }
 
 message GetBlockRequest {
@@ -77,61 +62,13 @@ message SlotInformation {
     uint64 ProposeAt = 3;
 }
 
-message ConnectionStatus {
-    bool Connected = 1;
-}
-
-message Peer {
-    string Address = 1;
-}
-
-message SubscriptionRequest {
-    string Topic = 1;
-}
-
-message Subscription {
-    uint64 ID = 1;
-}
-
-message GetPeersResponse {
-    repeated Peer Peers = 1;
-}
-
-message Message {
-    bytes Data = 1;
-}
-
-message MessageAndTopic {
-    bytes Data = 1;
-    string Topic = 2;
-}
-
-message Peers {
-    repeated Peer Peers = 1;
-}
-
-message ConnectResponse {
-    bool Success = 1;
-}
-
 message DisconnectResponse {
     bool Success = 1;
-}
-
-message P2PSettings {
 }
 
 enum Role {
     ATTESTER = 0;
     PROPOSER = 1;
-}
-
-message GetProposerSlotsRequest {
-    uint32 ValidatorID = 1;
-}
-
-message GetProposerSlotsResponse {
-    uint64 ProposerSlots = 2;
 }
 
 message GetCommitteesForSlotRequest {
@@ -197,171 +134,3 @@ message GetCommitteeValidatorsResponse {
 message GetCommitteeValidatorIndicesResponse {
     repeated uint32 Validators = 1;
 }
-
-message ProposalSignedData {
-    uint64 Slot = 1;
-    uint64 Shard = 2;
-    bytes BlockHash = 3;
-}
-
-message ProposerSlashing {
-    uint32 ProposerIndex = 1;
-    ProposalSignedData ProposalData1 = 2;
-    bytes ProposalSignature1 = 3;
-    ProposalSignedData ProposalData2 = 4;
-    bytes ProposalSignature2 = 5;
-}
-
-message SlashableVoteData {
-    repeated uint32 AggregateSignaturePoC0Indices = 1;
-    repeated uint32 AggregateSignaturePoC1Indices = 2;
-    AttestationData Data = 3;
-    bytes AggregateSignature = 4;
-}
-
-message CasperSlashing {
-    SlashableVoteData Vote0 = 1;
-    SlashableVoteData Vote1 = 2;
-}
-
-message AttestationData {
-    uint64 Slot = 1;
-    uint64 Shard = 2;
-    bytes BeaconBlockHash = 3;
-    bytes EpochBoundaryHash = 4;
-    bytes ShardBlockHash = 5;
-    bytes LatestCrosslinkHash = 6;
-    uint64 JustifiedSlot = 7;
-    bytes JustifiedBlockHash = 8;
-}
-
-message AttestationDataAndCustodyBit {
-    AttestationData Data = 1;
-    bool PoCBit = 2;
-}
-
-message Attestation {
-    AttestationData Data = 1;
-    bytes ParticipationBitfield = 2;
-    bytes CustodyBitfield = 3;
-    bytes AggregateSig = 4;
-}
-
-message DepositParameters {
-    bytes PublicKey = 1;
-    bytes ProofOfPossession = 2;
-    bytes WithdrawalCredentials = 3;
-}
-
-message Deposit {
-    DepositParameters Parameters = 1;
-}
-
-message Exit {
-    uint64 Slot = 1;
-    uint64 ValidatorIndex = 2;
-    bytes Signature = 3;
-}
-
-message Block {
-    BlockHeader Header = 1;
-    BlockBody Body = 2;
-}
-
-message BlockHeader {
-    uint64 SlotNumber = 1;
-    bytes ParentRoot = 2;
-    bytes StateRoot = 3;
-    bytes RandaoReveal = 4;
-    bytes Signature = 5;
-}
-
-message BlockBody {
-    repeated Attestation Attestations = 1;
-    repeated ProposerSlashing ProposerSlashings = 2;
-    repeated CasperSlashing CasperSlashings = 3;
-    repeated Deposit Deposits = 4;
-    repeated Exit Exits = 5;
-}
-
-message ForkData {
-    uint64 PreForkVersion = 1;
-    uint64 PostForkVersion = 2;
-    uint64 ForkSlot = 3;
-}
-
-message Validator {
-    bytes Pubkey = 1;
-    bytes WithdrawalCredentials = 2;
-    uint64 Status = 4;
-    uint64 LatestStatusChangeSlot = 5;
-    uint64 ExitCount = 6;
-    uint64 ProposerSlots = 7;
-    uint64 LastPoCChangeSlot = 8;
-    uint64 SecondLastPoCChangeSlot = 9;
-}
-
-message ShardCommittee {
-    uint64 Shard = 1;
-    repeated uint32 Committee = 2;
-    uint64 TotalValidatorCount = 3;
-}
-
-message ShardCommitteesForSlot {
-    repeated ShardCommittee Committees = 1;
-}
-
-message PersistentCommitteesForSlot {
-    repeated uint32 PersistentCommittee = 1;
-}
-
-message Crosslink {
-    uint64 Slot = 1;
-    bytes ShardBlockHash = 2;
-}
-
-message PendingAttestation {
-    AttestationData Data = 1;
-    bytes ParticipationBitfield = 2;
-    bytes CustodyBitfield = 3;
-    uint64 SlotIncluded = 4;
-}
-
-message State {
-    uint64 Slot = 1;
-    uint64 GenesisTime = 2;
-    ForkData ForkData = 3;
-
-    repeated Validator ValidatorRegistry = 4;
-    repeated uint64 ValidatorBalances = 5;
-    uint64 ValidatorRegistryLatestChangeSlot = 6;
-    uint64 ValidatorRegistryExitCount = 7;
-    bytes ValidatorRegistryDeltaChainTip = 8;
-
-    bytes RandaoMix = 9;
-    bytes NextSeed = 10;
-    repeated ShardCommitteesForSlot ShardCommittees = 11;
-
-    uint64 PreviousJustifiedSlot = 12;
-    uint64 JustifiedSlot = 13;
-    uint64 JustificationBitField = 14;
-    uint64 FinalizedSlot = 15;
-
-    repeated Crosslink LatestCrosslinks = 16;
-    repeated bytes LatestBlockHashes = 17;
-    repeated uint64 LatestPenalizedExitBalances = 18;
-    repeated PendingAttestation LatestAttestations = 19;
-    repeated bytes BatchedBlockRoots = 20;
-}
-
-message ValidatorRegistryDeltaBlock {
-    bytes LatestRegistryDeltaRoot = 1;
-    uint32 ValidatorIndex = 2;
-    bytes Pubkey = 3;
-    uint64 Flag = 4;
-}
-
-message AttestationRequest { // possibly sign this message to prevent DoS
-    bytes ParticipationBitfield = 1;
-}
-

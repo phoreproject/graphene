@@ -7,8 +7,6 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 )
 
-var zeroHash = [32]byte{}
-
 func getAttestation(information attestationAssignment) (*primitives.AttestationData, [32]byte, error) {
 	a := primitives.AttestationData{
 		Slot:                information.slot,

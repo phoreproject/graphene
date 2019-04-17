@@ -224,7 +224,6 @@ func TestValidator_Copy(t *testing.T) {
 		Status:                  0,
 		LatestStatusChangeSlot:  0,
 		ExitCount:               0,
-		ProposerSlots:           0,
 		LastPoCChangeSlot:       0,
 		SecondLastPoCChangeSlot: 0,
 	}
@@ -256,11 +255,6 @@ func TestValidator_Copy(t *testing.T) {
 		t.Fatal("mutating ExitCount mutates base")
 	}
 
-	copyValidator.ProposerSlots = 1
-	if baseValidator.ProposerSlots == 1 {
-		t.Fatal("mutating ProposerSlots mutates base")
-	}
-
 	copyValidator.LastPoCChangeSlot = 1
 	if baseValidator.LastPoCChangeSlot == 1 {
 		t.Fatal("mutating LastPoCChangeSlot mutates base")
@@ -279,7 +273,6 @@ func TestValidator_ToFromProto(t *testing.T) {
 		Status:                  0,
 		LatestStatusChangeSlot:  0,
 		ExitCount:               0,
-		ProposerSlots:           0,
 		LastPoCChangeSlot:       0,
 		SecondLastPoCChangeSlot: 0,
 	}

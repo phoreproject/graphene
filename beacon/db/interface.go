@@ -1,6 +1,7 @@
 package db
 
 import (
+	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 )
@@ -20,7 +21,7 @@ type Database interface {
 	GetBlockForHash(h chainhash.Hash) (*primitives.Block, error)
 	SetBlock(b primitives.Block) error
 	GetLatestAttestation(validator uint32) (*primitives.Attestation, error)
-	SetLatestAttestationIfNeeded(validator uint32, attestation primitives.Attestation) error
+	SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation) error
 	SetHeadBlock(block chainhash.Hash) error
 	GetHeadBlock() (*chainhash.Hash, error)
 	SetBlockState(blockHash chainhash.Hash, state primitives.State) error
@@ -33,6 +34,8 @@ type Database interface {
 	GetFinalizedHead() (*chainhash.Hash, error)
 	GetGenesisTime() (uint64, error)
 	SetGenesisTime(uint64) error
+	GetHostKey() (crypto.PrivKey, error)
+	SetHostKey(key crypto.PrivKey) error
 	DeleteStateForBlock(blockHash chainhash.Hash) error
 	Close() error
 }

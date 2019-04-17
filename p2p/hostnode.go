@@ -1,9 +1,9 @@
 package p2p
 
 import (
+	"bufio"
 	"context"
 	"errors"
-	"net"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -17,13 +17,18 @@ import (
 	"github.com/libp2p/go-libp2p-protocol"
 	"github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
-type messageHandler func(peer *PeerNode, message proto.Message)
-type anyMessageHandler func(peer *PeerNode, message proto.Message) bool
-type onPeerConnectedHandler func(peer *PeerNode)
+// MessageHandler is a function to handle messages.
+type MessageHandler func(peer *Peer, message proto.Message) error
+
+// Message is a single message from a single peer.
+type Message struct {
+	From    *Peer
+	Message proto.Message
+}
 
 // HostNode is the node for p2p host
 // It's the low level P2P communication layer, the App class handles high level protocols
@@ -31,30 +36,31 @@ type onPeerConnectedHandler func(peer *PeerNode)
 type HostNode struct {
 	publicKey  crypto.PubKey
 	privateKey crypto.PrivKey
-	host       host.Host
-	gossipSub  *pubsub.PubSub
-	ctx        context.Context
-	cancel     context.CancelFunc
+
+	host      host.Host
+	gossipSub *pubsub.PubSub
+	ctx       context.Context
+	cancel    context.CancelFunc
+
+	timeoutInterval time.Duration
+
 	// a messageHandler is called when a message with certain name is received
-	messageHandlerMap map[string]messageHandler
-	// anyMessagehandler is called upon any message is received
-	anyMessagehandler anyMessageHandler
-	onPeerConnected   onPeerConnectedHandler
+	messageHandlerMap map[string][]MessageHandler
+
+	// discovery handles peer discovery (mDNS, DHT, etc)
+	discovery *Discovery
+
+	// peerChan is a channel that handles incoming peers
+	peerChan chan ps.PeerInfo
 
 	// All peers that connected successfully with correct handshake
-	livePeerList []*PeerNode
-	// All live peers that are inbound
-	inboundPeerList []*PeerNode
-	// All live peers that are outbound
-	outboundPeerList []*PeerNode
-	// Connecting but not handshaked peers
-	connectingPeerList []*PeerNode
+	peerList []*Peer
 }
 
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
@@ -62,91 +68,106 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		libp2p.Identity(privateKey),
 	)
 	if err != nil {
-		logger.WithField("Function", "NewHostNode").Warn(err)
 		cancel()
 		return nil, err
 	}
 
-	for _, a := range h.Addrs() {
-		logger.WithField("address", a.String()).Debug("binding to port")
+	addrs, err := peerstore.InfoToP2pAddrs(&peerstore.PeerInfo{
+		ID: h.ID(),
+		Addrs: []multiaddr.Multiaddr{
+			listenAddress,
+		},
+	})
+
+	for _, a := range addrs {
+		logger.WithField("addr", a).Info("binding to address")
 	}
 
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-
+	// setup gossipsub protocol
 	g, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 
-	hostNode := HostNode{
+	hostNode := &HostNode{
 		publicKey:         publicKey,
 		privateKey:        privateKey,
 		host:              h,
 		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
-		messageHandlerMap: make(map[string]messageHandler),
+		messageHandlerMap: make(map[string][]MessageHandler),
+		timeoutInterval:   timeoutInterval,
 	}
 
+	discovery := NewDiscovery(ctx, hostNode, options)
+	hostNode.discovery = discovery
+
+	// setup phore protocol
 	h.SetStreamHandler(protocolID, hostNode.handleStream)
 
-	return &hostNode, nil
+	return hostNode, nil
 }
 
 // handleStream handles an incoming stream.
 func (node *HostNode) handleStream(stream inet.Stream) {
-	node.createPeerNodeFromStream(stream, false)
+	_, err := node.setupPeerNode(stream, false)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 }
 
-func (node *HostNode) handleMessage(peer *PeerNode, message proto.Message) {
-	logger.Infof("Received message: %s", proto.MessageName(message))
+func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
+	logger.WithFields(logger.Fields{
+		"peerID":  peer.ID.String(),
+		"message": proto.MessageName(message),
+	}).Debug("received message")
 
-	if node.anyMessagehandler != nil {
-		if !node.anyMessagehandler(peer, message) {
-			return
+	err := peer.handleMessage(message)
+	if err != nil {
+		return err
+	}
+
+	handlerMap, found := node.messageHandlerMap[proto.MessageName(message)]
+	if found {
+		for _, handler := range handlerMap {
+			err := handler(peer, message)
+			if err != nil {
+				return err
+			}
 		}
 	}
-
-	handler, ok := node.messageHandlerMap[proto.MessageName(message)]
-	if ok {
-		handler(peer, message)
-	}
+	return nil
 }
 
 // RegisterMessageHandler registers a message handler
-func (node *HostNode) RegisterMessageHandler(messageName string, handler messageHandler) {
-	node.messageHandlerMap[messageName] = handler
+func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) {
+	_, ok := node.messageHandlerMap[messageName]
+	if !ok {
+		node.messageHandlerMap[messageName] = make([]MessageHandler, 0)
+	}
+	node.messageHandlerMap[messageName] = append(node.messageHandlerMap[messageName], handler)
 }
 
-// SetAnyMessageHandler sets a message handler for any message
-// The handler return false to prevent the message from dispatching
-func (node *HostNode) SetAnyMessageHandler(handler anyMessageHandler) {
-	node.anyMessagehandler = handler
-}
-
-// SetOnPeerConnectedHandler sets the onPeerConnected handler
-func (node *HostNode) SetOnPeerConnectedHandler(handler onPeerConnectedHandler) {
-	node.onPeerConnected = handler
-}
-
-// Connect connects to a peer
-func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
+// Connect connects to a peer that we're not already connected to.
+func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 	if peerInfo.ID == node.GetHost().ID() {
 		return nil, errors.New("cannot connect to self")
 	}
 
 	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
+		// we're already connected to this peer
 		if p == peerInfo.ID {
-			logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("connecting to self, abort")
 			return nil, nil
 		}
 	}
 
-	logger.WithField("addrs", peerInfo.Addrs).WithField("id", peerInfo.ID).Debug("attempting to connect to a peer")
+	err := node.host.Connect(node.ctx, peerInfo)
+	if err != nil {
+		return nil, err
+	}
 
 	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
 
@@ -157,62 +178,57 @@ func (node *HostNode) Connect(peerInfo *peerstore.PeerInfo) (*PeerNode, error) {
 		return nil, err
 	}
 
-	return node.createPeerNodeFromStream(stream, true), nil
+	return node.setupPeerNode(stream, true)
 }
 
 // Run runs the main loop of the host node
-func (node *HostNode) createPeerNodeFromStream(stream inet.Stream, outbound bool) *PeerNode {
-	peerNode := newPeerNode(stream, outbound)
+func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
+	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-	node.connectingPeerList = append(node.connectingPeerList, peerNode)
+	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval)
 
-	go processMessages(stream, func(message proto.Message) {
-		node.handleMessage(peerNode, message)
-	})
+	node.peerList = append(node.peerList, peerNode)
 
-	if node.onPeerConnected != nil {
-		node.onPeerConnected(peerNode)
-	}
-
-	return peerNode
-}
-
-// GetDialOption returns the WithDialer option to dial via libp2p.
-// note: ctx should be the root context.
-func (node *HostNode) GetDialOption(ctx context.Context) grpc.DialOption {
-	return grpc.WithDialer(func(peerIdStr string, timeout time.Duration) (net.Conn, error) {
-		subCtx, subCtxCancel := context.WithTimeout(ctx, timeout)
-		defer subCtxCancel()
-
-		id, err := peer.IDB58Decode(peerIdStr)
+	if outbound {
+		peerIDBytes, err := node.host.ID().MarshalBinary()
 		if err != nil {
-			logger.WithField("Function", "GetDialOption").WithField("PeerID", peerIdStr).Warn(err)
 			return nil, err
 		}
 
-		err = node.host.Connect(subCtx, ps.PeerInfo{
-			ID: id,
+		err = peerNode.SendMessage(&pb.VersionMessage{
+			Version: ClientVersion,
+			PeerID:  peerIDBytes,
 		})
 		if err != nil {
-			logger.WithField("Function", "GetDialOption").Warn(err)
 			return nil, err
 		}
+	}
 
-		stream, err := node.host.NewStream(ctx, id, protocolID)
+	go func() {
+		err := processMessages(rw.Reader, func(message proto.Message) error {
+			return node.handleMessage(peerNode, message)
+		})
 		if err != nil {
-			logger.WithField("Function", "GetDialOption").Warn(err)
-			return nil, err
+			logger.Error(err)
+			return
 		}
+	}()
 
-		return &streamConn{Stream: stream}, nil
+	node.RegisterMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
+		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
 	})
-}
+	node.RegisterMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleVerackMessage(message.(*pb.VerackMessage))
+	})
 
-// Dial attempts to open a GRPC connection over libp2p to a peer.
-// Note that the context is used as the **stream context** not just the dial context.
-func (node *HostNode) Dial(ctx context.Context, peerID peer.ID, dialOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	dialOpsPrepended := append([]grpc.DialOption{node.GetDialOption(ctx)}, dialOpts...)
-	return grpc.DialContext(ctx, peerID.Pretty(), dialOpsPrepended...)
+	node.RegisterMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handlePingMessage(message.(*pb.PingMessage))
+	})
+	node.RegisterMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handlePongMessage(message.(*pb.PongMessage))
+	})
+
+	return peerNode, nil
 }
 
 // GetPublicKey returns the public key
@@ -236,7 +252,7 @@ func (node *HostNode) Broadcast(topic string, data []byte) error {
 }
 
 // SubscribeMessage registers a handler for a network topic.
-func (node *HostNode) SubscribeMessage(topic string, handler func(*PeerNode, []byte)) (*pubsub.Subscription, error) {
+func (node *HostNode) SubscribeMessage(topic string, handler func([]byte)) (*pubsub.Subscription, error) {
 	subscription, err := node.gossipSub.Subscribe(topic)
 	if err != nil {
 		return nil, err
@@ -249,20 +265,7 @@ func (node *HostNode) SubscribeMessage(topic string, handler func(*PeerNode, []b
 				logger.WithField("error", err).Warn("error when getting next topic message")
 				continue
 			}
-
-			id, err := peer.IDFromBytes(msg.From)
-			if err != nil {
-				logger.WithField("error", err).Warn("error when getting ID from topic message")
-				continue
-			}
-
-			p := node.FindPeerByID(id)
-			if p != nil {
-				logger.Warn("Can't find p from ID")
-				continue
-			}
-
-			handler(p, msg.Data)
+			handler(msg.Data)
 		}
 	}()
 
@@ -274,70 +277,71 @@ func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
 	subscription.Cancel()
 }
 
-// GetLivePeerList returns all peer list, including both inbound and outbound
-func (node *HostNode) GetLivePeerList() []*PeerNode {
-	return node.livePeerList
-}
-
-// GetInboundPeerList returns the inbound peer list
-func (node *HostNode) GetInboundPeerList() []*PeerNode {
-	return node.inboundPeerList
-}
-
-// GetOutboundPeerList returns the outbound peer list
-func (node *HostNode) GetOutboundPeerList() []*PeerNode {
-	return node.outboundPeerList
-}
-
-// PeerDoneHandShake is called when handshaking is finished
-func (node *HostNode) PeerDoneHandShake(peer *PeerNode) {
-	for i, p := range node.connectingPeerList {
+func (node *HostNode) removePeer(peer *Peer) {
+	for i, p := range node.peerList {
 		if p == peer {
-			node.connectingPeerList = append(node.connectingPeerList[:i], node.connectingPeerList[i+1:]...)
+			node.peerList = append(node.peerList[:i], node.peerList[i+1:]...)
 			break
 		}
 	}
-	node.livePeerList = append(node.livePeerList, peer)
-	if peer.IsOutbound() {
-		node.outboundPeerList = append(node.outboundPeerList, peer)
-	} else {
-		node.inboundPeerList = append(node.inboundPeerList, peer)
-	}
-}
-
-func (node *HostNode) removePeer(peer *PeerNode) {
-	for i, p := range node.livePeerList {
-		if p == peer {
-			node.livePeerList = append(node.livePeerList[:i], node.livePeerList[i+1:]...)
-			break
-		}
-	}
-	for i, p := range node.outboundPeerList {
-		if p == peer {
-			node.outboundPeerList = append(node.outboundPeerList[:i], node.outboundPeerList[i+1:]...)
-			break
-		}
-	}
-	for i, p := range node.inboundPeerList {
-		if p == peer {
-			node.inboundPeerList = append(node.inboundPeerList[:i], node.inboundPeerList[i+1:]...)
-			break
-		}
-	}
+	node.host.Peerstore().ClearAddrs(peer.ID)
 }
 
 // DisconnectPeer disconnects a peer
-func (node *HostNode) DisconnectPeer(peer *PeerNode) {
-	peer.disconnect()
+func (node *HostNode) DisconnectPeer(peer *Peer) error {
+	err := peer.disconnect()
+	if err != nil {
+		return err
+	}
 	node.removePeer(peer)
+	return nil
 }
 
 // FindPeerByID finds a peer node by ID, returns nil if not found
-func (node *HostNode) FindPeerByID(id peer.ID) *PeerNode {
-	for _, p := range node.livePeerList {
-		if p.GetID() == id {
-			return p
+func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
+	for _, p := range node.peerList {
+		if p.ID == id {
+			return p, true
 		}
 	}
-	return nil
+	return nil, false
+}
+
+// PeerDiscovered is run when peers are discovered.
+func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
+	_, err := node.Connect(pi)
+	if err != nil {
+		logger.WithField("err", err).Debug("could not connect to peer")
+	}
+}
+
+// Connected checks if the host node is connected.
+func (node *HostNode) Connected() bool {
+	for _, p := range node.peerList {
+		if p.Connecting == false {
+			return true
+		}
+	}
+	return false
+}
+
+// PeersConnected checks how many peers are connected.
+func (node *HostNode) PeersConnected() int {
+	peersConnected := 0
+	for _, p := range node.peerList {
+		if p.Connecting == false {
+			peersConnected++
+		}
+	}
+	return peersConnected
+}
+
+// GetPeerList returns a list of all peers.
+func (node *HostNode) GetPeerList() []*Peer {
+	return node.peerList
+}
+
+// StartDiscovery starts the host node discovering peers.
+func (node *HostNode) StartDiscovery() error {
+	return node.discovery.StartDiscovery()
 }

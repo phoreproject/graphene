@@ -1,5 +1,5 @@
 export GO111MODULE=on
-BINARY_NAME=synapsevalidator synapsebeacon synapsep2p
+BINARY_NAME=synapsevalidator synapsebeacon
 SRC=$(shell find . -name "*.go")
 
 # The stupid "go build" can't append the .exe on Windows when using -o, let's do it manually

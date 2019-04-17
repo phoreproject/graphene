@@ -50,30 +50,6 @@ func (f FakeKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
 	return s.DerivePublicKey()
 }
 
-// MemoryKeyStore is a keystore that keeps keys in memory.
-type MemoryKeyStore struct {
-	privateKeys map[uint32]*bls.SecretKey
-	publicKeys  map[uint32]*bls.PublicKey
-}
-
-// NewMemoryKeyStore creates a new memory key store.
-func NewMemoryKeyStore(keys map[uint32]*bls.SecretKey) *MemoryKeyStore {
-	return &MemoryKeyStore{privateKeys: keys, publicKeys: make(map[uint32]*bls.PublicKey)}
-}
-
-// GetKeyForValidator gets the private key for the given validator ID.
-func (m *MemoryKeyStore) GetKeyForValidator(v uint32) *bls.SecretKey {
-	return m.privateKeys[v]
-}
-
-// GetPublicKeyForValidator gets the public key for the given validator ID.
-func (m *MemoryKeyStore) GetPublicKeyForValidator(v uint32) *bls.PublicKey {
-	if m.publicKeys[v] == nil {
-		m.publicKeys[v] = m.privateKeys[v].DerivePublicKey()
-	}
-	return m.publicKeys[v]
-}
-
 // HDReader is a random reader from a hash.
 type HDReader struct {
 	state chainhash.Hash

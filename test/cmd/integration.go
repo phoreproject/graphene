@@ -4,7 +4,6 @@ import (
 	"os/exec"
 	"time"
 
-	test "github.com/phoreproject/synapse/test"
 	"github.com/sirupsen/logrus"
 )
 
@@ -15,23 +14,9 @@ type Command struct {
 }
 
 func main() {
-	tests := []struct {
+	var tests []struct {
 		Test     func() error
 		Commands []Command
-	}{
-		{
-			Test: test.TestP2PModuleCommunication,
-			Commands: []Command{
-				{
-					Command: "./synapsep2p",
-					Args:    []string{},
-				},
-				{
-					Command: "./synapsep2p",
-					Args:    []string{"-rpclisten", "127.0.0.1:11883", "-listen", "/ip4/0.0.0.0/tcp/11881"},
-				},
-			},
-		},
 	}
 
 	for _, t := range tests {

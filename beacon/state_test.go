@@ -123,7 +123,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 	if firstValidator == firstValidator2 {
 		t.Fatal("validators were not shuffled")
 	}
-	if stateAfterSlot20.FinalizedSlot != 12 || stateAfterSlot20.JustifiedSlot != 16 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedSlot != 12 {
+	if stateAfterSlot20.FinalizedSlot != 8 || stateAfterSlot20.JustifiedSlot != 12 || stateAfterSlot20.JustificationBitfield != 7 || stateAfterSlot20.PreviousJustifiedSlot != 8 {
 		t.Fatal("justification/finalization is working incorrectly")
 	}
 }

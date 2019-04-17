@@ -79,7 +79,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 
 	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], proposerSlots)
+	binary.BigEndian.PutUint64(proposerSlotsBytes[:], slotNumber)
 
 	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), proposerSlotsBytes[:], bls.DomainRandao)
 	if err != nil {
@@ -159,10 +159,10 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 			return nil, err
 		}
 
-		nextSlot := s.Slot
+		prevSlot := s.Slot - 1
 
 		justifiedSlot := s.JustifiedSlot
-		if lb.BlockHeader.SlotNumber < nextSlot-(nextSlot%b.GetConfig().EpochLength) {
+		if lb.BlockHeader.SlotNumber < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
 			justifiedSlot = s.PreviousJustifiedSlot
 		}
 

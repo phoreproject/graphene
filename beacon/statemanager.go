@@ -175,6 +175,7 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 
 	expectedJustifiedSlot := s.JustifiedSlot
 	prevSlot := s.Slot - 1
+	fmt.Println(prevSlot)
 	if att.Data.Slot < prevSlot-(prevSlot%c.EpochLength) { // 8 -> 0, 9 -> 8
 		expectedJustifiedSlot = s.PreviousJustifiedSlot
 	}

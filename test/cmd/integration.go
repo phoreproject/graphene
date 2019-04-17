@@ -14,10 +14,10 @@ type Command struct {
 }
 
 func main() {
-	tests := []struct {
+	var tests []struct {
 		Test     func() error
 		Commands []Command
-	}{}
+	}
 
 	for _, t := range tests {
 		cmds := make([]*exec.Cmd, len(t.Commands))

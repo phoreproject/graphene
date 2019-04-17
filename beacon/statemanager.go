@@ -175,7 +175,6 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 
 	expectedJustifiedSlot := s.JustifiedSlot
 	prevSlot := s.Slot - 1
-	fmt.Println(prevSlot)
 	if att.Data.Slot < prevSlot-(prevSlot%c.EpochLength) { // 8 -> 0, 9 -> 8
 		expectedJustifiedSlot = s.PreviousJustifiedSlot
 	}
@@ -419,7 +418,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	totalBalance := newState.GetTotalBalance(activeValidatorIndices, sm.config)
 
 	// currentEpochAttestations is any attestation that happened in the last epoch
-	currentEpochAttestations := []primitives.PendingAttestation{}
+	var currentEpochAttestations []primitives.PendingAttestation
 	for _, a := range newState.LatestAttestations {
 
 		// slot is greater than last epoch slot and slot is less than current slot
@@ -429,7 +428,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 	}
 
 	// previousEpochAttestations is any attestation in the last epoch
-	previousEpochAttestations := []primitives.PendingAttestation{}
+	var previousEpochAttestations []primitives.PendingAttestation
 	for _, a := range newState.LatestAttestations {
 		if newState.Slot-2*sm.config.EpochLength <= a.Data.Slot && a.Data.Slot < newState.Slot-sm.config.EpochLength {
 			previousEpochAttestations = append(previousEpochAttestations, a)
@@ -450,7 +449,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	// previousEpochJustifiedAttestations are any attestations in the previous epoch that have a
 	// justified slot equal to the previous justified slot.
-	previousEpochJustifiedAttestations := []primitives.PendingAttestation{}
+	var previousEpochJustifiedAttestations []primitives.PendingAttestation
 	for _, a := range previousEpochAttestations {
 		if a.Data.JustifiedSlot == newState.PreviousJustifiedSlot {
 			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
@@ -488,7 +487,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	// previousEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
 	// set to the epoch boundary two epochs ago
-	previousEpochBoundaryAttestations := []primitives.PendingAttestation{}
+	var previousEpochBoundaryAttestations []primitives.PendingAttestation
 	for _, a := range previousEpochJustifiedAttestations {
 		if epochBoundaryHashMinus2.IsEqual(&a.Data.EpochBoundaryHash) {
 			previousEpochBoundaryAttestations = append(previousEpochBoundaryAttestations, a)
@@ -508,7 +507,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 
 	previousEpochBoundaryAttestingBalance := newState.GetTotalBalanceMap(previousEpochBoundaryAttesterIndices, sm.config)
 
-	previousEpochHeadAttestations := []primitives.PendingAttestation{}
+	var previousEpochHeadAttestations []primitives.PendingAttestation
 	for _, a := range previousEpochAttestations {
 		blockRoot, err := sm.blockchain.GetHashBySlot(a.Data.Slot)
 		if err != nil {

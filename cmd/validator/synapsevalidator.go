@@ -23,7 +23,7 @@ func main() {
 	flag.Parse()
 
 	validatorsStrings := strings.Split(*validators, ",")
-	validatorIndices := []uint32{}
+	var validatorIndices []uint32
 	validatorIndicesMap := map[int]struct{}{}
 	for _, s := range validatorsStrings {
 		if !strings.ContainsRune(s, '-') {

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	crypto "github.com/libp2p/go-libp2p-crypto"
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/libp2p/go-libp2p-crypto"
+	"github.com/mitchellh/go-homedir"
 	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/golang/protobuf/proto"

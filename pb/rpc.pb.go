@@ -1114,7 +1114,7 @@ func (c *blockchainRPCClient) GetProposerForSlot(ctx context.Context, in *GetPro
 
 func (c *blockchainRPCClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (*GetBlockResponse, error) {
 	out := new(GetBlockResponse)
-	err := c.cc.Invoke(ctx, "/pb.BlockchainRPC/GetBlock", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/pb.BlockchainRPC/getBlock", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1331,7 +1331,7 @@ func _BlockchainRPC_GetBlock_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pb.BlockchainRPC/GetBlock",
+		FullMethod: "/pb.BlockchainRPC/getBlock",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BlockchainRPCServer).GetBlock(ctx, req.(*GetBlockRequest))
@@ -1416,7 +1416,7 @@ var _BlockchainRPC_serviceDesc = grpc.ServiceDesc{
 			Handler:    _BlockchainRPC_GetProposerForSlot_Handler,
 		},
 		{
-			MethodName: "GetBlock",
+			MethodName: "getBlock",
 			Handler:    _BlockchainRPC_GetBlock_Handler,
 		},
 		{

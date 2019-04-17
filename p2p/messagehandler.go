@@ -134,20 +134,3 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 		}
 	}
 }
-
-// MessageToBytes converts a message to byte array
-func MessageToBytes(message proto.Message) []byte {
-	var buf bytes.Buffer
-	_ = writeMessage(message, bufio.NewWriter(&buf))
-
-	messageLen := buf.Len()
-	result := make([]byte, messageLen)
-	copy(result, buf.Bytes())
-	return result
-}
-
-// BytesToMessage converts byte array to message
-func BytesToMessage(messageBuffer []byte) (proto.Message, error) {
-	message, err := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
-	return message, err
-}

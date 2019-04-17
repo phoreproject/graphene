@@ -737,7 +737,7 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 
 // ApplyCasperSlashing applies a casper slashing claim to the current state.
 func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
-	intersection := []uint32{}
+	var intersection []uint32
 	indices1 := indices(casperSlashing.Votes1)
 	indices2 := indices(casperSlashing.Votes2)
 	for _, k := range indices1 {
@@ -843,7 +843,7 @@ func (s *State) GetAttestationParticipants(data AttestationData, participationBi
 		return nil, errors.New("participation bitfield is of incorrect length")
 	}
 
-	participants := []uint32{}
+	var participants []uint32
 	for i, validatorIndex := range shardCommittee.Committee {
 		participationBit := participationBitfield[i/8] & (1 << (uint(i) % 8))
 		if participationBit != 0 {
@@ -1021,7 +1021,7 @@ func ValidatorFromProto(validator *pb.Validator) (*Validator, error) {
 
 // GetActiveValidatorIndices gets validator indices that are active.
 func GetActiveValidatorIndices(validators []Validator) []uint32 {
-	active := []uint32{}
+	var active []uint32
 	for i, v := range validators {
 		if v.IsActive() {
 			active = append(active, uint32(i))

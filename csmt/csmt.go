@@ -63,7 +63,7 @@ func (tree *CSMT) createInnerNode(left Node, right Node) Node {
 func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash) (Node, error) {
 	if node.IsLeaf() {
 		if key.IsEqual(node.GetKey()) {
-			return nil, fmt.Errorf("Key exists")
+			return nil, fmt.Errorf("key exists")
 		}
 
 		newLeaf := tree.createLeafNode(leafHash)
@@ -187,7 +187,7 @@ func (tree *CSMT) findProof(root InnerNode, key *Key) *MembershipProof {
 func (tree *CSMT) findProofHelper(sibling Node, direction int, node Node, key *Key) ([]*MembershipProofEntry, LeafNode) {
 	if node.IsLeaf() {
 		return []*MembershipProofEntry{
-			&MembershipProofEntry{
+			{
 				hash:      sibling.GetHash(),
 				direction: reverseDirection(direction),
 			},

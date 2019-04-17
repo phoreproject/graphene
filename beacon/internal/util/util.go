@@ -21,7 +21,7 @@ import (
 func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()
 
-	validators := []beacon.InitialValidatorEntry{}
+	var validators []beacon.InitialValidatorEntry
 
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))

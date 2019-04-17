@@ -43,19 +43,19 @@ type blockchainView struct {
 	lock          *sync.Mutex
 }
 
-func (bv *blockchainView) GetBlock(n uint64) (*blockNode, error) {
+func (bv *blockchainView) getBlock(n uint64) (*blockNode, error) {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	return getAncestor(bv.tip, n)
 }
 
-func (bv *blockchainView) Height() uint64 {
+func (bv *blockchainView) height() uint64 {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	return bv.tip.height
 }
 
-func (bv *blockchainView) SeenBlock(blockHash chainhash.Hash) bool {
+func (bv *blockchainView) seenBlock(blockHash chainhash.Hash) bool {
 	bv.lock.Lock()
 	_, found := bv.index[blockHash]
 	bv.lock.Unlock()
@@ -386,7 +386,7 @@ func (b *Blockchain) UpdateChainHead() error {
 	defer b.chain.lock.Unlock()
 	validators := b.chain.justifiedHead.State.ValidatorRegistry
 	activeValidatorIndices := primitives.GetActiveValidatorIndices(validators)
-	targets := []blockNodeAndValidator{}
+	var targets []blockNodeAndValidator
 	for _, i := range activeValidatorIndices {
 		bl, err := b.getLatestAttestationTarget(i)
 		if err != nil {
@@ -467,12 +467,12 @@ func (b Blockchain) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
 
 // Height returns the height of the chain.
 func (b *Blockchain) Height() uint64 {
-	return b.chain.Height()
+	return b.chain.height()
 }
 
 // LastBlock gets the last block in the chain
 func (b *Blockchain) LastBlock() (*primitives.Block, error) {
-	bl, err := b.chain.GetBlock(b.chain.Height())
+	bl, err := b.chain.getBlock(b.chain.height())
 	if err != nil {
 		return nil, err
 	}

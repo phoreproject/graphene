@@ -43,7 +43,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return errors.New("block slot too soon")
 	}
 
-	seen := b.chain.SeenBlock(block.BlockHeader.ParentRoot)
+	seen := b.chain.seenBlock(block.BlockHeader.ParentRoot)
 	if !seen {
 		return errors.New("do not have parent block")
 	}
@@ -53,7 +53,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block) error {
 		return err
 	}
 
-	seen = b.chain.SeenBlock(blockHash)
+	seen = b.chain.seenBlock(blockHash)
 	if seen {
 		// we've already processed this block
 		return nil

@@ -52,7 +52,7 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 		return err
 	}
 	if beaconRefBlock.BlockHeader.SlotNumber > header.SlotNumber {
-		return fmt.Errorf("Slot of shard block must not be larger than beacon block")
+		return fmt.Errorf("slot of shard block must not be larger than beacon block")
 	}
 
 	// TODO: get the beaconState from beaconRefBlock
@@ -63,7 +63,7 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 	}
 
 	if len(header.AttesterBitfield) != (len(committeeIndices)+7)/8 {
-		return fmt.Errorf("Attestation has incorrect bitfield length")
+		return fmt.Errorf("attestation has incorrect bitfield length")
 	}
 
 	// Spec: Let curblock_proposer_index = hash(state.randao_mix + bytes8(shard_id) + bytes8(slot)) % len(validators).
@@ -73,15 +73,15 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 	parentShardIDBuffer := make([]byte, 8)
 	binary.BigEndian.PutUint64(parentSlotNumberIDBuffer, parentBlock.SlotNumber)
 	binary.BigEndian.PutUint64(parentShardIDBuffer, parentBlock.ShardID)
-	concatedBuffer := append(beaconState.RandaoMix.CloneBytes(), append(parentShardIDBuffer, parentSlotNumberIDBuffer...)...)
-	concatedBufferHash := chainhash.HashB(concatedBuffer)
+	concatenatedBuffers := append(beaconState.RandaoMix.CloneBytes(), append(parentShardIDBuffer, parentSlotNumberIDBuffer...)...)
+	concatedBufferHash := chainhash.HashB(concatenatedBuffers)
 	var a, c, m big.Int
 	a.SetBytes(concatedBufferHash)
 	c.SetUint64(uint64(len(committeeIndices)))
 	m.Mod(&a, &c)
 	parentProposerIndex := m.Uint64()
 	if !HasBitSetAt(header.AttesterBitfield, uint32(parentProposerIndex)) {
-		return fmt.Errorf("Bit at parentProposerIndex is not set in AttesterBitfield")
+		return fmt.Errorf("bit at parentProposerIndex is not set in AttesterBitfield")
 	}
 
 	return nil

@@ -6,7 +6,7 @@ import (
 	"log"
 	"runtime"
 
-	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/pb"

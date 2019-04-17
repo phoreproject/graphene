@@ -87,6 +87,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 	return &pb.SubmitBlockResponse{BlockHash: h[:]}, err
 }
 
+// GetSlotNumber gets the current slot number.
 func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNumberResponse, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
@@ -104,6 +105,7 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block[:]}, nil
 }
 
+// GetBlockHash gets the block hash for a certain slot in the main chain.
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
 	h, err := s.chain.GetHashBySlot(in.SlotNumber)
 	if err != nil {
@@ -112,6 +114,7 @@ func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (
 	return &pb.GetBlockHashResponse{Hash: h[:]}, nil
 }
 
+// GetLastBlockHash gets the most recent block hash in the main chain.
 func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.GetBlockHashResponse, error) {
 	h := s.chain.Tip()
 	return &pb.GetBlockHashResponse{
@@ -119,6 +122,7 @@ func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.Get
 	}, nil
 }
 
+// GetState gets the state of the main chain.
 func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateResponse, error) {
 	state := s.chain.GetState()
 	stateProto := state.ToProto()
@@ -126,6 +130,7 @@ func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateRes
 	return &pb.GetStateResponse{State: stateProto}, nil
 }
 
+// GetStateRoot gets the hash of the state in the main chain.
 func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStateRootResponse, error) {
 	state := s.chain.GetState()
 
@@ -137,7 +142,7 @@ func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStat
 	return &pb.GetStateRootResponse{StateRoot: root[:]}, nil
 }
 
-// GetSlotInformation gets information about the next slot used for attestation
+// GetEpochInformation gets information about the current epoch used for attestation
 // assignment and generation.
 func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.EpochInformation, error) {
 	state := s.chain.GetState()
@@ -237,7 +242,7 @@ func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSl
 	}, nil
 }
 
-// GetBlock gets a block by hash.
+// getBlock gets a block by hash.
 func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
 	h, err := chainhash.NewHash(in.Hash)
 	if err != nil {

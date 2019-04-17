@@ -1,7 +1,7 @@
 package db
 
 import (
-	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 )

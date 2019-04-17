@@ -1,7 +1,6 @@
 package beacon_test
 
 import (
-	"fmt"
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/sirupsen/logrus"
@@ -19,6 +18,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestLastBlockOnInitialSetup(t *testing.T) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
 	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+1, &config.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +61,8 @@ func TestLastBlockOnInitialSetup(t *testing.T) {
 }
 
 func TestStateInitialization(t *testing.T) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
 	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+1, &config.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -88,6 +91,8 @@ func TestStateInitialization(t *testing.T) {
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
 	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -101,15 +106,12 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Printf("proposer %d mining block %d\n", proposerIndex, i+1)
 		_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		s = b.GetState()
-
-		fmt.Printf("justified slot: %d, finalized slot: %d, justificationBitField: %b, previousJustifiedSlot: %d\n", s.JustifiedSlot, s.FinalizedSlot, s.JustificationBitfield, s.PreviousJustifiedSlot)
 	}
 	stateAfterSlot20 := b.GetState()
 

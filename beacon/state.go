@@ -181,8 +181,6 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 
 	stateCleanupStart := time.Now()
 
-	fmt.Printf("justified: %d, finalized: %d, justifiedSlots: %b\n", newState.JustifiedSlot, newState.FinalizedSlot, newState.JustificationBitfield)
-
 	err = b.stateManager.DeleteStateBeforeFinalizedSlot(finalizedNode.slot)
 	if err != nil {
 		return err

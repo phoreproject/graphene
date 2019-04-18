@@ -5,8 +5,11 @@ import (
 	"encoding/binary"
 	"log"
 	"runtime"
+	"time"
 
-	"github.com/libp2p/go-libp2p-crypto"
+	"github.com/sirupsen/logrus"
+
+	crypto "github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/pb"
@@ -43,10 +46,14 @@ func NewBadgerDB(databaseDir string, databaseValueDir string) *BadgerDB {
 		log.Fatal(err)
 	}
 
-	return &BadgerDB{
+	b := &BadgerDB{
 		db:               db,
 		attestationCache: make(map[uint32]uint64),
 	}
+
+	go b.GarbageCollect()
+
+	return b
 }
 
 var blockPrefix = []byte("block")
@@ -445,4 +452,19 @@ func (b *BadgerDB) SetHostKey(key crypto.PrivKey) error {
 	return b.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(hostPrivateKeyKey, privKeyBytes)
 	})
+}
+
+// GarbageCollect runs badger garbage collection.
+func (b *BadgerDB) GarbageCollect() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	b.db.RunValueLogGC(0.01)
+	for range ticker.C {
+		logrus.Debug("running database garbage collection")
+	again:
+		err := b.db.RunValueLogGC(0.5)
+		if err == nil {
+			goto again
+		}
+	}
 }

@@ -1,0 +1,30 @@
+package misc
+
+import (
+	"os"
+	"testing"
+
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/sirupsen/logrus"
+)
+
+func TestMain(m *testing.M) {
+	logrus.SetLevel(logrus.DebugLevel)
+	retCode := m.Run()
+	os.Exit(retCode)
+}
+
+func TestComputeProofRootHash(t *testing.T) {
+	proofText := "L23934a6297dc21e97b29bcae674ce6ab2c3b55debc6a2ee4e225642397f9741bRc2475a9519779c88dbee4a271cfa385b8fc8aba78bf3576611229502cfa542ddL29730be3debbe966922465d420c01d8ec0e7a6390734015f02eafe2a600544b0L9547f2c631baa02fcfca1da0402c9a24eb33bc8fc884f8b121a339b6deb397dfR82348c73e26f97822f8850299b1bd490575e8760c254bba40df7b202312da36dR5623eee090c1ce433bb3b6bf9f33404a1ac08137b41a798a29aab8a962ce70b9L3c9ad4f01adbe8892b0983d6947467ae7c716024c5dd99c580f2b107fcc44260Ldb9932e212fc9f067a6d97637d7374f80a73cf0e59f9888c5a628ce0c16eda93Rd6794b7d2cd035c6fd43695210ee267d8fe5ccd3a810a45949a3beaef2b51f83La28320923cf8ffe7cc083704bcaf116390def62c23a438e7db6b53b7a5879274R1208e7f8d21725b4753c56fef059b2d5284cce6cef82823ed50068549119554cR5c919054901401c6245bef9803b9ad4c9fd4e35f298ca8e59952b2d7b1c48249R9a689187a020df1d026f6bb6b460f204258cad7dbeade42e9029b7f2fc9ae991R3101d97f5c93e99217e25bd7ce9338ee4d54982f18419ecbca1538d2b7eb1d46Lcb6e5397b511d2b34825ed54a0a12ee5546fa2dc2ce7a89b900577b1e1b2ebf8R31aa2dc8c598d6e5302015346d59e7bf9103c1d8142df53bd7db278ba9dce1cbR299011e91a0d9821036d6fc6a6f579b4e2203aa10b744fe2a841310921e9c6d0Rd17b016c8c75f2043b92358e523ab80427567cfdbd72517744412c4172939bdf"
+	proofList := textToProofList(proofText)
+	hashText := "00013a9407f671e11e2b81369d788dd8c5144f58ddcb9ee9c185274bc4f4a778"
+	hash, _ := chainhash.NewHashFromStr(hashText)
+	rootHashText := "25379816f6a026c5de9b4347fadcbea5942c77459c2bdc47ab10139ecade8f71"
+	rootHash, _ := chainhash.NewHashFromStr(rootHashText)
+
+	proofHash := computeProofRootHash(hash, proofList)
+
+	if proofHash != *rootHash {
+		t.Fatalf("Unmatched hash: root=%s computed=%s", rootHashText, proofHash.String())
+	}
+}

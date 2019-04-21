@@ -12,16 +12,21 @@ type proofEntry struct {
 }
 
 func computeCombinedHash(left *chainhash.Hash, right *chainhash.Hash) chainhash.Hash {
-	return chainhash.HashH(append(left[:], right[:]...))
+	h := chainhash.HashH(chainhash.HashB(append(left[:], right[:]...)))
+	return h
 }
 
 func computeProofRootHash(hash *chainhash.Hash, entries []proofEntry) chainhash.Hash {
 	h := *hash
 	for i := 0; i < len(entries); i++ {
 		if entries[i].left {
+			//fmt.Printf("Input L: %s R: %s\n", entries[i].hash.String(), h.String())
 			h = computeCombinedHash(entries[i].hash, &h)
+			//fmt.Printf("L compute: %s L\n", h.String())
 		} else {
+			//fmt.Printf("Input L: %s R: %s\n", h.String(), entries[i].hash.String())
 			h = computeCombinedHash(&h, entries[i].hash)
+			//fmt.Printf("R compute: %s\n", h.String())
 		}
 	}
 	return h
@@ -39,6 +44,17 @@ func textToProofList(text string) []proofEntry {
 		entry.hash, _ = chainhash.NewHashFromStr(hex)
 		proofList = append(proofList, entry)
 	}
+
+	/*
+		for i := 0; i < len(proofList); i++ {
+			e := proofList[i]
+			a := 0
+			if e.left {
+				a = 1
+			}
+			fmt.Printf("%02d %d %s\n", i, a, e.hash.String())
+		}
+	*/
 
 	return proofList
 }

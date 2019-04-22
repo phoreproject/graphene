@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/sirupsen/logrus"
 )
@@ -15,14 +16,14 @@ func TestMain(m *testing.M) {
 }
 
 func TestComputeProofRootHash(t *testing.T) {
-	proofText := "L1b74f997236425e2e42e6abcde553b2cabe64c67aebc297be921dc97624a9323Rdd42a5cf029522116657f38ba7abc88f5b38fa1c274aeedb889c7719955a47c2R90d0d50efde71fce94e8d213ce62ecb75e2555fa448958d2f6434e8b3ee4740fR5501e10d7b90e7ec87eb956d21a9fde86a6b15cf99d16750c40e0a09e5d463a8L3da0910c3d543c6984a1efc5b22988ee14d719022896940aa9e21bffe4b33cc1Rb823d0827e2b3bd28afafb4e7503e428a20be4690d519d13facd20dd922d1a44R9469b28a94af53b032500d0c930d431fb5fa8e0a64eee6f1e366581873434fd5Le5c217fd53ef06c71502e9f4691ada50a59f191d596c54c6007428161b0007dbL0f7d3ca8672bf5a5bd53b62f4a476e55663b5fd6db365352ae38b4e96bae1a6dLce462ab56f8f9df89c9ef268c2df18ab7cf2b25d77aa84ff1ebcde543ed1fa30Rb3accc225d38eac59aa0a8e8c73fef4adb84478fe57b6a6bd388786dda03ec7dRb9c09b68c9207c58945c32b36c58b899bb69dc8e7b403aa447bb049778abba57R8081ebb0d1c2ba7265852ef6b5350fa1034104eb11b7ed3d0e693c82d1f7664cR99e5eff4721d2d89170f60cd0e355dc74926324aa94559969e4d4448692917e0L78209bd8d8674a60dfc3ad33dfa9d59add69c89d2b0c3da1682f21a01f5d806dRee70f9382a46211d2312de52f75e2bfaf5d90b11a8b9c37e866713734c0fb61aR9611cb8847e702f3bdb5139aacdc540290f3e53b368b79f4511719b99db44e88R8965b2071c637ad7788689b930a083d3d4f572314fba408b45550efc12e4bfa9"
+	proofText := `[{"left":1,"hash":"1b74f997236425e2e42e6abcde553b2cabe64c67aebc297be921dc97624a9323"},{"left":1,"hash":"99e97ac121039b12ccae98b020e65be2e87fa76b152e1981edfd17ad9236ab9b"},{"left":1,"hash":"cdb63da025d64fcef8502360d4ff92ce73585f933097e4b8c9d6d4f42764e1a6"},{"left":0,"hash":"637a3ea530856c587067107829bf57fd487910b1f1688d6ef7b0eb2b6c5435f2"},{"left":0,"hash":"65567e55025fb9bd036a5421ee6ed948341c2db5c51ce8ad2dd84f4a6b254b49"},{"left":1,"hash":"b50c0cdef32a7091867c84c6aa1bdd106789d555e312c9e8fd676932ace570e8"},{"left":1,"hash":"747c93561ca44e0b3fcddeef4843e4c3e7332ae2aa273e2b17e126c37b531d3d"},{"left":1,"hash":"499bd10e09ca60d076fd335be8c3604ec46be3dcdadbcaf0f78b94ceb03f72f9"},{"left":1,"hash":"2b1a34ae4ce9f2e0ea7f7d6f9d1625c5eea5328ff5ecf738821103350aaa7804"},{"left":1,"hash":"774ec950bdf3310e4e00eea1fae3036ff40c387642d41619d27190e4e6026099"},{"left":0,"hash":"b1f90056ad3f8c857af752e9072ba20087d6c9934dd8264a61631ed0eb4fe5d1"},{"left":0,"hash":"51c1edc44b03532892322d49b2ae7c92da003d173731572d45664f408f33375e"},{"left":0,"hash":"64537e844116161caf73b89331131e22cb17874ada168070878537a577e767e7"},{"left":0,"hash":"7fc7d789a5a146c9b01c88f0871ed52740703d55468f0d3c0cb30e43a3207442"},{"left":1,"hash":"dd7ec62e2efd794cf52b357fda34a71e09e70e90882fe55d8af07cbfc02a8ecc"},{"left":0,"hash":"84741e23e7932f4eb9a87c407005748fcbe7f2639b00738510f7b6c3a1a310c5"},{"left":0,"hash":"9c1db4c5f3758f3593fe8ad40623ac07419785e6b25a2169acc779770c5b80b0"},{"left":0,"hash":"25bca9cf47142fe4cc0632dfe099f969b38cc8991d323df6644cb600e90bbf60"}]`
 	proofList := textToProofList(proofText)
 	hashText := "1b7509f59479bc2b048fc8a5d6f5b1b239b3d3d5e818d663817f250bcac7ff47"
 	hash, err := chainhash.NewHashFromStr(hashText)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rootHashText := "09a550c89002802b1d5ae473f839ced904439c03bcc19d399869d095312b3d52"
+	rootHashText := "40ed5ea75f6a5ab79ae109198703df1153b1cd272b122609d1bb3dc1b4ca376e"
 	rootHash, err := chainhash.NewHashFromStr(rootHashText)
 	if err != nil {
 		t.Fatal(err)
@@ -33,4 +34,6 @@ func TestComputeProofRootHash(t *testing.T) {
 	if proofHash != *rootHash {
 		t.Fatalf("Unmatched hash: root=%s computed=%s", rootHashText, proofHash.String())
 	}
+
+	btcec.ParsePubKey(nil, btcec.S256())
 }

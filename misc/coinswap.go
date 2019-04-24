@@ -3,9 +3,13 @@ package misc
 // This file is for swapping coins from Phore to Synapse
 
 import (
+	"encoding/hex"
 	"encoding/json"
 
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
+	btcdhash "github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
 type proofEntry struct {
@@ -57,3 +61,67 @@ func textToProofList(text string) []proofEntry {
 	}
 	return proofList
 }
+
+type unlockItem struct {
+	txid         chainhash.Hash
+	out          int
+	scriptPubKey []byte
+	amount       int64
+	redeemScript []byte
+}
+
+type jsonUnlockItem struct {
+	Txid         string `json:"txid"`
+	Out          int    `json:"out"`
+	ScriptPubKey string `json:"scriptPubKey"`
+	Amount       int64  `json:"amount"`
+	RedeemScript string `json:"redeemScript"`
+}
+
+func textToUnlockItem(text string) unlockItem {
+	jsonItem := &jsonUnlockItem{}
+	err := json.Unmarshal([]byte(text), jsonItem)
+	if err != nil {
+		panic(err)
+	}
+
+	txid, _ := chainhash.NewHashFromStr(jsonItem.Txid)
+	scriptPubKey, _ := hex.DecodeString(jsonItem.ScriptPubKey)
+	redeemScript, _ := hex.DecodeString(jsonItem.RedeemScript)
+	item := unlockItem{
+		txid:         *txid,
+		out:          jsonItem.Out,
+		scriptPubKey: scriptPubKey,
+		amount:       jsonItem.Amount,
+		redeemScript: redeemScript,
+	}
+	return item
+}
+
+func verifyUnlockItem(item *unlockItem) error {
+	flags := txscript.ScriptBip16 | txscript.ScriptVerifyDERSignatures | txscript.ScriptStrictMultiSig |  txscript.ScriptDiscourageUpgradableNops
+	
+	redeemTx := wire.NewMsgTx(wire.TxVersion)
+	h, _ := btcdhash.NewHash(item.txid.CloneBytes())
+	prevOut := wire.NewOutPoint(h, uint32(item.out))
+	txIn := wire.NewTxIn(prevOut, nil, nil)
+	redeemTx.AddTxIn(txIn)
+
+	txOut := wire.NewTxOut(item.amount, item.scriptPubKey)
+	redeemTx.AddTxOut(txOut)
+
+	redeemTx.TxIn[0].SignatureScript = item.redeemScript
+
+	vm, err := txscript.NewEngine(item.scriptPubKey, redeemTx, 0, flags, nil, nil, -1)
+	if err != nil {
+		return err
+	}
+
+	err = vm.Execute()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+

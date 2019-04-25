@@ -242,7 +242,15 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		if err != nil {
 			return nil, err
 		}
+		err = b.db.SetJustifiedState(initialState)
+		if err != nil {
+			return nil, err
+		}
 		err = b.db.SetFinalizedHead(node.hash)
+		if err != nil {
+			return nil, err
+		}
+		err = b.db.SetFinalizedState(initialState)
 		if err != nil {
 			return nil, err
 		}
@@ -253,75 +261,31 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 			return nil, err
 		}
 
-		err = b.db.SetBlockState(blockHash, initialState)
-		if err != nil {
-			return nil, err
-		}
-
 		err = b.db.SetHeadBlock(blockHash)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		logrus.Debug("loading block index...")
+		logrus.Info("loading block index...")
 		err := b.populateBlockIndexFromDatabase(blockHash)
 		if err != nil {
 			return nil, err
 		}
 
-		logrus.Debug("loading justified and finalized states...")
+		logrus.Info("loading justified and finalized states...")
 		err = b.populateJustifiedAndFinalizedNodes()
 		if err != nil {
 			return nil, err
 		}
 
-		logrus.Debug("populating state map...")
+		logrus.Info("populating state map...")
 		err = b.populateStateMap()
-		if err != nil {
-			return nil, err
-		}
-
-		logrus.Debug("loading chain tip...")
-		err = b.populateChainTip()
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return b, nil
-}
-
-func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) error {
-	queue := []chainhash.Hash{genesisHash}
-
-	for len(queue) > 0 {
-		nodeToFind := queue[0]
-		queue = queue[1:]
-
-		node, err := b.db.GetBlockNode(nodeToFind)
-		if err != nil {
-			return err
-		}
-
-		parent := b.chain.index[node.Parent]
-
-		newNode := &blockNode{
-			hash:     node.Hash,
-			height:   node.Height,
-			slot:     node.Slot,
-			parent:   parent,
-			children: make([]*blockNode, 0),
-		}
-
-		b.chain.index[node.Hash] = newNode
-
-		if parent != nil {
-			parent.children = append(parent.children, newNode)
-		}
-
-		queue = append(queue, node.Children...)
-	}
-	return nil
 }
 
 // UpdateStateIfNeeded updates the state to a certain slot.
@@ -334,12 +298,6 @@ func (b *Blockchain) UpdateStateIfNeeded(upTo uint64) error {
 	tip := b.Tip()
 
 	err = b.stateManager.SetBlockState(tip, newState)
-	if err != nil {
-		return err
-	}
-
-	// set the state of the tip
-	err = b.db.SetBlockState(tip, *newState)
 	if err != nil {
 		return err
 	}
@@ -504,7 +462,7 @@ func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
 		return err
 	}
 
-	finalizedHeadState, err := b.db.GetBlockState(*finalizedHead)
+	finalizedHeadState, err := b.db.GetFinalizedState()
 	if err != nil {
 		return err
 	}
@@ -521,7 +479,7 @@ func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
 		return err
 	}
 
-	justifiedHeadState, err := b.db.GetBlockState(*justifiedHead)
+	justifiedHeadState, err := b.db.GetJustifiedState()
 	if err != nil {
 		return err
 	}
@@ -536,46 +494,125 @@ func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
 	return nil
 }
 
-func (b *Blockchain) populateStateMap() error {
-	finalizedNode := b.chain.finalizedHead.blockNode
-
-	loadQueue := []*blockNode{finalizedNode}
-
-	for len(loadQueue) > 0 {
-		itemToLoad := loadQueue[0]
-
-		loadQueue = loadQueue[1:]
-
-		state, err := b.db.GetBlockState(itemToLoad.hash)
-		if err != nil {
-			return err
-		}
-
-		err = b.stateManager.SetBlockState(itemToLoad.hash, state)
-		if err != nil {
-			return err
-		}
-
-		loadQueue = append(loadQueue, itemToLoad.children...)
-	}
-
-	return nil
-}
-
-func (b *Blockchain) populateChainTip() error {
-	head, err := b.db.GetHeadBlock()
+func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) error {
+	finalizedHash, err := b.db.GetFinalizedHead()
 	if err != nil {
 		return err
 	}
 
-	tipNode, found := b.chain.index[*head]
-	if !found {
-		return errors.New("could not find tip block in index")
+	queue := []chainhash.Hash{genesisHash}
+
+	for len(queue) > 0 {
+		nodeToFind := queue[0]
+		queue = queue[1:]
+
+		node, err := b.db.GetBlockNode(nodeToFind)
+		if err != nil {
+			return err
+		}
+
+		parent := b.chain.index[node.Parent]
+
+		newNode := &blockNode{
+			hash:     node.Hash,
+			height:   node.Height,
+			slot:     node.Slot,
+			parent:   parent,
+			children: make([]*blockNode, 0),
+		}
+
+		b.chain.index[node.Hash] = newNode
+
+		if nodeToFind.IsEqual(finalizedHash) {
+			// don't process any children of the finalized node (that happens when we load state)
+			continue
+		}
+
+		if parent != nil {
+			parent.children = append(parent.children, newNode)
+		}
+
+		queue = append(queue, node.Children...)
+	}
+	return nil
+}
+
+func (b *Blockchain) populateStateMap() error {
+	// this won't have any children because we didn't add them while loading the block index
+	finalizedNode := b.chain.finalizedHead.blockNode
+
+	// get the children from the disk
+	finalizedNodeWithChildren, err := b.db.GetBlockNode(finalizedNode.hash)
+	if err != nil {
+		return err
 	}
 
-	b.chain.tip = tipNode
+	// queue the children to load
+	loadQueue := finalizedNodeWithChildren.Children
 
-	return b.stateManager.UpdateHead(tipNode.hash)
+	finalizedState, err := b.db.GetFinalizedState()
+	if err != nil {
+		return err
+	}
+
+	err = b.stateManager.SetBlockState(finalizedNode.hash, finalizedState)
+	if err != nil {
+		return err
+	}
+
+	b.chain.tip = finalizedNode
+
+	b.stateManager.UpdateHead(finalizedNode.hash)
+
+	for len(loadQueue) > 0 {
+		itemToLoad := loadQueue[0]
+
+		node, err := b.db.GetBlockNode(itemToLoad)
+		if err != nil {
+			return err
+		}
+
+		logrus.WithField("loading", node.Hash).WithField("slot", node.Slot).Debug("loading block from database")
+
+		loadQueue = loadQueue[1:]
+
+		bl, err := b.db.GetBlockForHash(node.Hash)
+		if err != nil {
+			return err
+		}
+
+		_, err = b.AddBlockToStateMap(bl)
+		if err != nil {
+			logrus.Debug(err)
+			return err
+		}
+
+		parent := b.chain.index[node.Parent]
+
+		newNode := &blockNode{
+			hash:     node.Hash,
+			height:   node.Height,
+			slot:     node.Slot,
+			parent:   parent,
+			children: make([]*blockNode, 0),
+		}
+
+		b.chain.index[node.Hash] = newNode
+
+		if parent != nil {
+			parent.children = append(parent.children, newNode)
+		}
+
+		// now, update the chain head
+		err = b.UpdateChainHead()
+		if err != nil {
+			return err
+		}
+
+		loadQueue = append(loadQueue, node.Children...)
+	}
+
+	return nil
 }
 
 // GetBlockHashesAfterBlock gets all block hashes from the specified block to the tip. Returns an error if the specified

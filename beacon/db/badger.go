@@ -31,10 +31,10 @@ type BadgerDB struct {
 }
 
 // NewBadgerDB initializes the badger database with the supplied directories.
-func NewBadgerDB(databaseDir string, databaseValueDir string) *BadgerDB {
-	opts := badger.DefaultOptions
+func NewBadgerDB(databaseDir string) *BadgerDB {
+	opts := badger.LSMOnlyOptions
 	opts.Dir = databaseDir
-	opts.ValueDir = databaseValueDir
+	opts.ValueDir = databaseDir
 	if runtime.GOOS == "windows" {
 		opts.Truncate = true
 		opts.ValueLogFileSize = 1024 * 1024
@@ -343,14 +343,14 @@ func (b *BadgerDB) GetBlockNode(h chainhash.Hash) (*BlockNodeDisk, error) {
 	}, nil
 }
 
-var blockStatePrefix = []byte("block_state")
+var finalizedStateKey = []byte("finalized_state")
+var justifiedStateKey = []byte("justified_state")
 
-// GetBlockState gets the block state from the database.
-func (b *BadgerDB) GetBlockState(blockHash chainhash.Hash) (*primitives.State, error) {
-	key := append(blockStatePrefix, blockHash[:]...)
+// GetFinalizedState gets the finalized state from the database.
+func (b *BadgerDB) GetFinalizedState() (*primitives.State, error) {
 	txn := b.db.NewTransaction(false)
 	defer txn.Discard()
-	i, err := txn.Get(key)
+	i, err := txn.Get(finalizedStateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -368,27 +368,47 @@ func (b *BadgerDB) GetBlockState(blockHash chainhash.Hash) (*primitives.State, e
 	return primitives.StateFromProto(s)
 }
 
-// SetBlockState sets the block state for a specific block.
-func (b *BadgerDB) SetBlockState(blockHash chainhash.Hash, state primitives.State) error {
+// SetFinalizedState sets the finalized state.
+func (b *BadgerDB) SetFinalizedState(state primitives.State) error {
 	stateBytes, err := proto.Marshal(state.ToProto())
 	if err != nil {
 		return err
 	}
-	key := append(blockStatePrefix, blockHash[:]...)
 	return b.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(key, stateBytes)
+		return txn.Set(finalizedStateKey, stateBytes)
 	})
 }
 
-// DeleteStateForBlock deletes the state for a certain block.
-func (b *BadgerDB) DeleteStateForBlock(h chainhash.Hash) error {
-	key := append(blockStatePrefix, h[:]...)
-	return b.db.Update(func(tx *badger.Txn) error {
-		err := tx.Delete(key)
-		if err != nil {
-			return err
-		}
-		return nil
+// GetJustifiedState gets the justified state from the database.
+func (b *BadgerDB) GetJustifiedState() (*primitives.State, error) {
+	txn := b.db.NewTransaction(false)
+	defer txn.Discard()
+	i, err := txn.Get(justifiedStateKey)
+	if err != nil {
+		return nil, err
+	}
+	blockStateBytesCopy, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	s := new(pb.State)
+	err = proto.Unmarshal(blockStateBytesCopy, s)
+	if err != nil {
+		return nil, err
+	}
+
+	return primitives.StateFromProto(s)
+}
+
+// SetJustifiedState sets the justified state.
+func (b *BadgerDB) SetJustifiedState(state primitives.State) error {
+	stateBytes, err := proto.Marshal(state.ToProto())
+	if err != nil {
+		return err
+	}
+	return b.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(justifiedStateKey, stateBytes)
 	})
 }
 
@@ -458,7 +478,7 @@ func (b *BadgerDB) SetHostKey(key crypto.PrivKey) error {
 func (b *BadgerDB) GarbageCollect() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	b.db.RunValueLogGC(0.01)
+	b.db.RunValueLogGC(0.5)
 	for range ticker.C {
 		logrus.Debug("running database garbage collection")
 	again:

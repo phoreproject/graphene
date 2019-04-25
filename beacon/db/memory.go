@@ -75,16 +75,6 @@ func (db *InMemoryDB) Close() error {
 	return nil
 }
 
-// SetHeadState sets the head state.
-func (db *InMemoryDB) SetHeadState(state primitives.State) error {
-	return nil
-}
-
-// GetHeadState gets the head state.
-func (db *InMemoryDB) GetHeadState() (*primitives.State, error) {
-	return nil, errors.New("no head state yet")
-}
-
 // SetHeadBlock sets the head block.
 func (db *InMemoryDB) SetHeadBlock(h chainhash.Hash) error {
 	return nil
@@ -97,11 +87,6 @@ func (db *InMemoryDB) GetHeadBlock() (*chainhash.Hash, error) {
 
 // GetBlockNode gets the block node with slot.
 func (db *InMemoryDB) GetBlockNode(chainhash.Hash) (*BlockNodeDisk, error) {
-	return nil, errors.New("not implemented")
-}
-
-// GetBlockState gets the state for a block.
-func (db *InMemoryDB) GetBlockState(chainhash.Hash) (*primitives.State, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -135,11 +120,6 @@ func (db *InMemoryDB) SetJustifiedHead(chainhash.Hash) error {
 	return nil
 }
 
-// DeleteStateForBlock deletes state for a certain block.
-func (db *InMemoryDB) DeleteStateForBlock(chainhash.Hash) error {
-	return nil
-}
-
 // GetGenesisTime gets the genesis time for the chain represented by this database.
 func (db *InMemoryDB) GetGenesisTime() (uint64, error) {
 	return 0, errors.New("in-memory database does not keep track of genesis time")
@@ -159,5 +139,21 @@ func (db *InMemoryDB) GetHostKey() (crypto.PrivKey, error) {
 func (db *InMemoryDB) SetHostKey(crypto.PrivKey) error {
 	return nil
 }
+
+// GetFinalizedState gets the finalized state from the database.
+func (db *InMemoryDB) GetFinalizedState() (*primitives.State, error) {
+	return nil, errors.New("in-memory database does not keep track of finalized state")
+}
+
+// GetJustifiedState gets the justified state from the database.
+func (db *InMemoryDB) GetJustifiedState() (*primitives.State, error) {
+	return nil, errors.New("in-memory database does not keep track of finalized state")
+}
+
+// SetFinalizedState sets the finalized state
+func (db *InMemoryDB) SetFinalizedState(primitives.State) error { return nil }
+
+// SetJustifiedState sets the justified state
+func (db *InMemoryDB) SetJustifiedState(primitives.State) error { return nil }
 
 var _ Database = &InMemoryDB{}

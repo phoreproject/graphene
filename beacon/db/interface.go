@@ -24,8 +24,10 @@ type Database interface {
 	SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation) error
 	SetHeadBlock(block chainhash.Hash) error
 	GetHeadBlock() (*chainhash.Hash, error)
-	SetBlockState(blockHash chainhash.Hash, state primitives.State) error
-	GetBlockState(blockHash chainhash.Hash) (*primitives.State, error)
+	SetFinalizedState(state primitives.State) error
+	GetFinalizedState() (*primitives.State, error)
+	SetJustifiedState(state primitives.State) error
+	GetJustifiedState() (*primitives.State, error)
 	SetBlockNode(node BlockNodeDisk) error
 	GetBlockNode(h chainhash.Hash) (*BlockNodeDisk, error)
 	SetJustifiedHead(h chainhash.Hash) error
@@ -36,7 +38,6 @@ type Database interface {
 	SetGenesisTime(uint64) error
 	GetHostKey() (crypto.PrivKey, error)
 	SetHostKey(key crypto.PrivKey) error
-	DeleteStateForBlock(blockHash chainhash.Hash) error
 	Close() error
 }
 

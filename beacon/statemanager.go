@@ -980,11 +980,6 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives
 		return nil, err
 	}
 
-	err = sm.db.SetBlockState(blockHash, *newState)
-	if err != nil {
-		return nil, err
-	}
-
 	err = sm.SetBlockState(blockHash, newState)
 	if err != nil {
 		return nil, err
@@ -1002,10 +997,6 @@ func (sm *StateManager) DeleteStateBeforeFinalizedSlot(finalizedSlot uint64) err
 		// if it happened before finalized slot, we don't need it
 		if sm.stateMap[i].Slot < finalizedSlot {
 			delete(sm.stateMap, i)
-			err := sm.db.DeleteStateForBlock(i)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil

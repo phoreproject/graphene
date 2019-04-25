@@ -3,9 +3,11 @@ package beacon_test
 import (
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/internal/util"
@@ -195,5 +197,56 @@ func BenchmarkSlotTransition(t *testing.B) {
 
 		state = newState
 	}
+}
 
+func BenchmarkBlockTransition(t *testing.B) {
+	//logrus.SetLevel(logrus.ErrorLevel)
+
+	genesisTime := time.Now()
+
+	b, keys, err := util.SetupBlockchainWithTime(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig, genesisTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := uint64(0); i < uint64(t.N); i++ {
+		s := b.GetState()
+		proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, i, b.GetConfig())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		s = b.GetState()
+	}
+
+	blocks := make([]primitives.Block, b.Height())
+
+	for i := range blocks {
+		hashAtSlot, err := b.GetHashBySlot(uint64(i + 1))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		blockAtSlot, err := b.GetBlockByHash(hashAtSlot)
+
+		blocks[i] = *blockAtSlot
+	}
+
+	b0, _, err := util.SetupBlockchainWithTime(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig, genesisTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.ResetTimer()
+
+	for i := range blocks {
+		err := b0.ProcessBlock(&blocks[i], false)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }

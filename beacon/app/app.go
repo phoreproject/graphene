@@ -4,10 +4,9 @@ import (
 	"crypto/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"time"
 
-	"github.com/libp2p/go-libp2p-crypto"
+	crypto "github.com/libp2p/go-libp2p-crypto"
 	"github.com/mitchellh/go-homedir"
 	"github.com/phoreproject/synapse/chainhash"
 
@@ -196,14 +195,7 @@ func (app *BeaconApp) loadDatabase() error {
 		dir = d
 	}
 
-	dbDir := filepath.Join(dir, "db")
-	dbValuesDir := filepath.Join(dir, "dbv")
-
-	err := os.MkdirAll(dbDir, 0777)
-	if err != nil {
-		panic(err)
-	}
-	err = os.MkdirAll(dbValuesDir, 0777)
+	err := os.MkdirAll(dir, 0777)
 	if err != nil {
 		panic(err)
 	}
@@ -211,7 +203,7 @@ func (app *BeaconApp) loadDatabase() error {
 	logger.Info("initializing client")
 
 	logger.Info("initializing database")
-	database := db.NewBadgerDB(dbDir, dbValuesDir)
+	database := db.NewBadgerDB(dir)
 
 	if app.config.Resync {
 		logger.Info("dropping all keys in database to resync")

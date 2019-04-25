@@ -32,6 +32,12 @@ func intSqrt(n uint64) uint64 {
 	return x
 }
 
+// AddBlockToStateMap calculates the state after applying block and adds it
+// to the state map.
+func (b *Blockchain) AddBlockToStateMap(block *primitives.Block) (*primitives.State, error) {
+	return b.stateManager.AddBlockToStateMap(block)
+}
+
 // ProcessBlock is called when a block is received from a peer.
 func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error {
 	genesisTime := b.stateManager.GetGenesisTime()
@@ -39,7 +45,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	validationStart := time.Now()
 
 	// VALIDATE BLOCK HERE
-	if checkTime && block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0 {
+	if checkTime && (block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0) {
 		return errors.New("block slot too soon")
 	}
 
@@ -54,7 +60,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	}
 
 	seen = b.chain.seenBlock(blockHash)
-	if seen {
+
+	_, hasState := b.stateManager.GetStateForHash(blockHash)
+
+	if seen && hasState {
 		// we've already processed this block
 		return nil
 	}
@@ -67,10 +76,15 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 
 	stateCalculationStart := time.Now()
 
-	newState, err := b.stateManager.AddBlockToStateMap(block)
-	if err != nil {
-		return err
+	initialState, found := b.stateManager.GetStateForHash(block.BlockHeader.ParentRoot)
+	if !found {
+		return errors.New("could not find state for parent block")
 	}
+
+	initialJustifiedSlot := initialState.JustifiedSlot
+	initialFinalizedSlot := initialState.FinalizedSlot
+
+	newState, err := b.AddBlockToStateMap(block)
 
 	stateCalculationTime := time.Since(stateCalculationStart)
 
@@ -152,6 +166,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 		return errors.New("could not find finalized block hash in state map")
 	}
 
+	if initialFinalizedSlot != newState.FinalizedSlot {
+		err := b.db.SetFinalizedState(*finalizedState)
+		if err != nil {
+			return err
+		}
+	}
+
 	finalizedNodeAndState := blockNodeAndState{finalizedNode, *finalizedState}
 	b.chain.finalizedHead = finalizedNodeAndState
 
@@ -171,6 +192,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	}
 	justifiedNodeAndState := blockNodeAndState{justifiedNode, *justifiedState}
 	b.chain.justifiedHead = justifiedNodeAndState
+
+	if initialJustifiedSlot != newState.JustifiedSlot {
+		err := b.db.SetJustifiedState(*justifiedState)
+		if err != nil {
+			return err
+		}
+	}
 
 	err = b.db.SetJustifiedHead(justifiedNode.hash)
 	if err != nil {

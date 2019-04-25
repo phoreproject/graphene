@@ -19,6 +19,11 @@ import (
 
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
 func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
+	return SetupBlockchainWithTime(initialValidators, c, time.Now())
+}
+
+// SetupBlockchainWithTime sets up a blockchain with a certain number of initial validators and genesis time
+func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTime time.Time) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()
 
 	var validators []beacon.InitialValidatorEntry
@@ -43,7 +48,7 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 		})
 	}
 
-	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true, uint64(time.Now().Unix()))
+	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true, uint64(genesisTime.Unix()))
 	if err != nil {
 		return nil, nil, err
 	}

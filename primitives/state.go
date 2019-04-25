@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -926,7 +927,7 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 
 // ProcessSlot processes a single slot which should happen before the block transition and the epoch transition.
 func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) error {
-	logrus.WithField("slot", s.Slot).Debug("slot transition")
+	slotTransitionTime := time.Now()
 
 	// increase the slot number
 	s.Slot++
@@ -940,6 +941,10 @@ func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) 
 		}
 		s.BatchedBlockRoots = append(s.BatchedBlockRoots, latestBlockHashesRoot)
 	}
+
+	slotTransitionDuration := time.Since(slotTransitionTime)
+
+	logrus.WithField("slot", s.Slot).WithField("duration", slotTransitionDuration).Info("slot transition")
 
 	return nil
 }

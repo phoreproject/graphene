@@ -3,7 +3,6 @@ package p2p
 import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/sirupsen/logrus"
 	"strings"
 
 	logger "github.com/sirupsen/logrus"
@@ -11,8 +10,6 @@ import (
 
 // ParseInitialConnections parses comma separated multiaddresses into peer info.
 func ParseInitialConnections(in string) ([]peerstore.PeerInfo, error) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	peerStrings := strings.Split(in, ",")
 	peers := make([]peerstore.PeerInfo, 0)
 

@@ -17,8 +17,6 @@ import (
 const clientVersion = "0.0.1"
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
 	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
 	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
@@ -28,7 +26,16 @@ func main() {
 	// P2P
 	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
 	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
+
+	// Logging
+	level := flag.String("level", "info", "log level")
 	flag.Parse()
+
+	lvl, err := logrus.ParseLevel(*level)
+	if err != nil {
+		panic(err)
+	}
+	logrus.SetLevel(lvl)
 
 	logger.WithField("version", clientVersion).Info("initializing client")
 

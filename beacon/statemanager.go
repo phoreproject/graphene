@@ -261,7 +261,7 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 
 // processBlock tries to apply a block to the state.
 func (sm *StateManager) processBlock(block *primitives.Block, newState *primitives.State) error {
-	logrus.WithField("slot", newState.Slot).WithField("block", block.BlockHeader.SlotNumber).Debug("block transition")
+	blockTransitionStart := time.Now()
 
 	proposerIndex, err := newState.GetBeaconProposerIndex(newState.Slot-1, block.BlockHeader.SlotNumber-1, sm.config)
 	if err != nil {
@@ -407,12 +407,16 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		}
 	}
 
+	blockTransitionTime := time.Since(blockTransitionStart)
+
+	logrus.WithField("slot", newState.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
+
 	// VERIFY BLOCK STATE ROOT MATCHES STATE ROOT FROM PREVIOUS BLOCK IF NEEDED
 	return nil
 }
 
 func (sm *StateManager) processEpochTransition(newState *primitives.State) error {
-	logrus.WithField("slot", newState.Slot).Debug("epoch transition")
+	epochTransitionStart := time.Now()
 
 	activeValidatorIndices := primitives.GetActiveValidatorIndices(newState.ValidatorRegistry)
 	totalBalance := newState.GetTotalBalance(activeValidatorIndices, sm.config)
@@ -900,6 +904,10 @@ done:
 
 	newState.LatestAttestations = newLatestAttestations
 
+	epochTransitionDuration := time.Since(epochTransitionStart)
+
+	logrus.WithField("slot", newState.Slot).WithField("duration", epochTransitionDuration).Info("epoch transition")
+
 	return nil
 }
 
@@ -928,11 +936,6 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 		if err != nil {
 			return nil, err
 		}
-
-		logrus.WithFields(logrus.Fields{
-			"slot":          newState.Slot,
-			"lastBlockHash": lastBlockHash,
-		}).Info("processing slot")
 	}
 
 	return &newState, nil

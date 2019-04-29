@@ -112,6 +112,7 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 
 	initialState := primitives.State{
 		Slot:        0,
+		EpochIndex:  0,
 		GenesisTime: genesisTime,
 		ForkData: primitives.ForkData{
 			PreForkVersion:  c.InitialForkVersion,
@@ -268,8 +269,6 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 		return err
 	}
 
-	fmt.Println("checking proposer index", newState.Slot-1, block.BlockHeader.SlotNumber-1, proposerIndex)
-
 	if block.BlockHeader.SlotNumber != newState.Slot {
 		return errors.New("block has incorrect slot number")
 	}
@@ -419,6 +418,8 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 
 func (sm *StateManager) processEpochTransition(newState *primitives.State) error {
 	epochTransitionStart := time.Now()
+
+	newState.EpochIndex = newState.Slot / 8
 
 	activeValidatorIndices := primitives.GetActiveValidatorIndices(newState.ValidatorRegistry)
 	totalBalance := newState.GetTotalBalance(activeValidatorIndices, sm.config)
@@ -923,7 +924,7 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 
 	for newState.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
-		if newState.Slot > 1 && sm.currentEpoch < newState.Slot/sm.config.EpochLength && newState.Slot%sm.config.EpochLength == 0 {
+		if newState.Slot > 1 && newState.Slot/8 < newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
 			logrus.Info("processing epoch transition")
 			t := time.Now()
 
@@ -972,7 +973,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives
 
 	// we do this with the lock so we don't process the epoch transition twice
 	sm.stateLock.Lock()
-	if newState.Slot%sm.config.EpochLength == 0 {
+	if newState.Slot%sm.config.EpochLength == 0 && newState.Slot/8 < newState.EpochIndex {
 		err := sm.processEpochTransition(newState)
 		if err != nil {
 			return nil, err

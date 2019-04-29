@@ -136,29 +136,30 @@ message PendingAttestation {
 
 message State {
     uint64 Slot = 1;
-    uint64 GenesisTime = 2;
-    ForkData ForkData = 3;
+    uint64 EpochIndex = 2;
+    uint64 GenesisTime = 3;
+    ForkData ForkData = 4;
 
-    repeated Validator ValidatorRegistry = 4;
-    repeated uint64 ValidatorBalances = 5;
-    uint64 ValidatorRegistryLatestChangeSlot = 6;
-    uint64 ValidatorRegistryExitCount = 7;
-    bytes ValidatorRegistryDeltaChainTip = 8;
+    repeated Validator ValidatorRegistry = 5;
+    repeated uint64 ValidatorBalances = 6;
+    uint64 ValidatorRegistryLatestChangeSlot = 7;
+    uint64 ValidatorRegistryExitCount = 8;
+    bytes ValidatorRegistryDeltaChainTip = 9;
 
-    bytes RandaoMix = 9;
-    bytes NextSeed = 10;
-    repeated ShardCommitteesForSlot ShardCommittees = 11;
+    bytes RandaoMix = 10;
+    bytes NextSeed = 11;
+    repeated ShardCommitteesForSlot ShardCommittees = 12;
 
-    uint64 PreviousJustifiedSlot = 12;
-    uint64 JustifiedSlot = 13;
-    uint64 JustificationBitField = 14;
-    uint64 FinalizedSlot = 15;
+    uint64 PreviousJustifiedSlot = 13;
+    uint64 JustifiedSlot = 14;
+    uint64 JustificationBitField = 15;
+    uint64 FinalizedSlot = 16;
 
-    repeated Crosslink LatestCrosslinks = 16;
-    repeated bytes LatestBlockHashes = 17;
-    repeated uint64 LatestPenalizedExitBalances = 18;
-    repeated PendingAttestation LatestAttestations = 19;
-    repeated bytes BatchedBlockRoots = 20;
+    repeated Crosslink LatestCrosslinks = 17;
+    repeated bytes LatestBlockHashes = 18;
+    repeated uint64 LatestPenalizedExitBalances = 19;
+    repeated PendingAttestation LatestAttestations = 20;
+    repeated bytes BatchedBlockRoots = 21;
 }
 
 message ValidatorRegistryDeltaBlock {

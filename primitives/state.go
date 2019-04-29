@@ -70,6 +70,8 @@ type State struct {
 	// Slot is the current slot.
 	Slot uint64
 
+	EpochIndex uint64
+
 	// GenesisTime is the time of the genesis block.
 	GenesisTime uint64
 
@@ -161,6 +163,7 @@ func (s *State) Copy() State {
 		Slot:                              s.Slot,
 		GenesisTime:                       s.GenesisTime,
 		ForkData:                          s.ForkData.Copy(),
+		EpochIndex:                        s.EpochIndex,
 		ValidatorRegistry:                 newValidatorRegistry,
 		ValidatorBalances:                 newValidatorBalances,
 		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
@@ -226,6 +229,7 @@ func (s *State) ToProto() *pb.State {
 	return &pb.State{
 		Slot:                              s.Slot,
 		GenesisTime:                       s.GenesisTime,
+		EpochIndex:                        s.EpochIndex,
 		ForkData:                          s.ForkData.ToProto(),
 		ValidatorRegistry:                 validatorRegistry,
 		ValidatorBalances:                 s.ValidatorBalances,
@@ -313,6 +317,7 @@ func StateFromProto(s *pb.State) (*State, error) {
 	newState := &State{
 		Slot:                              s.Slot,
 		GenesisTime:                       s.GenesisTime,
+		EpochIndex:                        s.EpochIndex,
 		ForkData:                          *fd,
 		ValidatorRegistry:                 validatorRegistry,
 		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,

@@ -26,13 +26,9 @@ func computeProofRootHash(hash *chainhash.Hash, entries []proofEntry) chainhash.
 	h := *hash
 	for i := 0; i < len(entries); i++ {
 		if entries[i].left {
-			//fmt.Printf("Input L: %s R: %s\n", entries[i].hash.String(), h.String())
 			h = computeCombinedHash(entries[i].hash, &h)
-			//fmt.Printf("L compute: %s L\n", h.String())
 		} else {
-			//fmt.Printf("Input L: %s R: %s\n", h.String(), entries[i].hash.String())
 			h = computeCombinedHash(&h, entries[i].hash)
-			//fmt.Printf("R compute: %s\n", h.String())
 		}
 	}
 	return h
@@ -57,7 +53,6 @@ func textToProofList(text string) []proofEntry {
 			left: e.Left != 0,
 			hash: h,
 		})
-		//fmt.Printf("%s\n", e.Hash)
 	}
 	return proofList
 }

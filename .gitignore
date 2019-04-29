@@ -1,5 +1,6 @@
 *.prof
 *.test
+.vscode
 
 # binaries
 synapsebeacon

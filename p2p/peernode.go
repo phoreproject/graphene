@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"github.com/libp2p/go-libp2p-peerstore"
+	"github.com/phoreproject/synapse/chainhash"
 	"time"
 
 	"github.com/phoreproject/synapse/pb"
@@ -29,6 +30,7 @@ type Peer struct {
 	LastPingTime    time.Time
 	LastMessageTime time.Time
 	Version         uint64
+	BlocksRequested map[chainhash.Hash]struct{}
 }
 
 // newPeer creates a P2pPeerNode
@@ -44,6 +46,7 @@ func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode
 		LastPingTime:    time.Unix(0, 0),
 		LastMessageTime: time.Unix(0, 0),
 		Connecting:      true,
+		BlocksRequested: make(map[chainhash.Hash]struct{}),
 	}
 }
 

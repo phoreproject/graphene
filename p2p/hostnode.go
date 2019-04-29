@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -23,6 +24,11 @@ import (
 
 // MessageHandler is a function to handle messages.
 type MessageHandler func(peer *Peer, message proto.Message) error
+
+type messageHandlerAndID struct {
+	handler MessageHandler
+	id      uint64
+}
 
 // Message is a single message from a single peer.
 type Message struct {
@@ -44,9 +50,6 @@ type HostNode struct {
 
 	timeoutInterval time.Duration
 
-	// a messageHandler is called when a message with certain name is received
-	messageHandlerMap map[string][]MessageHandler
-
 	// discovery handles peer discovery (mDNS, DHT, etc)
 	discovery *Discovery
 
@@ -54,7 +57,13 @@ type HostNode struct {
 	peerChan chan ps.PeerInfo
 
 	// All peers that connected successfully with correct handshake
-	peerList []*Peer
+	peerList     []*Peer
+	peerListLock *sync.Mutex
+
+	// a messageHandler is called when a message with certain name is received
+	messageHandlerMap map[string][]messageHandlerAndID
+	handlerLock       *sync.RWMutex
+	currentID         uint64
 }
 
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
@@ -97,8 +106,11 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		gossipSub:         g,
 		ctx:               ctx,
 		cancel:            cancel,
-		messageHandlerMap: make(map[string][]MessageHandler),
+		messageHandlerMap: make(map[string][]messageHandlerAndID),
+		handlerLock:       new(sync.RWMutex),
+		currentID:         0,
 		timeoutInterval:   timeoutInterval,
+		peerListLock:      new(sync.Mutex),
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -114,7 +126,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 func (node *HostNode) handleStream(stream inet.Stream) {
 	_, err := node.setupPeerNode(stream, false)
 	if err != nil {
-		logger.Error(err)
+		logger.Error("setup", err)
 		return
 	}
 }
@@ -130,10 +142,12 @@ func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
 		return err
 	}
 
+	node.handlerLock.RLock()
 	handlerMap, found := node.messageHandlerMap[proto.MessageName(message)]
+	node.handlerLock.RUnlock()
 	if found {
 		for _, handler := range handlerMap {
-			err := handler(peer, message)
+			err := handler.handler(peer, message)
 			if err != nil {
 				return err
 			}
@@ -142,13 +156,42 @@ func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
 	return nil
 }
 
+// Handler is a message handler representation.
+type Handler struct {
+	ID          uint64
+	MessageName string
+}
+
 // RegisterMessageHandler registers a message handler
-func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) {
+func (node *HostNode) RegisterMessageHandler(messageName string, handler MessageHandler) Handler {
+	node.handlerLock.Lock()
+	defer node.handlerLock.Unlock()
 	_, ok := node.messageHandlerMap[messageName]
 	if !ok {
-		node.messageHandlerMap[messageName] = make([]MessageHandler, 0)
+		node.messageHandlerMap[messageName] = make([]messageHandlerAndID, 0)
 	}
-	node.messageHandlerMap[messageName] = append(node.messageHandlerMap[messageName], handler)
+
+	node.messageHandlerMap[messageName] = append(node.messageHandlerMap[messageName], messageHandlerAndID{handler, node.currentID})
+
+	node.currentID++
+
+	return Handler{node.currentID - 1, messageName}
+}
+
+// RemoveMessageHandler deregisters a message handler.
+func (node *HostNode) RemoveMessageHandler(handler Handler) {
+	node.handlerLock.Lock()
+	defer node.handlerLock.Unlock()
+	oldHandlerMap := node.messageHandlerMap[handler.MessageName]
+	newHandlerMap := make([]messageHandlerAndID, 0, len(oldHandlerMap)-1)
+
+	for i := range oldHandlerMap {
+		if oldHandlerMap[i].id != handler.ID {
+			newHandlerMap = append(newHandlerMap, oldHandlerMap[i])
+		}
+	}
+
+	node.messageHandlerMap[handler.MessageName] = newHandlerMap
 }
 
 // Connect connects to a peer that we're not already connected to.
@@ -187,7 +230,11 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval)
 
+	node.peerListLock.Lock()
 	node.peerList = append(node.peerList, peerNode)
+	node.peerListLock.Unlock()
+
+	logger.WithField("peer", peerNode.ID.Pretty()).WithField("outbound", peerNode.Outbound).Info("connected to peer")
 
 	if outbound {
 		peerIDBytes, err := node.host.ID().MarshalBinary()
@@ -204,29 +251,40 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 		}
 	}
 
+	// TODO: switch handlers to be the responsibility of PeerNode so they can be cleaned up nicer
+
+	handlers := make([]Handler, 0)
+
+	handlers = append(handlers, node.RegisterMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
+		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
+	}))
+
+	handlers = append(handlers, node.RegisterMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleVerackMessage(message.(*pb.VerackMessage))
+	}))
+
+	handlers = append(handlers, node.RegisterMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handlePingMessage(message.(*pb.PingMessage))
+	}))
+
+	handlers = append(handlers, node.RegisterMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handlePongMessage(message.(*pb.PongMessage))
+	}))
+
 	go func() {
 		err := processMessages(rw.Reader, func(message proto.Message) error {
 			return node.handleMessage(peerNode, message)
 		})
 		if err != nil {
-			logger.Error(err)
-			return
+			for _, h := range handlers {
+				node.RemoveMessageHandler(h)
+			}
+
+			node.removePeer(peerNode)
+
+			logger.WithField("peer", peerNode.ID.Pretty()).Error(err)
 		}
 	}()
-
-	node.RegisterMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
-		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
-	})
-	node.RegisterMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handleVerackMessage(message.(*pb.VerackMessage))
-	})
-
-	node.RegisterMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handlePingMessage(message.(*pb.PingMessage))
-	})
-	node.RegisterMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handlePongMessage(message.(*pb.PongMessage))
-	})
 
 	return peerNode, nil
 }
@@ -252,7 +310,7 @@ func (node *HostNode) Broadcast(topic string, data []byte) error {
 }
 
 // SubscribeMessage registers a handler for a network topic.
-func (node *HostNode) SubscribeMessage(topic string, handler func([]byte)) (*pubsub.Subscription, error) {
+func (node *HostNode) SubscribeMessage(topic string, handler func([]byte, peer.ID)) (*pubsub.Subscription, error) {
 	subscription, err := node.gossipSub.Subscribe(topic)
 	if err != nil {
 		return nil, err
@@ -265,7 +323,8 @@ func (node *HostNode) SubscribeMessage(topic string, handler func([]byte)) (*pub
 				logger.WithField("error", err).Warn("error when getting next topic message")
 				continue
 			}
-			handler(msg.Data)
+
+			handler(msg.Data, msg.GetFrom())
 		}
 	}()
 
@@ -278,6 +337,8 @@ func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
 }
 
 func (node *HostNode) removePeer(peer *Peer) {
+	node.peerListLock.Lock()
+	defer node.peerListLock.Unlock()
 	for i, p := range node.peerList {
 		if p == peer {
 			node.peerList = append(node.peerList[:i], node.peerList[i+1:]...)
@@ -299,6 +360,8 @@ func (node *HostNode) DisconnectPeer(peer *Peer) error {
 
 // FindPeerByID finds a peer node by ID, returns nil if not found
 func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
+	node.peerListLock.Lock()
+	defer node.peerListLock.Unlock()
 	for _, p := range node.peerList {
 		if p.ID == id {
 			return p, true
@@ -317,6 +380,8 @@ func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
 
 // Connected checks if the host node is connected.
 func (node *HostNode) Connected() bool {
+	node.peerListLock.Lock()
+	defer node.peerListLock.Unlock()
 	for _, p := range node.peerList {
 		if p.Connecting == false {
 			return true
@@ -327,6 +392,8 @@ func (node *HostNode) Connected() bool {
 
 // PeersConnected checks how many peers are connected.
 func (node *HostNode) PeersConnected() int {
+	node.peerListLock.Lock()
+	defer node.peerListLock.Unlock()
 	peersConnected := 0
 	for _, p := range node.peerList {
 		if p.Connecting == false {
@@ -338,7 +405,22 @@ func (node *HostNode) PeersConnected() int {
 
 // GetPeerList returns a list of all peers.
 func (node *HostNode) GetPeerList() []*Peer {
+	node.peerListLock.Lock()
+	defer node.peerListLock.Unlock()
 	return node.peerList
+}
+
+// GetPeerByID gets a peer by ID or returns nil if we aren't
+// connected.
+func (node *HostNode) GetPeerByID(id peer.ID) *Peer {
+	node.peerListLock.Lock()
+	defer node.peerListLock.Unlock()
+	for _, p := range node.peerList {
+		if id == p.ID {
+			return p
+		}
+	}
+	return nil
 }
 
 // StartDiscovery starts the host node discovering peers.

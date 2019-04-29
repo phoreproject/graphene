@@ -3,6 +3,7 @@
 package rpc
 
 import (
+	"github.com/sirupsen/logrus"
 	"net"
 	"time"
 
@@ -80,6 +81,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
+	logrus.Debug("broadcasting")
 	err = s.p2p.Broadcast("block", data)
 	if err != nil {
 		return nil, err
@@ -116,9 +118,9 @@ func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (
 
 // GetLastBlockHash gets the most recent block hash in the main chain.
 func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.GetBlockHashResponse, error) {
-	h := s.chain.Tip()
+	h := s.chain.View.Chain.Tip()
 	return &pb.GetBlockHashResponse{
-		Hash: h[:],
+		Hash: h.Hash[:],
 	}, nil
 }
 

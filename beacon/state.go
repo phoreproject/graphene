@@ -49,7 +49,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 		return errors.New("block slot too soon")
 	}
 
-	seen := b.chain.seenBlock(block.BlockHeader.ParentRoot)
+	seen := b.View.Index.Has(block.BlockHeader.ParentRoot)
 	if !seen {
 		return errors.New("do not have parent block")
 	}
@@ -59,11 +59,9 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 		return err
 	}
 
-	seen = b.chain.seenBlock(blockHash)
+	seen = b.View.Index.Has(blockHash)
 
-	_, hasState := b.stateManager.GetStateForHash(blockHash)
-
-	if seen && hasState {
+	if seen {
 		// we've already processed this block
 		return nil
 	}
@@ -85,6 +83,9 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	initialFinalizedSlot := initialState.FinalizedSlot
 
 	newState, err := b.AddBlockToStateMap(block)
+	if err != nil {
+		return err
+	}
 
 	stateCalculationTime := time.Since(stateCalculationStart)
 
@@ -99,7 +100,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 
 	logger.Debug("applied with new state")
 
-	node, err := b.addBlockNodeToIndex(block, blockHash)
+	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash)
 	if err != nil {
 		return err
 	}
@@ -115,7 +116,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	}
 
 	// update the parent node in the database
-	err = b.db.SetBlockNode(blockNodeToDisk(*node.parent))
+	err = b.db.SetBlockNode(blockNodeToDisk(*node.Parent))
 	if err != nil {
 		return err
 	}
@@ -157,13 +158,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 
 	finalizedStateUpdateStart := time.Now()
 
-	finalizedNode, err := getAncestor(node, newState.FinalizedSlot)
-	if err != nil {
-		return err
+	finalizedNode := node.GetAncestorAtSlot(newState.FinalizedSlot)
+	if finalizedNode == nil {
+		return errors.New("could not find finalized node in block index")
 	}
-	finalizedState, found := b.stateManager.GetStateForHash(finalizedNode.hash)
+	finalizedState, found := b.stateManager.GetStateForHash(finalizedNode.Hash)
 	if !found {
-		return errors.New("could not find finalized block hash in state map")
+		return errors.New("could not find finalized block Hash in state map")
 	}
 
 	if initialFinalizedSlot != newState.FinalizedSlot {
@@ -174,24 +175,24 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	}
 
 	finalizedNodeAndState := blockNodeAndState{finalizedNode, *finalizedState}
-	b.chain.finalizedHead = finalizedNodeAndState
+	b.View.finalizedHead = finalizedNodeAndState
 
-	err = b.db.SetFinalizedHead(finalizedNode.hash)
+	err = b.db.SetFinalizedHead(finalizedNode.Hash)
 	if err != nil {
 		return err
 	}
 
-	justifiedNode, err := getAncestor(node, newState.JustifiedSlot)
-	if err != nil {
-		return err
+	justifiedNode := node.GetAncestorAtSlot(newState.JustifiedSlot)
+	if justifiedNode == nil {
+		return errors.New("could not find justified node in block index")
 	}
 
-	justifiedState, found := b.stateManager.GetStateForHash(justifiedNode.hash)
+	justifiedState, found := b.stateManager.GetStateForHash(justifiedNode.Hash)
 	if !found {
-		return errors.New("could not find justified block hash in state map")
+		return errors.New("could not find justified block Hash in state map")
 	}
 	justifiedNodeAndState := blockNodeAndState{justifiedNode, *justifiedState}
-	b.chain.justifiedHead = justifiedNodeAndState
+	b.View.justifiedHead = justifiedNodeAndState
 
 	if initialJustifiedSlot != newState.JustifiedSlot {
 		err := b.db.SetJustifiedState(*justifiedState)
@@ -200,7 +201,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 		}
 	}
 
-	err = b.db.SetJustifiedHead(justifiedNode.hash)
+	err = b.db.SetJustifiedHead(justifiedNode.Hash)
 	if err != nil {
 		return err
 	}
@@ -209,7 +210,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 
 	stateCleanupStart := time.Now()
 
-	err = b.stateManager.DeleteStateBeforeFinalizedSlot(finalizedNode.slot)
+	err = b.stateManager.DeleteStateBeforeFinalizedSlot(finalizedNode.Slot)
 	if err != nil {
 		return err
 	}

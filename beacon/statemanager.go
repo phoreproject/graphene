@@ -58,7 +58,7 @@ func (sm *StateManager) GetGenesisTime() uint64 {
 	return sm.genesisTime
 }
 
-// GetStateForHash gets the state for a certain block hash.
+// GetStateForHash gets the state for a certain block Hash.
 func (sm *StateManager) GetStateForHash(blockHash chainhash.Hash) (*primitives.State, bool) {
 	sm.stateMapLock.RLock()
 	state, found := sm.stateMap[blockHash]
@@ -74,7 +74,7 @@ func (sm *StateManager) UpdateHead(blockHash chainhash.Hash) error {
 	sm.stateMapLock.RLock()
 	state, found := sm.stateMap[blockHash]
 	if !found {
-		return fmt.Errorf("couldn't find block with hash %s in state map", blockHash)
+		return fmt.Errorf("couldn't find block with Hash %s in state map", blockHash)
 	}
 	sm.stateMapLock.RUnlock()
 	sm.stateLock.Lock()
@@ -189,7 +189,7 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 	}
 
 	if !att.Data.JustifiedBlockHash.IsEqual(&node) {
-		return errors.New("justified block hash did not match")
+		return errors.New("justified block Hash did not match")
 	}
 
 	if len(s.LatestCrosslinks) <= int(att.Data.Shard) {
@@ -241,12 +241,12 @@ func (sm *StateManager) applyAttestation(s *primitives.State, att primitives.Att
 	}
 
 	if !att.Data.BeaconBlockHash.IsEqual(&node) {
-		return errors.New("beacon block hash is invalid")
+		return fmt.Errorf("beacon block hash is invalid (expected: %s, got: %s)", node, att.Data.BeaconBlockHash)
 	}
 
 	// REMOVEME
 	if !att.Data.ShardBlockHash.IsEqual(&zeroHash) {
-		return errors.New("invalid block hash")
+		return errors.New("invalid block Hash")
 	}
 
 	s.LatestAttestations = append(s.LatestAttestations, primitives.PendingAttestation{
@@ -267,6 +267,8 @@ func (sm *StateManager) processBlock(block *primitives.Block, newState *primitiv
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("checking proposer index", newState.Slot-1, block.BlockHeader.SlotNumber-1, proposerIndex)
 
 	if block.BlockHeader.SlotNumber != newState.Slot {
 		return errors.New("block has incorrect slot number")
@@ -619,7 +621,7 @@ func (sm *StateManager) processEpochTransition(newState *primitives.State) error
 		return out, nil
 	}
 
-	// winningRoot finds the winning shard block hash
+	// winningRoot finds the winning shard block Hash
 	winningRoot := func(shardCommittee primitives.ShardAndCommittee) (*chainhash.Hash, error) {
 		balances := map[chainhash.Hash]struct{}{}
 		for _, a := range currentEpochAttestations {
@@ -924,6 +926,8 @@ func (sm *StateManager) ProcessSlots(upTo uint64, lastBlockHash chainhash.Hash) 
 		if newState.Slot > 1 && sm.currentEpoch < newState.Slot/sm.config.EpochLength && newState.Slot%sm.config.EpochLength == 0 {
 			logrus.Info("processing epoch transition")
 			t := time.Now()
+
+			// TODO: make epoch transitions and block transitions a function of state instead of state manager
 			err := sm.processEpochTransition(&newState)
 			if err != nil {
 				return nil, err

@@ -171,7 +171,7 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 		dataToSign := primitives.AttestationData{
 			Slot:                lb.BlockHeader.SlotNumber,
 			Shard:               assignment.Shard,
-			BeaconBlockHash:     b.Tip(),
+			BeaconBlockHash:     b.View.Chain.Tip().Hash,
 			EpochBoundaryHash:   epochBoundaryHash,
 			ShardBlockHash:      chainhash.Hash{},
 			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,

@@ -1,6 +1,7 @@
 package beacon_test
 
 import (
+	"fmt"
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -93,7 +94,7 @@ func TestStateInitialization(t *testing.T) {
 }
 
 func TestCrystallizedStateTransition(t *testing.T) {
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 
 	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+5, &config.RegtestConfig)
 	if err != nil {
@@ -108,6 +109,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		fmt.Println("using proposer index", s.Slot, i, proposerIndex)
 		_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
 		if err != nil {
 			t.Fatal(err)
@@ -139,7 +141,7 @@ func TestSlotTransition(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		newState := state.Copy()
 
-		err = newState.ProcessSlot(b.Tip(), &config.RegtestConfig)
+		err = newState.ProcessSlot(b.View.Chain.Tip().Hash, &config.RegtestConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +150,7 @@ func TestSlotTransition(t *testing.T) {
 			t.Fatal("expected slot to be incremented on slot transition")
 		}
 
-		tip := b.Tip()
+		tip := b.View.Chain.Tip().Hash
 
 		if !newState.LatestBlockHashes[(newState.Slot-1)%config.RegtestConfig.LatestBlockRootsLength].IsEqual(&tip) {
 			t.Fatalf("expected latest block hashes to be updated on slot transition (expected: %d, got: %d)",
@@ -190,7 +192,7 @@ func BenchmarkSlotTransition(t *testing.B) {
 	for i := 0; i < t.N; i++ {
 		newState := state.Copy()
 
-		err = newState.ProcessSlot(b.Tip(), &config.RegtestConfig)
+		err = newState.ProcessSlot(b.View.Chain.Tip().Hash, &config.RegtestConfig)
 		if err != nil {
 			t.Fatal(err)
 		}

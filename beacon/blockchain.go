@@ -198,26 +198,22 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	return b, nil
 }
 
-// UpdateStateIfNeeded updates the state to a certain slot.
-func (b *Blockchain) UpdateStateIfNeeded(upTo uint64) error {
+// GetUpdatedState gets the tip, but with processed slots/epochs as appropriate.
+func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 	tip := b.View.Chain.Tip()
 
-	newState, err := b.stateManager.ProcessSlots(upTo, tip.Hash)
+	tipState := b.stateManager.GetHeadState()
+
+	tipStateCopy := tipState.Copy()
+
+	view := NewChainView(tip)
+
+	err := tipStateCopy.ProcessSlots(upTo, &view, b.config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = b.stateManager.SetBlockState(tip.Hash, newState)
-	if err != nil {
-		return err
-	}
-
-	err = b.stateManager.UpdateHead(tip.Hash)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return &tipStateCopy, nil
 }
 
 // GetNextSlotTime returns the timestamp of the next slot.
@@ -522,4 +518,50 @@ func (b *Blockchain) GetCurrentSlot() uint64 {
 	timeSinceGenesis := currentTime - b.stateManager.GetGenesisTime()
 
 	return timeSinceGenesis / uint64(b.config.SlotDuration)
+}
+
+// ChainView is a view of a certain chain in the block tree so that block processing can access valid blocks.
+type ChainView struct {
+	tip *BlockNode
+
+	// effectiveTipSlot is used when the chain is being updated (excluding blocks)
+	effectiveTipSlot uint64
+}
+
+// NewChainView creates a new chain view with a certain tip
+func NewChainView(tip *BlockNode) ChainView {
+	return ChainView{tip, tip.Slot}
+}
+
+// SetTipSlot sets the effective tip slot (which may be updated due to slot transitions)
+func (c *ChainView) SetTipSlot(slot uint64) {
+	c.effectiveTipSlot = slot
+}
+
+// GetHashBySlot gets a hash of a block in a certain slot.
+func (c *ChainView) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
+	ancestor := c.tip.GetAncestorAtSlot(slot)
+	if ancestor == nil {
+		if slot > c.effectiveTipSlot {
+			return chainhash.Hash{}, errors.New("could not get block past tip")
+		}
+		ancestor = c.tip
+	}
+	return ancestor.Hash, nil
+}
+
+// Tip gets the tip of the blockchain.
+func (c *ChainView) Tip() (chainhash.Hash, error) {
+	return c.tip.Hash, nil
+}
+
+var _ primitives.BlockView = (*ChainView)(nil)
+
+// GetSubView gets a view of the blockchain at a certain tip.
+func (b *Blockchain) GetSubView(tip chainhash.Hash) (ChainView, error) {
+	tipNode := b.View.Index.GetBlockNodeByHash(tip)
+	if tipNode == nil {
+		return ChainView{}, errors.New("could not find tip node")
+	}
+	return NewChainView(tipNode), nil
 }

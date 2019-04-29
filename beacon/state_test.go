@@ -1,7 +1,6 @@
 package beacon_test
 
 import (
-	"fmt"
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -109,7 +108,6 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Println("using proposer index", s.Slot, i, proposerIndex)
 		_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
 		if err != nil {
 			t.Fatal(err)

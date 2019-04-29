@@ -1,5 +1,5 @@
 export GO111MODULE=on
-BINARY_NAME=synapsevalidator synapsebeacon
+BINARY_NAME=synapsevalidator synapsebeacon synapsekey
 SRC=$(shell find . -name "*.go")
 
 # The stupid "go build" can't append the .exe on Windows when using -o, let's do it manually
@@ -14,12 +14,12 @@ all: deps $(BINARY_NAME)
 install:
 	go install cmd/beacon/synapsebeacon.go
 	go install cmd/validator/synapsevalidator.go
-	go install cmd/validator/synapsep2p.go
+	go install cmd/keygen/synapsekey.go
 
 $(BINARY_NAME): $(SRC)
 	go build cmd/beacon/synapsebeacon.go
 	go build cmd/validator/synapsevalidator.go
-	go build cmd/p2p/synapsep2p.go
+	go build cmd/keygen/synapsekey.go
 
 test: unittest integrationtests
 

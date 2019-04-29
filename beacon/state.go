@@ -22,16 +22,6 @@ func (b *Blockchain) StoreBlock(block *primitives.Block) error {
 	return nil
 }
 
-func intSqrt(n uint64) uint64 {
-	x := n
-	y := (x + 1) / 2
-	for y < x {
-		x = y
-		y = (x + n/x) / 2
-	}
-	return x
-}
-
 // AddBlockToStateMap calculates the state after applying block and adds it
 // to the state map.
 func (b *Blockchain) AddBlockToStateMap(block *primitives.Block) (*primitives.State, error) {

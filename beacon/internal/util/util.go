@@ -131,13 +131,11 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 }
 
 // GenerateFakeAttestations generates a bunch of fake attestations.
-func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]primitives.Attestation, error) {
+func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys validator.Keystore) ([]primitives.Attestation, error) {
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err
 	}
-
-	s := b.GetState()
 
 	if s.Slot == 0 {
 		return []primitives.Attestation{}, nil
@@ -228,12 +226,12 @@ func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keys
 		return nil, err
 	}
 
-	err = b.UpdateStateIfNeeded(lb.BlockHeader.SlotNumber + 1)
+	state, err := b.GetUpdatedState(lb.BlockHeader.SlotNumber + 1)
 	if err != nil {
 		return nil, err
 	}
 
-	atts, err := GenerateFakeAttestations(b, keystore)
+	atts, err := GenerateFakeAttestations(state, b, keystore)
 	if err != nil {
 		return nil, err
 	}

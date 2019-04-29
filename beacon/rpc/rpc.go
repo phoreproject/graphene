@@ -161,12 +161,11 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 	}
 
 	if currentSlot > int64(state.Slot) {
-		err := s.chain.UpdateStateIfNeeded(uint64(currentSlot))
+		updatedState, err := s.chain.GetUpdatedState(uint64(currentSlot))
 		if err != nil {
 			return nil, err
 		}
-
-		state = s.chain.GetState()
+		state = *updatedState
 	}
 
 	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash(s.chain.GetCurrentSlot())

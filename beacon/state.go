@@ -69,6 +69,14 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 		return errors.New("could not find state for parent block")
 	}
 
+	expectedStateRoot, err := ssz.TreeHash(initialState)
+	if err != nil {
+		return err
+	}
+	if block.BlockHeader.StateRoot != expectedStateRoot {
+		return errors.New("StateRoot doesn't match")
+	}
+
 	initialJustifiedSlot := initialState.JustifiedSlot
 	initialFinalizedSlot := initialState.FinalizedSlot
 

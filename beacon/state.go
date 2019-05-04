@@ -7,6 +7,7 @@ import (
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	logger "github.com/sirupsen/logrus"
 )
@@ -70,34 +71,37 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	}
 
 	// Check state root.
-	if true {
-		h, err := b.GetHashBySlot(block.BlockHeader.SlotNumber - 1)
-		if err != nil {
-			return err
-		}
-		lastBlock, err := b.GetBlockByHash(h)
-		if err != nil {
-			return err
-		}
-		h, err = ssz.TreeHash(lastBlock)
-		if err != nil {
-			return err
-		}
-		/*
-			expectedState, found := b.stateManager.GetStateForHash(h)
-			if !found {
-				return errors.New("could not find state for block")
-			}
-
-			expectedStateRoot, err := ssz.TreeHash(expectedState)
-			if err != nil {
-				return err
-			}
-		*/
-		if block.BlockHeader.StateRoot != h {
-			return errors.New("StateRoot doesn't match")
-		}
+	h, err := b.GetHashBySlot(block.BlockHeader.SlotNumber - 1)
+	if err != nil {
+		return err
 	}
+	lastBlock, err := b.GetBlockByHash(h)
+	if err != nil {
+		return err
+	}
+	h, err = ssz.TreeHash(lastBlock)
+	if err != nil {
+		return err
+	}
+
+	expectedState, found := b.stateManager.GetStateForHash(h)
+	if !found {
+		return errors.New("could not find state for block")
+	}
+
+	expectedStateRoot, err := ssz.TreeHash(expectedState)
+	if err != nil {
+		return err
+	}
+
+	expectedStateRootHash, err := chainhash.NewHash(expectedStateRoot[:])
+	if err != nil {
+		return err
+	}
+	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
+		return errors.New("StateRoot doesn't match")
+	}
+	// Check state root end.
 
 	initialJustifiedSlot := initialState.JustifiedSlot
 	initialFinalizedSlot := initialState.FinalizedSlot

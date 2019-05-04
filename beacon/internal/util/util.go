@@ -68,7 +68,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		return nil, err
 	}
 
-	stateRoot, err := ssz.TreeHash(lastBlock)
+	stateRoot, err := ssz.TreeHash(b.GetState())
 	if err != nil {
 		return nil, err
 	}

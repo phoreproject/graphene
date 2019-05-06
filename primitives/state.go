@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"math"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -971,6 +972,7 @@ type BlockView interface {
 	GetHashBySlot(slot uint64) (chainhash.Hash, error)
 	Tip() (chainhash.Hash, error)
 	SetTipSlot(slot uint64)
+	GetStateBySlot(slot uint64) (*State, error)
 }
 
 // ShuffleValidators shuffles an array of ints given a seed.
@@ -1813,7 +1815,24 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView) e
 
 	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
-	// TODO: VERIFY BLOCK STATE ROOT MATCHES STATE ROOT FROM PREVIOUS BLOCK IF NEEDED
+	// Check state root.
+	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
+	if err != nil {
+		return err
+	}
+	expectedStateRoot, err := ssz.TreeHash(expectedState)
+	if err != nil {
+		return err
+	}
+	expectedStateRootHash, err := chainhash.NewHash(expectedStateRoot[:])
+	if err != nil {
+		return err
+	}
+	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
+		return errors.New("StateRoot doesn't match")
+	}
+	// Check state root end.
+
 	return nil
 }
 

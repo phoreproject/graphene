@@ -95,21 +95,23 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return err
 	}
 
-	// TODO: these two database operations should be in a single transaction
-
 	databaseTipUpdateStart := time.Now()
 
-	// set the block node in the database
-	err = b.db.SetBlockNode(blockNodeToDisk(*node))
-	if err != nil {
-		return err
-	}
+	b.db.TransactionalUpdate(func(transaction interface{}) error {
+		// set the block node in the database
+		err = b.db.SetBlockNode(blockNodeToDisk(*node), transaction)
+		if err != nil {
+			return err
+		}
 
-	// update the parent node in the database
-	err = b.db.SetBlockNode(blockNodeToDisk(*node.Parent))
-	if err != nil {
-		return err
-	}
+		// update the parent node in the database
+		err = b.db.SetBlockNode(blockNodeToDisk(*node.Parent), transaction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 
 	databaseTipUpdateTime := time.Since(databaseTipUpdateStart)
 

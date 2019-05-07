@@ -1656,7 +1656,7 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 }
 
 // ProcessBlock tries to apply a block to the state.
-func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView) error {
+func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
 	// profiling code
 	//f, err := os.Create(fmt.Sprintf("block-%d.prof", block.BlockHeader.SlotNumber))
 	//if err != nil {
@@ -1706,50 +1706,53 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView) e
 
 	// process block and randao verifications concurrently
 
-	verificationResult := make(chan error)
+	if verifySignature {
+		verificationResult := make(chan error)
 
-	go func() {
-		valid, err := bls.VerifySig(proposerPub, proposalRoot[:], proposerSig, bls.DomainProposal)
+		go func() {
+			valid, err := bls.VerifySig(proposerPub, proposalRoot[:], proposerSig, bls.DomainProposal)
+			if err != nil {
+				verificationResult <- err
+			}
+
+			if !valid {
+				verificationResult <- fmt.Errorf("block had invalid signature (expected signature from validator %d)", proposerIndex)
+			}
+
+			verificationResult <- nil
+		}()
+
+		var slotBytes [8]byte
+		binary.BigEndian.PutUint64(slotBytes[:], block.BlockHeader.SlotNumber)
+		slotBytesHash := chainhash.HashH(slotBytes[:])
+
+		randaoSig, err := bls.DeserializeSignature(block.BlockHeader.RandaoReveal)
 		if err != nil {
-			verificationResult <- err
+			return err
 		}
 
-		if !valid {
-			verificationResult <- fmt.Errorf("block had invalid signature (expected signature from validator %d)", proposerIndex)
+		go func() {
+			valid, err := bls.VerifySig(proposerPub, slotBytesHash[:], randaoSig, bls.DomainRandao)
+			if err != nil {
+				verificationResult <- err
+			}
+			if !valid {
+				verificationResult <- errors.New("block has invalid randao signature")
+			}
+
+			verificationResult <- nil
+		}()
+
+		result1 := <-verificationResult
+		result2 := <-verificationResult
+
+		if result1 != nil {
+			return result1
 		}
 
-		verificationResult <- nil
-	}()
-
-	var slotBytes [8]byte
-	binary.BigEndian.PutUint64(slotBytes[:], block.BlockHeader.SlotNumber)
-
-	randaoSig, err := bls.DeserializeSignature(block.BlockHeader.RandaoReveal)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		valid, err := bls.VerifySig(proposerPub, slotBytes[:], randaoSig, bls.DomainRandao)
-		if err != nil {
-			verificationResult <- err
+		if result2 != nil {
+			return result2
 		}
-		if !valid {
-			verificationResult <- errors.New("block has invalid randao signature")
-		}
-
-		verificationResult <- nil
-	}()
-
-	result1 := <-verificationResult
-	result2 := <-verificationResult
-
-	if result1 != nil {
-		return result1
-	}
-
-	if result2 != nil {
-		return result2
 	}
 
 	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)

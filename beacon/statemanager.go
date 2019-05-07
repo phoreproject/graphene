@@ -171,7 +171,7 @@ func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitive
 }
 
 // AddBlockToStateMap processes the block and adds it to the state map.
-func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives.State, error) {
+func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.State, error) {
 	lastBlockHash := block.BlockHeader.ParentRoot
 
 	view, err := sm.blockchain.GetSubView(lastBlockHash)
@@ -191,7 +191,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block) (*primitives
 		return nil, err
 	}
 
-	err = newState.ProcessBlock(block, sm.config, &view)
+	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {
 		return nil, err
 	}

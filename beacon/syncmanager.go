@@ -1,9 +1,12 @@
 package beacon
 
 import (
+	"encoding/binary"
+	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-peer"
 	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
@@ -129,22 +132,130 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 	logger.WithField("number", len(blockMessage.Blocks)).Debug("received block")
 
+	logger.Debug("checking signatures")
+
+	// this keeps track of the current epoch of blocks
+	blockChunk := make([]*primitives.Block, 0)
+
+	// this keeps track of the current epoch state so we can look up validator pubkeys
+	var epochState *primitives.State
+
+	// TODO: we should handle epoch transitions properly if there is no block just before the epoch transition
 	for i := range blockMessage.Blocks {
 		block, err := primitives.BlockFromProto(blockMessage.Blocks[i])
 		if err != nil {
 			return err
 		}
 
-		err = s.handleReceivedBlock(block, peer)
-		if err != nil {
-			return err
+		// if the epoch is uninitialized or reset (due to an epoch transition), update it
+		if epochState == nil {
+			newEpochState, found := s.blockchain.stateManager.GetStateForHash(block.BlockHeader.ParentRoot)
+			if !found {
+				return errors.New("could not find parent block")
+			}
+			epochState = newEpochState
+		}
+
+		// add to the current epoch chunk
+		blockChunk = append(blockChunk, block)
+
+		// just before an epoch transition so we know every block proposer's ID
+		if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 {
+			var pubkeys []*bls.PublicKey
+			aggregateSig := bls.NewAggregateSignature()
+			aggregateRandaoSig := bls.NewAggregateSignature()
+			blockHashes := make([][]byte, 0)
+			randaoHashes := make([][]byte, 0)
+			var sigs []*bls.Signature
+
+			// go through each of the blocks in the past epoch or so
+			for _, b := range blockChunk {
+				proposerIndex, err := epochState.GetBeaconProposerIndex(epochState.Slot, b.BlockHeader.SlotNumber-1, s.blockchain.config)
+				if err != nil {
+					return err
+				}
+
+				proposerPub, err := epochState.ValidatorRegistry[proposerIndex].GetPublicKey()
+				if err != nil {
+					return err
+				}
+
+				// keep track of all proposer pubkeys for this epoch
+				pubkeys = append(pubkeys, proposerPub)
+
+				blockSig, err := bls.DeserializeSignature(b.BlockHeader.Signature)
+				if err != nil {
+					return err
+				}
+
+				randaoSig, err := bls.DeserializeSignature(b.BlockHeader.RandaoReveal)
+				if err != nil {
+					return err
+				}
+
+				sigs = append(sigs, blockSig)
+
+				// aggregate both the block sig and the randao sig
+				aggregateSig.AggregateSig(blockSig)
+				aggregateRandaoSig.AggregateSig(randaoSig)
+
+				//
+				blockWithoutSignature := b.Copy()
+				blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
+				blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
+				if err != nil {
+					return err
+				}
+
+				proposal := primitives.ProposalSignedData{
+					Slot:      b.BlockHeader.SlotNumber,
+					Shard:     s.blockchain.config.BeaconShardNumber,
+					BlockHash: blockWithoutSignatureRoot,
+				}
+
+				proposalRoot, err := ssz.TreeHash(proposal)
+				if err != nil {
+					return err
+				}
+
+				blockHashes = append(blockHashes, proposalRoot[:])
+
+				var slotBytes [8]byte
+				binary.BigEndian.PutUint64(slotBytes[:], block.BlockHeader.SlotNumber)
+				slotBytesHash := chainhash.HashH(slotBytes[:])
+
+				randaoHashes = append(randaoHashes, slotBytesHash[:])
+			}
+
+			valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
+			if !valid {
+				return errors.New("blocks did not validate")
+			}
+
+			valid = bls.VerifyAggregate(pubkeys, randaoHashes, aggregateRandaoSig, bls.DomainRandao)
+			if !valid {
+				return errors.New("block randaos did not validate")
+			}
+
+			for _, b := range blockChunk {
+				err = s.handleReceivedBlock(b, peer, false)
+				if err != nil {
+					return err
+				}
+			}
+
+			// reset epoch state
+			epochState = nil
+
+			// delete all entries in blockChunk (but reuse slice)
+			blockChunk = blockChunk[:0]
 		}
 	}
 
 	return nil
 }
 
-func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.Peer) error {
+func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.Peer, verifySignature bool) error {
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return err
@@ -177,7 +288,7 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 		}
 
 	} else {
-		err := s.blockchain.ProcessBlock(block, true)
+		err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
 		}
@@ -208,7 +319,7 @@ func (s SyncManager) ListenForBlocks() error {
 
 		// TODO: ignore new blocks if syncing
 
-		err = s.handleReceivedBlock(block, peerFrom)
+		err = s.handleReceivedBlock(block, peerFrom, true)
 		if err != nil {
 			logger.Error(err)
 			return

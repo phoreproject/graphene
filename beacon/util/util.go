@@ -77,8 +77,9 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 
 	var slotsBytes [8]byte
 	binary.BigEndian.PutUint64(slotsBytes[:], slotNumber)
+	slotBytesHash := chainhash.HashH(slotsBytes[:])
 
-	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), slotsBytes[:], bls.DomainRandao)
+	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), slotBytesHash[:], bls.DomainRandao)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +123,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 	block1.BlockHeader.Signature = sig.Serialize()
 
-	err = b.ProcessBlock(&block1, false)
+	err = b.ProcessBlock(&block1, false, true)
 	if err != nil {
 		return nil, err
 	}

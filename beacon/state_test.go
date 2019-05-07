@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/internal/util"
+	"github.com/phoreproject/synapse/beacon/util"
 )
 
 func TestMain(m *testing.M) {

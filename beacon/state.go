@@ -24,12 +24,12 @@ func (b *Blockchain) StoreBlock(block *primitives.Block) error {
 
 // AddBlockToStateMap calculates the state after applying block and adds it
 // to the state map.
-func (b *Blockchain) AddBlockToStateMap(block *primitives.Block) (*primitives.State, error) {
-	return b.stateManager.AddBlockToStateMap(block)
+func (b *Blockchain) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.State, error) {
+	return b.stateManager.AddBlockToStateMap(block, verifySignature)
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error {
+func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verifySignature bool) error {
 	genesisTime := b.stateManager.GetGenesisTime()
 
 	validationStart := time.Now()
@@ -72,7 +72,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool) error
 	initialJustifiedSlot := initialState.JustifiedSlot
 	initialFinalizedSlot := initialState.FinalizedSlot
 
-	newState, err := b.AddBlockToStateMap(block)
+	newState, err := b.AddBlockToStateMap(block, verifySignature)
 	if err != nil {
 		return err
 	}

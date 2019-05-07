@@ -1657,13 +1657,6 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 
 // ProcessBlock tries to apply a block to the state.
 func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
-	// profiling code
-	//f, err := os.Create(fmt.Sprintf("block-%d.prof", block.BlockHeader.SlotNumber))
-	//if err != nil {
-	//	logrus.Error(err)
-	//}
-	//pprof.StartCPUProfile(f)
-	//defer pprof.StopCPUProfile()
 
 	blockTransitionStart := time.Now()
 

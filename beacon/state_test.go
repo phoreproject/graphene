@@ -244,7 +244,7 @@ func BenchmarkBlockTransition(t *testing.B) {
 	t.ResetTimer()
 
 	for i := range blocks {
-		err := b0.ProcessBlock(&blocks[i], false)
+		err := b0.ProcessBlock(&blocks[i], false, true)
 		if err != nil {
 			t.Fatal(err)
 		}

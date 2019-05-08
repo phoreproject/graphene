@@ -159,26 +159,26 @@ func NewManager(blockchainConn *grpc.ClientConn, validators []uint32, keystore K
 }
 
 // UpdateSlotNumber gets the slot number from RPC and runs validator actions as needed.
-func (vm *Manager) UpdateSlotNumber() error {
+func (vm *Manager) UpdateSlotNumber() (bool, error) {
 	b, err := vm.blockchainRPC.GetSlotNumber(context.Background(), &empty.Empty{})
 	if err != nil {
-		return err
+		return true, err
 	}
 
 	if vm.currentSlot != b.SlotNumber+1 {
 		if b.SlotNumber%vm.config.EpochLength == 0 || !vm.synced {
 			epochInformation, err := vm.blockchainRPC.GetEpochInformation(context.Background(), &empty.Empty{})
 			if err != nil {
-				return err
+				return true, err
 			}
 
 			ei, err := epochInformationFromProto(epochInformation)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			if ei.slot < 0 {
-				return nil
+				return true, nil
 			}
 
 			vm.attestationAssignments = make([][]primitives.ShardAndCommittee, len(ei.slots))
@@ -211,7 +211,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 		slotCommittees := vm.attestationAssignments[epochIndex]
 		blockHash, err := chainhash.NewHash(b.BlockHash)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		for _, committee := range slotCommittees {
@@ -230,12 +230,12 @@ func (vm *Manager) UpdateSlotNumber() error {
 						justifiedSlot:     vm.justifiedSlot,
 					})
 					if err != nil {
-						return err
+						return false, err
 					}
 
 					_, err = vm.blockchainRPC.SubmitAttestation(context.Background(), att.ToProto())
 					if err != nil {
-						return err
+						return false, err
 					}
 				}
 			}
@@ -246,7 +246,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 		vm.currentSlot = b.SlotNumber + 1
 	}
 
-	return nil
+	return true, nil
 }
 
 // ListenForBlockAndCycle listens for any new blocks or cycles and relays
@@ -257,9 +257,11 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 	for {
 		<-t.C
 
-		err := vm.UpdateSlotNumber()
+		canContinue, err := vm.UpdateSlotNumber()
 		if err != nil {
-			return err
+			if !canContinue {
+				return err
+			}
 		}
 	}
 }

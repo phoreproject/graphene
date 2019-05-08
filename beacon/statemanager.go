@@ -200,7 +200,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		logrus.Info("processing epoch transition")
 		t := time.Now()
 
-		err := newState.ProcessEpochTransition(sm.config, &view)
+		_, err := newState.ProcessEpochTransition(sm.config, &view)
 		if err != nil {
 			return nil, err
 		}

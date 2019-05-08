@@ -1060,8 +1060,54 @@ func GetNewShuffling(seed chainhash.Hash, validators []Validator, crosslinkingSt
 	return output
 }
 
+// Receipt is a way of representing slashings or rewards.
+type Receipt struct {
+	Slot   uint64
+	Type   uint8
+	Amount int64
+	Index  uint32
+}
+
+const (
+	// AttestedToPreviousEpochJustifiedSlot is a reward when a validator attests to the previous epoch justified slot.
+	AttestedToPreviousEpochJustifiedSlot = iota
+
+	// AttestedToPreviousEpochBoundaryHash is a reward when a validator attests to the previous epoch boundary hash.
+	AttestedToPreviousEpochBoundaryHash
+
+	// AttestedToCorrectBlockHashInPreviousEpoch is a reward when a validator attests to the correct beacon block hash for their slot.
+	AttestedToCorrectBlockHashInPreviousEpoch
+
+	// AttestationInclusionDistanceReward is a reward for including attestations in beacon blocks.
+	AttestationInclusionDistanceReward
+
+	// DidNotAttestToCorrectBeaconBlock is a penalty for not attesting to the correct beacon block.
+	DidNotAttestToCorrectBeaconBlock
+
+	// DidNotAttestToPreviousEpochBoundary is a penalty for not attesting to the previous epoch boundary.
+	DidNotAttestToPreviousEpochBoundary
+
+	// DidNotAttestToPreviousJustifiedSlot is a penalty for not attesting to the previous justified slot.
+	DidNotAttestToPreviousJustifiedSlot
+
+	// InactivityPenalty is a penalty for being exited with penalty.
+	InactivityPenalty
+
+	// AttestationInclusionDistancePenalty is a penalty for not including attestations in beacon blocks.
+	AttestationInclusionDistancePenalty
+
+	// ProposerReward is a reward for the proposer of a beacon block.
+	ProposerReward
+
+	// AttestationParticipationReward is a reward for choosing the correct shard block hash.
+	AttestationParticipationReward
+
+	// AttestationNonparticipationPenalty is a penalty for not choosing the correct shard block hash.
+	AttestationNonparticipationPenalty
+)
+
 // ProcessEpochTransition processes an epoch transition and modifies state.
-func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
+func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Receipt, error) {
 	epochTransitionStart := time.Now()
 
 	s.EpochIndex = s.Slot / c.EpochLength
@@ -1091,7 +1137,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	for _, a := range previousEpochAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, p := range participants {
 			previousEpochAttesterIndices[p] = struct{}{}
@@ -1118,7 +1164,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	for _, a := range previousEpochJustifiedAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, p := range participants {
 			previousEpochJustifiedAttesterIndices[p] = struct{}{}
@@ -1167,7 +1213,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	for _, a := range previousEpochBoundaryAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, p := range participants {
 			previousEpochBoundaryAttesterIndices[p] = struct{}{}
@@ -1178,7 +1224,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	for _, a := range currentEpochBoundaryAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, p := range participants {
 			currentEpochBoundaryAttesterIndices[p] = struct{}{}
@@ -1203,7 +1249,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	for _, a := range previousEpochHeadAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, p := range participants {
 			previousEpochHeadAttesterIndices[p] = struct{}{}
@@ -1317,7 +1363,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 		for _, shardCommittee := range shardCommitteeAtSlot {
 			bestRoot, err := winningRoot(shardCommittee)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if bestRoot == nil {
 				continue
@@ -1328,7 +1374,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 			shardWinnerCache[i][shardCommittee.Shard] = *bestRoot
 			attestingCommittee, err := attestingValidatorIndices(shardCommittee, *bestRoot)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			totalAttestingBalance := s.GetTotalBalance(attestingCommittee, c)
 			totalBalance := s.GetTotalBalance(shardCommittee.Committee, c)
@@ -1363,7 +1409,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	for _, a := range previousEpochAttestations {
 		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, p := range participation {
@@ -1374,30 +1420,60 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 	totalPenalized := uint64(0)
 	totalRewarded := uint64(0)
 
+	var receipts []Receipt
+
 	if epochsSinceFinality <= 4 {
 		// any validator in previous_epoch_justified_attester_indices is rewarded
 		for index := range previousEpochJustifiedAttesterIndices {
-			totalRewarded += baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
-			s.ValidatorBalances[index] += baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
+			reward := baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
+			totalRewarded += reward
+			s.ValidatorBalances[index] += reward
+			receipts = append(receipts, Receipt{
+				Slot:   s.Slot,
+				Type:   AttestedToPreviousEpochJustifiedSlot,
+				Index:  index,
+				Amount: int64(reward),
+			})
 		}
 
 		// any validator in previous_epoch_boundary_attester_indices is rewarded
 		for index := range previousEpochBoundaryAttesterIndices {
-			totalRewarded += baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
-			s.ValidatorBalances[index] += baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
+			reward := baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
+			totalRewarded += reward
+			s.ValidatorBalances[index] += reward
+			receipts = append(receipts, Receipt{
+				Slot:   s.Slot,
+				Type:   AttestedToPreviousEpochBoundaryHash,
+				Index:  index,
+				Amount: int64(reward),
+			})
 		}
 
 		// any validator in previous_epoch_head_attester_indices is rewarded
 		for index := range previousEpochHeadAttesterIndices {
-			totalRewarded += baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
-			s.ValidatorBalances[index] += baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
+			reward := baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
+			totalRewarded += reward
+			s.ValidatorBalances[index] += reward
+			receipts = append(receipts, Receipt{
+				Slot:   s.Slot,
+				Type:   AttestedToCorrectBlockHashInPreviousEpoch,
+				Index:  index,
+				Amount: int64(reward),
+			})
 		}
 
 		// any validator in previous_epoch_head_attester_indices is rewarded
 		for index := range previousEpochAttesterIndices {
 			inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
-			totalRewarded += baseReward(index) * c.MinAttestationInclusionDelay / inclusionDistance
-			s.ValidatorBalances[index] += baseReward(index) * c.MinAttestationInclusionDelay / inclusionDistance
+			reward := baseReward(index) * c.MinAttestationInclusionDelay / inclusionDistance
+			totalRewarded += reward
+			s.ValidatorBalances[index] += reward
+			receipts = append(receipts, Receipt{
+				Slot:   s.Slot,
+				Type:   AttestationInclusionDistanceReward,
+				Index:  index,
+				Amount: int64(reward),
+			})
 		}
 
 		// any validator not in previous_epoch_head_attester_indices is slashed
@@ -1411,16 +1487,37 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 					continue
 				}
 				if _, found := previousEpochHeadAttesterIndices[index]; !found {
-					totalPenalized += baseReward(index)
-					s.ValidatorBalances[index] -= baseReward(index)
+					penalty := baseReward(index)
+					totalPenalized += penalty
+					s.ValidatorBalances[index] -= penalty
+					receipts = append(receipts, Receipt{
+						Slot:   s.Slot,
+						Type:   DidNotAttestToCorrectBeaconBlock,
+						Index:  index,
+						Amount: -int64(penalty),
+					})
 				}
 				if _, found := previousEpochBoundaryAttesterIndices[index]; !found {
+					penalty := baseReward(index)
 					totalPenalized += baseReward(index)
 					s.ValidatorBalances[index] -= baseReward(index)
+					receipts = append(receipts, Receipt{
+						Slot:   s.Slot,
+						Type:   DidNotAttestToPreviousEpochBoundary,
+						Index:  index,
+						Amount: -int64(penalty),
+					})
 				}
 				if _, found := previousEpochJustifiedAttesterIndices[index]; !found {
-					totalPenalized += baseReward(index)
-					s.ValidatorBalances[index] -= baseReward(index)
+					penalty := baseReward(index)
+					totalPenalized += penalty
+					s.ValidatorBalances[index] -= penalty
+					receipts = append(receipts, Receipt{
+						Slot:   s.Slot,
+						Type:   DidNotAttestToPreviousJustifiedSlot,
+						Index:  index,
+						Amount: -int64(penalty),
+					})
 				}
 			}
 		}
@@ -1430,36 +1527,79 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 			index := uint32(idx)
 			if validator.Status == Active {
 				if _, found := previousEpochJustifiedAttesterIndices[index]; !found {
-					totalPenalized += inactivityPenalty(index, epochsSinceFinality)
-					s.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality)
+					penalty := inactivityPenalty(index, epochsSinceFinality)
+					totalPenalized += penalty
+					s.ValidatorBalances[index] -= penalty
+					receipts = append(receipts, Receipt{
+						Slot:   s.Slot,
+						Type:   DidNotAttestToPreviousJustifiedSlot,
+						Index:  index,
+						Amount: -int64(penalty),
+					})
 				}
 				if _, found := previousEpochBoundaryAttesterIndices[index]; !found {
-					totalPenalized += inactivityPenalty(index, epochsSinceFinality)
-					s.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality)
+					penalty := inactivityPenalty(index, epochsSinceFinality)
+					totalPenalized += penalty
+					s.ValidatorBalances[index] -= penalty
+					receipts = append(receipts, Receipt{
+						Slot:   s.Slot,
+						Type:   DidNotAttestToPreviousEpochBoundary,
+						Index:  index,
+						Amount: -int64(penalty),
+					})
 				}
 				if _, found := previousEpochHeadAttesterIndices[index]; !found {
-					totalPenalized += baseReward(index)
-					s.ValidatorBalances[index] -= baseReward(index)
+					penalty := baseReward(index)
+					totalPenalized += penalty
+					s.ValidatorBalances[index] -= penalty
+					receipts = append(receipts, Receipt{
+						Slot:   s.Slot,
+						Type:   DidNotAttestToCorrectBeaconBlock,
+						Index:  index,
+						Amount: -int64(penalty),
+					})
 				}
 			} else if validator.Status == ExitedWithPenalty {
-				totalPenalized += inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
-				s.ValidatorBalances[index] -= inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
+				penalty := inactivityPenalty(index, epochsSinceFinality) + baseReward(index)
+				totalPenalized += penalty
+				s.ValidatorBalances[index] -= penalty
+				receipts = append(receipts, Receipt{
+					Slot:   s.Slot,
+					Type:   InactivityPenalty,
+					Index:  index,
+					Amount: -int64(penalty),
+				})
 			}
 		}
 		for index := range previousEpochAttesterIndices {
 			inclusionDistance := previousAttestationCache[index].SlotIncluded - previousAttestationCache[index].Data.Slot
-			totalPenalized += baseReward(index) - baseReward(index)*c.MinAttestationInclusionDelay/inclusionDistance
-			s.ValidatorBalances[index] -= baseReward(index) - baseReward(index)*c.MinAttestationInclusionDelay/inclusionDistance
+			penalty := baseReward(index) - baseReward(index)*c.MinAttestationInclusionDelay/inclusionDistance
+			totalPenalized += penalty
+			s.ValidatorBalances[index] -= penalty
+			receipts = append(receipts, Receipt{
+				Slot:   s.Slot,
+				Type:   AttestationInclusionDistancePenalty,
+				Index:  index,
+				Amount: -int64(penalty),
+			})
 		}
 	}
 
 	for index := range previousEpochAttesterIndices {
 		proposerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, previousAttestationCache[index].SlotIncluded-1, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		totalRewarded += baseReward(index) / c.IncluderRewardQuotient
-		s.ValidatorBalances[proposerIndex] += baseReward(index) / c.IncluderRewardQuotient
+		reward := baseReward(proposerIndex) / c.IncluderRewardQuotient
+		totalRewarded += reward
+		s.ValidatorBalances[proposerIndex] += reward
+
+		receipts = append(receipts, Receipt{
+			Slot:   s.Slot,
+			Type:   ProposerReward,
+			Index:  proposerIndex,
+			Amount: int64(reward),
+		})
 	}
 
 	if s.Slot >= 2*c.EpochLength {
@@ -1468,7 +1608,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 				winningRoot := shardWinnerCache[slot][shardCommittee.Shard]
 				participationIndices, err := attestingValidatorIndices(shardCommittee, winningRoot)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				participationIndicesMap := map[uint32]struct{}{}
@@ -1481,11 +1621,25 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 
 				for _, index := range shardCommittee.Committee {
 					if _, found := participationIndicesMap[index]; found {
-						totalRewarded += baseReward(index) * totalAttestingBalance / totalBalance
-						s.ValidatorBalances[index] += baseReward(index) * totalAttestingBalance / totalBalance
+						reward := baseReward(index) * totalAttestingBalance / totalBalance
+						totalRewarded += reward
+						s.ValidatorBalances[index] += reward
+						receipts = append(receipts, Receipt{
+							Slot:   s.Slot,
+							Type:   AttestationParticipationReward,
+							Index:  index,
+							Amount: int64(reward),
+						})
 					} else {
-						totalPenalized += baseReward(index)
-						s.ValidatorBalances[index] -= baseReward(index)
+						penalty := baseReward(index)
+						totalPenalized += penalty
+						s.ValidatorBalances[index] -= penalty
+						receipts = append(receipts, Receipt{
+							Slot:   s.Slot,
+							Type:   AttestationNonparticipationPenalty,
+							Index:  index,
+							Amount: -int64(penalty),
+						})
 					}
 				}
 			}
@@ -1496,7 +1650,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) error {
 		if validator.Status == Active && s.ValidatorBalances[index] < c.EjectionBalance {
 			err := s.UpdateValidatorStatus(uint32(index), ExitedWithoutPenalty, c)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
@@ -1521,7 +1675,7 @@ done:
 	if shouldUpdateRegistry {
 		err := s.UpdateValidatorRegistry(c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		s.ValidatorRegistryLatestChangeSlot = s.Slot
@@ -1556,7 +1710,7 @@ done:
 
 	logrus.WithField("slot", s.Slot).WithField("duration", epochTransitionDuration).Info("epoch transition")
 
-	return nil
+	return receipts, nil
 }
 
 // applyAttestation verifies and applies an attestation to the given state.
@@ -1842,7 +1996,7 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) erro
 			logrus.Info("processing epoch transition")
 			t := time.Now()
 
-			err := s.ProcessEpochTransition(c, view)
+			_, err := s.ProcessEpochTransition(c, view)
 			if err != nil {
 				return err
 			}

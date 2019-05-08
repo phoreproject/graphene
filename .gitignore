@@ -1,5 +1,6 @@
 *.prof
 *.test
+dist
 
 # binaries
 synapsebeacon

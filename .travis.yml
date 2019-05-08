@@ -9,6 +9,10 @@ env:
 go:
   - 1.11.4
 
+sudo: required
+services:
+  - docker
+
 # Only clone the most recent commit.
 git:
   depth: 1
@@ -16,6 +20,9 @@ git:
 # Don't email me the results of the test runs.
 notifications:
   email: false
+
+before_install:
+  - go get github.com/tcnksm/ghr
 
 # Anything in before_script that returns a nonzero exit code will flunk the
 # build and immediately stop. It's sorta like having set -e enabled in bash.
@@ -31,4 +38,7 @@ script:
   - make integrationtests
 
 after_success:
-- bash <(curl -s https://codecov.io/bash)
+  - bash <(curl -s https://codecov.io/bash)
+  - ./deploy.sh
+
+secure: "UnH2bHP7/LZy3S4iXuno+9xbo1oRsVAUIOLdj4g2EJIJvAVjHd4eHcHy3+mCoF9KXYIszyDn6KEKIeegAissqsOnKDFBsSPs0Lmuy2AEfWELVjC7BF5Ld3/lejhdFwOTDFHy3qTN0015MTIucjx/mz8gamHBRzJI8EKYT+hanOagBgVnRLFz35MqXDvups+iXM6hCoXbwSlBQBKSP281fudMnfIokOV02EA74pS5aADcYoCcZc2MUlwTcSbhNy/z9eJrpVNk3KsC7dsIeqXwoUnRYJ9/64HvikMhgqeT49LCTMaUhCh5HSmJT8Ab3rsKyM023Raxat2XiMdKRidCz0XW1K2Jzj6BuRzCqTy7SIxQ752Is57B2ililoDfmY0qxB0dIca1gJihf0r1np0ijW0PYmBIZ/ubLclTaJknK7CqMWLyd9ydedzA3QFgdBVgd4qapamJU99w49YeKP7LAzXgj2Ye0SeuPVdEFNKUPn3r5wtMgNQhpND7AbqWt3BhFa6SP3X5cfEM4BjuyKHofLl4b0JJefa+EFK73Dy94ac8QCrmRgBbfqPqvsIN9UOvg3bla1sMRF84YXeL98NXLOYdMPoYrUL8pEdG9xnhO2MC7+rGzSkck4gmhQv2LtL/XqXiYBSDeLf8/+I/dADUzGI6gmvfD4Vqga66JVfayLQ="

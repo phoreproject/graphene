@@ -5,6 +5,7 @@ require (
 	github.com/go-test/deep v1.0.1
 	github.com/golang/protobuf v1.3.0
 	github.com/google/pprof v0.0.0-20190502144155-8358a9778bd1 // indirect
+	github.com/karalabe/xgo v0.0.0-20190301120235-2d6d1848fb02 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.8 // indirect
 	github.com/libp2p/go-libp2p v0.0.1

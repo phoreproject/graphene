@@ -1,55 +1,152 @@
 package explorer
 
 import (
-	"context"
+	"crypto/rand"
 	"fmt"
+	"github.com/libp2p/go-libp2p-crypto"
 	"io"
 	"net/http"
-	"strconv"
+	"os"
 	"text/template"
 	"time"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/jinzhu/gorm"
+	"github.com/mitchellh/go-homedir"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/beacon/db"
+	"github.com/phoreproject/synapse/p2p"
 
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/phoreproject/synapse/pb"
-	"google.golang.org/grpc"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/labstack/echo"
 )
 
-// AttestationInfo is the info of an attestation used by the explorer.
-type AttestationInfo struct {
-	ShardBlockHash string
-	Shard          uint64
-	Slot           uint64
-	JustifiedSlot  uint64
-}
-
-// SlotInfo is the info of a slot used by the explorer.
-type SlotInfo struct {
-	Slot         uint64
-	Proposer     uint64
-	BlockHash    string
-	Attestations []AttestationInfo
+// Config is the explorer app config.
+type Config struct {
+	GenesisTime          uint64
+	DataDirectory        string
+	InitialValidatorList []beacon.InitialValidatorEntry
+	NetworkConfig        *config.Config
+	Resync               bool
+	ListeningAddress     string
+	DiscoveryOptions     p2p.DiscoveryOptions
 }
 
 // Explorer is a blockchain explorer.
+// The explorer streams blocks from the beacon chain as they are received
+// and then keeps track of its own blockchain so that it can access more
+// info like forking.
 type Explorer struct {
-	slotData          []IndexSlotData
-	slotInfo          map[uint64]SlotInfo
-	currentSlotNumber int64
-	blockchainRPC     pb.BlockchainRPCClient
+	blockchain *beacon.Blockchain
+
+	// P2P
+	hostNode    *p2p.HostNode
+	syncManager beacon.SyncManager
+
+	config Config
+
+	database *Database
+	chainDB  db.Database
 }
 
 // NewExplorer creates a new block explorer
-func NewExplorer(blockchainConn *grpc.ClientConn) *Explorer {
+func NewExplorer(c Config, gormDB *gorm.DB) (*Explorer, error) {
 	return &Explorer{
-		slotData:          make([]IndexSlotData, 0),
-		slotInfo:          make(map[uint64]SlotInfo),
-		currentSlotNumber: -1,
-		blockchainRPC:     pb.NewBlockchainRPCClient(blockchainConn),
+		database: NewDatabase(gormDB),
+		config:   c,
+	}, nil
+}
+
+func (ex *Explorer) loadDatabase() error {
+	var dir string
+	if ex.config.DataDirectory == "" {
+		dataDir, err := config.GetBaseDirectory(true)
+		if err != nil {
+			panic(err)
+		}
+		dir = dataDir
+	} else {
+		d, err := homedir.Expand(ex.config.DataDirectory)
+		if err != nil {
+			panic(err)
+		}
+		dir = d
 	}
+
+	err := os.MkdirAll(dir, 0777)
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info("initializing client")
+
+	logger.Info("initializing database")
+	database := db.NewBadgerDB(dir)
+
+	if ex.config.Resync {
+		logger.Info("dropping all keys in database to resync")
+		err := database.Flush()
+		if err != nil {
+			return err
+		}
+	}
+
+	ex.chainDB = database
+
+	return nil
+}
+
+func (ex *Explorer) loadP2P() error {
+	logger.Info("loading P2P")
+	addr, err := ma.NewMultiaddr(ex.config.ListeningAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	priv, pub, err := crypto.GenerateEd25519Key(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second)
+	if err != nil {
+		panic(err)
+	}
+	ex.hostNode = hostNode
+
+	logger.Debug("starting peer discovery")
+	err = ex.hostNode.StartDiscovery()
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
+func (ex *Explorer) loadBlockchain() error {
+	var genesisTime uint64
+	if t, err := ex.chainDB.GetGenesisTime(); err == nil {
+		logger.WithField("genesisTime", t).Info("using time from database")
+		genesisTime = t
+	} else {
+		logger.WithField("genesisTime", ex.config.GenesisTime).Info("using time from config")
+		err := ex.chainDB.SetGenesisTime(ex.config.GenesisTime)
+		if err != nil {
+			return err
+		}
+		genesisTime = ex.config.GenesisTime
+	}
+
+	blockchain, err := beacon.NewBlockchainWithInitialValidators(ex.chainDB, ex.config.NetworkConfig, ex.config.InitialValidatorList, true, genesisTime)
+	if err != nil {
+		panic(err)
+	}
+
+	ex.blockchain = blockchain
+
+	return nil
 }
 
 // Template is the template engine used by the explorer.
@@ -73,121 +170,63 @@ type IndexSlotData struct {
 
 // IndexData is the data used by the index page.
 type IndexData struct {
-	Slots []IndexSlotData
+	Blocks []Block
 }
 
-// UpdateData updates the data if needed.
-func (ex *Explorer) UpdateData() error {
-	slotNumber, err := ex.blockchainRPC.GetSlotNumber(context.Background(), &empty.Empty{})
-	if err != nil {
-		return err
+// WaitForConnections waits until beacon app is connected
+func (ex *Explorer) WaitForConnections(numConnections int) {
+	for {
+		if ex.hostNode.PeersConnected() >= numConnections {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
-
-	if int64(slotNumber.SlotNumber) != ex.currentSlotNumber {
-		ex.currentSlotNumber = int64(slotNumber.SlotNumber)
-
-		blockHash, err := ex.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{
-			SlotNumber: slotNumber.SlotNumber,
-		})
-		if err != nil {
-			return err
-		}
-
-		proposer, err := ex.blockchainRPC.GetProposerForSlot(context.Background(), &pb.GetProposerForSlotRequest{
-			Slot: slotNumber.SlotNumber,
-		})
-		if err != nil {
-			return err
-		}
-
-		ex.slotData = append([]IndexSlotData{
-			{
-				Slot:      slotNumber.SlotNumber,
-				Block:     true,
-				BlockHash: fmt.Sprintf("%x", blockHash.Hash),
-				Proposer:  proposer.Proposer,
-				Rewards:   0,
-			},
-		}, ex.slotData...)
-
-		blockData, err := ex.blockchainRPC.GetBlock(context.Background(), &pb.GetBlockRequest{
-			Hash: blockHash.Hash,
-		})
-		if err != nil {
-			return err
-		}
-
-		block, err := primitives.BlockFromProto(blockData.Block)
-		if err != nil {
-			return err
-		}
-
-		ex.slotInfo[slotNumber.SlotNumber] = SlotInfo{
-			Slot:         slotNumber.SlotNumber,
-			Proposer:     uint64(proposer.Proposer),
-			BlockHash:    fmt.Sprintf("%x", blockHash.Hash),
-			Attestations: make([]AttestationInfo, len(block.BlockBody.Attestations)),
-		}
-
-		for i := range block.BlockBody.Attestations {
-			ex.slotInfo[slotNumber.SlotNumber].Attestations[i] = AttestationInfo{
-				ShardBlockHash: block.BlockBody.Attestations[i].Data.ShardBlockHash.String(),
-				Shard:          block.BlockBody.Attestations[i].Data.Shard,
-				Slot:           block.BlockBody.Attestations[i].Data.Slot,
-				JustifiedSlot:  block.BlockBody.Attestations[i].Data.JustifiedSlot,
-			}
-		}
-
-		if len(ex.slotData) > 30 {
-			ex.slotData = ex.slotData[:30]
-		}
-	}
-	return nil
 }
 
 // StartExplorer starts the block explorer
 func (ex *Explorer) StartExplorer() error {
+	err := ex.loadDatabase()
+	if err != nil {
+		return err
+	}
+
+	err = ex.loadP2P()
+	if err != nil {
+		return err
+	}
+
+	err = ex.loadBlockchain()
+	if err != nil {
+		return err
+	}
+
+	ex.syncManager = beacon.NewSyncManager(ex.hostNode, time.Second*5, ex.blockchain)
+
+	ex.syncManager.Start()
+
+	ex.WaitForConnections(1)
+
+	go ex.syncManager.TryInitialSync()
+
 	t := &Template{
 		templates: template.Must(template.ParseGlob("templates/*.html")),
 	}
-
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		for {
-			err := ex.UpdateData()
-			if err != nil {
-				panic(err)
-			}
-			<-ticker.C
-		}
-	}()
 
 	e := echo.New()
 	e.Renderer = t
 
 	e.GET("/", func(c echo.Context) error {
-		err := c.Render(http.StatusOK, "index.html", IndexData{ex.slotData})
+		blocks := ex.database.GetLatestBlocks(20)
+
+		err := c.Render(http.StatusOK, "index.html", IndexData{blocks})
 		if err != nil {
 			fmt.Println(err)
 		}
 		return err
 	})
 
-	e.GET("/s/:slot", func(c echo.Context) error {
-		slotNumberString := c.Param("slot")
-		slot, err := strconv.Atoi(slotNumberString)
-		if err != nil {
-			return err
-		}
+	defer ex.chainDB.Close()
 
-		slotInfo := ex.slotInfo[uint64(slot)]
-
-		err = c.Render(http.StatusOK, "slot.html", slotInfo)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return err
-	})
 	e.Logger.Fatal(e.Start(":1323"))
 
 	return nil

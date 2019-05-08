@@ -8,6 +8,7 @@ import (
 
 	"github.com/phoreproject/synapse/integrationtests"
 	"github.com/phoreproject/synapse/integrationtests/framework"
+	logger "github.com/sirupsen/logrus"
 )
 
 type multipleFlags []string
@@ -16,12 +17,15 @@ func (i *multipleFlags) String() string {
 	return "Multiple options"
 }
 
+// Set sets a value for the flags
 func (i *multipleFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil
 }
 
 func main() {
+	logger.SetLevel(logger.TraceLevel)
+
 	var flagTest multipleFlags
 	flag.Var(&flagTest, "test", "Specify the test name, can't multiple.")
 	flag.Parse()
@@ -38,7 +42,6 @@ func main() {
 	}
 
 	service := testframework.NewTestService()
-	defer service.CleanUp()
 
 	errorCount := 0
 	for _, entry := range entries {
@@ -51,6 +54,11 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Printf("\n\n")
+	}
+
+	err := service.CleanUp()
+	if err != nil {
+		panic(err)
 	}
 
 	fmt.Printf("All done\n")

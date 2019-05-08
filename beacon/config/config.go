@@ -36,8 +36,8 @@ const UnitInCoin = 100000000
 
 // MainNetConfig is the config used on the mainnet
 var MainNetConfig = Config{
-	ShardCount:                         64,
-	TargetCommitteeSize:                256,
+	ShardCount:                         8,
+	TargetCommitteeSize:                3,
 	EjectionBalance:                    16,
 	MaxBalanceChurnQuotient:            32,
 	BeaconShardNumber:                  18446744073709551615,
@@ -46,9 +46,9 @@ var MainNetConfig = Config{
 	LatestBlockRootsLength:             8192,
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
-	SlotDuration:                       6,
-	EpochLength:                        4,
-	MinAttestationInclusionDelay:       64,
+	SlotDuration:                       4,
+	EpochLength:                        8,
+	MinAttestationInclusionDelay:       2,
 	CollectivePenaltyCalculationPeriod: 1048576,
 	ZeroBalanceValidatorTTL:            4194304,
 	BaseRewardQuotient:                 1024,
@@ -76,7 +76,7 @@ var RegtestConfig = Config{
 	LatestBlockRootsLength:             8192,
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
-	SlotDuration:                       6,
+	SlotDuration:                       1,
 	EpochLength:                        4,
 	MinAttestationInclusionDelay:       0,
 	CollectivePenaltyCalculationPeriod: 1048576,

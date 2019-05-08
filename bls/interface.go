@@ -31,9 +31,7 @@ type Signature struct {
 // Serialize gets the binary representation of the
 // signature.
 func (s Signature) Serialize() [48]byte {
-	sigSer := [48]byte{}
-	copy(sigSer[:], s.s.Serialize())
-	return sigSer
+	return s.s.Serialize()
 }
 
 // Copy returns a copy of the signature.
@@ -45,7 +43,7 @@ func (s Signature) Copy() *Signature {
 // DeserializeSignature deserializes a binary signature
 // into the actual signature.
 func DeserializeSignature(b [48]byte) (*Signature, error) {
-	s, err := bls.DeserializeSignature(b[:])
+	s, err := bls.DeserializeSignature(b)
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +79,17 @@ func (s SecretKey) DerivePublicKey() *PublicKey {
 	return &PublicKey{p: *pub}
 }
 
+// Serialize serializes a secret key to bytes.
+func (s SecretKey) Serialize() [32]byte {
+	return s.s.Serialize()
+}
+
+// DeserializeSecretKey deserializes a secret key from bytes.
+func DeserializeSecretKey(b [32]byte) SecretKey {
+	k := bls.DeserializeSecretKey(b)
+	return SecretKey{*k}
+}
+
 func (p PublicKey) String() string {
 	return p.p.String()
 }
@@ -92,9 +101,7 @@ type PublicKey struct {
 
 // Serialize serializes a public key to bytes.
 func (p PublicKey) Serialize() [96]byte {
-	pub := [96]byte{}
-	copy(pub[:], p.p.Serialize())
-	return pub
+	return p.p.Serialize()
 }
 
 // Equals checks if two public keys are equal.
@@ -104,7 +111,7 @@ func (p PublicKey) Equals(other PublicKey) bool {
 
 // DeserializePublicKey deserialies a public key from the provided bytes.
 func DeserializePublicKey(b [96]byte) (*PublicKey, error) {
-	p, err := bls.DeserializePublicKey(b[:])
+	p, err := bls.DeserializePublicKey(b)
 	if err != nil {
 		return nil, err
 	}

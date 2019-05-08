@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/phoreproject/prysm/shared/ssz"
 
@@ -16,16 +17,16 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 )
 
-var randaoSecret = chainhash.HashH([]byte("randao"))
-
-var pocSecret = chainhash.HashH([]byte("poc"))
-var zeroHash = chainhash.Hash{}
-
 // SetupBlockchain sets up a blockchain with a certain number of initial validators
 func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchain, validator.Keystore, error) {
+	return SetupBlockchainWithTime(initialValidators, c, time.Now())
+}
+
+// SetupBlockchainWithTime sets up a blockchain with a certain number of initial validators and genesis time
+func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTime time.Time) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()
 
-	validators := []beacon.InitialValidatorEntry{}
+	var validators []beacon.InitialValidatorEntry
 
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
@@ -43,11 +44,11 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
 			WithdrawalCredentials: chainhash.Hash{},
-			DepositSize:           c.MaxDeposit * config.UnitInCoin,
+			DepositSize:           c.MaxDeposit,
 		})
 	}
 
-	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true)
+	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true, uint64(genesisTime.Unix()))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -56,7 +57,7 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 }
 
 // MineBlockWithSpecialsAndAttestations mines a block with the given specials and attestations.
-func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []primitives.Attestation, proposerSlashings []primitives.ProposerSlashing, casperSlashings []primitives.CasperSlashing, deposits []primitives.Deposit, exits []primitives.Exit, k validator.Keystore) (*primitives.Block, error) {
+func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []primitives.Attestation, proposerSlashings []primitives.ProposerSlashing, casperSlashings []primitives.CasperSlashing, deposits []primitives.Deposit, exits []primitives.Exit, k validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
 	lastBlock, err := b.LastBlock()
 	if err != nil {
 		return nil, err
@@ -67,23 +68,18 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		return nil, err
 	}
 
-	stateRoot, err := ssz.TreeHash(lastBlock)
+	stateRoot, err := ssz.TreeHash(b.GetState())
 	if err != nil {
 		return nil, err
 	}
 
-	state := b.GetState()
-
 	slotNumber := lastBlock.BlockHeader.SlotNumber + 1
 
-	proposerIndex := state.GetBeaconProposerIndex(slotNumber, b.GetConfig())
+	var slotsBytes [8]byte
+	binary.BigEndian.PutUint64(slotsBytes[:], slotNumber)
+	slotBytesHash := chainhash.HashH(slotsBytes[:])
 
-	k.IncrementProposerSlots(proposerIndex)
-
-	var proposerSlotsBytes [8]byte
-	binary.BigEndian.PutUint64(proposerSlotsBytes[:], k.GetProposerSlots(proposerIndex))
-
-	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), proposerSlotsBytes[:], bls.DomainRandao)
+	randaoSig, err := bls.Sign(k.GetKeyForValidator(proposerIndex), slotBytesHash[:], bls.DomainRandao)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +123,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 	block1.BlockHeader.Signature = sig.Serialize()
 
-	err = b.ProcessBlock(&block1)
+	err = b.ProcessBlock(&block1, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -136,31 +132,37 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 }
 
 // GenerateFakeAttestations generates a bunch of fake attestations.
-func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]primitives.Attestation, error) {
+func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys validator.Keystore) ([]primitives.Attestation, error) {
 	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err
 	}
 
-	s := b.GetState()
-	assignments := s.GetShardCommitteesAtSlot(lb.BlockHeader.SlotNumber, b.GetConfig())
+	if s.Slot == 0 {
+		return []primitives.Attestation{}, nil
+	}
+
+	assignments, err := s.GetShardCommitteesAtSlot(s.Slot-1, lb.BlockHeader.SlotNumber, b.GetConfig())
+	if err != nil {
+		return nil, err
+	}
 
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochBoundaryHash, err := b.GetEpochBoundaryHash()
+		epochBoundaryHash, err := b.GetEpochBoundaryHash(lb.BlockHeader.SlotNumber)
 		if err != nil {
 			return nil, err
 		}
 
-		nextSlot := s.Slot + 1
+		prevSlot := s.Slot - 1
 
 		justifiedSlot := s.JustifiedSlot
-		if lb.BlockHeader.SlotNumber < nextSlot-(nextSlot%b.GetConfig().EpochLength) {
+		if lb.BlockHeader.SlotNumber < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
 			justifiedSlot = s.PreviousJustifiedSlot
 		}
 
-		justifiedHash, err := b.GetHashByHeight(justifiedSlot)
+		justifiedHash, err := b.GetHashBySlot(justifiedSlot)
 		if err != nil {
 			return nil, err
 		}
@@ -168,7 +170,7 @@ func GenerateFakeAttestations(b *beacon.Blockchain, keys validator.Keystore) ([]
 		dataToSign := primitives.AttestationData{
 			Slot:                lb.BlockHeader.SlotNumber,
 			Shard:               assignment.Shard,
-			BeaconBlockHash:     b.Tip(),
+			BeaconBlockHash:     b.View.Chain.Tip().Hash,
 			EpochBoundaryHash:   epochBoundaryHash,
 			ShardBlockHash:      chainhash.Hash{},
 			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,
@@ -213,17 +215,27 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 		return nil, fmt.Errorf("bitfield is too short")
 	}
 
-	bitfield[id/8] = bitfield[id/8] | (128 >> (id % 8))
+	bitfield[id/8] = bitfield[id/8] | (1 << (id % 8))
 
 	return bitfield, nil
 }
 
 // MineBlockWithFullAttestations generates attestations to include in a block and mines it.
-func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keystore) (*primitives.Block, error) {
-	atts, err := GenerateFakeAttestations(b, keystore)
+func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
+	lb, err := b.LastBlock()
 	if err != nil {
 		return nil, err
 	}
 
-	return MineBlockWithSpecialsAndAttestations(b, atts, []primitives.ProposerSlashing{}, []primitives.CasperSlashing{}, []primitives.Deposit{}, []primitives.Exit{}, keystore)
+	state, err := b.GetUpdatedState(lb.BlockHeader.SlotNumber + 1)
+	if err != nil {
+		return nil, err
+	}
+
+	atts, err := GenerateFakeAttestations(state, b, keystore)
+	if err != nil {
+		return nil, err
+	}
+
+	return MineBlockWithSpecialsAndAttestations(b, atts, []primitives.ProposerSlashing{}, []primitives.CasperSlashing{}, []primitives.Deposit{}, []primitives.Exit{}, keystore, proposerIndex)
 }

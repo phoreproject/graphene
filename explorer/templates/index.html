@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Block Explorer</title>
+  </head>
+  <body>
+    <h1>Block Explorer</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Slot Number</th>
+          <th>Block Hash</th>
+          <th>Proposer</th>
+          <th>Net Rewards</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Slots}}
+          <tr>
+            <td>{{.Slot}}</td>
+            {{if .Block}}
+              <td><a href="/s/{{.Slot}}">{{.BlockHash}}</a></td>
+              <td>{{.Proposer}}</td>
+              <td>{{.Rewards}}</td>
+            {{else}}
+              <td>N/A</td>
+              <td>{{.Proposer}}</td>
+              <td>0</td>
+            {{end}}
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </body>
+</html>

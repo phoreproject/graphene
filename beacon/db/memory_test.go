@@ -14,7 +14,7 @@ import (
 )
 
 func TestStoreRetrieve(t *testing.T) {
-	db := db.NewInMemoryDB()
+	imdb := db.NewInMemoryDB()
 
 	ancestorHashes := make([]chainhash.Hash, 32)
 
@@ -39,7 +39,7 @@ func TestStoreRetrieve(t *testing.T) {
 		},
 	}
 
-	err := db.SetBlock(b)
+	err := imdb.SetBlock(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestStoreRetrieve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b1, err := db.GetBlockForHash(blockHash)
+	b1, err := imdb.GetBlockForHash(blockHash)
 	if err != nil {
 		t.Fatalf("could not find block hash %x", blockHash)
 	}
@@ -62,7 +62,7 @@ func TestStoreRetrieve(t *testing.T) {
 		t.Fatalf("block hashes do not match (expected: %x, returned: %x)", blockHash, blockHashAfter)
 	}
 
-	_, err = db.GetBlockForHash(chainhash.Hash{})
+	_, err = imdb.GetBlockForHash(chainhash.Hash{})
 	if err == nil {
 		t.Fatalf("incorrectly found blockhash")
 	}

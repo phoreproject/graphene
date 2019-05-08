@@ -5,6 +5,11 @@
 synapsebeacon
 synapsevalidator
 synapsep2p
+synapsekey
 integration_tests
 integration
 *.exe
+/.vscode
+
+.idea
+validators.pubs

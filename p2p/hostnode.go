@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -207,10 +208,14 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		}
 	}
 
+	fmt.Println("connecting", peerInfo)
+
 	err := node.host.Connect(node.ctx, peerInfo)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("connected", peerInfo.ID)
 
 	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
 

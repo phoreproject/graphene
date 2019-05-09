@@ -97,7 +97,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	databaseTipUpdateStart := time.Now()
 
-	b.db.TransactionalUpdate(func(transaction interface{}) error {
+	err = b.db.TransactionalUpdate(func(transaction interface{}) error {
 		// set the block node in the database
 		err = b.db.SetBlockNode(blockNodeToDisk(*node), transaction)
 		if err != nil {
@@ -112,6 +112,9 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	databaseTipUpdateTime := time.Since(databaseTipUpdateStart)
 

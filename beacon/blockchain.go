@@ -1,172 +1,355 @@
 package beacon
 
 import (
+	"errors"
 	"fmt"
-	"sync"
+	"time"
 
-	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/beacon/primitives"
-	"github.com/phoreproject/synapse/serialization"
+	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/primitives"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
+	utilsync "github.com/phoreproject/synapse/utils/sync"
 )
 
 var zeroHash = chainhash.Hash{}
 
-type blockchainView struct {
-	chain []chainhash.Hash
-	lock  *sync.Mutex
-}
-
-func (bv *blockchainView) GetBlock(n int) (*chainhash.Hash, error) {
-	bv.lock.Lock()
-	defer bv.lock.Unlock()
-	if len(bv.chain) > n && n >= 0 {
-		return &bv.chain[n], nil
-	}
-	return nil, fmt.Errorf("block %d does not exist", n)
-}
-
-func (bv *blockchainView) Height() int {
-	bv.lock.Lock()
-	defer bv.lock.Unlock()
-	return len(bv.chain) - 1
-}
-
 // Blockchain represents a chain of blocks.
 type Blockchain struct {
-	chain     blockchainView
-	db        db.Database
-	config    *Config
-	state     State
-	stateLock *sync.Mutex
-	voteCache map[chainhash.Hash]*VoteCache
+	View         *BlockchainView
+	db           db.Database
+	config       *config.Config
+	stateManager *StateManager
+
+	ConnectBlockNotifier *utilsync.Signal
+}
+
+func blockNodeToHash(b *BlockNode) chainhash.Hash {
+	if b == nil {
+		return chainhash.Hash{}
+	}
+	return b.Hash
+}
+
+func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
+	childrenHashes := make([]chainhash.Hash, len(b.Children))
+	for i, c := range b.Children {
+		childrenHashes[i] = blockNodeToHash(c)
+	}
+
+	return db.BlockNodeDisk{
+		Hash:     b.Hash,
+		Height:   b.Height,
+		Slot:     b.Slot,
+		Parent:   blockNodeToHash(b.Parent),
+		Children: childrenHashes,
+	}
+}
+
+// GetEpochBoundaryHash gets the Hash of the parent block at the epoch boundary.
+func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
+	epochBoundaryHeight := slot - (slot % b.config.EpochLength)
+	return b.GetHashBySlot(epochBoundaryHeight)
+}
+
+func (b *Blockchain) getLatestAttestation(validator uint32) (*primitives.Attestation, error) {
+	return b.db.GetLatestAttestation(validator)
+}
+
+func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, error) {
+	att, err := b.db.GetLatestAttestation(validator)
+	if err != nil {
+		return nil, err
+	}
+	bl, err := b.db.GetBlockForHash(att.Data.BeaconBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	h, err := ssz.TreeHash(bl)
+	if err != nil {
+		return nil, err
+	}
+
+	node := b.View.Index.GetBlockNodeByHash(h)
+	if node == nil {
+		return nil, errors.New("couldn't find block attested to by validator in index")
+	}
+	return node, nil
 }
 
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
-func NewBlockchainWithInitialValidators(db db.Database, config *Config, validators []InitialValidatorEntry) (*Blockchain, error) {
+func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
 	b := &Blockchain{
-		db:     db,
-		config: config,
-		chain: blockchainView{
-			chain: []chainhash.Hash{},
-			lock:  &sync.Mutex{},
-		},
-		stateLock: &sync.Mutex{},
-		voteCache: make(map[chainhash.Hash]*VoteCache),
+		db:                   db,
+		config:               config,
+		View:                 NewBlockchainView(),
+		ConnectBlockNotifier: utilsync.NewSignal(),
 	}
-	err := b.InitializeState(validators)
+
+	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)
 	if err != nil {
 		return nil, err
 	}
+
+	b.stateManager = sm
+
+	initialState := sm.GetHeadState()
+
+	stateRoot, err := ssz.TreeHash(initialState)
+	if err != nil {
+		return nil, err
+	}
+
+	block0 := primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   0,
+			StateRoot:    stateRoot,
+			ParentRoot:   zeroHash,
+			RandaoReveal: bls.EmptySignature.Serialize(),
+			Signature:    bls.EmptySignature.Serialize(),
+		},
+		BlockBody: primitives.BlockBody{
+			ProposerSlashings: []primitives.ProposerSlashing{},
+			CasperSlashings:   []primitives.CasperSlashing{},
+			Attestations:      []primitives.Attestation{},
+			Deposits:          []primitives.Deposit{},
+			Exits:             []primitives.Exit{},
+		},
+	}
+
+	blockHash, err := ssz.TreeHash(block0)
+	if err != nil {
+		return nil, err
+	}
+
+	logrus.WithField("genesisHash", chainhash.Hash(blockHash)).Info("initializing blockchain with genesis block")
+
+	err = b.db.SetBlock(block0)
+	if err != nil {
+		return nil, err
+	}
+
+	// this is a new database, so let's populate it with default values
+	node, err := b.View.Index.AddBlockNodeToIndex(&block0, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = b.db.GetBlockNode(blockHash)
+	if err != nil {
+		b.View.Chain.SetTip(node)
+
+		b.View.SetFinalizedHead(blockHash, initialState)
+		b.View.SetJustifiedHead(blockHash, initialState)
+		err = b.db.SetJustifiedHead(node.Hash)
+		if err != nil {
+			return nil, err
+		}
+		err = b.db.SetJustifiedState(initialState)
+		if err != nil {
+			return nil, err
+		}
+		err = b.db.SetFinalizedHead(node.Hash)
+		if err != nil {
+			return nil, err
+		}
+		err = b.db.SetFinalizedState(initialState)
+		if err != nil {
+			return nil, err
+		}
+		b.View.Chain.SetTip(node)
+
+		err = b.stateManager.SetBlockState(blockHash, &initialState)
+		if err != nil {
+			return nil, err
+		}
+
+		err = b.db.SetHeadBlock(blockHash)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		logrus.Info("loading block index...")
+		err := b.populateBlockIndexFromDatabase(blockHash)
+		if err != nil {
+			return nil, err
+		}
+
+		logrus.Info("loading justified and finalized states...")
+		err = b.populateJustifiedAndFinalizedNodes()
+		if err != nil {
+			return nil, err
+		}
+
+		logrus.Info("populating state map...")
+		err = b.populateStateMap()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return b, nil
+}
+
+// GetUpdatedState gets the tip, but with processed slots/epochs as appropriate.
+func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
+	tip := b.View.Chain.Tip()
+
+	tipState := b.stateManager.GetHeadState()
+
+	tipStateCopy := tipState.Copy()
+
+	view := NewChainView(tip, b)
+
+	err := tipStateCopy.ProcessSlots(upTo, &view, b.config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tipStateCopy, nil
+}
+
+// GetNextSlotTime returns the timestamp of the next slot.
+func (b *Blockchain) GetNextSlotTime() time.Time {
+	return time.Unix(int64((b.stateManager.GetHeadSlot()+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
 }
 
 // InitialValidatorEntry is the validator entry to be added
 // at the beginning of a blockchain.
 type InitialValidatorEntry struct {
-	PubKey                bls.PublicKey
-	ProofOfPossession     bls.Signature
+	PubKey                [96]byte
+	ProofOfPossession     [48]byte
 	WithdrawalShard       uint32
-	WithdrawalCredentials serialization.Address
-	RandaoCommitment      chainhash.Hash
+	WithdrawalCredentials chainhash.Hash
+	DepositSize           uint64
 }
 
-const (
-	// RoleProposer is assigned to validators who need to propose a shard block.
-	RoleProposer = iota
+// InitialValidatorEntryAndPrivateKey is an initial validator entry and private key.
+type InitialValidatorEntryAndPrivateKey struct {
+	Entry InitialValidatorEntry
 
-	// RoleAttester is assigned to validators who need to attest to a shard block.
-	RoleAttester
-)
+	PrivateKey [32]byte
+}
 
-const (
-	// InitialForkVersion is version #1 of the chain.
-	InitialForkVersion = iota
-)
+type blockNodeAndValidator struct {
+	node      *BlockNode
+	validator uint32
+}
 
 // UpdateChainHead updates the blockchain head if needed
-func (b *Blockchain) UpdateChainHead(n *primitives.Block) error {
-	b.chain.lock.Lock()
-	if int64(n.SlotNumber) > int64(len(b.chain.chain)-1) {
-		logger.WithField("hash", n.Hash()).WithField("height", n.SlotNumber).Debug("updating blockchain head")
-		b.chain.lock.Unlock()
-		err := b.SetTip(n)
+func (b *Blockchain) UpdateChainHead() error {
+	validators := b.View.justifiedHead.State.ValidatorRegistry
+	activeValidatorIndices := primitives.GetActiveValidatorIndices(validators)
+	var targets []blockNodeAndValidator
+	for _, i := range activeValidatorIndices {
+		bl, err := b.getLatestAttestationTarget(i)
 		if err != nil {
-			return err
+			continue
 		}
-	} else {
-		b.chain.lock.Unlock()
+		targets = append(targets, blockNodeAndValidator{
+			node:      bl,
+			validator: i})
 	}
-	return nil
+
+	getVoteCount := func(block *BlockNode) uint64 {
+		votes := uint64(0)
+		for _, target := range targets {
+			node := target.node.GetAncestorAtSlot(block.Slot)
+			if node == nil {
+				return 0
+			}
+			if node.Hash.IsEqual(&block.Hash) {
+				votes += b.View.justifiedHead.State.GetEffectiveBalance(target.validator, b.config) / 1e8
+			}
+		}
+		return votes
+	}
+
+	head, _ := b.View.GetJustifiedHead()
+
+	// this may seem weird, but it occurs when importing when the justified block is not
+	// imported, but the finalized head is. It should never occurother than that
+	if head == nil {
+		head, _ = b.View.GetFinalizedHead()
+	}
+
+	for {
+		children := head.Children
+		if len(children) == 0 {
+			b.View.Chain.SetTip(head)
+			err := b.stateManager.UpdateHead(head.Hash)
+			if err != nil {
+				return err
+			}
+
+			err = b.db.SetHeadBlock(head.Hash)
+			if err != nil {
+				return err
+			}
+
+			logger.WithFields(logrus.Fields{
+				"height": head.Height,
+				"hash":   head.Hash.String(),
+				"slot":   b.stateManager.GetHeadSlot(),
+			}).Debug("set tip")
+			return nil
+		}
+		bestVoteCountChild := children[0]
+		bestVotes := getVoteCount(bestVoteCountChild)
+		for _, c := range children[1:] {
+			vc := getVoteCount(c)
+			if vc > bestVotes {
+				bestVoteCountChild = c
+				bestVotes = vc
+			}
+		}
+		head = bestVoteCountChild
+	}
 }
 
-// SetTip sets the tip of the chain.
-func (b *Blockchain) SetTip(n *primitives.Block) error {
-	b.chain.lock.Lock()
-	defer b.chain.lock.Unlock()
-	needed := n.SlotNumber + 1
-	if uint64(cap(b.chain.chain)) < needed {
-		nodes := make([]chainhash.Hash, needed, needed+100)
-		copy(nodes, b.chain.chain)
-		b.chain.chain = nodes
-	} else {
-		prevLen := int32(len(b.chain.chain))
-		b.chain.chain = b.chain.chain[0:needed]
-		for i := prevLen; uint64(i) < needed; i++ {
-			b.chain.chain[i] = zeroHash
-		}
+// GetHashBySlot gets the block Hash at a certain slot.
+func (b Blockchain) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
+	tip := b.View.Chain.Tip()
+	if tip.Slot < slot {
+		return tip.Hash, nil
 	}
-
-	current := n
-
-	for current != nil && b.chain.chain[current.SlotNumber] != current.Hash() {
-		b.chain.chain[n.SlotNumber] = n.Hash()
-		nextBlock, err := b.db.GetBlockForHash(n.AncestorHashes[0])
-		if err != nil {
-			nextBlock = nil
-		}
-		current = nextBlock
+	node := tip.GetAncestorAtSlot(slot)
+	if node == nil {
+		return chainhash.Hash{}, fmt.Errorf("no block at slot %d", slot)
 	}
-
-	return nil
-}
-
-// Tip returns the block at the tip of the chain.
-func (b Blockchain) Tip() chainhash.Hash {
-	b.chain.lock.Lock()
-	tip := b.chain.chain[len(b.chain.chain)-1]
-	b.chain.lock.Unlock()
-	return tip
-}
-
-// GetNodeByHeight gets a node from the active blockchain by height.
-func (b Blockchain) GetNodeByHeight(height uint64) (chainhash.Hash, error) {
-	b.chain.lock.Lock()
-	defer b.chain.lock.Unlock()
-	if uint64(len(b.chain.chain)-1) < height {
-		return chainhash.Hash{}, fmt.Errorf("attempted to retrieve block hash of height > chain height")
-	}
-	node := b.chain.chain[height]
-	return node, nil
+	return node.Hash, nil
 }
 
 // Height returns the height of the chain.
-func (b *Blockchain) Height() int {
-	return b.chain.Height()
+func (b *Blockchain) Height() uint64 {
+	h := b.View.Chain.Height()
+	if h < 0 {
+		return 0
+	}
+	return uint64(h)
 }
 
 // LastBlock gets the last block in the chain
 func (b *Blockchain) LastBlock() (*primitives.Block, error) {
-	hash, err := b.chain.GetBlock(b.chain.Height())
+	bl := b.View.Chain.Tip()
+	block, err := b.db.GetBlockForHash(bl.Hash)
 	if err != nil {
 		return nil, err
 	}
-	block, err := b.db.GetBlockForHash(*hash)
+
+	return block, nil
+}
+
+// GetBlockByHash gets a block by Hash.
+func (b *Blockchain) GetBlockByHash(h chainhash.Hash) (*primitives.Block, error) {
+	block, err := b.db.GetBlockForHash(h)
 	if err != nil {
 		return nil, err
 	}
@@ -175,43 +358,234 @@ func (b *Blockchain) LastBlock() (*primitives.Block, error) {
 }
 
 // GetConfig returns the config used by this blockchain
-func (b *Blockchain) GetConfig() *Config {
+func (b *Blockchain) GetConfig() *config.Config {
 	return b.config
 }
 
-// GetSlotAndShardAssignment gets the shard and slot assignment for a specific
-// validator.
-func (b *Blockchain) GetSlotAndShardAssignment(validatorID uint32) (uint64, uint64, int, error) {
-	earliestSlotInArray := int(b.state.LastStateRecalculationSlot) - b.config.CycleLength
-	if earliestSlotInArray < 0 {
-		earliestSlotInArray = 0
+func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
+	finalizedHead, err := b.db.GetFinalizedHead()
+	if err != nil {
+		return err
 	}
-	for i, slot := range b.state.ShardAndCommitteeForSlots {
-		for j, committee := range slot {
-			for v, validator := range committee.Committee {
-				if uint32(validator) != validatorID {
-					continue
-				}
-				if j == 0 && v == i%len(committee.Committee) {
-					return committee.Shard, uint64(i + earliestSlotInArray), RoleProposer, nil
-				}
-				return committee.Shard, uint64(i + earliestSlotInArray), RoleAttester, nil
-			}
+
+	finalizedHeadState, err := b.db.GetFinalizedState()
+	if err != nil {
+		return err
+	}
+
+	justifiedHead, err := b.db.GetJustifiedHead()
+	if err != nil {
+		return err
+	}
+
+	justifiedHeadState, err := b.db.GetJustifiedState()
+	if err != nil {
+		return err
+	}
+
+	b.View.SetFinalizedHead(*finalizedHead, *finalizedHeadState)
+	b.View.SetJustifiedHead(*justifiedHead, *justifiedHeadState)
+
+	return nil
+}
+
+func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) error {
+	finalizedHash, err := b.db.GetFinalizedHead()
+	if err != nil {
+		return err
+	}
+
+	queue := []chainhash.Hash{genesisHash}
+
+	for len(queue) > 0 {
+		nodeToFind := queue[0]
+		queue = queue[1:]
+
+		nodeDisk, err := b.db.GetBlockNode(nodeToFind)
+		if err != nil {
+			return err
 		}
+
+		_, err = b.View.Index.LoadBlockNode(nodeDisk)
+		if err != nil {
+			return err
+		}
+
+		if nodeToFind.IsEqual(finalizedHash) {
+			// don't process any children of the finalized node (that happens when we load state)
+			continue
+		}
+
+		logrus.WithField("processed", nodeDisk.Hash).Debug("imported block index")
+
+		queue = append(queue, nodeDisk.Children...)
 	}
-	return 0, 0, 0, fmt.Errorf("validator not found in set %d", validatorID)
+	return nil
 }
 
-// GetValidatorAtIndex gets the validator at index
-func (b *Blockchain) GetValidatorAtIndex(index uint32) (*primitives.Validator, error) {
-	if index >= uint32(len(b.state.Validators)) {
-		return nil, fmt.Errorf("Index out of bounds")
+func (b *Blockchain) populateStateMap() error {
+	// this won't have any children because we didn't add them while loading the block index
+	finalizedNode := b.View.finalizedHead.BlockNode
+
+	// get the children from the disk
+	finalizedNodeWithChildren, err := b.db.GetBlockNode(finalizedNode.Hash)
+	if err != nil {
+		return err
 	}
 
-	return &b.state.Validators[index], nil
+	// queue the children to load
+	loadQueue := finalizedNodeWithChildren.Children
+
+	finalizedState, err := b.db.GetFinalizedState()
+	if err != nil {
+		return err
+	}
+
+	err = b.stateManager.SetBlockState(finalizedNode.Hash, finalizedState)
+	if err != nil {
+		return err
+	}
+
+	b.View.Chain.SetTip(finalizedNode)
+
+	err = b.stateManager.UpdateHead(finalizedNode.Hash)
+	if err != nil {
+		return err
+	}
+
+	for len(loadQueue) > 0 {
+		itemToLoad := loadQueue[0]
+
+		node, err := b.db.GetBlockNode(itemToLoad)
+		if err != nil {
+			return err
+		}
+
+		logrus.WithField("loading", node.Hash).WithField("slot", node.Slot).Debug("loading block from database")
+
+		loadQueue = loadQueue[1:]
+
+		bl, err := b.db.GetBlockForHash(node.Hash)
+		if err != nil {
+			return err
+		}
+
+		_, err = b.AddBlockToStateMap(bl, false)
+		if err != nil {
+			logrus.Debug(err)
+			return err
+		}
+
+		_, err = b.View.Index.LoadBlockNode(node)
+		if err != nil {
+			return err
+		}
+
+		// now, update the chain head
+		err = b.UpdateChainHead()
+		if err != nil {
+			return err
+		}
+
+		loadQueue = append(loadQueue, node.Children...)
+	}
+
+	justifiedHead, err := b.db.GetJustifiedHead()
+	if err != nil {
+		return err
+	}
+
+	justifiedHeadState, err := b.db.GetJustifiedState()
+	if err != nil {
+		return err
+	}
+
+	b.View.SetJustifiedHead(*justifiedHead, *justifiedHeadState)
+
+	// now, update the chain head
+	err = b.UpdateChainHead()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// GetCommitteeValidatorIndices gets all validators in a committee at slot for shard with ID of shardID
-func (b *Blockchain) GetCommitteeValidatorIndices(slot uint64, shardID uint64) ([]uint32, error) {
-	return b.state.GetCommitteeIndices(slot, shardID, b.config)
+// GetCurrentSlot gets the current slot according to the time.
+func (b *Blockchain) GetCurrentSlot() uint64 {
+	currentTime := uint64(time.Now().Unix())
+
+	timeSinceGenesis := currentTime - b.stateManager.GetGenesisTime()
+
+	return timeSinceGenesis / uint64(b.config.SlotDuration)
+}
+
+// ChainView is a view of a certain chain in the block tree so that block processing can access valid blocks.
+type ChainView struct {
+	tip *BlockNode
+
+	// effectiveTipSlot is used when the chain is being updated (excluding blocks)
+	effectiveTipSlot uint64
+
+	blockchain *Blockchain
+}
+
+// NewChainView creates a new chain view with a certain tip
+func NewChainView(tip *BlockNode, blockchain *Blockchain) ChainView {
+	return ChainView{tip, tip.Slot, blockchain}
+}
+
+// SetTipSlot sets the effective tip slot (which may be updated due to slot transitions)
+func (c *ChainView) SetTipSlot(slot uint64) {
+	c.effectiveTipSlot = slot
+}
+
+// GetHashBySlot gets a hash of a block in a certain slot.
+func (c *ChainView) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
+	ancestor := c.tip.GetAncestorAtSlot(slot)
+	if ancestor == nil {
+		if slot > c.effectiveTipSlot {
+			return chainhash.Hash{}, errors.New("could not get block past tip")
+		}
+		ancestor = c.tip
+	}
+	return ancestor.Hash, nil
+}
+
+// Tip gets the tip of the blockchain.
+func (c *ChainView) Tip() (chainhash.Hash, error) {
+	return c.tip.Hash, nil
+}
+
+// GetStateBySlot gets a state in a certain slot
+func (c *ChainView) GetStateBySlot(slot uint64) (*primitives.State, error) {
+	h, err := c.blockchain.GetHashBySlot(slot)
+	if err != nil {
+		return nil, err
+	}
+	lastBlock, err := c.blockchain.GetBlockByHash(h)
+	if err != nil {
+		return nil, err
+	}
+	h, err = ssz.TreeHash(lastBlock)
+	if err != nil {
+		return nil, err
+	}
+	state, found := c.blockchain.stateManager.GetStateForHash(h)
+	if !found {
+		return nil, errors.New("could not find state at slot")
+	}
+
+	return state, nil
+}
+
+var _ primitives.BlockView = (*ChainView)(nil)
+
+// GetSubView gets a view of the blockchain at a certain tip.
+func (b *Blockchain) GetSubView(tip chainhash.Hash) (ChainView, error) {
+	tipNode := b.View.Index.GetBlockNodeByHash(tip)
+	if tipNode == nil {
+		return ChainView{}, errors.New("could not find tip node")
+	}
+	return NewChainView(tipNode, b), nil
 }

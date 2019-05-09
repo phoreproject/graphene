@@ -1,0 +1,175 @@
+syntax = "proto3";
+
+package pb;
+
+message ProposalSignedData {
+    uint64 Slot = 1;
+    uint64 Shard = 2;
+    bytes BlockHash = 3;
+}
+
+message ProposerSlashing {
+    uint32 ProposerIndex = 1;
+    ProposalSignedData ProposalData1 = 2;
+    bytes ProposalSignature1 = 3;
+    ProposalSignedData ProposalData2 = 4;
+    bytes ProposalSignature2 = 5;
+}
+
+message SlashableVoteData {
+    repeated uint32 AggregateSignaturePoC0Indices = 1;
+    repeated uint32 AggregateSignaturePoC1Indices = 2;
+    AttestationData Data = 3;
+    bytes AggregateSignature = 4;
+}
+
+message CasperSlashing {
+    SlashableVoteData Vote0 = 1;
+    SlashableVoteData Vote1 = 2;
+}
+
+message AttestationData {
+    uint64 Slot = 1;
+    uint64 Shard = 2;
+    bytes BeaconBlockHash = 3;
+
+    // This is the destination root
+    bytes EpochBoundaryHash = 4;
+    bytes ShardBlockHash = 5;
+    bytes LatestCrosslinkHash = 6;
+
+    // These are the source root and slot
+    uint64 JustifiedSlot = 7;
+    bytes JustifiedBlockHash = 8;
+}
+
+message AttestationDataAndCustodyBit {
+    AttestationData Data = 1;
+    bool PoCBit = 2;
+}
+
+message Attestation {
+    AttestationData Data = 1;
+    bytes ParticipationBitfield = 2;
+    bytes CustodyBitfield = 3;
+    bytes AggregateSig = 4;
+}
+
+message DepositParameters {
+    bytes PublicKey = 1;
+    bytes ProofOfPossession = 2;
+    bytes WithdrawalCredentials = 3;
+}
+
+message Deposit {
+    DepositParameters Parameters = 1;
+}
+
+message Exit {
+    uint64 Slot = 1;
+    uint64 ValidatorIndex = 2;
+    bytes Signature = 3;
+}
+
+message Block {
+    BlockHeader Header = 1;
+    BlockBody Body = 2;
+}
+
+message BlockHeader {
+    uint64 SlotNumber = 1;
+    bytes ParentRoot = 2;
+    bytes StateRoot = 3;
+    bytes RandaoReveal = 4;
+    bytes Signature = 5;
+}
+
+message BlockBody {
+    repeated Attestation Attestations = 1;
+    repeated ProposerSlashing ProposerSlashings = 2;
+    repeated CasperSlashing CasperSlashings = 3;
+    repeated Deposit Deposits = 4;
+    repeated Exit Exits = 5;
+}
+
+message ForkData {
+    uint64 PreForkVersion = 1;
+    uint64 PostForkVersion = 2;
+    uint64 ForkSlot = 3;
+}
+
+message Validator {
+    bytes Pubkey = 1;
+    bytes WithdrawalCredentials = 2;
+    uint64 Status = 4;
+    uint64 LatestStatusChangeSlot = 5;
+    uint64 ExitCount = 6;
+    uint64 LastPoCChangeSlot = 7;
+    uint64 SecondLastPoCChangeSlot = 8;
+}
+
+message ShardCommittee {
+    uint64 Shard = 1;
+    repeated uint32 Committee = 2;
+    uint64 TotalValidatorCount = 3;
+}
+
+message ShardCommitteesForSlot {
+    repeated ShardCommittee Committees = 1;
+}
+
+message PersistentCommitteesForSlot {
+    repeated uint32 PersistentCommittee = 1;
+}
+
+message Crosslink {
+    uint64 Slot = 1;
+    bytes ShardBlockHash = 2;
+}
+
+message PendingAttestation {
+    AttestationData Data = 1;
+    bytes ParticipationBitfield = 2;
+    bytes CustodyBitfield = 3;
+    uint64 SlotIncluded = 4;
+}
+
+message State {
+    uint64 Slot = 1;
+    uint64 EpochIndex = 2;
+    uint64 GenesisTime = 3;
+    ForkData ForkData = 4;
+
+    repeated Validator ValidatorRegistry = 5;
+    repeated uint64 ValidatorBalances = 6;
+    uint64 ValidatorRegistryLatestChangeSlot = 7;
+    uint64 ValidatorRegistryExitCount = 8;
+    bytes ValidatorRegistryDeltaChainTip = 9;
+
+    bytes RandaoMix = 10;
+    bytes NextSeed = 11;
+    repeated ShardCommitteesForSlot ShardCommittees = 12;
+
+    uint64 PreviousJustifiedSlot = 13;
+    uint64 JustifiedSlot = 14;
+    uint64 JustificationBitField = 15;
+    uint64 FinalizedSlot = 16;
+
+    repeated Crosslink LatestCrosslinks = 17;
+    repeated bytes LatestBlockHashes = 18;
+    repeated uint64 LatestPenalizedExitBalances = 19;
+    repeated PendingAttestation LatestAttestations = 20;
+    repeated bytes BatchedBlockRoots = 21;
+}
+
+message ValidatorRegistryDeltaBlock {
+    bytes LatestRegistryDeltaRoot = 1;
+    uint32 ValidatorIndex = 2;
+    bytes Pubkey = 3;
+    uint64 Flag = 4;
+}
+
+message AttestationRequest {
+    // possibly sign this message to prevent DoS
+    bytes ParticipationBitfield = 1;
+}

@@ -3,7 +3,7 @@ package csmt
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 // Compact Sparse Merkle Trees
@@ -63,7 +63,7 @@ func (tree *CSMT) createInnerNode(left Node, right Node) Node {
 func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash) (Node, error) {
 	if node.IsLeaf() {
 		if key.IsEqual(node.GetKey()) {
-			return nil, fmt.Errorf("Key exists")
+			return nil, fmt.Errorf("key exists")
 		}
 
 		newLeaf := tree.createLeafNode(leafHash)
@@ -187,7 +187,7 @@ func (tree *CSMT) findProof(root InnerNode, key *Key) *MembershipProof {
 func (tree *CSMT) findProofHelper(sibling Node, direction int, node Node, key *Key) ([]*MembershipProofEntry, LeafNode) {
 	if node.IsLeaf() {
 		return []*MembershipProofEntry{
-			&MembershipProofEntry{
+			{
 				hash:      sibling.GetHash(),
 				direction: reverseDirection(direction),
 			},
@@ -327,14 +327,6 @@ func getMinKey(keyA *Key, keyB *Key) *Key {
 	}
 
 	return keyA
-}
-
-func xorKey(keyA *Key, keyB *Key) Key {
-	var result Key
-	for i := 0; i < chainhash.HashSize; i++ {
-		result[i] = keyA[i] ^ keyB[i]
-	}
-	return result
 }
 
 func compareKey(keyA *Key, keyB *Key) int {

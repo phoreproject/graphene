@@ -3,8 +3,24 @@ package bls
 import (
 	"io"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/phoreproject/bls"
+)
+
+const (
+	// DomainProposal is a signature for proposing a block.
+	DomainProposal = iota
+
+	// DomainAttestation is a signature for an attestation.
+	DomainAttestation
+
+	// DomainDeposit is a signature for validating a deposit.
+	DomainDeposit
+
+	// DomainExit is a signature for a validator exit.
+	DomainExit
+
+	// DomainRandao is for the randao signature.
+	DomainRandao
 )
 
 // Signature used in the BLS signature scheme.
@@ -14,13 +30,19 @@ type Signature struct {
 
 // Serialize gets the binary representation of the
 // signature.
-func (s Signature) Serialize() []byte {
+func (s Signature) Serialize() [48]byte {
 	return s.s.Serialize()
+}
+
+// Copy returns a copy of the signature.
+func (s Signature) Copy() *Signature {
+	c := s.s.Copy()
+	return &Signature{*c}
 }
 
 // DeserializeSignature deserializes a binary signature
 // into the actual signature.
-func DeserializeSignature(b []byte) (*Signature, error) {
+func DeserializeSignature(b [48]byte) (*Signature, error) {
 	s, err := bls.DeserializeSignature(b)
 	if err != nil {
 		return nil, err
@@ -28,6 +50,13 @@ func DeserializeSignature(b []byte) (*Signature, error) {
 
 	return &Signature{s: *s}, nil
 }
+
+// EmptySignature is an empty signature.
+var EmptySignature, _ = DeserializeSignature([48]byte{
+	0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+})
 
 // SecretKey used in the BLS scheme.
 type SecretKey struct {
@@ -50,6 +79,17 @@ func (s SecretKey) DerivePublicKey() *PublicKey {
 	return &PublicKey{p: *pub}
 }
 
+// Serialize serializes a secret key to bytes.
+func (s SecretKey) Serialize() [32]byte {
+	return s.s.Serialize()
+}
+
+// DeserializeSecretKey deserializes a secret key from bytes.
+func DeserializeSecretKey(b [32]byte) SecretKey {
+	k := bls.DeserializeSecretKey(b)
+	return SecretKey{*k}
+}
+
 func (p PublicKey) String() string {
 	return p.p.String()
 }
@@ -59,26 +99,40 @@ type PublicKey struct {
 	p bls.PublicKey
 }
 
+// Serialize serializes a public key to bytes.
+func (p PublicKey) Serialize() [96]byte {
+	return p.p.Serialize()
+}
+
+// Equals checks if two public keys are equal.
+func (p PublicKey) Equals(other PublicKey) bool {
+	return p.p.Equals(other.p)
+}
+
+// DeserializePublicKey deserialies a public key from the provided bytes.
+func DeserializePublicKey(b [96]byte) (*PublicKey, error) {
+	p, err := bls.DeserializePublicKey(b)
+	if err != nil {
+		return nil, err
+	}
+	return &PublicKey{*p}, nil
+}
+
 // Copy returns a copy of the public key
 func (p PublicKey) Copy() PublicKey {
 	return p
 }
 
-// Hash gets the hash of a pubkey
-func (p PublicKey) Hash() []byte {
-	return chainhash.HashB(p.p.Serialize())
-}
-
 // Sign a message using a secret key - in a beacon/validator client,
 // this key will come from and be unlocked from the account keystore.
-func Sign(sec *SecretKey, msg []byte) (*Signature, error) {
-	s := bls.Sign(msg, &sec.s)
+func Sign(sec *SecretKey, msg []byte, domain uint64) (*Signature, error) {
+	s := bls.Sign(msg, &sec.s, domain)
 	return &Signature{s: *s}, nil
 }
 
 // VerifySig against a public key.
-func VerifySig(pub *PublicKey, msg []byte, sig *Signature) (bool, error) {
-	return bls.Verify(msg, &pub.p, &sig.s), nil
+func VerifySig(pub *PublicKey, msg []byte, sig *Signature, domain uint64) (bool, error) {
+	return bls.Verify(msg, &pub.p, &sig.s, domain), nil
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying
@@ -93,7 +147,7 @@ func AggregateSigs(sigs []*Signature) (*Signature, error) {
 }
 
 // VerifyAggregate verifies a signature over many messages.
-func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) bool {
+func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature, domain uint64) bool {
 	if len(pubkeys) != len(msgs) {
 		return false
 	}
@@ -103,17 +157,17 @@ func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature) 
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregate(blsPubs, msgs)
+	return signature.s.VerifyAggregate(blsPubs, msgs, domain)
 }
 
 // VerifyAggregateCommon verifies a signature over a common message.
-func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signature) bool {
+func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signature, domain uint64) bool {
 	blsPubs := make([]*bls.PublicKey, len(pubkeys))
 	for i := range pubkeys {
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregateCommon(blsPubs, msg)
+	return signature.s.VerifyAggregateCommon(blsPubs, msg, domain)
 }
 
 // AggregatePubKeys aggregates some public keys into one.

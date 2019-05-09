@@ -3,6 +3,7 @@ syntax = "proto3";
 package pb;
 
 import "google/protobuf/empty.proto";
+import "common.proto";
 
 service BlockchainRPC {
     rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
@@ -11,78 +12,67 @@ service BlockchainRPC {
 
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
 
-    rpc GetSlotAndShardAssignment(GetSlotAndShardAssignmentRequest) returns (SlotAndShardAssignment);
+    rpc GetLastBlockHash(google.protobuf.Empty) returns (GetBlockHashResponse);
 
-    rpc GetValidatorAtIndex(GetValidatorAtIndexRequest) returns (GetValidatorAtIndexResponse);
+    rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
 
-    rpc GetCommitteeValidators(GetCommitteeValidatorsRequest) returns (GetCommitteeValidatorsResponse);
+    rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);
+
+    rpc GetEpochInformation(google.protobuf.Empty) returns (EpochInformation);
+
+    rpc GetForkData(google.protobuf.Empty) returns (ForkData);
+
+    rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
+
+    rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+
+    rpc SubmitAttestation(Attestation) returns (google.protobuf.Empty);
+
+    rpc GetMempool(google.protobuf.Empty) returns (BlockBody);
 }
 
-service P2PRPC {
-    rpc GetConnectionStatus(google.protobuf.Empty) returns (ConnectionStatus);
-
-    rpc GetPeers(google.protobuf.Empty) returns (GetPeersResponse);
-
-    rpc Subscribe(SubscriptionRequest) returns (Subscription);
-
-    rpc ListenForMessages(Subscription) returns (stream Message);
-
-    rpc Unsubscribe(Subscription) returns (google.protobuf.Empty);
-
-    rpc Connect(Peers) returns (ConnectResponse);
-
-    rpc GetSettings(google.protobuf.Empty) returns (P2PSettings);
-
-    rpc Broadcast(MessageAndTopic) returns (google.protobuf.Empty);
+message GetBlockRequest {
+    bytes Hash = 1;
 }
 
-message ConnectionStatus {
-    bool Connected = 1;
+message GetBlockResponse {
+    Block Block = 1;
 }
 
-message Peer {
-    string Address = 1;
+message GetProposerForSlotRequest {
+    uint64 Slot = 1;
 }
 
-message SubscriptionRequest {
-    string Topic = 1;
+message GetProposerForSlotResponse {
+    uint32 Proposer = 2;
 }
 
-message Subscription {
-    uint64 ID = 1;
+message EpochInformation {
+    repeated SlotInformation Slots = 1;
+    int64 Slot = 3;
+    bytes EpochBoundaryRoot = 4;
+    repeated Crosslink LatestCrosslinks = 5;
+    uint64 JustifiedSlot = 6;
+    bytes JustifiedHash = 7;
 }
 
-message GetPeersResponse {
-    repeated Peer Peers = 1;
-}
-
-message Message {
-    bytes Data = 1;
-}
-
-message MessageAndTopic {
-    bytes Data = 1;
-    string Topic = 2;
-}
-
-message Peers {
-    repeated Peer Peers = 1;
-}
-
-message ConnectResponse {
-    bool Success = 1;
+message SlotInformation {
+    int64 Slot = 1;
+    repeated ShardCommittee Committees = 2;
+    uint64 ProposeAt = 3;
 }
 
 message DisconnectResponse {
     bool Success = 1;
 }
 
-message P2PSettings {
-}
-
 enum Role {
     ATTESTER = 0;
     PROPOSER = 1;
+}
+
+message GetCommitteesForSlotRequest {
+    uint64 Slot = 1;
 }
 
 message GetSlotAndShardAssignmentRequest {
@@ -105,6 +95,7 @@ message SubmitBlockResponse {
 
 message SlotNumberResponse {
     uint64 SlotNumber = 1;
+    bytes BlockHash = 2;
 }
 
 message GetBlockHashRequest {
@@ -115,22 +106,12 @@ message GetBlockHashResponse {
     bytes Hash = 1;
 }
 
-message ValidatorResponse {
-    uint32 Pubkey = 1; // use uint32 as placeholder, will use bls.PublicKey after it's determined.
-    bytes WithdrawalCredentials = 2;
-    bytes RandaoCommitment = 4;
-    uint64 RandaoLastChange = 5;
-    uint64 Balance = 6;
-    uint32 Status = 7;
-    uint64 ExitSeq = 8;
-}
-
 message GetValidatorAtIndexRequest {
     uint32 Index = 1;
 }
 
 message GetValidatorAtIndexResponse {
-    ValidatorResponse Validator = 1;
+    Validator Validator = 1;
 }
 
 message GetCommitteeValidatorsRequest {
@@ -138,46 +119,18 @@ message GetCommitteeValidatorsRequest {
     uint32 Shard = 2;
 }
 
+message GetStateResponse {
+    State state = 1;
+}
+
+message GetStateRootResponse {
+    bytes StateRoot = 1;
+}
+
 message GetCommitteeValidatorsResponse {
-    repeated ValidatorResponse Validators = 1;
+    repeated Validator Validators = 1;
 }
 
-message Block {
-    uint64 SlotNumber = 1;
-    bytes RandaoReveal = 2;
-    repeated bytes AncestorHashes = 3;
-    bytes ActiveStateRoot = 4;
-    bytes CrystallizedStateRoot = 5;
-    repeated AttestationRecord Attestations = 6;
-    repeated Special Specials = 7;
+message GetCommitteeValidatorIndicesResponse {
+    repeated uint32 Validators = 1;
 }
-
-message Special {
-    uint32 Type = 1;
-    repeated bytes Data = 2;
-}
-
-message AttestationSignedData {
-    uint32 Version = 1;
-    uint64 Slot = 2;
-    uint64 Shard = 3;
-    repeated bytes ParentHashes = 4;
-    bytes ShardBlockHash = 5;
-    uint64 JustifiedSlot = 6;
-}
-
-message AttestationRecord {
-    AttestationSignedData Data = 1;
-    bytes AttesterBitfield = 2;
-    bytes PoCBitfield = 3;
-    bytes AggregateSig = 4;
-}
-
-message TestMessage {
-    string message = 1;
-}
-// This will be renamed to P2PRPC later
-service MainRPC {
-    rpc Test(TestMessage) returns (TestMessage);
-}
-

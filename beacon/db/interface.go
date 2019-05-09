@@ -18,27 +18,28 @@ type BlockNodeDisk struct {
 // Database is a very basic interface for pluggable
 // databases.
 type Database interface {
-	GetBlockForHash(h chainhash.Hash) (*primitives.Block, error)
-	SetBlock(b primitives.Block) error
-	GetLatestAttestation(validator uint32) (*primitives.Attestation, error)
-	SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation) error
-	SetHeadBlock(block chainhash.Hash) error
-	GetHeadBlock() (*chainhash.Hash, error)
-	SetFinalizedState(state primitives.State) error
-	GetFinalizedState() (*primitives.State, error)
-	SetJustifiedState(state primitives.State) error
-	GetJustifiedState() (*primitives.State, error)
-	SetBlockNode(node BlockNodeDisk) error
-	GetBlockNode(h chainhash.Hash) (*BlockNodeDisk, error)
-	SetJustifiedHead(h chainhash.Hash) error
-	SetFinalizedHead(h chainhash.Hash) error
-	GetJustifiedHead() (*chainhash.Hash, error)
-	GetFinalizedHead() (*chainhash.Hash, error)
-	GetGenesisTime() (uint64, error)
-	SetGenesisTime(uint64) error
-	GetHostKey() (crypto.PrivKey, error)
-	SetHostKey(key crypto.PrivKey) error
+	GetBlockForHash(h chainhash.Hash, transaction ...interface{}) (*primitives.Block, error)
+	SetBlock(b primitives.Block, transaction ...interface{}) error
+	GetLatestAttestation(validator uint32, transaction ...interface{}) (*primitives.Attestation, error)
+	SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation, transaction ...interface{}) error
+	SetHeadBlock(block chainhash.Hash, transaction ...interface{}) error
+	GetHeadBlock(transaction ...interface{}) (*chainhash.Hash, error)
+	SetFinalizedState(state primitives.State, transaction ...interface{}) error
+	GetFinalizedState(transaction ...interface{}) (*primitives.State, error)
+	SetJustifiedState(state primitives.State, transaction ...interface{}) error
+	GetJustifiedState(transaction ...interface{}) (*primitives.State, error)
+	SetBlockNode(node BlockNodeDisk, transaction ...interface{}) error
+	GetBlockNode(h chainhash.Hash, transaction ...interface{}) (*BlockNodeDisk, error)
+	SetJustifiedHead(h chainhash.Hash, transaction ...interface{}) error
+	SetFinalizedHead(h chainhash.Hash, transaction ...interface{}) error
+	GetJustifiedHead(transaction ...interface{}) (*chainhash.Hash, error)
+	GetFinalizedHead(transaction ...interface{}) (*chainhash.Hash, error)
+	GetGenesisTime(transaction ...interface{}) (uint64, error)
+	SetGenesisTime(t uint64, transaction ...interface{}) error
+	GetHostKey(transaction ...interface{}) (crypto.PrivKey, error)
+	SetHostKey(key crypto.PrivKey, transaction ...interface{}) error
 	Close() error
+	TransactionalUpdate(cb func(transaction interface{}) error) error
 }
 
 // to load chain, we need:

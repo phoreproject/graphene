@@ -35,12 +35,19 @@ func NewBadgerDB(databaseDir string) *BadgerDB {
 	opts := badger.LSMOnlyOptions
 	opts.Dir = databaseDir
 	opts.ValueDir = databaseDir
+
+	opts.ValueLogFileSize = 8 << 20
+
 	if runtime.GOOS == "windows" {
 		opts.Truncate = true
-		opts.ValueLogFileSize = 1024 * 1024
+		opts.ValueLogFileSize = 1 << 20
 		// Not sure how this option takes effect.
 		//opts.CompactL0OnClose = false
 	}
+	opts.NumMemtables = 4
+	opts.MaxTableSize = 32 << 20 // 32 MB
+	opts.NumCompactors = 1
+
 	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal(err)

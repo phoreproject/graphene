@@ -563,14 +563,6 @@ func (c *ChainView) GetStateBySlot(slot uint64) (*primitives.State, error) {
 	if err != nil {
 		return nil, err
 	}
-	lastBlock, err := c.blockchain.GetBlockByHash(h)
-	if err != nil {
-		return nil, err
-	}
-	h, err = ssz.TreeHash(lastBlock)
-	if err != nil {
-		return nil, err
-	}
 	state, found := c.blockchain.stateManager.GetStateForHash(h)
 	if !found {
 		return nil, errors.New("could not find state at slot")

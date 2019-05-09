@@ -3,8 +3,10 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
+	"time"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
@@ -12,7 +14,6 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	logger "github.com/sirupsen/logrus"
-	"time"
 )
 
 // SyncManager is responsible for requesting blocks from clients
@@ -190,12 +191,19 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			return err
 		}
 
+		// proposer public keys
 		var pubkeys []*bls.PublicKey
+
+		// attestation committee public keys
+		var attestationAggregatedPubkeys []*bls.PublicKey
+
 		aggregateSig := bls.NewAggregateSignature()
 		aggregateRandaoSig := bls.NewAggregateSignature()
+		aggregateAttestationSig := bls.NewAggregateSignature()
+
 		blockHashes := make([][]byte, 0)
 		randaoHashes := make([][]byte, 0)
-		var sigs []*bls.Signature
+		attestationHashes := make([][]byte, 0)
 
 		// go through each of the blocks in the past epoch or so
 		for _, b := range chunk {
@@ -221,8 +229,6 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			if err != nil {
 				return err
 			}
-
-			sigs = append(sigs, blockSig)
 
 			// aggregate both the block sig and the randao sig
 			aggregateSig.AggregateSig(blockSig)
@@ -254,6 +260,37 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			slotBytesHash := chainhash.HashH(slotBytes[:])
 
 			randaoHashes = append(randaoHashes, slotBytesHash[:])
+
+			for _, att := range b.BlockBody.Attestations {
+				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
+				if err != nil {
+					return err
+				}
+
+				dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+				if err != nil {
+					return err
+				}
+
+				groupPublicKey := bls.NewAggregatePublicKey()
+				for _, p := range participants {
+					pub, err := epochStateCopy.ValidatorRegistry[p].GetPublicKey()
+					if err != nil {
+						return err
+					}
+					groupPublicKey.AggregatePubKey(pub)
+				}
+
+				aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+				if err != nil {
+					return err
+				}
+
+				aggregateAttestationSig.AggregateSig(aggSig)
+
+				attestationHashes = append(attestationHashes, dataRoot[:])
+				attestationAggregatedPubkeys = append(attestationAggregatedPubkeys, groupPublicKey)
+			}
 		}
 
 		valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
@@ -264,6 +301,11 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		valid = bls.VerifyAggregate(pubkeys, randaoHashes, aggregateRandaoSig, bls.DomainRandao)
 		if !valid {
 			return errors.New("block randaos did not validate")
+		}
+
+		valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
+		if !valid {
+			return errors.New("block attestations did not validate")
 		}
 
 		for _, b := range chunk {

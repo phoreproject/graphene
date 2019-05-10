@@ -469,7 +469,7 @@ func (b *Blockchain) populateStateMap() error {
 			return err
 		}
 
-		_, err = b.AddBlockToStateMap(bl, false)
+		_, _, err = b.AddBlockToStateMap(bl, false)
 		if err != nil {
 			logrus.Debug(err)
 			return err

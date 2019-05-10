@@ -172,52 +172,55 @@ func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitive
 }
 
 // AddBlockToStateMap processes the block and adds it to the state map.
-func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.State, error) {
+func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) ([]primitives.Receipt, *primitives.State, error) {
 	lastBlockHash := block.BlockHeader.ParentRoot
 
 	view, err := sm.blockchain.GetSubView(lastBlockHash)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	lastBlockState, found := sm.GetStateForHash(lastBlockHash)
 	if !found {
-		return nil, errors.New("could not find block state of parent block")
+		return nil, nil, errors.New("could not find block state of parent block")
 	}
 
 	newState := lastBlockState.Copy()
 
 	err = newState.ProcessSlots(block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+	var receipts []primitives.Receipt
 
 	if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
 		logrus.Info("processing epoch transition")
 		t := time.Now()
 
-		_, err := newState.ProcessEpochTransition(sm.config, &view)
+		receipts, err = newState.ProcessEpochTransition(sm.config, &view)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 	}
 
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = sm.SetBlockState(blockHash, &newState)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &newState, nil
+
+	return receipts, &newState, nil
 }
 
 // DeleteStateBeforeFinalizedSlot deletes any states before the current finalized slot.

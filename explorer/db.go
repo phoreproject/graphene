@@ -1,8 +1,6 @@
 package explorer
 
 import (
-	"time"
-
 	"github.com/jinzhu/gorm"
 )
 
@@ -18,30 +16,29 @@ import (
 type Validator struct {
 	gorm.Model
 
-	Pubkey                 [96]byte
-	WithdrawalCredentials  [32]byte
+	Pubkey                 []byte `gorm:"size:96"`
+	WithdrawalCredentials  []byte `gorm:"size:32"`
 	Status                 uint64
 	LatestStatusChangeSlot uint64
 	ExitCount              uint64
-	EntrySlot              uint64
 	ValidatorID            uint64
-	ValidatorHash          [32]byte // Hash(entrySlot || validatorID)
+	ValidatorHash          []byte `gorm:"size:32"` // Hash(pubkey || validatorID)
 }
 
 // Attestation is a single attestation.
 type Attestation struct {
 	gorm.Model
 
-	Participants        []Validator
-	Signature           [48]byte
+	ParticipantHashes   []byte
+	Signature           []byte `gorm:"size:48"`
 	Slot                uint64
 	Shard               uint64
-	BeaconBlockHash     [32]byte
-	EpochBoundaryHash   [32]byte
-	ShardBlockHash      [32]byte
-	LatestCrosslinkHash [32]byte
+	BeaconBlockHash     []byte `gorm:"size:32"`
+	EpochBoundaryHash   []byte `gorm:"size:32"`
+	ShardBlockHash      []byte `gorm:"size:32"`
+	LatestCrosslinkHash []byte `gorm:"size:32"`
 	JustifiedSlot       uint64
-	JustifiedBlockHash  [32]byte
+	JustifiedBlockHash  []byte `gorm:"size:32"`
 }
 
 // TODO: add slashings, deposits, and exits
@@ -50,51 +47,41 @@ type Attestation struct {
 type Block struct {
 	gorm.Model
 
-	Attestations []Attestation
-	ParentBlock  *Block
-	StateRoot    [32]byte
-	RandaoReveal [48]byte
-	Signature    [48]byte
-	Hash         [32]byte
-	Height       uint64
-	Slot         uint64
-}
-
-// Slot is a slot in the chain.
-type Slot struct {
-	gorm.Model
-
-	SlotStart time.Time
-	Proposer  Validator
-	Block     *Block
+	Attestations    []Attestation
+	ParentBlockHash []byte `gorm:"size:32"`
+	StateRoot       []byte `gorm:"size:32"`
+	RandaoReveal    []byte `gorm:"size:48"`
+	Signature       []byte `gorm:"size:48"`
+	Hash            []byte `gorm:"size:32"`
+	Height          uint64
+	Slot            uint64
 }
 
 // Transaction is a slashing or reward on the beacon chain.
 type Transaction struct {
 	gorm.Model
 
-	Amount    uint64
-	Recipient Validator
-	Type      uint8
-	Slot      Slot
+	Amount        int64
+	RecipientHash []byte `gorm:"size:32"`
+	Type          uint8
+	Slot          uint64
 }
 
 // Assignment is the assignment of a committee to shards.
 type Assignment struct {
 	gorm.Model
 
-	Shard               uint64
-	Committee           []Validator
-	TotalValidatorCount uint64
+	Shard           uint64
+	CommitteeHashes []byte
+	Slot            uint64
 }
 
 // Epoch is a single epoch in the blockchain.
 type Epoch struct {
 	gorm.Model
 
-	Blocks                    []Block
-	StartSlot                 Slot
-	ShardAndCommitteeForSlots [][]Assignment
+	StartSlot  uint64
+	Committees []Assignment
 }
 
 // Database is the database used to store information about the blockchain.
@@ -112,13 +99,24 @@ func (db *Database) GetLatestBlocks(n int) []Block {
 // NewDatabase creates a new database given a gorm DB.
 func NewDatabase(db *gorm.DB) *Database {
 	// Migrate the schema
-	db.AutoMigrate(&Validator{})
-	db.AutoMigrate(&Attestation{})
-	db.AutoMigrate(&Block{})
-	db.AutoMigrate(&Slot{})
-	db.AutoMigrate(&Transaction{})
-	db.AutoMigrate(&Assignment{})
-	db.AutoMigrate(&Epoch{})
+	if err := db.AutoMigrate(&Validator{}).Error; err != nil {
+		panic(err)
+	}
+	if err := db.AutoMigrate(&Attestation{}).Error; err != nil {
+		panic(err)
+	}
+	if err := db.AutoMigrate(&Block{}).Error; err != nil {
+		panic(err)
+	}
+	if err := db.AutoMigrate(&Transaction{}).Error; err != nil {
+		panic(err)
+	}
+	if err := db.AutoMigrate(&Assignment{}).Error; err != nil {
+		panic(err)
+	}
+	if err := db.AutoMigrate(&Epoch{}).Error; err != nil {
+		panic(err)
+	}
 
 	return &Database{db}
 }

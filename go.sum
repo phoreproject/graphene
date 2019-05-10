@@ -272,6 +272,8 @@ github.com/opentracing/opentracing-go v1.0.2/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFSt
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee h1:mZCYXbDRfLz5xp4wpKHe/70kV40z2pEDg6thm/4hfdA=
 github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee/go.mod h1:7pK0Ldy91shCmI47LLTn3i3rfTQcHiJJvPqGqzvN5nE=
+github.com/phoreproject/prysm v0.0.0-20190209202311-c85edb6a4546 h1:FmioFpgclvXhUPo/IULfqdxmMjfPgbballSC8u7ClTE=
+github.com/phoreproject/prysm v0.0.0-20190209202311-c85edb6a4546/go.mod h1:eb+5SXNhgPJ90qZnYo+RfYdjv7/l1W98bSuR+FEaso0=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=

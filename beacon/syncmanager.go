@@ -29,10 +29,11 @@ import (
 //         locator = generateLocator(chain) - locator starts from tip and goes back exponentially including the genesis block
 //				 askForBlocks(locator)
 type SyncManager struct {
-	hostNode    *p2p.HostNode
-	timeout     time.Duration
-	syncStarted bool
-	blockchain  *Blockchain
+	hostNode        *p2p.HostNode
+	timeout         time.Duration
+	syncStarted     bool
+	blockchain      *Blockchain
+	postProcessHook func(*primitives.Block, *primitives.State, []primitives.Receipt)
 }
 
 // NewSyncManager creates a new sync manager
@@ -352,6 +353,11 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	return nil
 }
 
+// RegisterPostProcessHook registers a hook called after a block has been processed.
+func (s *SyncManager) RegisterPostProcessHook(hook func(*primitives.Block, *primitives.State, []primitives.Receipt)) {
+	s.postProcessHook = hook
+}
+
 func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.Peer, verifySignature bool) error {
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
@@ -380,9 +386,13 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 
 	} else {
 		logger.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
-		err := s.blockchain.ProcessBlock(block, true, verifySignature)
+		receipts, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
+		}
+
+		if s.postProcessHook != nil && newState != nil {
+			s.postProcessHook(block, newState, receipts)
 		}
 	}
 

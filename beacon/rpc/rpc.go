@@ -69,7 +69,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
-	err = s.chain.ProcessBlock(b, true, true)
+	_, _, err = s.chain.ProcessBlock(b, true, true)
 	if err != nil {
 		return nil, err
 	}

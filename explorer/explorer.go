@@ -2,8 +2,12 @@ package explorer
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"github.com/libp2p/go-libp2p-crypto"
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"io"
 	"net/http"
 	"os"
@@ -183,6 +187,164 @@ func (ex *Explorer) WaitForConnections(numConnections int) {
 	}
 }
 
+func combineHashes(in [][32]byte) []byte {
+	out := make([]byte, 32*len(in))
+
+	for i, h := range in {
+		copy(out[32*i:32*(i+1)], h[:])
+	}
+
+	return out
+}
+
+func splitHashes(in []byte) [][32]byte {
+	out := make([][32]byte, len(in)/32)
+
+	for i := range out {
+		copy(out[i][:], in[32*i:32*(i+1)])
+	}
+
+	return out
+}
+
+func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.State, receipts []primitives.Receipt) {
+	validators := make(map[int]Validator)
+
+	// Update Validators
+	for id, v := range state.ValidatorRegistry {
+		var idBytes [4]byte
+		binary.BigEndian.PutUint32(idBytes[:], uint32(id))
+		pubAndID := append(v.Pubkey[:], idBytes[:]...)
+		validatorHash := chainhash.HashH(pubAndID)
+
+		var newV Validator
+
+		ex.database.database.Where(Validator{ValidatorHash: validatorHash[:]}).FirstOrCreate(&newV)
+
+		newV.Pubkey = v.Pubkey[:]
+		newV.WithdrawalCredentials = v.WithdrawalCredentials[:]
+		newV.Status = v.Status
+		newV.LatestStatusChangeSlot = v.LatestStatusChangeSlot
+		newV.ExitCount = v.ExitCount
+		newV.ValidatorID = uint64(id)
+
+		ex.database.database.Save(&newV)
+
+		validators[id] = newV
+	}
+
+	var attestations []Attestation
+
+	// Update attestations
+	for _, att := range block.BlockBody.Attestations {
+		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		participantHashes := make([][32]byte, len(participants))
+
+		for i, p := range participants {
+			var idBytes [4]byte
+			binary.BigEndian.PutUint32(idBytes[:], p)
+			pubAndID := append(state.ValidatorRegistry[p].Pubkey[:], idBytes[:]...)
+			validatorHash := chainhash.HashH(pubAndID)
+
+			participantHashes[i] = validatorHash
+		}
+
+		attestation := &Attestation{
+			ParticipantHashes:   combineHashes(participantHashes),
+			Signature:           att.AggregateSig[:],
+			Slot:                att.Data.Slot,
+			Shard:               att.Data.Shard,
+			BeaconBlockHash:     att.Data.BeaconBlockHash[:],
+			EpochBoundaryHash:   att.Data.EpochBoundaryHash[:],
+			ShardBlockHash:      att.Data.ShardBlockHash[:],
+			LatestCrosslinkHash: att.Data.LatestCrosslinkHash[:],
+			JustifiedBlockHash:  att.Data.JustifiedBlockHash[:],
+			JustifiedSlot:       att.Data.JustifiedSlot,
+		}
+
+		ex.database.database.Create(attestation)
+
+		attestations = append(attestations, *attestation)
+	}
+
+	for _, r := range receipts {
+		var idBytes [4]byte
+		binary.BigEndian.PutUint32(idBytes[:], r.Index)
+		pubAndID := append(state.ValidatorRegistry[r.Index].Pubkey[:], idBytes[:]...)
+		validatorHash := chainhash.HashH(pubAndID)
+
+		receipt := &Transaction{
+			Amount:        r.Amount,
+			RecipientHash: validatorHash[:],
+			Type:          r.Type,
+			Slot:          r.Slot,
+		}
+
+		ex.database.database.Create(receipt)
+	}
+
+	var epochCount int
+
+	epochStart := state.Slot - (state.Slot % ex.config.NetworkConfig.EpochLength)
+
+	ex.database.database.Model(&Epoch{}).Where(&Epoch{StartSlot: epochStart}).Count(&epochCount)
+
+	if epochCount == 0 {
+		var assignments []Assignment
+
+		for i := epochStart; i < epochStart+ex.config.NetworkConfig.EpochLength; i++ {
+			assignmentForSlot, err := state.GetShardCommitteesAtSlot(state.Slot, i, ex.config.NetworkConfig)
+			if err != nil {
+				panic(err)
+			}
+
+			for _, as := range assignmentForSlot {
+				committeeHashes := make([][32]byte, len(as.Committee))
+				for i, member := range as.Committee {
+					var idBytes [4]byte
+					binary.BigEndian.PutUint32(idBytes[:], member)
+					pubAndID := append(state.ValidatorRegistry[member].Pubkey[:], idBytes[:]...)
+					committeeHashes[i] = chainhash.HashH(pubAndID)
+				}
+
+				assignment := &Assignment{
+					Shard:           as.Shard,
+					Slot:            i,
+					CommitteeHashes: combineHashes(committeeHashes),
+				}
+
+				ex.database.database.Create(assignment)
+
+				assignments = append(assignments, *assignment)
+			}
+		}
+
+		ex.database.database.Create(&Epoch{
+			StartSlot:  epochStart,
+			Committees: assignments,
+		})
+	}
+
+	blockHash, err := ssz.TreeHash(block)
+	if err != nil {
+		panic(err)
+	}
+
+	ex.database.database.Create(&Block{
+		Attestations:    attestations,
+		ParentBlockHash: block.BlockHeader.ParentRoot[:],
+		StateRoot:       block.BlockHeader.StateRoot[:],
+		RandaoReveal:    block.BlockHeader.RandaoReveal[:],
+		Signature:       block.BlockHeader.Signature[:],
+		Hash:            blockHash[:],
+		Slot:            block.BlockHeader.SlotNumber,
+	})
+}
+
 // StartExplorer starts the block explorer
 func (ex *Explorer) StartExplorer() error {
 	err := ex.loadDatabase()
@@ -201,6 +363,8 @@ func (ex *Explorer) StartExplorer() error {
 	}
 
 	ex.syncManager = beacon.NewSyncManager(ex.hostNode, time.Second*5, ex.blockchain)
+
+	ex.syncManager.RegisterPostProcessHook(ex.postProcessHook)
 
 	ex.syncManager.Start()
 

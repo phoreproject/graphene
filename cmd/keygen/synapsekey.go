@@ -7,13 +7,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/validator"
 
 	"github.com/phoreproject/synapse/beacon"
+
+	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/validator"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 func main() {

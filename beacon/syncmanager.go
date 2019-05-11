@@ -3,16 +3,18 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"time"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peer"
-	"github.com/phoreproject/prysm/shared/ssz"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 	logger "github.com/sirupsen/logrus"
-	"time"
 )
 
 // SyncManager is responsible for requesting blocks from clients
@@ -148,10 +150,25 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	currentEpochChunk := make([]*primitives.Block, 0)
 	currentEpoch := firstBlock.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
 
+	logger.WithFields(logger.Fields{
+		"firstBlock": blockMessage.Blocks[0].Header.SlotNumber,
+		"lastBlock":  blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
+	}).Info("received blocks from peer")
+
 	for i := range blockMessage.Blocks[1:] {
 		block, err := primitives.BlockFromProto(blockMessage.Blocks[i])
 		if err != nil {
 			return err
+		}
+
+		blockHash, err := ssz.TreeHash(block)
+		if err != nil {
+			return err
+		}
+
+		if s.blockchain.View.Index.Has(blockHash) {
+			// ignore blocks we already have.
+			continue
 		}
 
 		addToNextEpoch := true
@@ -176,7 +193,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	for _, chunk := range epochBlockChunks {
 		epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
 		if !found {
-			return errors.New("could not find parent block")
+			return fmt.Errorf("could not find parent block at slot %d with parent root %s", chunk[0].BlockHeader.SlotNumber, chunk[0].BlockHeader.ParentRoot)
 		}
 
 		tipNode := s.blockchain.View.Index.GetBlockNodeByHash(chunk[0].BlockHeader.ParentRoot)
@@ -190,12 +207,19 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			return err
 		}
 
+		// proposer public keys
 		var pubkeys []*bls.PublicKey
+
+		// attestation committee public keys
+		var attestationAggregatedPubkeys []*bls.PublicKey
+
 		aggregateSig := bls.NewAggregateSignature()
 		aggregateRandaoSig := bls.NewAggregateSignature()
+		aggregateAttestationSig := bls.NewAggregateSignature()
+
 		blockHashes := make([][]byte, 0)
 		randaoHashes := make([][]byte, 0)
-		var sigs []*bls.Signature
+		attestationHashes := make([][]byte, 0)
 
 		// go through each of the blocks in the past epoch or so
 		for _, b := range chunk {
@@ -221,8 +245,6 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			if err != nil {
 				return err
 			}
-
-			sigs = append(sigs, blockSig)
 
 			// aggregate both the block sig and the randao sig
 			aggregateSig.AggregateSig(blockSig)
@@ -254,6 +276,37 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			slotBytesHash := chainhash.HashH(slotBytes[:])
 
 			randaoHashes = append(randaoHashes, slotBytesHash[:])
+
+			for _, att := range b.BlockBody.Attestations {
+				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
+				if err != nil {
+					return err
+				}
+
+				dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+				if err != nil {
+					return err
+				}
+
+				groupPublicKey := bls.NewAggregatePublicKey()
+				for _, p := range participants {
+					pub, err := epochStateCopy.ValidatorRegistry[p].GetPublicKey()
+					if err != nil {
+						return err
+					}
+					groupPublicKey.AggregatePubKey(pub)
+				}
+
+				aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+				if err != nil {
+					return err
+				}
+
+				aggregateAttestationSig.AggregateSig(aggSig)
+
+				attestationHashes = append(attestationHashes, dataRoot[:])
+				attestationAggregatedPubkeys = append(attestationAggregatedPubkeys, groupPublicKey)
+			}
 		}
 
 		valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
@@ -264,6 +317,11 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		valid = bls.VerifyAggregate(pubkeys, randaoHashes, aggregateRandaoSig, bls.DomainRandao)
 		if !valid {
 			return errors.New("block randaos did not validate")
+		}
+
+		valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
+		if !valid {
+			return errors.New("block attestations did not validate")
 		}
 
 		for _, b := range chunk {

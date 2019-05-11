@@ -3,17 +3,18 @@ package beacon
 import (
 	"errors"
 	"fmt"
-	"github.com/phoreproject/synapse/beacon/db"
 	"sync"
 	"time"
+
+	"github.com/phoreproject/synapse/beacon/db"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // StateManager handles all state transitions, storing of states for different forks,
@@ -172,6 +173,7 @@ func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitive
 
 // AddBlockToStateMap processes the block and adds it to the state map.
 func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.State, error) {
+	startTime := time.Now()
 	lastBlockHash := block.BlockHeader.ParentRoot
 
 	view, err := sm.blockchain.GetSubView(lastBlockHash)
@@ -184,17 +186,25 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, errors.New("could not find block state of parent block")
 	}
 
+	fmt.Println("time0", time.Since(startTime))
+
 	newState := lastBlockState.Copy()
+
+	fmt.Println("time00", time.Since(startTime))
 
 	err = newState.ProcessSlots(block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("time01", time.Since(startTime))
+
 	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("time02", time.Since(startTime))
 
 	if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
 		logrus.Info("processing epoch transition")
@@ -207,15 +217,20 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 	}
 
+	fmt.Println("time1", time.Since(startTime))
+
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("time2", time.Since(startTime))
+
 	err = sm.SetBlockState(blockHash, &newState)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("time3", time.Since(startTime))
 
 	return &newState, nil
 }

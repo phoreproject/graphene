@@ -15,7 +15,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.
@@ -1714,7 +1714,7 @@ done:
 }
 
 // applyAttestation verifies and applies an attestation to the given state.
-func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView) error {
+func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool) error {
 	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
 		return errors.New("attestation included too soon")
 	}
@@ -1752,37 +1752,39 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 		return errors.New("latest crosslink is invalid")
 	}
 
-	participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
-	if err != nil {
-		return err
-	}
-
-	dataRoot, err := ssz.TreeHash(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
-	if err != nil {
-		return err
-	}
-
-	groupPublicKey := bls.NewAggregatePublicKey()
-	for _, p := range participants {
-		pub, err := s.ValidatorRegistry[p].GetPublicKey()
+	if verifySignature {
+		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
 		if err != nil {
 			return err
 		}
-		groupPublicKey.AggregatePubKey(pub)
-	}
 
-	aggSig, err := bls.DeserializeSignature(att.AggregateSig)
-	if err != nil {
-		return err
-	}
+		dataRoot, err := ssz.TreeHash(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+		if err != nil {
+			return err
+		}
 
-	valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], aggSig, GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
-	if err != nil {
-		return err
-	}
+		groupPublicKey := bls.NewAggregatePublicKey()
+		for _, p := range participants {
+			pub, err := s.ValidatorRegistry[p].GetPublicKey()
+			if err != nil {
+				return err
+			}
+			groupPublicKey.AggregatePubKey(pub)
+		}
 
-	if !valid {
-		return errors.New("attestation signature is invalid")
+		aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+		if err != nil {
+			return err
+		}
+
+		valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], aggSig, GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
+		if err != nil {
+			return err
+		}
+
+		if !valid {
+			return errors.New("attestation signature is invalid")
+		}
 	}
 
 	node, err = view.GetHashBySlot(att.Data.Slot)
@@ -1946,7 +1948,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	}
 
 	for _, a := range block.BlockBody.Attestations {
-		err := s.applyAttestation(a, con, view)
+		err := s.applyAttestation(a, con, view, verifySignature)
 		if err != nil {
 			return err
 		}
@@ -1960,10 +1962,6 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 			return err
 		}
 	}
-
-	blockTransitionTime := time.Since(blockTransitionStart)
-
-	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	// Check state root.
 	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
@@ -1981,7 +1979,10 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
 		return errors.New("StateRoot doesn't match")
 	}
-	// Check state root end.
+
+	blockTransitionTime := time.Since(blockTransitionStart)
+
+	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	return nil
 }

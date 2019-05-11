@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"

@@ -3,15 +3,16 @@
 package rpc
 
 import (
-	"github.com/sirupsen/logrus"
 	"net"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/p2p"
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"

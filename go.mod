@@ -6,7 +6,7 @@ require (
 	github.com/go-test/deep v1.0.1
 	github.com/golang/protobuf v1.3.0
 	github.com/google/gofuzz v1.0.0 // indirect
-	github.com/karlseguin/ccache v2.0.2+incompatible // indirect
+	github.com/karlseguin/ccache v2.0.3-0.20190223152640-ec06cd93a075+incompatible // indirect
 	github.com/karlseguin/expect v1.0.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.8 // indirect
@@ -22,7 +22,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee
 	github.com/prometheus/client_golang v0.9.2 // indirect
-	github.com/prysmaticlabs/prysm v0.0.0-20190511214355-9f7f7d6cff18
+	github.com/prysmaticlabs/prysm v0.0.0-20190511220258-c9ce8b524647
 	github.com/sirupsen/logrus v1.3.0
 	github.com/valyala/fasttemplate v1.0.0 // indirect
 	github.com/wsxiaoys/terminal v0.0.0-20160513160801-0940f3fc43a0 // indirect

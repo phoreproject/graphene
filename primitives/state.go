@@ -15,7 +15,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.
@@ -1963,10 +1963,6 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		}
 	}
 
-	blockTransitionTime := time.Since(blockTransitionStart)
-
-	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
-
 	// Check state root.
 	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
 	if err != nil {
@@ -1983,7 +1979,10 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
 		return errors.New("StateRoot doesn't match")
 	}
-	// Check state root end.
+
+	blockTransitionTime := time.Since(blockTransitionStart)
+
+	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	return nil
 }

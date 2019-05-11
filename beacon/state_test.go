@@ -1,13 +1,14 @@
 package beacon_test
 
 import (
-	"github.com/phoreproject/prysm/shared/ssz"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/util"

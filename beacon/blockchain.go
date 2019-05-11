@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 

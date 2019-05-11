@@ -3,16 +3,17 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -149,10 +150,25 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	currentEpochChunk := make([]*primitives.Block, 0)
 	currentEpoch := firstBlock.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
 
+	logger.WithFields(logger.Fields{
+		"firstBlock": blockMessage.Blocks[0].Header.SlotNumber,
+		"lastBlock":  blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
+	}).Info("received blocks from peer")
+
 	for i := range blockMessage.Blocks[1:] {
 		block, err := primitives.BlockFromProto(blockMessage.Blocks[i])
 		if err != nil {
 			return err
+		}
+
+		blockHash, err := ssz.TreeHash(block)
+		if err != nil {
+			return err
+		}
+
+		if s.blockchain.View.Index.Has(blockHash) {
+			// ignore blocks we already have.
+			continue
 		}
 
 		addToNextEpoch := true
@@ -177,7 +193,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	for _, chunk := range epochBlockChunks {
 		epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
 		if !found {
-			return errors.New("could not find parent block")
+			return fmt.Errorf("could not find parent block at slot %d with parent root %s", chunk[0].BlockHeader.SlotNumber, chunk[0].BlockHeader.ParentRoot)
 		}
 
 		tipNode := s.blockchain.View.Index.GetBlockNodeByHash(chunk[0].BlockHeader.ParentRoot)

@@ -12,9 +12,9 @@ import (
 
 	"github.com/phoreproject/synapse/beacon"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/validator"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 func main() {

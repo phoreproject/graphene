@@ -7,6 +7,8 @@ import (
 
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
+	p2pdiscovery "github.com/libp2p/go-libp2p-discovery"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 )
 
 // MDNSOptions are options for the MDNS discovery mechanism.
@@ -23,6 +25,8 @@ type DiscoveryOptions struct {
 	MDNS MDNSOptions
 }
 
+var activeDiscoveryNS = "synapse"
+
 // NewDiscoveryOptions creates a DiscoveryOptions with default values
 func NewDiscoveryOptions() DiscoveryOptions {
 	return DiscoveryOptions{
@@ -38,14 +42,20 @@ type Discovery struct {
 	host    *HostNode
 	options DiscoveryOptions
 	ctx     context.Context
+	p2pDiscovery p2pdiscovery.Discovery
 }
 
 // NewDiscovery creates a new discovery service.
 func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions) *Discovery {
+	routing, err := kaddht.New(ctx, host.GetHost())
+	if err != nil {
+		panic(err)
+	}
 	return &Discovery{
 		host:    host,
 		ctx:     ctx,
 		options: options,
+		p2pDiscovery: p2pdiscovery.NewRoutingDiscovery(routing),
 	}
 }
 
@@ -64,6 +74,8 @@ func (d Discovery) StartDiscovery() error {
 		}
 	}
 
+	d.startActiveDiscovery()
+
 	for _, p := range d.options.PeerAddresses {
 		d.HandlePeerFound(p)
 	}
@@ -80,6 +92,26 @@ func (d Discovery) discoverFromMDNS() error {
 	mdnsService.RegisterNotifee(d)
 
 	return nil
+}
+
+func (d Discovery) startActiveDiscovery() {
+	p2pdiscovery.Advertise(d.ctx, d.p2pDiscovery, activeDiscoveryNS)
+	peerInfo, err := d.p2pDiscovery.FindPeers(d.ctx, activeDiscoveryNS)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			select {
+			case pi := <-peerInfo:
+				d.HandlePeerFound(pi)
+
+			case <-d.ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // HandlePeerFound registers the peer with the host.

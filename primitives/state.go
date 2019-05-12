@@ -935,7 +935,7 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 
 // ProcessSlot processes a single slot which should happen before the block transition and the epoch transition.
 func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) error {
-	slotTransitionTime := time.Now()
+	//slotTransitionTime := time.Now()
 
 	// increase the slot number
 	s.Slot++
@@ -950,9 +950,9 @@ func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) 
 		s.BatchedBlockRoots = append(s.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
-	slotTransitionDuration := time.Since(slotTransitionTime)
+	//slotTransitionDuration := time.Since(slotTransitionTime)
 
-	logrus.WithField("slot", s.Slot).WithField("duration", slotTransitionDuration).Info("slot transition")
+	//logrus.WithField("slot", s.Slot).WithField("duration", slotTransitionDuration).Info("slot transition")
 
 	return nil
 }
@@ -1814,7 +1814,7 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 // ProcessBlock tries to apply a block to the state.
 func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
 
-	blockTransitionStart := time.Now()
+	//blockTransitionStart := time.Now()
 
 	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, block.BlockHeader.SlotNumber-1, con)
 	if err != nil {
@@ -1963,6 +1963,10 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		}
 	}
 
+	//blockTransitionTime := time.Since(blockTransitionStart)
+
+	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
+
 	// Check state root.
 	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
 	if err != nil {
@@ -1980,9 +1984,9 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		return errors.New("StateRoot doesn't match")
 	}
 
-	blockTransitionTime := time.Since(blockTransitionStart)
+	//blockTransitionTime := time.Since(blockTransitionStart)
 
-	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
+	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	return nil
 }
@@ -1994,14 +1998,14 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) erro
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
-			logrus.Info("processing epoch transition")
-			t := time.Now()
+			//logrus.Info("processing epoch transition")
+			//t := time.Now()
 
 			_, err := s.ProcessEpochTransition(c, view)
 			if err != nil {
 				return err
 			}
-			logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
+			//logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 		}
 
 		tip, err := view.Tip()

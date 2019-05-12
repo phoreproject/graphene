@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/binary"
 	"flag"
-	"github.com/phoreproject/synapse/p2p"
 	"os"
+
+	"github.com/phoreproject/synapse/p2p"
 
 	"github.com/phoreproject/synapse/beacon/app"
 

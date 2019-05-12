@@ -7,7 +7,6 @@ import (
 
 	"github.com/prysmaticlabs/prysm/shared/ssz"
 	"github.com/sirupsen/logrus"
-	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -294,11 +293,11 @@ func (b *Blockchain) UpdateChainHead() error {
 				return err
 			}
 
-			logger.WithFields(logrus.Fields{
-				"height": head.Height,
-				"hash":   head.Hash.String(),
-				"slot":   b.stateManager.GetHeadSlot(),
-			}).Debug("set tip")
+			//logger.WithFields(logrus.Fields{
+			//	"height": head.Height,
+			//	"hash":   head.Hash.String(),
+			//	"slot":   b.stateManager.GetHeadSlot(),
+			//}).Debug("set tip")
 			return nil
 		}
 		bestVoteCountChild := children[0]
@@ -461,7 +460,7 @@ func (b *Blockchain) populateStateMap() error {
 			return err
 		}
 
-		logrus.WithField("loading", node.Hash).WithField("slot", node.Slot).Debug("loading block from database")
+		//logrus.WithField("loading", node.Hash).WithField("slot", node.Slot).Debug("loading block from database")
 
 		loadQueue = loadQueue[1:]
 

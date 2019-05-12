@@ -88,7 +88,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	blockStorageTime := time.Since(blockStorageStart)
 
-	logger.Debug("applied with new state")
+	//logger.Debug("applied with new state")
 
 	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash)
 	if err != nil {
@@ -134,7 +134,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	attestationUpdateEnd := time.Since(attestationUpdateStart)
 
-	logger.Debug("updating chain head")
+	//logger.Debug("updating chain head")
 
 	updateChainHeadStart := time.Now()
 
@@ -223,7 +223,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		"finalizedUpdate":    finalizedStateUpdateTime,
 		"stateCleanup":       stateCleanupTime,
 		"totalTime":          time.Since(validationStart),
-	}).Debug("performance report for processing")
+	})
 
 	return nil
 }

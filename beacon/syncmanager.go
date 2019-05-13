@@ -337,15 +337,6 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			}
 		}
 
-		fmt.Printf("blocks in chunk: [")
-		for i, b := range chunk {
-			if i != len(chunk)-1 {
-				fmt.Printf("%d ", b.BlockHeader.SlotNumber)
-			} else {
-				fmt.Printf("%d]\n", b.BlockHeader.SlotNumber)
-			}
-		}
-
 		valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
 		if !valid {
 			return errors.New("blocks did not validate")

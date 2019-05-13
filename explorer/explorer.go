@@ -366,6 +366,8 @@ func (ex *Explorer) StartExplorer() error {
 
 	go ex.syncManager.TryInitialSync()
 
+	go ex.syncManager.ListenForBlocks()
+
 	t := &Template{
 		templates: template.Must(template.ParseGlob("templates/*.html")),
 	}

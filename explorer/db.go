@@ -48,6 +48,7 @@ type Block struct {
 	gorm.Model
 
 	Attestations    []Attestation
+	Proposer        []byte `gorm:"size:32"`
 	ParentBlockHash []byte `gorm:"size:32"`
 	StateRoot       []byte `gorm:"size:32"`
 	RandaoReveal    []byte `gorm:"size:48"`

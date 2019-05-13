@@ -411,7 +411,7 @@ func (b *BadgerDB) SetFinalizedState(state primitives.State, transaction ...inte
 func (b *BadgerDB) GetJustifiedState(transaction ...interface{}) (*primitives.State, error) {
 	txn := b.extractTransaction(transaction...)
 	if txn == nil {
-		txn := b.db.NewTransaction(false)
+		txn = b.db.NewTransaction(false)
 		defer txn.Discard()
 	}
 	i, err := txn.Get(justifiedStateKey)

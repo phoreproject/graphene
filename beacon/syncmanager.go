@@ -116,6 +116,13 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 		currentBlockNode = s.blockchain.View.Chain.Next(currentBlockNode)
 	}
 
+	if len(toSend) > 0 {
+		logger.WithFields(logger.Fields{
+			"from": firstCommonBlock.Slot,
+			"to":   toSend[len(toSend)-1].BlockHeader.SlotNumber,
+		}).Debug("sending blocks to peer")
+	}
+
 	blockMessage := &pb.BlockMessage{
 		Blocks: make([]*pb.Block, len(toSend)),
 	}
@@ -132,9 +139,15 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 	blockMessage := message.(*pb.BlockMessage)
 
-	logger.WithField("number", len(blockMessage.Blocks)).Debug("received block")
+	logger.WithFields(logger.Fields{
+		"from":   blockMessage.Blocks[0].Header.SlotNumber,
+		"to":     blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
+		"number": len(blockMessage.Blocks),
+	}).Debug("received blocks from sync")
 
 	logger.Debug("checking signatures")
+
+	peer.ProcessingRequest = true
 
 	if len(blockMessage.Blocks) == 0 {
 		// TODO: handle error of peer sending no blocks
@@ -189,6 +202,8 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			currentEpochChunk = append(currentEpochChunk, block)
 		}
 	}
+
+	fmt.Println("chunked")
 
 	for _, chunk := range epochBlockChunks {
 		epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
@@ -332,6 +347,8 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		}
 	}
 
+	peer.ProcessingRequest = false
+
 	return nil
 }
 
@@ -347,27 +364,22 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 			return nil
 		}
 
-		if _, found := peerFrom.BlocksRequested[blockHash]; found {
-			// we already requested this block, so request the parent
-			err := peerFrom.SendMessage(&pb.GetBlockMessage{
-				LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-				HashStop:      block.BlockHeader.ParentRoot[:],
-			})
-			if err != nil {
-				return err
-			}
-		} else {
-			// request all blocks up to this block
-			err := peerFrom.SendMessage(&pb.GetBlockMessage{
-				LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-				HashStop:      blockHash[:],
-			})
-			if err != nil {
-				return err
-			}
+		logger.WithFields(logger.Fields{
+			"hash":       chainhash.Hash(block.BlockHeader.ParentRoot),
+			"slotTrying": block.BlockHeader.SlotNumber,
+		}).Debug("requesting parent block")
+
+		// request all blocks up to this block
+		err := peerFrom.SendMessage(&pb.GetBlockMessage{
+			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+			HashStop:      blockHash[:],
+		})
+		if err != nil {
+			return err
 		}
 
 	} else {
+		logger.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
 		err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
@@ -383,6 +395,10 @@ func (s SyncManager) ListenForBlocks() error {
 	_, err := s.hostNode.SubscribeMessage("block", func(data []byte, from peer.ID) {
 		peerFrom := s.hostNode.GetPeerByID(from)
 
+		if peerFrom == nil {
+			return
+		}
+
 		blockProto := new(pb.Block)
 
 		err := proto.Unmarshal(data, blockProto)
@@ -397,7 +413,10 @@ func (s SyncManager) ListenForBlocks() error {
 			return
 		}
 
-		// TODO: ignore new blocks if syncing
+		// if we're still syncing, ignore
+		if peerFrom.ProcessingRequest {
+			return
+		}
 
 		err = s.handleReceivedBlock(block, peerFrom, true)
 		if err != nil {

@@ -74,7 +74,7 @@ func (sm *StateManager) UpdateHead(blockHash chainhash.Hash) error {
 	}
 	sm.stateMapLock.RUnlock()
 	sm.stateLock.Lock()
-	logrus.WithField("slot", state.Slot).Debug("setting state head")
+	//logrus.WithField("slot", state.Slot).Debug("setting state head")
 	sm.state = state
 	sm.stateLock.Unlock()
 	return nil
@@ -166,7 +166,7 @@ func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitive
 	// add the state to the statemap
 	sm.stateMapLock.Lock()
 	defer sm.stateMapLock.Unlock()
-	logrus.WithField("hash", blockHash.String()).Debug("setting block state")
+	//logrus.WithField("hash", blockHash.String()).Debug("setting block state")
 	sm.stateMap[blockHash] = *state
 	return nil
 }

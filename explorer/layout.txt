@@ -12,6 +12,7 @@ Block page
 - Hash
 - Slot
 - Epoch
+- Proposer
 
 Epoch
 - Transactions

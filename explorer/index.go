@@ -8,13 +8,6 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 )
 
-// BlockData is the data of a block that gets passed to templates.
-type BlockData struct {
-	Slot         uint64
-	BlockHash    string
-	ProposerHash string
-}
-
 // TransactionData is the data of a transaction that gets passed to templates.
 type TransactionData struct {
 	Recipient string
@@ -39,7 +32,7 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 
 	var dbBlocks []Block
 
-	ex.database.database.Select("slot, hash, proposer").Order("slot desc").Limit(30).Find(&dbBlocks)
+	ex.database.database.Order("slot desc").Limit(30).Find(&dbBlocks)
 
 	for _, b := range dbBlocks {
 		var blockHash chainhash.Hash
@@ -48,10 +41,22 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 		var proposerHash chainhash.Hash
 		copy(proposerHash[:], b.Proposer)
 
+		var parentBlockHash chainhash.Hash
+		copy(parentBlockHash[:], b.ParentBlockHash)
+
+		var stateRoot chainhash.Hash
+		copy(stateRoot[:], b.StateRoot)
+
+		fmt.Println(b.Attestations)
+
 		blocks = append(blocks, BlockData{
 			Slot:         b.Slot,
 			BlockHash:    blockHash.String(),
 			ProposerHash: proposerHash.String(),
+			ParentBlock:  parentBlockHash.String(),
+			StateRoot:    stateRoot.String(),
+			RandaoReveal: fmt.Sprintf("%x", b.RandaoReveal),
+			Signature:    fmt.Sprintf("%x", b.Signature),
 		})
 	}
 
@@ -78,7 +83,7 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 	})
 
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	return err
 }

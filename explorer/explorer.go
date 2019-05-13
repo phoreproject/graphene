@@ -376,6 +376,7 @@ func (ex *Explorer) StartExplorer() error {
 	e.Renderer = t
 
 	e.GET("/", ex.renderIndex)
+	e.GET("/b/:blockHash", ex.renderBlock)
 
 	defer ex.chainDB.Close()
 

@@ -85,16 +85,12 @@ func main() {
 
 		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
 
-		if validatorID != i {
-			panic("malformatted pubkey file")
-		}
-
 		var iv beacon.InitialValidatorEntry
 		err = binary.Read(f, binary.BigEndian, &iv)
 		if err != nil {
 			panic(err)
 		}
-		appConfig.InitialValidatorList[i] = iv
+		appConfig.InitialValidatorList[validatorID] = iv
 	}
 
 	a := app.NewBeaconApp(appConfig)

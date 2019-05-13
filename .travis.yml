@@ -1,44 +1,26 @@
 language: go
-
-# Force-enable Go modules. This will be unnecessary when Go 1.12 lands.
 env:
+  matrix:
   - GO111MODULE=on
-
-# You don't need to test on very old version of the Go compiler. It's the user's
-# responsibility to keep their compilers up to date.
+  global:
+    secure: c62aP9rhbhKx3w8ebm93EF7/3dnosWCRIL5phOEIEnCeneJ1NImavSr5HDDDD6b14974B1s9sae2s4S/cXXXajA/hWQu0Kb8mPbJkzMoHAltTriMISXyvAbl1mLwgp+4T1A/94MKri4Xa2aBIuBoKpV8WhZQD/BS6rKuzc+uG2cCWCi/+S+IzOzqxZ1t9uZZTh91DjNQ7ck3XqAj9WW2dgdgTSCZFds3OwpkET6vt/ZILhnXQxLRXDIAwwEIEjiq0bAZsKHk0CkhXt50QHhXZH69XjT8J3ywAPAANsG2WAwikq+RMD66fGmEa3obzQtUkFUm4wL9xlGfr36K1CEXcbjRG5x141knix7zUOKB+BoJgIUgCkX7b5SOyLG/YNdH1x4dLXR7LYzpRH1jJafWAFFZlwGaKFztqkb6H7/Qv702QEY9WzHgmEO2js//SAMpqlcKFLIdyEST5RMolSySaTnnu8UxmgA96c4YWn4suxTauFrjmuPSTgRfVCIV+nMxjfdliFxhQPXdBOIMBZLSP5BU6coqfb5fhRdUgKHS2mSBbDjHSmSyM3Up5x6jxWFoPgY3gl+ctNLErt+wLjPB9iFINl0hK1JakT/uYS1VvVD4RMucMMeAe5xruV8hxeyMT+k6zurLkK5RUXlUebc0oOBOVBSxxTBKvs/nkELocOU=
 go:
-  - 1.11.4
-
+- 1.11.4
 sudo: required
 services:
-  - docker
-
-# Only clone the most recent commit.
+- docker
 git:
   depth: 1
-
-# Don't email me the results of the test runs.
 notifications:
   email: false
-
 before_install:
-  - go get github.com/tcnksm/ghr
-
-# Anything in before_script that returns a nonzero exit code will flunk the
-# build and immediately stop. It's sorta like having set -e enabled in bash.
-# Make sure golangci-lint is vendored.
+- go get github.com/tcnksm/ghr
 before_script:
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $GOPATH/bin v1.12.2
-
-# script always runs to completion (set +e). If we have linter issues AND a
-# failing test, we want to see both. Configure golangci-lint with a
-# .golangci.yml file at the top level of your repo.
+- curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh |
+  sh -s -- -b $GOPATH/bin v1.12.2
 script:
-  - go test -v -race ./... -coverprofile=coverage.txt -covermode=atomic # Run all the tests with the race detector enabled
-  - make integrationtests
-
+- go test -v -race ./... -coverprofile=coverage.txt -covermode=atomic
+- make integrationtests
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
-  - ./deploy.sh
-
-secure: "UnH2bHP7/LZy3S4iXuno+9xbo1oRsVAUIOLdj4g2EJIJvAVjHd4eHcHy3+mCoF9KXYIszyDn6KEKIeegAissqsOnKDFBsSPs0Lmuy2AEfWELVjC7BF5Ld3/lejhdFwOTDFHy3qTN0015MTIucjx/mz8gamHBRzJI8EKYT+hanOagBgVnRLFz35MqXDvups+iXM6hCoXbwSlBQBKSP281fudMnfIokOV02EA74pS5aADcYoCcZc2MUlwTcSbhNy/z9eJrpVNk3KsC7dsIeqXwoUnRYJ9/64HvikMhgqeT49LCTMaUhCh5HSmJT8Ab3rsKyM023Raxat2XiMdKRidCz0XW1K2Jzj6BuRzCqTy7SIxQ752Is57B2ililoDfmY0qxB0dIca1gJihf0r1np0ijW0PYmBIZ/ubLclTaJknK7CqMWLyd9ydedzA3QFgdBVgd4qapamJU99w49YeKP7LAzXgj2Ye0SeuPVdEFNKUPn3r5wtMgNQhpND7AbqWt3BhFa6SP3X5cfEM4BjuyKHofLl4b0JJefa+EFK73Dy94ac8QCrmRgBbfqPqvsIN9UOvg3bla1sMRF84YXeL98NXLOYdMPoYrUL8pEdG9xnhO2MC7+rGzSkck4gmhQv2LtL/XqXiYBSDeLf8/+I/dADUzGI6gmvfD4Vqga66JVfayLQ="
+- bash <(curl -s https://codecov.io/bash)
+- "./deploy.sh"

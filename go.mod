@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/ethereum/go-ethereum v1.8.27 // indirect
+	github.com/go-test/deep v1.0.1
 	github.com/golang/protobuf v1.3.1
 	github.com/jinzhu/gorm v1.9.8
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect

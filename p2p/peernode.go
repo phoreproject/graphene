@@ -3,14 +3,14 @@ package p2p
 import (
 	"bufio"
 	"errors"
-	"github.com/libp2p/go-libp2p-peerstore"
-	"github.com/phoreproject/synapse/chainhash"
 	"time"
+
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"github.com/phoreproject/synapse/pb"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 // ClientVersion is the version of the client.
@@ -23,14 +23,14 @@ type Peer struct {
 	host            *HostNode
 	timeoutInterval time.Duration
 
-	ID              peer.ID
-	Outbound        bool
-	Connecting      bool
-	LastPingNonce   uint64
-	LastPingTime    time.Time
-	LastMessageTime time.Time
-	Version         uint64
-	BlocksRequested map[chainhash.Hash]struct{}
+	ID                peer.ID
+	Outbound          bool
+	Connecting        bool
+	LastPingNonce     uint64
+	LastPingTime      time.Time
+	LastMessageTime   time.Time
+	Version           uint64
+	ProcessingRequest bool
 }
 
 // newPeer creates a P2pPeerNode
@@ -41,12 +41,12 @@ func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode
 		host:            host,
 		timeoutInterval: timeoutInterval,
 
-		Outbound:        outbound,
-		LastPingNonce:   0,
-		LastPingTime:    time.Unix(0, 0),
-		LastMessageTime: time.Unix(0, 0),
-		Connecting:      true,
-		BlocksRequested: make(map[chainhash.Hash]struct{}),
+		Outbound:          outbound,
+		LastPingNonce:     0,
+		LastPingTime:      time.Unix(0, 0),
+		LastMessageTime:   time.Unix(0, 0),
+		Connecting:        true,
+		ProcessingRequest: false,
 	}
 }
 

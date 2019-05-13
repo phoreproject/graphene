@@ -3,10 +3,11 @@ package beacon
 import (
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"sync"
 )
 
 // BlockNode is an in-memory representation of a block.
@@ -289,7 +290,10 @@ func (c *Chain) GetChainLocator() [][]byte {
 	current := c.Tip()
 	c.lock.Unlock()
 
+	fmt.Println("chain locator")
+
 	for {
+		fmt.Println("appending to locator with slot", current.Slot)
 		locator = append(locator, current.Hash[:])
 
 		if current.Height == 0 {

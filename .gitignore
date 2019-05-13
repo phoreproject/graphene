@@ -7,6 +7,7 @@ synapsebeacon
 synapsevalidator
 synapsep2p
 synapsekey
+synapseexplorer
 integration_tests
 integration
 *.exe

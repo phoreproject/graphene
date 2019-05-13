@@ -106,13 +106,17 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	}
 	toSend := make([]primitives.Block, 0, limitBlocksToSend)
 
-	for currentBlockNode != nil && len(toSend) < limitBlocksToSend && !currentBlockNode.Hash.IsEqual(stopHash) {
+	for currentBlockNode != nil && len(toSend) < limitBlocksToSend {
 		currentBlock, err := s.blockchain.db.GetBlockForHash(currentBlockNode.Hash)
 		if err != nil {
 			return err
 		}
 
 		toSend = append(toSend, *currentBlock)
+
+		if currentBlockNode.Hash.IsEqual(stopHash) {
+			break
+		}
 
 		currentBlockNode = s.blockchain.View.Chain.Next(currentBlockNode)
 	}
@@ -169,8 +173,12 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		"lastBlock":  blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
 	}).Info("received blocks from peer")
 
-	for i := range blockMessage.Blocks[1:] {
-		block, err := primitives.BlockFromProto(blockMessage.Blocks[i])
+	var block *primitives.Block
+
+	// TODO: separate the chunking code into own function and test it
+
+	for i := range blockMessage.Blocks {
+		block, err = primitives.BlockFromProto(blockMessage.Blocks[i])
 		if err != nil {
 			return err
 		}
@@ -187,8 +195,8 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		addToNextEpoch := true
 
-		if currentEpoch != block.BlockHeader.SlotNumber/s.blockchain.config.EpochLength {
-			if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 {
+		if currentEpoch != block.BlockHeader.SlotNumber/s.blockchain.config.EpochLength || i == len(blockMessage.Blocks)-1 {
+			if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 || i == len(blockMessage.Blocks)-1 {
 				currentEpochChunk = append(currentEpochChunk, block)
 				addToNextEpoch = false
 			}
@@ -199,12 +207,11 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			currentEpoch = block.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
 		}
 
+		// add to chunk if this is not the next epoch
 		if addToNextEpoch {
 			currentEpochChunk = append(currentEpochChunk, block)
 		}
 	}
-
-	fmt.Println("chunked")
 
 	for _, chunk := range epochBlockChunks {
 		epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
@@ -239,7 +246,12 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		// go through each of the blocks in the past epoch or so
 		for _, b := range chunk {
-			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(epochStateCopy.Slot, b.BlockHeader.SlotNumber-1, s.blockchain.config)
+			err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber, &view, s.blockchain.config)
+			if err != nil {
+				return err
+			}
+
+			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(epochStateCopy.Slot-1, b.BlockHeader.SlotNumber-1, s.blockchain.config)
 			if err != nil {
 				return err
 			}
@@ -322,6 +334,15 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 				attestationHashes = append(attestationHashes, dataRoot[:])
 				attestationAggregatedPubkeys = append(attestationAggregatedPubkeys, groupPublicKey)
+			}
+		}
+
+		fmt.Printf("blocks in chunk: [")
+		for i, b := range chunk {
+			if i != len(chunk)-1 {
+				fmt.Printf("%d ", b.BlockHeader.SlotNumber)
+			} else {
+				fmt.Printf("%d]\n", b.BlockHeader.SlotNumber)
 			}
 		}
 

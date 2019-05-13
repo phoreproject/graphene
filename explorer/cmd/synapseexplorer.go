@@ -3,14 +3,17 @@ package main
 import (
 	"encoding/binary"
 	"flag"
+	"os"
+
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
-	"os"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/phoreproject/synapse/explorer"
+
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -21,7 +24,15 @@ func main() {
 	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
 	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
 
+	// Logging
+	level := flag.String("level", "info", "log level")
 	flag.Parse()
+
+	lvl, err := logrus.ParseLevel(*level)
+	if err != nil {
+		panic(err)
+	}
+	logrus.SetLevel(lvl)
 
 	db, err := gorm.Open("sqlite3", "/tmp/gorm.db")
 	if err != nil {

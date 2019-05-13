@@ -4,20 +4,19 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/libp2p/go-libp2p-host"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-peer"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peer "github.com/libp2p/go-libp2p-peer"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ps "github.com/libp2p/go-libp2p-peerstore"
-	"github.com/libp2p/go-libp2p-protocol"
-	"github.com/libp2p/go-libp2p-pubsub"
+	protocol "github.com/libp2p/go-libp2p-protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
@@ -208,14 +207,10 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		}
 	}
 
-	fmt.Println("connecting", peerInfo)
-
 	err := node.host.Connect(node.ctx, peerInfo)
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("connected", peerInfo.ID)
 
 	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
 

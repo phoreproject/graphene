@@ -3,19 +3,18 @@ package explorer
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"fmt"
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/phoreproject/prysm/shared/ssz"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
 	"io"
-	"net/http"
 	"os"
 	"text/template"
 	"time"
 
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
+
 	"github.com/jinzhu/gorm"
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
@@ -163,20 +162,6 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-// IndexSlotData is the slot data used by the index page.
-type IndexSlotData struct {
-	Slot      uint64
-	Block     bool
-	BlockHash string
-	Proposer  uint32
-	Rewards   int64
-}
-
-// IndexData is the data used by the index page.
-type IndexData struct {
-	Blocks []Block
-}
-
 // WaitForConnections waits until beacon app is connected
 func (ex *Explorer) WaitForConnections(numConnections int) {
 	for {
@@ -284,7 +269,9 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 			Slot:          r.Slot,
 		}
 
-		ex.database.database.Create(receipt)
+		if receipt.Amount > 0 {
+			ex.database.database.Create(receipt)
+		}
 	}
 
 	var epochCount int
@@ -334,6 +321,12 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		panic(err)
 	}
 
+	proposerIdx, err := state.GetBeaconProposerIndex(state.Slot, block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
+	var idBytes [4]byte
+	binary.BigEndian.PutUint32(idBytes[:], proposerIdx)
+	pubAndID := append(state.ValidatorRegistry[proposerIdx].Pubkey[:], idBytes[:]...)
+	proposerHash := chainhash.HashH(pubAndID)
+
 	ex.database.database.Create(&Block{
 		Attestations:    attestations,
 		ParentBlockHash: block.BlockHeader.ParentRoot[:],
@@ -342,6 +335,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		Signature:       block.BlockHeader.Signature[:],
 		Hash:            blockHash[:],
 		Slot:            block.BlockHeader.SlotNumber,
+		Proposer:        proposerHash[:],
 	})
 }
 
@@ -379,15 +373,7 @@ func (ex *Explorer) StartExplorer() error {
 	e := echo.New()
 	e.Renderer = t
 
-	e.GET("/", func(c echo.Context) error {
-		blocks := ex.database.GetLatestBlocks(20)
-
-		err := c.Render(http.StatusOK, "index.html", IndexData{blocks})
-		if err != nil {
-			fmt.Println(err)
-		}
-		return err
-	})
+	e.GET("/", ex.renderIndex)
 
 	defer ex.chainDB.Close()
 

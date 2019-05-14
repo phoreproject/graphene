@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p"
+	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -17,7 +17,7 @@ import (
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/multiformats/go-multiaddr"
+	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
@@ -47,6 +47,7 @@ type HostNode struct {
 	gossipSub *pubsub.PubSub
 	ctx       context.Context
 	cancel    context.CancelFunc
+	maxPeers  int
 
 	timeoutInterval time.Duration
 
@@ -69,7 +70,7 @@ type HostNode struct {
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
@@ -111,6 +112,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		currentID:         0,
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
+		maxPeers:          maxPeers,
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -200,7 +202,7 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		return nil, errors.New("cannot connect to self")
 	}
 
-	if(node.IsPeerConnected(peerInfo)) {
+	if node.IsPeerConnected(peerInfo) {
 		return nil, nil
 	}
 
@@ -379,6 +381,10 @@ func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
 
 // PeerDiscovered is run when peers are discovered.
 func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
+	if node.maxPeers <= len(node.peerList) {
+		return
+	}
+
 	_, err := node.Connect(pi)
 	if err != nil {
 		logger.WithField("err", err).Debug("could not connect to peer")

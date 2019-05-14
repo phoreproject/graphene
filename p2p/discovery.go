@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	ps "github.com/libp2p/go-libp2p-peerstore"
-	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	p2pdiscovery "github.com/libp2p/go-libp2p-discovery"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	logger "github.com/sirupsen/logrus"
+	ps "github.com/libp2p/go-libp2p-peerstore"
+	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	maddr "github.com/multiformats/go-multiaddr"
+	logger "github.com/sirupsen/logrus"
 )
 
 // MDNSOptions are options for the MDNS discovery mechanism.
@@ -28,7 +28,6 @@ type DiscoveryOptions struct {
 
 var activeDiscoveryNS = "synapse"
 var defaultBootstrapAddrStrings = []string{
-	"/ip4/104.131.131.82/tcp/4001/ipfs/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
 	"/ip4/104.236.179.241/tcp/4001/ipfs/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM",
 	"/ip4/104.236.76.40/tcp/4001/ipfs/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",
 	"/ip4/128.199.219.111/tcp/4001/ipfs/QmSoLSafTMBsPKadTEgaXctDQVcqN88CNLHXMkTNwMKPnu",
@@ -47,9 +46,9 @@ func NewDiscoveryOptions() DiscoveryOptions {
 
 // Discovery is the service to discover other peers.
 type Discovery struct {
-	host    *HostNode
-	options DiscoveryOptions
-	ctx     context.Context
+	host         *HostNode
+	options      DiscoveryOptions
+	ctx          context.Context
 	p2pDiscovery p2pdiscovery.Discovery
 }
 
@@ -61,7 +60,7 @@ func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions)
 	}
 	var bootstrapConfig = kaddht.BootstrapConfig{
 		Queries: 1,
-		Period: time.Duration(5 * time.Minute),
+		Period:  time.Duration(5 * time.Minute),
 		//Period: time.Duration(1 * time.Second),
 		Timeout: time.Duration(10 * time.Second),
 	}
@@ -69,9 +68,9 @@ func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions)
 		panic(err)
 	}
 	return &Discovery{
-		host:    host,
-		ctx:     ctx,
-		options: options,
+		host:         host,
+		ctx:          ctx,
+		options:      options,
 		p2pDiscovery: p2pdiscovery.NewRoutingDiscovery(routing),
 	}
 }
@@ -152,7 +151,7 @@ func (d Discovery) startAdvertise() {
 			}
 
 			wait := 7 * ttl / 8
-wait = 1 // for test not to wait too long
+			wait = 1 // for test not to wait too long
 
 			select {
 			case <-time.After(wait):

@@ -39,6 +39,7 @@ type Attestation struct {
 	LatestCrosslinkHash []byte `gorm:"size:32"`
 	JustifiedSlot       uint64
 	JustifiedBlockHash  []byte `gorm:"size:32"`
+	BlockID             uint
 }
 
 // TODO: add slashings, deposits, and exits
@@ -47,7 +48,6 @@ type Attestation struct {
 type Block struct {
 	gorm.Model
 
-	Attestations    []Attestation
 	Proposer        []byte `gorm:"size:32"`
 	ParentBlockHash []byte `gorm:"size:32"`
 	StateRoot       []byte `gorm:"size:32"`
@@ -103,10 +103,10 @@ func NewDatabase(db *gorm.DB) *Database {
 	if err := db.AutoMigrate(&Validator{}).Error; err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(&Attestation{}).Error; err != nil {
+	if err := db.AutoMigrate(&Block{}).Error; err != nil {
 		panic(err)
 	}
-	if err := db.AutoMigrate(&Block{}).Error; err != nil {
+	if err := db.AutoMigrate(&Attestation{}).Error; err != nil {
 		panic(err)
 	}
 	if err := db.AutoMigrate(&Transaction{}).Error; err != nil {

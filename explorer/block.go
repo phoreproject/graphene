@@ -18,6 +18,21 @@ type BlockData struct {
 	StateRoot    string
 	RandaoReveal string
 	Signature    string
+	Attestations []AttestationData
+}
+
+// AttestationData is the data of an attestation that gets passed to templates.
+type AttestationData struct {
+	ParticipantHashes   []string
+	Signature           string
+	Slot                uint64
+	Shard               uint64
+	BeaconBlockHash     string
+	EpochBoundaryHash   string
+	ShardBlockHash      string
+	LatestCrosslinkHash string
+	JustifiedSlot       uint64
+	JustifiedBlockHash  string
 }
 
 func (ex *Explorer) renderBlock(c echo.Context) error {
@@ -34,7 +49,34 @@ func (ex *Explorer) renderBlock(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Please provide a valid block hash.")
 	}
 
-	ex.database.database.Order("slot desc").Limit(30).Where("hash = ?", blockHashHex).Find(&b)
+	ex.database.database.Order("slot desc").Limit(30).Where(&Block{Hash: blockHashHex}).First(&b)
+
+	var attestations []Attestation
+	ex.database.database.Where(&Attestation{BlockID: b.ID}).Find(&attestations)
+
+	attestationsData := make([]AttestationData, len(attestations))
+	for i := range attestations {
+		participantHashesSeparate := splitHashes(attestations[i].ParticipantHashes)
+
+		participantHashes := make([]string, len(participantHashesSeparate[i]))
+
+		for j := range participantHashesSeparate {
+			participantHashes[j] = chainhash.Hash(participantHashesSeparate[j]).String()
+		}
+
+		attestationsData[i] = AttestationData{
+			ParticipantHashes:   participantHashes,
+			Signature:           hex.EncodeToString(attestations[i].Signature),
+			Slot:                attestations[i].Slot,
+			Shard:               attestations[i].Shard,
+			BeaconBlockHash:     hex.EncodeToString(attestations[i].BeaconBlockHash),
+			EpochBoundaryHash:   hex.EncodeToString(attestations[i].EpochBoundaryHash),
+			ShardBlockHash:      hex.EncodeToString(attestations[i].ShardBlockHash),
+			LatestCrosslinkHash: hex.EncodeToString(attestations[i].LatestCrosslinkHash),
+			JustifiedBlockHash:  hex.EncodeToString(attestations[i].JustifiedBlockHash),
+			JustifiedSlot:       attestations[i].JustifiedSlot,
+		}
+	}
 
 	var blockHash chainhash.Hash
 	copy(blockHash[:], blockHashHex)
@@ -56,6 +98,7 @@ func (ex *Explorer) renderBlock(c echo.Context) error {
 		StateRoot:    stateRoot.String(),
 		RandaoReveal: fmt.Sprintf("%x", b.RandaoReveal),
 		Signature:    fmt.Sprintf("%x", b.Signature),
+		Attestations: attestationsData,
 	}
 
 	err = c.Render(http.StatusOK, "block.html", block)

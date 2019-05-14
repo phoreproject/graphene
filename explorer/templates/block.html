@@ -157,5 +157,35 @@
         </tr>
     </tbody>
 </table>
+<hr />
+<h2>Attestations</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Slot</th>
+        <th>Shard</th>
+        <th>Justified Slot</th>
+        <th>Justified Hash</th>
+        <th>Shard Hash</th>
+        <th>Participants</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{range .Attestations}}
+    <tr>
+        <td>{{.Slot}}</td>
+        <td>{{.Shard}}</td>
+        <td>{{.JustifiedSlot}}</td>
+        <td>{{.JustifiedBlockHash}}</td>
+        <td>{{.ShardBlockHash}}</td>
+        <td>
+            {{range .ParticipantHashes}}
+                <a href="/v/{{.}}">{{.}}</a><br />
+            {{end}}
+        </td>
+    </tr>
+    {{end}}
+    </tbody>
+</table>
 </body>
 </html>

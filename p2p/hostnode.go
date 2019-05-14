@@ -200,11 +200,8 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		return nil, errors.New("cannot connect to self")
 	}
 
-	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
-		// we're already connected to this peer
-		if p == peerInfo.ID {
-			return nil, nil
-		}
+	if(node.IsPeerConnected(peerInfo)) {
+		return nil, nil
 	}
 
 	err := node.host.Connect(node.ctx, peerInfo)
@@ -222,6 +219,16 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 	}
 
 	return node.setupPeerNode(stream, true)
+}
+
+// IsPeerConnected checks if a peer is connected
+func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
+	for _, p := range node.peerList {
+		if p.ID == peerInfo.ID {
+			return true
+		}
+	}
+	return false
 }
 
 // Run runs the main loop of the host node

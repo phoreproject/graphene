@@ -38,7 +38,7 @@ var defaultBootstrapAddrStrings = []string{
 func NewDiscoveryOptions() DiscoveryOptions {
 	return DiscoveryOptions{
 		MDNS: MDNSOptions{
-			Enabled:  true,
+			Enabled:  false,
 			Interval: 1 * time.Minute,
 		},
 	}

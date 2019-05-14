@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/mitchellh/go-homedir"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	homedir "github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
@@ -33,6 +33,7 @@ type Config struct {
 	HeartBeatInterval      time.Duration
 	TimeOutInterval        time.Duration
 	DiscoveryOptions       p2p.DiscoveryOptions
+	MaxPeers               int
 }
 
 // NewConfig creates a default Config
@@ -50,6 +51,7 @@ func NewConfig() Config {
 		HeartBeatInterval:      8 * time.Second,
 		TimeOutInterval:        16 * time.Second,
 		DiscoveryOptions:       p2p.NewDiscoveryOptions(),
+		MaxPeers:               16,
 	}
 }
 
@@ -147,7 +149,7 @@ func (app *BeaconApp) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers)
 	if err != nil {
 		panic(err)
 	}

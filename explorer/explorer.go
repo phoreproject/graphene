@@ -113,7 +113,7 @@ func (ex *Explorer) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second, 16)
 	if err != nil {
 		panic(err)
 	}

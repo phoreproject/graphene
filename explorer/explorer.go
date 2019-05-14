@@ -379,6 +379,7 @@ func (ex *Explorer) StartExplorer() error {
 
 	e.GET("/", ex.renderIndex)
 	e.GET("/b/:blockHash", ex.renderBlock)
+	e.GET("/v/:validatorHash", ex.renderValidator)
 
 	defer ex.chainDB.Close()
 

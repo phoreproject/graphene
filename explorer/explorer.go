@@ -218,44 +218,6 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		validators[id] = newV
 	}
 
-	var attestations []Attestation
-
-	// Update attestations
-	for _, att := range block.BlockBody.Attestations {
-		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig)
-		if err != nil {
-			panic(err)
-		}
-
-		participantHashes := make([][32]byte, len(participants))
-
-		for i, p := range participants {
-			var idBytes [4]byte
-			binary.BigEndian.PutUint32(idBytes[:], p)
-			pubAndID := append(state.ValidatorRegistry[p].Pubkey[:], idBytes[:]...)
-			validatorHash := chainhash.HashH(pubAndID)
-
-			participantHashes[i] = validatorHash
-		}
-
-		attestation := &Attestation{
-			ParticipantHashes:   combineHashes(participantHashes),
-			Signature:           att.AggregateSig[:],
-			Slot:                att.Data.Slot,
-			Shard:               att.Data.Shard,
-			BeaconBlockHash:     att.Data.BeaconBlockHash[:],
-			EpochBoundaryHash:   att.Data.EpochBoundaryHash[:],
-			ShardBlockHash:      att.Data.ShardBlockHash[:],
-			LatestCrosslinkHash: att.Data.LatestCrosslinkHash[:],
-			JustifiedBlockHash:  att.Data.JustifiedBlockHash[:],
-			JustifiedSlot:       att.Data.JustifiedSlot,
-		}
-
-		ex.database.database.Create(attestation)
-
-		attestations = append(attestations, *attestation)
-	}
-
 	for _, r := range receipts {
 		var idBytes [4]byte
 		binary.BigEndian.PutUint32(idBytes[:], r.Index)
@@ -327,8 +289,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	pubAndID := append(state.ValidatorRegistry[proposerIdx].Pubkey[:], idBytes[:]...)
 	proposerHash := chainhash.HashH(pubAndID)
 
-	ex.database.database.Create(&Block{
-		Attestations:    attestations,
+	blockDB := &Block{
 		ParentBlockHash: block.BlockHeader.ParentRoot[:],
 		StateRoot:       block.BlockHeader.StateRoot[:],
 		RandaoReveal:    block.BlockHeader.RandaoReveal[:],
@@ -336,7 +297,48 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		Hash:            blockHash[:],
 		Slot:            block.BlockHeader.SlotNumber,
 		Proposer:        proposerHash[:],
-	})
+	}
+
+	ex.database.database.Create(blockDB)
+
+	var attestations []Attestation
+
+	// Update attestations
+	for _, att := range block.BlockBody.Attestations {
+		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		participantHashes := make([][32]byte, len(participants))
+
+		for i, p := range participants {
+			var idBytes [4]byte
+			binary.BigEndian.PutUint32(idBytes[:], p)
+			pubAndID := append(state.ValidatorRegistry[p].Pubkey[:], idBytes[:]...)
+			validatorHash := chainhash.HashH(pubAndID)
+
+			participantHashes[i] = validatorHash
+		}
+
+		attestation := &Attestation{
+			ParticipantHashes:   combineHashes(participantHashes),
+			Signature:           att.AggregateSig[:],
+			Slot:                att.Data.Slot,
+			Shard:               att.Data.Shard,
+			BeaconBlockHash:     att.Data.BeaconBlockHash[:],
+			EpochBoundaryHash:   att.Data.EpochBoundaryHash[:],
+			ShardBlockHash:      att.Data.ShardBlockHash[:],
+			LatestCrosslinkHash: att.Data.LatestCrosslinkHash[:],
+			JustifiedBlockHash:  att.Data.JustifiedBlockHash[:],
+			JustifiedSlot:       att.Data.JustifiedSlot,
+			BlockID:             blockDB.ID,
+		}
+
+		ex.database.database.Create(attestation)
+
+		attestations = append(attestations, *attestation)
+	}
 }
 
 // StartExplorer starts the block explorer

@@ -47,8 +47,6 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 		var stateRoot chainhash.Hash
 		copy(stateRoot[:], b.StateRoot)
 
-		fmt.Println(b.Attestations)
-
 		blocks = append(blocks, BlockData{
 			Slot:         b.Slot,
 			BlockHash:    blockHash.String(),

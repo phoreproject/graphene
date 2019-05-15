@@ -134,7 +134,9 @@ func (d Discovery) startAdvertise() {
 		for {
 			ttl, err := d.p2pDiscovery.Advertise(d.ctx, activeDiscoveryNS)
 			if err != nil {
-				logger.Errorf("Error advertising %s: %s", activeDiscoveryNS, err.Error())
+				// it's error when there is no any peers yet, which is not an error.
+				// so we print the log as debug instead of error to avoid spamming the log.
+				logger.Debugf("Error advertising %s: %s", activeDiscoveryNS, err.Error())
 				if d.ctx.Err() != nil {
 					return
 				}
@@ -148,7 +150,8 @@ func (d Discovery) startAdvertise() {
 			}
 
 			wait := 7 * ttl / 8
-			wait = 1 // for test not to wait too long
+			// Uncomment below line in testing to not to wait too long
+			//wait = 1
 
 			select {
 			case <-time.After(wait):
@@ -173,11 +176,10 @@ func (d Discovery) startFindPeers() {
 				if d.host.GetHost().ID() == peer.ID {
 					continue
 				}
-				logger.Debugf("Found active peer: %s", peer.String())
 				d.HandlePeerFound(peer)
 			}
 			select {
-			case <-time.After(1 * time.Second):
+			case <-time.After(10 * time.Second):
 				continue
 
 			case <-d.ctx.Done():

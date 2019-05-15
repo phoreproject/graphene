@@ -20,6 +20,7 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/libp2p/go-libp2p-protocol v0.0.1
 	github.com/libp2p/go-libp2p-pubsub v0.0.2
+	github.com/libp2p/go-stream-muxer v0.0.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee

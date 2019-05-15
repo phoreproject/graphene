@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	streammux "github.com/libp2p/go-stream-muxer"
+
 	"github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-crypto"
@@ -291,7 +293,9 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 			node.removePeer(peerNode)
 
-			logger.WithField("peer", peerNode.ID.Pretty()).Error(err)
+			if err != streammux.ErrReset {
+				logger.WithField("peer", peerNode.ID.Pretty()).Error(err)
+			}
 		}
 	}()
 

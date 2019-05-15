@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"time"
-
-	streammux "github.com/libp2p/go-stream-muxer"
 
 	"github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
@@ -239,7 +238,7 @@ func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
 func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval)
+	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream)
 
 	node.peerListLock.Lock()
 	node.peerList = append(node.peerList, peerNode)
@@ -293,7 +292,7 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 			node.removePeer(peerNode)
 
-			if err != streammux.ErrReset {
+			if err != io.EOF {
 				logger.WithField("peer", peerNode.ID.Pretty()).Error(err)
 			}
 		}
@@ -363,7 +362,7 @@ func (node *HostNode) removePeer(peer *Peer) {
 
 // DisconnectPeer disconnects a peer
 func (node *HostNode) DisconnectPeer(peer *Peer) error {
-	err := peer.disconnect()
+	err := peer.Disconnect()
 	if err != nil {
 		return err
 	}

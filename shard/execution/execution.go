@@ -3,7 +3,10 @@ package execution
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 	"reflect"
+
+	"github.com/decred/dcrd/dcrec/secp256k1"
 
 	"github.com/go-interpreter/wagon/exec"
 
@@ -16,6 +19,17 @@ type Shard struct {
 	Storage       Storage
 	VM            *exec.VM
 	ExportedFuncs []int64
+}
+
+// DecompressSignature decompresses a signature.
+func DecompressSignature(sig [65]byte) *secp256k1.Signature {
+	R := new(big.Int)
+	S := new(big.Int)
+
+	R.SetBytes(sig[1:33])
+	S.SetBytes(sig[33:65])
+
+	return secp256k1.NewSignature(R, S)
 }
 
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
@@ -32,6 +46,50 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 				storage.PhoreStore(addr, val)
 			}
 
+			// validate ECDSA signature
+			// ECDSA signatures in Phore use the following format:
+			//
+			validateECDSA := func(proc *exec.Process, hashAddr int32, signatureAddr int32, pubkeyOut int32) int64 {
+				var hash [32]byte
+				_, err := proc.ReadAt(hash[:], int64(hashAddr))
+				if err != nil {
+					fmt.Println("error reading hash from ECDSA")
+					proc.Terminate()
+				}
+
+				var sigBytes [65]byte
+				_, err = proc.ReadAt(sigBytes[:], int64(signatureAddr))
+				if err != nil {
+					fmt.Println("error reading signature from ECDSA")
+					proc.Terminate()
+				}
+
+				// as long as hash is a random oracle (not chosen by the user),
+				// we can derive the pubkey from the signature and the hash.
+				pub, _, err := secp256k1.RecoverCompact(sigBytes[:], hash[:])
+				if err != nil {
+					fmt.Printf("error recovering public key from ECDSA: %s\n", err.Error())
+					return 0
+				}
+
+				var pubkeyCompressed [33]byte
+
+				copy(pubkeyCompressed[:], pub.Serialize())
+
+				_, err = proc.WriteAt(pubkeyCompressed[:], int64(pubkeyOut))
+				if err != nil {
+					fmt.Println("error writing pubkey from ECDSA")
+					proc.Terminate()
+				}
+
+				sig := DecompressSignature(sigBytes)
+
+				if sig.Verify(hash[:], pub) {
+					return 1
+				}
+				return 0
+			}
+
 			m := wasm.NewModule()
 			m.Types = &wasm.SectionTypes{
 				Entries: []wasm.FunctionSig{
@@ -43,6 +101,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 					{
 						Form:       0, // value for the 'func' type constructor
 						ParamTypes: []wasm.ValueType{wasm.ValueTypeI64, wasm.ValueTypeI64},
+					},
+					{
+						Form:        0, // value for the 'func' type constructor
+						ParamTypes:  []wasm.ValueType{wasm.ValueTypeI32, wasm.ValueTypeI32, wasm.ValueTypeI32},
+						ReturnTypes: []wasm.ValueType{wasm.ValueTypeI64},
 					},
 				},
 			}
@@ -57,6 +120,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 					Host: reflect.ValueOf(store),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
+				{
+					Sig:  &m.Types.Entries[2],
+					Host: reflect.ValueOf(validateECDSA),
+					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+				},
 			}
 			m.Export = &wasm.SectionExports{
 				Entries: map[string]wasm.ExportEntry{
@@ -69,6 +137,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 						FieldStr: "store",
 						Kind:     wasm.ExternalFunction,
 						Index:    1,
+					},
+					"validateECDSA": {
+						FieldStr: "validateECDSA",
+						Kind:     wasm.ExternalFunction,
+						Index:    2,
 					},
 				},
 			}

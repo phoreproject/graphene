@@ -252,9 +252,19 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 			return nil, err
 		}
 
+		peerInfo := peerstore.PeerInfo{
+			ID:    node.host.ID(),
+			Addrs: node.host.Addrs(),
+		}
+		peerInfoBytes, err := peerInfo.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
 		err = peerNode.SendMessage(&pb.VersionMessage{
-			Version: ClientVersion,
-			PeerID:  peerIDBytes,
+			Version:  ClientVersion,
+			PeerID:   peerIDBytes,
+			PeerInfo: peerInfoBytes,
 		})
 		if err != nil {
 			return nil, err
@@ -279,6 +289,14 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 	handlers = append(handlers, node.RegisterMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
 		return peer.handlePongMessage(message.(*pb.PongMessage))
+	}))
+
+	handlers = append(handlers, node.RegisterMessageHandler("pb.GetAddrMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleGetAddrMessage(message.(*pb.GetAddrMessage))
+	}))
+
+	handlers = append(handlers, node.RegisterMessageHandler("pb.AddrMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleAddrMessage(message.(*pb.AddrMessage))
 	}))
 
 	go func() {

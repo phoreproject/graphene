@@ -5,6 +5,8 @@ go 1.12
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/beevik/ntp v0.2.0
+	github.com/decred/dcrd/dcrec v0.0.0-20190429225806-70c14042d837 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1 v1.0.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/ethereum/go-ethereum v1.8.27 // indirect

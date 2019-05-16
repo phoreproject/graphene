@@ -463,8 +463,6 @@ func (s SyncManager) Start() {
 // TryInitialSync tries to select a peer to sync with and
 // start downloading blocks.
 func (s SyncManager) TryInitialSync() {
-	logger.Debug("INITIAL")
-
 	peers := s.hostNode.GetPeerList()
 	if len(peers) == 0 {
 		return

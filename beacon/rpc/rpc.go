@@ -3,15 +3,16 @@
 package rpc
 
 import (
-	"github.com/sirupsen/logrus"
 	"net"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/p2p"
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
@@ -68,7 +69,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
-	err = s.chain.ProcessBlock(b, true, true)
+	_, _, err = s.chain.ProcessBlock(b, true, true)
 	if err != nil {
 		return nil, err
 	}

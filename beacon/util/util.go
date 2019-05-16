@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/validator"
 
@@ -123,7 +123,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 	block1.BlockHeader.Signature = sig.Serialize()
 
-	err = b.ProcessBlock(&block1, false, true)
+	_, _, err = b.ProcessBlock(&block1, false, true)
 	if err != nil {
 		return nil, err
 	}

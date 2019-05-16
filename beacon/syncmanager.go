@@ -3,16 +3,18 @@ package beacon
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"time"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peer"
-	"github.com/phoreproject/prysm/shared/ssz"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 	logger "github.com/sirupsen/logrus"
-	"time"
 )
 
 // SyncManager is responsible for requesting blocks from clients
@@ -27,10 +29,11 @@ import (
 //         locator = generateLocator(chain) - locator starts from tip and goes back exponentially including the genesis block
 //				 askForBlocks(locator)
 type SyncManager struct {
-	hostNode    *p2p.HostNode
-	timeout     time.Duration
-	syncStarted bool
-	blockchain  *Blockchain
+	hostNode        *p2p.HostNode
+	timeout         time.Duration
+	syncStarted     bool
+	blockchain      *Blockchain
+	postProcessHook func(*primitives.Block, *primitives.State, []primitives.Receipt)
 }
 
 // NewSyncManager creates a new sync manager
@@ -103,7 +106,7 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	}
 	toSend := make([]primitives.Block, 0, limitBlocksToSend)
 
-	for currentBlockNode != nil && len(toSend) < limitBlocksToSend && !currentBlockNode.Hash.IsEqual(stopHash) {
+	for currentBlockNode != nil && len(toSend) < limitBlocksToSend {
 		currentBlock, err := s.blockchain.db.GetBlockForHash(currentBlockNode.Hash)
 		if err != nil {
 			return err
@@ -111,7 +114,18 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 
 		toSend = append(toSend, *currentBlock)
 
+		if currentBlockNode.Hash.IsEqual(stopHash) {
+			break
+		}
+
 		currentBlockNode = s.blockchain.View.Chain.Next(currentBlockNode)
+	}
+
+	if len(toSend) > 0 {
+		logger.WithFields(logger.Fields{
+			"from": firstCommonBlock.Slot,
+			"to":   toSend[len(toSend)-1].BlockHeader.SlotNumber,
+		}).Debug("sending blocks to peer")
 	}
 
 	blockMessage := &pb.BlockMessage{
@@ -130,9 +144,15 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 	blockMessage := message.(*pb.BlockMessage)
 
-	logger.WithField("number", len(blockMessage.Blocks)).Debug("received block")
+	logger.WithFields(logger.Fields{
+		"from":   blockMessage.Blocks[0].Header.SlotNumber,
+		"to":     blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
+		"number": len(blockMessage.Blocks),
+	}).Debug("received blocks from sync")
 
 	logger.Debug("checking signatures")
+
+	peer.ProcessingRequest = true
 
 	if len(blockMessage.Blocks) == 0 {
 		// TODO: handle error of peer sending no blocks
@@ -148,16 +168,35 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	currentEpochChunk := make([]*primitives.Block, 0)
 	currentEpoch := firstBlock.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
 
-	for i := range blockMessage.Blocks[1:] {
-		block, err := primitives.BlockFromProto(blockMessage.Blocks[i])
+	logger.WithFields(logger.Fields{
+		"firstBlock": blockMessage.Blocks[0].Header.SlotNumber,
+		"lastBlock":  blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
+	}).Info("received blocks from peer")
+
+	var block *primitives.Block
+
+	// TODO: separate the chunking code into own function and test it
+
+	for i := range blockMessage.Blocks {
+		block, err = primitives.BlockFromProto(blockMessage.Blocks[i])
 		if err != nil {
 			return err
 		}
 
+		blockHash, err := ssz.TreeHash(block)
+		if err != nil {
+			return err
+		}
+
+		if s.blockchain.View.Index.Has(blockHash) {
+			// ignore blocks we already have.
+			continue
+		}
+
 		addToNextEpoch := true
 
-		if currentEpoch != block.BlockHeader.SlotNumber/s.blockchain.config.EpochLength {
-			if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 {
+		if currentEpoch != block.BlockHeader.SlotNumber/s.blockchain.config.EpochLength || i == len(blockMessage.Blocks)-1 {
+			if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 || i == len(blockMessage.Blocks)-1 {
 				currentEpochChunk = append(currentEpochChunk, block)
 				addToNextEpoch = false
 			}
@@ -168,6 +207,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			currentEpoch = block.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
 		}
 
+		// add to chunk if this is not the next epoch
 		if addToNextEpoch {
 			currentEpochChunk = append(currentEpochChunk, block)
 		}
@@ -176,7 +216,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	for _, chunk := range epochBlockChunks {
 		epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
 		if !found {
-			return errors.New("could not find parent block")
+			return fmt.Errorf("could not find parent block at slot %d with parent root %s", chunk[0].BlockHeader.SlotNumber, chunk[0].BlockHeader.ParentRoot)
 		}
 
 		tipNode := s.blockchain.View.Index.GetBlockNodeByHash(chunk[0].BlockHeader.ParentRoot)
@@ -190,16 +230,28 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			return err
 		}
 
+		// proposer public keys
 		var pubkeys []*bls.PublicKey
+
+		// attestation committee public keys
+		var attestationAggregatedPubkeys []*bls.PublicKey
+
 		aggregateSig := bls.NewAggregateSignature()
 		aggregateRandaoSig := bls.NewAggregateSignature()
+		aggregateAttestationSig := bls.NewAggregateSignature()
+
 		blockHashes := make([][]byte, 0)
 		randaoHashes := make([][]byte, 0)
-		var sigs []*bls.Signature
+		attestationHashes := make([][]byte, 0)
 
 		// go through each of the blocks in the past epoch or so
 		for _, b := range chunk {
-			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(epochStateCopy.Slot, b.BlockHeader.SlotNumber-1, s.blockchain.config)
+			err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber, &view, s.blockchain.config)
+			if err != nil {
+				return err
+			}
+
+			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(epochStateCopy.Slot-1, b.BlockHeader.SlotNumber-1, s.blockchain.config)
 			if err != nil {
 				return err
 			}
@@ -221,8 +273,6 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			if err != nil {
 				return err
 			}
-
-			sigs = append(sigs, blockSig)
 
 			// aggregate both the block sig and the randao sig
 			aggregateSig.AggregateSig(blockSig)
@@ -254,6 +304,37 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			slotBytesHash := chainhash.HashH(slotBytes[:])
 
 			randaoHashes = append(randaoHashes, slotBytesHash[:])
+
+			for _, att := range b.BlockBody.Attestations {
+				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
+				if err != nil {
+					return err
+				}
+
+				dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+				if err != nil {
+					return err
+				}
+
+				groupPublicKey := bls.NewAggregatePublicKey()
+				for _, p := range participants {
+					pub, err := epochStateCopy.ValidatorRegistry[p].GetPublicKey()
+					if err != nil {
+						return err
+					}
+					groupPublicKey.AggregatePubKey(pub)
+				}
+
+				aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+				if err != nil {
+					return err
+				}
+
+				aggregateAttestationSig.AggregateSig(aggSig)
+
+				attestationHashes = append(attestationHashes, dataRoot[:])
+				attestationAggregatedPubkeys = append(attestationAggregatedPubkeys, groupPublicKey)
+			}
 		}
 
 		valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
@@ -266,6 +347,11 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			return errors.New("block randaos did not validate")
 		}
 
+		valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
+		if !valid {
+			return errors.New("block attestations did not validate")
+		}
+
 		for _, b := range chunk {
 			err = s.handleReceivedBlock(b, peer, false)
 			if err != nil {
@@ -274,7 +360,14 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		}
 	}
 
+	peer.ProcessingRequest = false
+
 	return nil
+}
+
+// RegisterPostProcessHook registers a hook called after a block has been processed.
+func (s *SyncManager) RegisterPostProcessHook(hook func(*primitives.Block, *primitives.State, []primitives.Receipt)) {
+	s.postProcessHook = hook
 }
 
 func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.Peer, verifySignature bool) error {
@@ -289,30 +382,29 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 			return nil
 		}
 
-		if _, found := peerFrom.BlocksRequested[blockHash]; found {
-			// we already requested this block, so request the parent
-			err := peerFrom.SendMessage(&pb.GetBlockMessage{
-				LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-				HashStop:      block.BlockHeader.ParentRoot[:],
-			})
-			if err != nil {
-				return err
-			}
-		} else {
-			// request all blocks up to this block
-			err := peerFrom.SendMessage(&pb.GetBlockMessage{
-				LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-				HashStop:      blockHash[:],
-			})
-			if err != nil {
-				return err
-			}
+		logger.WithFields(logger.Fields{
+			"hash":       chainhash.Hash(block.BlockHeader.ParentRoot),
+			"slotTrying": block.BlockHeader.SlotNumber,
+		}).Debug("requesting parent block")
+
+		// request all blocks up to this block
+		err := peerFrom.SendMessage(&pb.GetBlockMessage{
+			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+			HashStop:      blockHash[:],
+		})
+		if err != nil {
+			return err
 		}
 
 	} else {
-		err := s.blockchain.ProcessBlock(block, true, verifySignature)
+		logger.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
+		receipts, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
+		}
+
+		if s.postProcessHook != nil && newState != nil {
+			s.postProcessHook(block, newState, receipts)
 		}
 	}
 
@@ -324,6 +416,10 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 func (s SyncManager) ListenForBlocks() error {
 	_, err := s.hostNode.SubscribeMessage("block", func(data []byte, from peer.ID) {
 		peerFrom := s.hostNode.GetPeerByID(from)
+
+		if peerFrom == nil {
+			return
+		}
 
 		blockProto := new(pb.Block)
 
@@ -339,7 +435,10 @@ func (s SyncManager) ListenForBlocks() error {
 			return
 		}
 
-		// TODO: ignore new blocks if syncing
+		// if we're still syncing, ignore
+		if peerFrom.ProcessingRequest {
+			return
+		}
 
 		err = s.handleReceivedBlock(block, peerFrom, true)
 		if err != nil {

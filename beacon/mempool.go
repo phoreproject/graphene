@@ -4,11 +4,11 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 	"github.com/sirupsen/logrus"
 )
 
@@ -190,10 +190,10 @@ func (m *Mempool) RemoveAttestationsFromBitfield(slot uint64, shard uint64, bitf
 		}
 		newAttestations = append(newAttestations, att)
 	}
-	logrus.WithFields(logrus.Fields{
-		"removed":         numRemoved,
-		"numAttestations": len(newAttestations),
-	}).Debug("updated mempool with new block")
+	//logrus.WithFields(logrus.Fields{
+	//	"removed":         numRemoved,
+	//	"numAttestations": len(newAttestations),
+	//}).Debug("updated mempool with new block")
 
 	am.attestations = newAttestations
 }

@@ -1,13 +1,14 @@
 package beacon_test
 
 import (
-	"github.com/phoreproject/prysm/shared/ssz"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/util"
@@ -244,7 +245,7 @@ func BenchmarkBlockTransition(t *testing.B) {
 	t.ResetTimer()
 
 	for i := range blocks {
-		err := b0.ProcessBlock(&blocks[i], false, true)
+		_, _, err := b0.ProcessBlock(&blocks[i], false, true)
 		if err != nil {
 			t.Fatal(err)
 		}

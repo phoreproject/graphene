@@ -3,14 +3,15 @@ package p2p
 import (
 	"bufio"
 	"errors"
-	"github.com/libp2p/go-libp2p-peerstore"
-	"github.com/phoreproject/synapse/chainhash"
 	"time"
+
+	inet "github.com/libp2p/go-libp2p-net"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 
 	"github.com/phoreproject/synapse/pb"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 // ClientVersion is the version of the client.
@@ -23,30 +24,34 @@ type Peer struct {
 	host            *HostNode
 	timeoutInterval time.Duration
 
-	ID              peer.ID
-	Outbound        bool
-	Connecting      bool
-	LastPingNonce   uint64
-	LastPingTime    time.Time
-	LastMessageTime time.Time
-	Version         uint64
-	BlocksRequested map[chainhash.Hash]struct{}
+	ID                peer.ID
+	Outbound          bool
+	Connecting        bool
+	LastPingNonce     uint64
+	LastPingTime      time.Time
+	LastMessageTime   time.Time
+	Version           uint64
+	ProcessingRequest bool
+
+	connection inet.Stream
 }
 
 // newPeer creates a P2pPeerNode
-func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration) *Peer {
+func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection inet.Stream) *Peer {
 	return &Peer{
 		stream:          stream,
 		ID:              id,
 		host:            host,
 		timeoutInterval: timeoutInterval,
 
-		Outbound:        outbound,
-		LastPingNonce:   0,
-		LastPingTime:    time.Unix(0, 0),
-		LastMessageTime: time.Unix(0, 0),
-		Connecting:      true,
-		BlocksRequested: make(map[chainhash.Hash]struct{}),
+		Outbound:          outbound,
+		LastPingNonce:     0,
+		LastPingTime:      time.Unix(0, 0),
+		LastMessageTime:   time.Unix(0, 0),
+		Connecting:        true,
+		ProcessingRequest: false,
+
+		connection: connection,
 	}
 }
 
@@ -70,8 +75,9 @@ func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 	return node.peerInfo
 }
 
-func (node *Peer) disconnect() error {
-	return nil
+// Disconnect disconnects from a peer cleanly
+func (node *Peer) Disconnect() error {
+	return node.connection.Close()
 }
 
 // Reject sends reject message and disconnect from the peer
@@ -83,7 +89,7 @@ func (node *Peer) Reject(message string) error {
 		return err
 	}
 
-	err = node.disconnect()
+	err = node.Disconnect()
 	if err != nil {
 		return err
 	}

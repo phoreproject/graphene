@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 	"github.com/sirupsen/logrus"
-	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -294,11 +293,11 @@ func (b *Blockchain) UpdateChainHead() error {
 				return err
 			}
 
-			logger.WithFields(logrus.Fields{
-				"height": head.Height,
-				"hash":   head.Hash.String(),
-				"slot":   b.stateManager.GetHeadSlot(),
-			}).Debug("set tip")
+			//logger.WithFields(logrus.Fields{
+			//	"height": head.Height,
+			//	"hash":   head.Hash.String(),
+			//	"slot":   b.stateManager.GetHeadSlot(),
+			//}).Debug("set tip")
 			return nil
 		}
 		bestVoteCountChild := children[0]
@@ -461,7 +460,7 @@ func (b *Blockchain) populateStateMap() error {
 			return err
 		}
 
-		logrus.WithField("loading", node.Hash).WithField("slot", node.Slot).Debug("loading block from database")
+		//logrus.WithField("loading", node.Hash).WithField("slot", node.Slot).Debug("loading block from database")
 
 		loadQueue = loadQueue[1:]
 
@@ -470,7 +469,7 @@ func (b *Blockchain) populateStateMap() error {
 			return err
 		}
 
-		_, err = b.AddBlockToStateMap(bl, false)
+		_, _, err = b.AddBlockToStateMap(bl, false)
 		if err != nil {
 			logrus.Debug(err)
 			return err
@@ -560,14 +559,6 @@ func (c *ChainView) Tip() (chainhash.Hash, error) {
 // GetStateBySlot gets a state in a certain slot
 func (c *ChainView) GetStateBySlot(slot uint64) (*primitives.State, error) {
 	h, err := c.blockchain.GetHashBySlot(slot)
-	if err != nil {
-		return nil, err
-	}
-	lastBlock, err := c.blockchain.GetBlockByHash(h)
-	if err != nil {
-		return nil, err
-	}
-	h, err = ssz.TreeHash(lastBlock)
 	if err != nil {
 		return nil, err
 	}

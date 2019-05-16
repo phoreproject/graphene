@@ -4,10 +4,11 @@ import (
 	"crypto/rand"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/mitchellh/go-homedir"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	homedir "github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
@@ -33,6 +34,7 @@ type Config struct {
 	HeartBeatInterval      time.Duration
 	TimeOutInterval        time.Duration
 	DiscoveryOptions       p2p.DiscoveryOptions
+	MaxPeers               int
 }
 
 // NewConfig creates a default Config
@@ -50,6 +52,7 @@ func NewConfig() Config {
 		HeartBeatInterval:      8 * time.Second,
 		TimeOutInterval:        16 * time.Second,
 		DiscoveryOptions:       p2p.NewDiscoveryOptions(),
+		MaxPeers:               16,
 	}
 }
 
@@ -94,6 +97,14 @@ func (app *BeaconApp) Run() error {
 	if err != nil {
 		return err
 	}
+
+	signalHandler := make(chan os.Signal, 1)
+	signal.Notify(signalHandler, os.Interrupt, syscall.SIGTERM)
+
+	if !app.config.IsIntegrationTest {
+		go app.listenForInterrupt(signalHandler)
+	}
+
 	err = app.loadBlockchain()
 	if err != nil {
 		return err
@@ -147,17 +158,14 @@ func (app *BeaconApp) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers)
 	if err != nil {
 		panic(err)
 	}
 	app.hostNode = hostNode
 
 	logger.Debug("starting peer discovery")
-	err = app.hostNode.StartDiscovery()
-	if err != nil {
-		panic(err)
-	}
+	go app.hostNode.StartDiscovery()
 
 	return nil
 }
@@ -259,15 +267,13 @@ func (app *BeaconApp) WaitForConnections(numConnections int) {
 }
 
 func (app *BeaconApp) runMainLoop() error {
-	app.WaitForConnections(app.config.MinPeerCountToWait)
+	go func() {
+		app.WaitForConnections(app.config.MinPeerCountToWait)
 
-	go app.syncManager.TryInitialSync()
+		go app.syncManager.TryInitialSync()
 
-	go app.syncManager.ListenForBlocks()
-
-	if !app.config.IsIntegrationTest {
-		go app.listenForInterrupt()
-	}
+		go app.syncManager.ListenForBlocks()
+	}()
 
 	// the main loop for this thread is waiting for the exit and cleaning up
 	app.waitForExit()
@@ -275,9 +281,7 @@ func (app *BeaconApp) runMainLoop() error {
 	return nil
 }
 
-func (app BeaconApp) listenForInterrupt() {
-	signalHandler := make(chan os.Signal, 1)
-	signal.Notify(signalHandler, os.Interrupt)
+func (app BeaconApp) listenForInterrupt(signalHandler chan os.Signal) {
 	<-signalHandler
 
 	app.exitChan <- struct{}{}
@@ -296,6 +300,15 @@ func (app BeaconApp) exit() {
 	if err != nil {
 		panic(err)
 	}
+
+	for _, p := range app.hostNode.GetPeerList() {
+		err := p.Disconnect()
+		if err != nil {
+			logger.Error(err)
+		}
+	}
+
+	os.Exit(0)
 }
 
 // Exit sends a request to exit the application.

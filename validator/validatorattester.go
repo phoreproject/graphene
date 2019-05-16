@@ -1,10 +1,10 @@
 package validator
 
 import (
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 func getAttestation(information attestationAssignment) (*primitives.AttestationData, [32]byte, error) {

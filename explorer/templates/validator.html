@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Validator {{.ValidatorHash}}</title>
+</head>
+<body>
+<h1>Validator #{{.ValidatorID}} - {{.ValidatorHash}}</h1>
+<hr />
+<table>
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>Value</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Pubkey</td>
+        <td>{{.Pubkey}}</td>
+    </tr>
+    <tr>
+        <td>Withdrawal Credentials</td>
+        <td>{{.WithdrawalCredentials}}</td>
+    </tr>
+    <tr>
+        <td>Status</td>
+        <td>{{.Status}}</td>
+    </tr>
+    <tr>
+        <td>Latest Status Change Slot</td>
+        <td>{{.LatestStatusChangeSlot}}</td>
+    </tr>
+    <tr>
+        <td>Exit Count</td>
+        <td>{{.ExitCount}}</td>
+    </tr>
+    <tr>
+        <td>Validator ID</td>
+        <td>{{.ValidatorID}}</td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

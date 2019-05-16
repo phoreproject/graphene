@@ -15,7 +15,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.
@@ -935,7 +935,7 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 
 // ProcessSlot processes a single slot which should happen before the block transition and the epoch transition.
 func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) error {
-	slotTransitionTime := time.Now()
+	//slotTransitionTime := time.Now()
 
 	// increase the slot number
 	s.Slot++
@@ -950,9 +950,9 @@ func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) 
 		s.BatchedBlockRoots = append(s.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
-	slotTransitionDuration := time.Since(slotTransitionTime)
+	//slotTransitionDuration := time.Since(slotTransitionTime)
 
-	logrus.WithField("slot", s.Slot).WithField("duration", slotTransitionDuration).Info("slot transition")
+	//logrus.WithField("slot", s.Slot).WithField("duration", slotTransitionDuration).Info("slot transition")
 
 	return nil
 }
@@ -1714,7 +1714,7 @@ done:
 }
 
 // applyAttestation verifies and applies an attestation to the given state.
-func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView) error {
+func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool) error {
 	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
 		return errors.New("attestation included too soon")
 	}
@@ -1752,37 +1752,39 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 		return errors.New("latest crosslink is invalid")
 	}
 
-	participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
-	if err != nil {
-		return err
-	}
-
-	dataRoot, err := ssz.TreeHash(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
-	if err != nil {
-		return err
-	}
-
-	groupPublicKey := bls.NewAggregatePublicKey()
-	for _, p := range participants {
-		pub, err := s.ValidatorRegistry[p].GetPublicKey()
+	if verifySignature {
+		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
 		if err != nil {
 			return err
 		}
-		groupPublicKey.AggregatePubKey(pub)
-	}
 
-	aggSig, err := bls.DeserializeSignature(att.AggregateSig)
-	if err != nil {
-		return err
-	}
+		dataRoot, err := ssz.TreeHash(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+		if err != nil {
+			return err
+		}
 
-	valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], aggSig, GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
-	if err != nil {
-		return err
-	}
+		groupPublicKey := bls.NewAggregatePublicKey()
+		for _, p := range participants {
+			pub, err := s.ValidatorRegistry[p].GetPublicKey()
+			if err != nil {
+				return err
+			}
+			groupPublicKey.AggregatePubKey(pub)
+		}
 
-	if !valid {
-		return errors.New("attestation signature is invalid")
+		aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+		if err != nil {
+			return err
+		}
+
+		valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], aggSig, GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
+		if err != nil {
+			return err
+		}
+
+		if !valid {
+			return errors.New("attestation signature is invalid")
+		}
 	}
 
 	node, err = view.GetHashBySlot(att.Data.Slot)
@@ -1812,7 +1814,7 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 // ProcessBlock tries to apply a block to the state.
 func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
 
-	blockTransitionStart := time.Now()
+	//blockTransitionStart := time.Now()
 
 	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, block.BlockHeader.SlotNumber-1, con)
 	if err != nil {
@@ -1946,7 +1948,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	}
 
 	for _, a := range block.BlockBody.Attestations {
-		err := s.applyAttestation(a, con, view)
+		err := s.applyAttestation(a, con, view, verifySignature)
 		if err != nil {
 			return err
 		}
@@ -1961,9 +1963,9 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		}
 	}
 
-	blockTransitionTime := time.Since(blockTransitionStart)
+	//blockTransitionTime := time.Since(blockTransitionStart)
 
-	logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
+	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	// Check state root.
 	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
@@ -1981,7 +1983,10 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
 		return errors.New("StateRoot doesn't match")
 	}
-	// Check state root end.
+
+	//blockTransitionTime := time.Since(blockTransitionStart)
+
+	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	return nil
 }
@@ -1993,14 +1998,14 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) erro
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
-			logrus.Info("processing epoch transition")
-			t := time.Now()
+			//logrus.Info("processing epoch transition")
+			//t := time.Now()
 
 			_, err := s.ProcessEpochTransition(c, view)
 			if err != nil {
 				return err
 			}
-			logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
+			//logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 		}
 
 		tip, err := view.Tip()

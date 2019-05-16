@@ -140,3 +140,31 @@ func TestSignatureVerification(t *testing.T) {
 		t.Fatal("expected recovered pubkey to match original pubkey")
 	}
 }
+
+func BenchmarkShardECDSA(b *testing.B) {
+	shardFile, err := os.Open("test_ecdsa_shard.wasm")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	shardCode, err := ioutil.ReadAll(shardFile)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	store := NewMemoryStorage()
+
+	s, err := NewShard(shardCode, []int64{2}, store)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err = s.RunFunc(3)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}

@@ -2,7 +2,6 @@ package execution
 
 import (
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -109,8 +108,7 @@ func TestSignatureVerification(t *testing.T) {
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
 		"20ee63e502ee2869afab7de234b80c")
 	if err != nil {
-		fmt.Println(err)
-		return
+		t.Fatal(err)
 	}
 	privKey, pubKey := secp256k1.PrivKeyFromBytes(pkBytes)
 
@@ -119,12 +117,8 @@ func TestSignatureVerification(t *testing.T) {
 	messageHash := chainhash.HashH([]byte(message))
 	signature, err := secp256k1.SignCompact(privKey, messageHash[:], false)
 	if err != nil {
-		fmt.Println(err)
-		return
+		t.Fatal(err)
 	}
-
-	// Serialize and display the signature.
-	fmt.Printf("Serialized Signature: %x\n", signature)
 
 	var signatureFixed [65]byte
 	copy(signatureFixed[:], signature)
@@ -133,16 +127,14 @@ func TestSignatureVerification(t *testing.T) {
 
 	// Verify the signature for the message using the public key.
 	verified := sig.Verify(messageHash[:], pubKey)
-	fmt.Printf("Signature Verified? %v\n", verified)
-	fmt.Println(messageHash)
+	if !verified {
+		t.Fatal("ECDSA signature did not verify")
+	}
 
 	pub, _, err := secp256k1.RecoverCompact(signature, messageHash[:])
 	if err != nil {
-		fmt.Println(err)
-		return
+		t.Fatal(err)
 	}
-
-	fmt.Printf("Pubkey: %x\n", pub.Serialize())
 
 	if !pub.IsEqual(pubKey) {
 		t.Fatal("expected recovered pubkey to match original pubkey")

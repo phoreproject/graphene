@@ -33,12 +33,13 @@ type Peer struct {
 	Version           uint64
 	ProcessingRequest bool
 
-	connection inet.Stream
+	connection      inet.Stream
+	messageHandlers map[string]MessageHandler
 }
 
 // newPeer creates a P2pPeerNode
 func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection inet.Stream) *Peer {
-	return &Peer{
+	peer := &Peer{
 		stream:          stream,
 		ID:              id,
 		host:            host,
@@ -51,8 +52,35 @@ func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode
 		Connecting:        true,
 		ProcessingRequest: false,
 
-		connection: connection,
+		connection:      connection,
+		messageHandlers: make(map[string]MessageHandler),
 	}
+
+	peer.registerMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
+		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
+	})
+
+	peer.registerMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleVerackMessage(message.(*pb.VerackMessage))
+	})
+
+	peer.registerMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handlePingMessage(message.(*pb.PingMessage))
+	})
+
+	peer.registerMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handlePongMessage(message.(*pb.PongMessage))
+	})
+
+	peer.registerMessageHandler("pb.GetAddrMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleGetAddrMessage(message.(*pb.GetAddrMessage))
+	})
+
+	peer.registerMessageHandler("pb.AddrMessage", func(peer *Peer, message proto.Message) error {
+		return peer.handleAddrMessage(message.(*pb.AddrMessage))
+	})
+
+	return peer
 }
 
 // SendMessage sends a protobuf message to this peer
@@ -175,7 +203,17 @@ func (node *Peer) handleAddrMessage(message *pb.AddrMessage) error {
 	return nil
 }
 
+func (node *Peer) registerMessageHandler(messageName string, handler MessageHandler) {
+	node.messageHandlers[messageName] = handler
+}
+
 func (node *Peer) handleMessage(message proto.Message) error {
 	node.LastMessageTime = time.Now()
+
+	name := proto.MessageName(message)
+
+	if handler, found := node.messageHandlers[name]; found {
+		handler(node, message)
+	}
 	return nil
 }

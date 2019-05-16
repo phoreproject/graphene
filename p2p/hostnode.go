@@ -273,41 +273,12 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 	// TODO: switch handlers to be the responsibility of PeerNode so they can be cleaned up nicer
 
-	handlers := make([]Handler, 0)
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
-		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handleVerackMessage(message.(*pb.VerackMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handlePingMessage(message.(*pb.PingMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handlePongMessage(message.(*pb.PongMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.GetAddrMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handleGetAddrMessage(message.(*pb.GetAddrMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.AddrMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handleAddrMessage(message.(*pb.AddrMessage))
-	}))
-
 	go func() {
 		err := processMessages(rw.Reader, func(message proto.Message) error {
 			return node.handleMessage(peerNode, message)
 		})
-		if err != nil {
-			for _, h := range handlers {
-				node.RemoveMessageHandler(h)
-			}
 
+		if err != nil {
 			node.removePeer(peerNode)
 
 			if err != io.EOF {

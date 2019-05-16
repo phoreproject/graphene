@@ -91,7 +91,7 @@ func TestECDSAShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = s.RunFunc(3)
+	_, err = s.RunFunc(4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +100,11 @@ func TestECDSAShard(t *testing.T) {
 
 	if addr0 != 1 {
 		t.Fatalf("Expected to load 1 from Phore storage, got: %d", addr0)
+	}
+
+	addr1 := s.Storage.PhoreLoad(1)
+	if byte(addr1) != chainhash.HashH([]byte{1, 2, 3, 4})[0] {
+		t.Fatal("Expected to load correct hash value from shard")
 	}
 }
 
@@ -162,7 +167,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = s.RunFunc(3)
+		_, err = s.RunFunc(4)
 		if err != nil {
 			b.Fatal(err)
 		}

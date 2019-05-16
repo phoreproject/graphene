@@ -8,9 +8,10 @@ require (
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/ethereum/go-ethereum v1.8.27 // indirect
+	github.com/go-interpreter/wagon v0.4.0
 	github.com/go-test/deep v1.0.1
 	github.com/golang/protobuf v1.3.2
-	github.com/jinzhu/gorm v1.9.9
+	github.com/jinzhu/gorm v1.9.8
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
 	github.com/karlseguin/expect v1.0.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible

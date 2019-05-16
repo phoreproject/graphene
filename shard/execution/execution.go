@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
+	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/go-interpreter/wagon/exec"
 
@@ -90,6 +91,24 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 				return 0
 			}
 
+			hash := func(proc *exec.Process, hashOut int32, inputStart int32, inputSize int32) {
+				toHash := make([]byte, inputSize)
+
+				_, err := proc.ReadAt(toHash, int64(inputStart))
+				if err != nil {
+					fmt.Println("error reading hash value")
+					proc.Terminate()
+				}
+
+				h := chainhash.HashH(toHash)
+
+				_, err = proc.WriteAt(h[:], int64(hashOut))
+				if err != nil {
+					fmt.Println("error writing hash value")
+					proc.Terminate()
+				}
+			}
+
 			m := wasm.NewModule()
 			m.Types = &wasm.SectionTypes{
 				Entries: []wasm.FunctionSig{
@@ -106,6 +125,10 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 						Form:        0, // value for the 'func' type constructor
 						ParamTypes:  []wasm.ValueType{wasm.ValueTypeI32, wasm.ValueTypeI32, wasm.ValueTypeI32},
 						ReturnTypes: []wasm.ValueType{wasm.ValueTypeI64},
+					},
+					{
+						Form:       0, // value for the 'func' type constructor
+						ParamTypes: []wasm.ValueType{wasm.ValueTypeI32, wasm.ValueTypeI32, wasm.ValueTypeI32},
 					},
 				},
 			}
@@ -125,6 +148,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 					Host: reflect.ValueOf(validateECDSA),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
+				{
+					Sig:  &m.Types.Entries[3],
+					Host: reflect.ValueOf(hash),
+					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+				},
 			}
 			m.Export = &wasm.SectionExports{
 				Entries: map[string]wasm.ExportEntry{
@@ -142,6 +170,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 						FieldStr: "validateECDSA",
 						Kind:     wasm.ExternalFunction,
 						Index:    2,
+					},
+					"hash": {
+						FieldStr: "hash",
+						Kind:     wasm.ExternalFunction,
+						Index:    3,
 					},
 				},
 			}

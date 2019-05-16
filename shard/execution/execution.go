@@ -22,7 +22,6 @@ type Shard struct {
 func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
 	mod, err := wasm.ReadModule(buf, func(name string) (*wasm.Module, error) {
-		fmt.Println(name)
 		switch name {
 		case "phore":
 			load := func(proc *exec.Process, addr int64) int64 {

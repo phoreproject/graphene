@@ -9,6 +9,7 @@ import (
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	maddr "github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -87,7 +88,9 @@ func (d Discovery) StartDiscovery() error {
 		}
 	}
 
-	d.startActiveDiscovery()
+	//d.startActiveDiscovery()
+
+	d.startGetAddr()
 
 	for _, p := range d.options.PeerAddresses {
 		d.HandlePeerFound(p)
@@ -188,6 +191,26 @@ func (d Discovery) startFindPeers() {
 		}
 	}()
 
+}
+
+func (d Discovery) startGetAddr() {
+	go func() {
+		for {
+			peerList := d.host.GetPeerList()
+			if len(peerList) < d.host.maxPeers {
+				for _, peer := range peerList {
+					peer.SendMessage(&pb.GetAddrMessage{})
+				}
+			}
+			select {
+			case <-time.After(60 * time.Second):
+				continue
+
+			case <-d.ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // HandlePeerFound registers the peer with the host.

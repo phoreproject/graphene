@@ -8,6 +8,7 @@ package pb;
 message VersionMessage {
     uint64 Version = 1;
     bytes PeerID = 2;
+    bytes PeerInfo = 3;
 }
 
 message VerackMessage {
@@ -35,5 +36,13 @@ message GetBlockMessage {
 // Response to GetBlockMessage
 message BlockMessage {
     repeated Block Blocks = 1;
+}
+
+
+message GetAddrMessage {
+}
+
+message AddrMessage {
+    repeated bytes Addrs = 1;
 }
 

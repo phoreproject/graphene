@@ -99,7 +99,7 @@ func (node *Peer) Reject(message string) error {
 
 // IsConnected checks if the peers is considered connected.
 func (node *Peer) IsConnected() bool {
-	return time.Since(node.LastMessageTime) <= node.timeoutInterval
+	return node.peerInfo != nil && time.Since(node.LastMessageTime) <= node.timeoutInterval
 }
 
 // HandleVersionMessage handles VersionMessage from this peer
@@ -109,6 +109,12 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 		return err
 	}
 	node.ID = peerID
+
+	peerInfo := peerstore.PeerInfo{}
+	if peerInfo.UnmarshalJSON(message.PeerInfo) == nil {
+		node.peerInfo = &peerInfo
+	}
+
 	ourIDBytes, err := node.host.host.ID().MarshalBinary()
 	if err != nil {
 		return err
@@ -138,6 +144,33 @@ func (node *Peer) handlePongMessage(message *pb.PongMessage) error {
 	if node.LastPingNonce != message.Nonce {
 		// ban peer
 		return errors.New("invalid pong nonce")
+	}
+	return nil
+}
+
+func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
+	addrMessage := pb.AddrMessage{
+		Addrs: [][]byte{},
+	}
+	for _, peer := range node.host.GetPeerList() {
+		if peer.IsConnected() {
+			data, err := peer.GetPeerInfo().MarshalJSON()
+			if err == nil {
+				addrMessage.Addrs = append(addrMessage.Addrs, data)
+			}
+		}
+	}
+	return node.SendMessage(&addrMessage)
+}
+
+func (node *Peer) handleAddrMessage(message *pb.AddrMessage) error {
+	for _, data := range message.Addrs {
+		peerInfo := peerstore.PeerInfo{}
+		if peerInfo.UnmarshalJSON(data) == nil {
+			if peerInfo.ID != node.host.GetHost().ID() {
+				node.host.PeerDiscovered(peerInfo)
+			}
+		}
 	}
 	return nil
 }

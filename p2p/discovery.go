@@ -4,8 +4,11 @@ import (
 	"context"
 	"time"
 
+	protocol "github.com/libp2p/go-libp2p-protocol"
+
 	p2pdiscovery "github.com/libp2p/go-libp2p-discovery"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	opts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	maddr "github.com/multiformats/go-multiaddr"
@@ -50,9 +53,15 @@ type Discovery struct {
 	p2pDiscovery p2pdiscovery.Discovery
 }
 
+// DHTProtocolID is the protocol ID used for DHT for Phore.
+const DHTProtocolID = "/phore/kad/1.0.0"
+
 // NewDiscovery creates a new discovery service.
-func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions) *Discovery {
-	routing, err := kaddht.New(ctx, host.GetHost())
+func NewDiscovery(ctx context.Context, host *HostNode, discoveryOptions DiscoveryOptions) *Discovery {
+	routing, err := kaddht.New(ctx, host.GetHost(), func(options *opts.Options) error {
+		options.Protocols = []protocol.ID{DHTProtocolID}
+		return nil
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +77,7 @@ func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions)
 	return &Discovery{
 		host:         host,
 		ctx:          ctx,
-		options:      options,
+		options:      discoveryOptions,
 		p2pDiscovery: p2pdiscovery.NewRoutingDiscovery(routing),
 	}
 }

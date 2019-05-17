@@ -24,6 +24,7 @@ require (
 	github.com/libp2p/go-stream-muxer v0.0.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
+	github.com/multiformats/go-multihash v0.0.5
 	github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee
 	github.com/phoreproject/prysm v0.0.0-20190209202311-c85edb6a4546
 	github.com/prysmaticlabs/prysm v0.0.0-20190514144052-d672a0602655

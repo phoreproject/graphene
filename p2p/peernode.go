@@ -105,7 +105,7 @@ func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 
 // Disconnect disconnects from a peer cleanly
 func (node *Peer) Disconnect() error {
-	return node.connection.Close()
+	return node.connection.Reset()
 }
 
 // Reject sends reject message and disconnect from the peer

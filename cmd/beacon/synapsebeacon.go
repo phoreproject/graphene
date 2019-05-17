@@ -16,7 +16,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 )
 
-const clientVersion = "0.2.0"
+const clientVersion = "0.2.1"
 
 func main() {
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")

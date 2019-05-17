@@ -146,6 +146,9 @@ func (node *Peer) sendHeartbeat() {
 }
 
 func (node *Peer) sendHeartbeats() {
+	if !node.Outbound {
+		return
+	}
 	node.sendHeartbeat()
 	heartbeatTicker := time.NewTicker(node.heartbeatInterval)
 	for {

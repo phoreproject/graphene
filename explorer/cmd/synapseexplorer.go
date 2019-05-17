@@ -8,6 +8,7 @@ import (
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/utils"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -27,6 +28,14 @@ func main() {
 	// Logging
 	level := flag.String("level", "info", "log level")
 	flag.Parse()
+
+	changed, newLimit, err := utils.ManageFdLimit()
+	if err != nil {
+		panic(err)
+	}
+	if changed {
+		logrus.Infof("changed ulimit to: %d", newLimit)
+	}
 
 	lvl, err := logrus.ParseLevel(*level)
 	if err != nil {

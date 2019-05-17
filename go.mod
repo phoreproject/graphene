@@ -30,5 +30,6 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/valyala/fasttemplate v1.0.1 // indirect
 	golang.org/x/net v0.0.0-20190514140710-3ec191127204
+	golang.org/x/sys v0.0.0-20190412213103-97732733099d
 	google.golang.org/grpc v1.20.1
 )

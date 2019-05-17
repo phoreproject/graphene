@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/utils"
 
 	"github.com/phoreproject/synapse/beacon/app"
 
@@ -54,6 +55,14 @@ func main() {
 	appConfig.Resync = *resync
 	if *genesisTime != 0 {
 		appConfig.GenesisTime = *genesisTime
+	}
+
+	changed, newLimit, err := utils.ManageFdLimit()
+	if err != nil {
+		panic(err)
+	}
+	if changed {
+		logger.Infof("changed ulimit to: %d", newLimit)
 	}
 
 	// we should load the keys from the validator keystore

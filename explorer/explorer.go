@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -341,6 +343,19 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	}
 }
 
+func (ex *Explorer) exit() {
+	err := ex.chainDB.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, p := range ex.hostNode.GetPeerList() {
+		p.Disconnect()
+	}
+
+	os.Exit(0)
+}
+
 // StartExplorer starts the block explorer
 func (ex *Explorer) StartExplorer() error {
 	err := ex.loadDatabase()
@@ -352,6 +367,15 @@ func (ex *Explorer) StartExplorer() error {
 	if err != nil {
 		return err
 	}
+
+	signalHandler := make(chan os.Signal, 1)
+	signal.Notify(signalHandler, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-signalHandler
+
+		ex.exit()
+	}()
 
 	err = ex.loadBlockchain()
 	if err != nil {
@@ -377,11 +401,10 @@ func (ex *Explorer) StartExplorer() error {
 	e := echo.New()
 	e.Renderer = t
 
+	e.Static("/static", "assets")
 	e.GET("/", ex.renderIndex)
 	e.GET("/b/:blockHash", ex.renderBlock)
 	e.GET("/v/:validatorHash", ex.renderValidator)
-
-	defer ex.chainDB.Close()
 
 	e.Logger.Fatal(e.Start(":1323"))
 

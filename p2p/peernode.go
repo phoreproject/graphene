@@ -168,8 +168,6 @@ func (node *Peer) handleConnection(connection inet.Stream) {
 
 	go node.sendHeartbeats()
 
-	logger.WithField("id", node.ID).Info("connected to peer")
-
 	// once we're done, clean up the streams
 	<-node.ctx.Done()
 

@@ -268,9 +268,6 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 			PeerID:   peerIDBytes,
 			PeerInfo: peerInfoBytes,
 		})
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return peerNode, nil

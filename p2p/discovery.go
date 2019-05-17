@@ -34,6 +34,7 @@ type DiscoveryOptions struct {
 var activeDiscoveryNS = "synapse"
 var defaultBootstrapAddrStrings = []string{
 	"/ip4/134.209.58.178/tcp/11781/ipfs/12D3KooWGeBbgdgVrfd6GhGscUp8LxAYGrvYSWpD4sHTNyrUYG3T",
+	"/ip4/206.189.214.61/tcp/11781/ipfs/12D3KooWMFRdDoWiS7LS3J3pjgGtNYTDtTeanFFUCJyTKxiyk2KZ",
 }
 
 // NewDiscoveryOptions creates a DiscoveryOptions with default values
@@ -111,7 +112,13 @@ func (d Discovery) StartDiscovery() error {
 		d.HandlePeerFound(*pinfo)
 	}
 
+	for _, pinfo := range d.options.PeerAddresses {
+		d.HandlePeerFound(pinfo)
+	}
+
 	d.startActiveDiscovery()
+
+	d.startGetAddr()
 
 	return nil
 }

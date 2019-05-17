@@ -69,16 +69,12 @@ func main() {
 
 		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
 
-		if validatorID != i {
-			panic("malformatted pubkey file")
-		}
-
 		var iv beacon.InitialValidatorEntry
 		err = binary.Read(f, binary.BigEndian, &iv)
 		if err != nil {
 			panic(err)
 		}
-		initialValidatorList[i] = iv
+		initialValidatorList[validatorID] = iv
 	}
 
 	initialPeers, err := p2p.ParseInitialConnections(*initialConnections)

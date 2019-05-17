@@ -1,6 +1,6 @@
 // +build freebsd
 
-package util
+package utils
 
 import (
 	unix "sys/unix"

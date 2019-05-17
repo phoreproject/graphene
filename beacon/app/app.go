@@ -208,9 +208,22 @@ func (app *BeaconApp) loadDatabase() error {
 
 	if app.config.Resync {
 		logger.Info("dropping all keys in database to resync")
-		err := database.Flush()
+
+		key, err := database.GetHostKey()
+		if err != nil {
+			key = nil
+		}
+
+		err = database.Flush()
 		if err != nil {
 			return err
+		}
+
+		if key != nil {
+			err := database.SetHostKey(key)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 

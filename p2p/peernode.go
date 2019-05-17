@@ -125,8 +125,8 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 
 			err := node.handleMessage(message)
 			if err != nil {
-				if err != io.EOF {
-					logger.Errorf("error processing message from peer %s: %s", node.ID, err)
+				if err != io.EOF && err.Error() != "stream reset" {
+					logger.Errorf("error processing message from peer %s: %#v", node.ID, err)
 				}
 				node.cancel()
 			}
@@ -135,8 +135,8 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 		return nil
 	})
 	if err != nil {
-		if err != io.EOF {
-			logger.Errorf("error processing message from peer %s: %s", node.ID, err.Error())
+		if err != io.EOF && err.Error() != "stream reset" {
+			logger.Errorf("error processing message from peer %s: %#v", node.ID, err)
 		}
 	}
 }

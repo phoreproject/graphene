@@ -111,7 +111,7 @@ func (d Discovery) StartDiscovery() error {
 		d.HandlePeerFound(*pinfo)
 	}
 
-	d.startGetAddr()
+	d.startActiveDiscovery()
 
 	return nil
 }

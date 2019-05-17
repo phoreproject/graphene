@@ -42,6 +42,7 @@ type Peer struct {
 	cancel          context.CancelFunc
 
 	outgoingMessages chan proto.Message
+	closeStream      func()
 }
 
 // newPeer creates a P2pPeerNode
@@ -65,6 +66,9 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 
 		heartbeatInterval: heartbeatInterval,
 		outgoingMessages:  make(chan proto.Message),
+		closeStream: func() {
+			connection.Reset()
+		},
 	}
 
 	go peer.handleConnection(connection)
@@ -132,7 +136,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 	})
 	if err != nil {
 		if err != io.EOF {
-			logger.Errorf("error processing message from peer: %s", node.ID)
+			logger.Errorf("error processing message from peer %s: %s", node.ID, err.Error())
 		}
 	}
 }
@@ -171,8 +175,6 @@ func (node *Peer) handleConnection(connection inet.Stream) {
 	// once we're done, clean up the streams
 	<-node.ctx.Done()
 
-	connection.Reset()
-
 	node.host.removePeer(node)
 }
 
@@ -198,6 +200,8 @@ func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 
 // Disconnect disconnects from a peer cleanly
 func (node *Peer) Disconnect() {
+	node.closeStream()
+
 	node.cancel()
 }
 

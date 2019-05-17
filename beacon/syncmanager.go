@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -30,17 +29,15 @@ import (
 //				 askForBlocks(locator)
 type SyncManager struct {
 	hostNode        *p2p.HostNode
-	timeout         time.Duration
 	syncStarted     bool
 	blockchain      *Blockchain
 	postProcessHook func(*primitives.Block, *primitives.State, []primitives.Receipt)
 }
 
 // NewSyncManager creates a new sync manager
-func NewSyncManager(hostNode *p2p.HostNode, timeout time.Duration, blockchain *Blockchain) SyncManager {
+func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain) SyncManager {
 	return SyncManager{
 		hostNode:    hostNode,
-		timeout:     timeout,
 		syncStarted: false,
 		blockchain:  blockchain,
 	}
@@ -51,17 +48,12 @@ func NewSyncManager(hostNode *p2p.HostNode, timeout time.Duration, blockchain *B
 func (s SyncManager) Connected() bool {
 	peers := s.hostNode.GetPeerList()
 
-	timeSinceLastPing := s.timeout
-
 	for _, p := range peers {
-		timeSince := time.Since(p.LastPingTime)
-
-		if timeSince < timeSinceLastPing {
-			timeSinceLastPing = timeSince
+		if p.IsConnected() {
+			return true
 		}
 	}
-
-	return timeSinceLastPing < s.timeout
+	return false
 }
 
 const limitBlocksToSend = 500
@@ -136,7 +128,9 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 		blockMessage.Blocks[i] = toSend[i].ToProto()
 	}
 
-	return peer.SendMessage(blockMessage)
+	peer.SendMessage(blockMessage)
+
+	return nil
 }
 
 func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error {
@@ -388,13 +382,10 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 		}).Debug("requesting parent block")
 
 		// request all blocks up to this block
-		err := peerFrom.SendMessage(&pb.GetBlockMessage{
+		peerFrom.SendMessage(&pb.GetBlockMessage{
 			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
 			HashStop:      blockHash[:],
 		})
-		if err != nil {
-			return err
-		}
 
 	} else {
 		logger.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
@@ -484,11 +475,6 @@ func (s SyncManager) TryInitialSync() {
 			HashStop:      zeroHash[:],
 		}
 
-		err := bestPeer.SendMessage(getBlockMessage)
-
-		if err != nil {
-			logger.Error(err)
-			return
-		}
+		bestPeer.SendMessage(getBlockMessage)
 	}
 }

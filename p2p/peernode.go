@@ -2,11 +2,15 @@ package p2p
 
 import (
 	"bufio"
+	"context"
 	"errors"
+	"io"
+	"math/rand"
 	"time"
 
 	inet "github.com/libp2p/go-libp2p-net"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/pb"
 
@@ -19,42 +23,51 @@ const ClientVersion = 0
 
 // Peer is a representation of an external peer.
 type Peer struct {
-	stream          *bufio.ReadWriter
-	peerInfo        *peerstore.PeerInfo
-	host            *HostNode
-	timeoutInterval time.Duration
+	peerInfo          *peerstore.PeerInfo
+	host              *HostNode
+	timeoutInterval   time.Duration
+	heartbeatInterval time.Duration
 
-	ID                peer.ID
-	Outbound          bool
-	Connecting        bool
+	ID         peer.ID
+	Outbound   bool
+	Connecting bool
+	// The last nonce we sent them
 	LastPingNonce     uint64
-	LastPingTime      time.Time
 	LastMessageTime   time.Time
 	Version           uint64
 	ProcessingRequest bool
 
-	connection      inet.Stream
 	messageHandlers map[string]MessageHandler
+	ctx             context.Context
+	cancel          context.CancelFunc
+
+	outgoingMessages chan proto.Message
 }
 
 // newPeer creates a P2pPeerNode
-func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection inet.Stream) *Peer {
+func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection inet.Stream, heartbeatInterval time.Duration) *Peer {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	peer := &Peer{
-		stream:          stream,
 		ID:              id,
 		host:            host,
 		timeoutInterval: timeoutInterval,
 
 		Outbound:          outbound,
 		LastPingNonce:     0,
-		LastPingTime:      time.Unix(0, 0),
 		LastMessageTime:   time.Unix(0, 0),
 		Connecting:        true,
 		ProcessingRequest: false,
 
-		connection:      connection,
 		messageHandlers: make(map[string]MessageHandler),
+		ctx:             ctx,
+		cancel:          cancel,
+
+		heartbeatInterval: heartbeatInterval,
+		outgoingMessages:  make(chan proto.Message),
 	}
+
+	go peer.handleConnection(connection)
 
 	peer.registerMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
 		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
@@ -83,9 +96,88 @@ func newPeer(stream *bufio.ReadWriter, outbound bool, id peer.ID, host *HostNode
 	return peer
 }
 
+func (node *Peer) sendMessages(writer *bufio.Writer) {
+	for {
+		select {
+		case msg := <-node.outgoingMessages:
+			logger.WithFields(logger.Fields{
+				"peer":    node.ID,
+				"message": proto.MessageName(msg),
+			}).Debug("sending message")
+			writeMessage(msg, writer)
+		case <-node.ctx.Done():
+			break
+		}
+	}
+}
+
+func (node *Peer) processMessages(reader *bufio.Reader) {
+	err := processMessages(reader, func(message proto.Message) error {
+		go func() {
+			logger.WithFields(logger.Fields{
+				"peer":    node.ID,
+				"message": proto.MessageName(message),
+			}).Debug("received message")
+
+			err := node.handleMessage(message)
+			if err != nil {
+				if err != io.EOF {
+					logger.Errorf("error processing message from peer %s: %s", node.ID, err)
+				}
+				node.cancel()
+			}
+		}()
+
+		return nil
+	})
+	if err != nil {
+		if err != io.EOF {
+			logger.Errorf("error processing message from peer: %s", node.ID)
+		}
+	}
+}
+
+func (node *Peer) sendHeartbeat() {
+	nonce := rand.Uint64()
+	node.LastPingNonce = nonce
+	node.SendMessage(&pb.PingMessage{
+		Nonce: rand.Uint64(),
+	})
+}
+
+func (node *Peer) sendHeartbeats() {
+	node.sendHeartbeat()
+	heartbeatTicker := time.NewTicker(node.heartbeatInterval)
+	for {
+		select {
+		case <-heartbeatTicker.C:
+			node.sendHeartbeat()
+		case <-node.ctx.Done():
+			break
+		}
+	}
+}
+
+func (node *Peer) handleConnection(connection inet.Stream) {
+	go node.processMessages(bufio.NewReader(connection))
+
+	go node.sendMessages(bufio.NewWriter(connection))
+
+	go node.sendHeartbeats()
+
+	logger.WithField("id", node.ID).Info("connected to peer")
+
+	// once we're done, clean up the streams
+	<-node.ctx.Done()
+
+	connection.Reset()
+
+	node.host.removePeer(node)
+}
+
 // SendMessage sends a protobuf message to this peer
-func (node *Peer) SendMessage(message proto.Message) error {
-	return writeMessage(message, node.stream.Writer)
+func (node *Peer) SendMessage(message proto.Message) {
+	node.outgoingMessages <- message
 }
 
 // IsOutbound returns true if the connection is an outbound
@@ -104,24 +196,17 @@ func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 }
 
 // Disconnect disconnects from a peer cleanly
-func (node *Peer) Disconnect() error {
-	return node.connection.Reset()
+func (node *Peer) Disconnect() {
+	node.cancel()
 }
 
 // Reject sends reject message and disconnect from the peer
 func (node *Peer) Reject(message string) error {
-	err := node.SendMessage(&pb.RejectMessage{
+	node.SendMessage(&pb.RejectMessage{
 		Message: message,
 	})
-	if err != nil {
-		return err
-	}
 
-	err = node.Disconnect()
-	if err != nil {
-		return err
-	}
-
+	node.Disconnect()
 	return nil
 }
 
@@ -148,10 +233,12 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 		return err
 	}
 	node.Connecting = false
-	return node.SendMessage(&pb.VerackMessage{
+	node.SendMessage(&pb.VerackMessage{
 		Version: ClientVersion,
 		PeerID:  ourIDBytes,
 	})
+
+	return nil
 }
 
 func (node *Peer) handleVerackMessage(message *pb.VerackMessage) error {
@@ -163,9 +250,10 @@ func (node *Peer) handlePingMessage(message *pb.PingMessage) error {
 	if node.Connecting {
 		return errors.New("sent ping before connecting")
 	}
-	return node.SendMessage(&pb.PongMessage{
+	node.SendMessage(&pb.PongMessage{
 		Nonce: message.Nonce,
 	})
+	return nil
 }
 
 func (node *Peer) handlePongMessage(message *pb.PongMessage) error {
@@ -188,7 +276,9 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 			}
 		}
 	}
-	return node.SendMessage(&addrMessage)
+	node.SendMessage(&addrMessage)
+
+	return nil
 }
 
 func (node *Peer) handleAddrMessage(message *pb.AddrMessage) error {

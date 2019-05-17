@@ -1,10 +1,8 @@
 package p2p
 
 import (
-	"bufio"
 	"context"
 	"errors"
-	"io"
 	"sync"
 	"time"
 
@@ -50,7 +48,8 @@ type HostNode struct {
 	cancel    context.CancelFunc
 	maxPeers  int
 
-	timeoutInterval time.Duration
+	timeoutInterval   time.Duration
+	heartbeatInterval time.Duration
 
 	// discovery handles peer discovery (mDNS, DHT, etc)
 	discovery *Discovery
@@ -71,7 +70,7 @@ type HostNode struct {
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
@@ -114,6 +113,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
 		maxPeers:          maxPeers,
+		heartbeatInterval: heartbeatInterval,
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -236,9 +236,7 @@ func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
 
 // Run runs the main loop of the host node
 func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
-	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream)
+	peerNode := newPeer(outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream, node.heartbeatInterval)
 
 	node.peerListLock.Lock()
 	node.peerList = append(node.peerList, peerNode)
@@ -261,7 +259,7 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 			return nil, err
 		}
 
-		err = peerNode.SendMessage(&pb.VersionMessage{
+		peerNode.SendMessage(&pb.VersionMessage{
 			Version:  ClientVersion,
 			PeerID:   peerIDBytes,
 			PeerInfo: peerInfoBytes,
@@ -270,22 +268,6 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 			return nil, err
 		}
 	}
-
-	// TODO: switch handlers to be the responsibility of PeerNode so they can be cleaned up nicer
-
-	go func() {
-		err := processMessages(rw.Reader, func(message proto.Message) error {
-			return node.handleMessage(peerNode, message)
-		})
-
-		if err != nil {
-			node.removePeer(peerNode)
-
-			if err != io.EOF {
-				logger.WithField("peer", peerNode.ID.Pretty()).Error(err)
-			}
-		}
-	}()
 
 	return peerNode, nil
 }
@@ -351,11 +333,7 @@ func (node *HostNode) removePeer(peer *Peer) {
 
 // DisconnectPeer disconnects a peer
 func (node *HostNode) DisconnectPeer(peer *Peer) error {
-	err := peer.Disconnect()
-	if err != nil {
-		return err
-	}
-	node.removePeer(peer)
+	peer.Disconnect()
 	return nil
 }
 

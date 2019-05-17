@@ -113,7 +113,7 @@ func (ex *Explorer) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second, 16)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second, 16, 8*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -358,7 +358,7 @@ func (ex *Explorer) StartExplorer() error {
 		return err
 	}
 
-	ex.syncManager = beacon.NewSyncManager(ex.hostNode, time.Second*5, ex.blockchain)
+	ex.syncManager = beacon.NewSyncManager(ex.hostNode, ex.blockchain)
 
 	ex.syncManager.RegisterPostProcessHook(ex.postProcessHook)
 

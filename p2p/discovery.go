@@ -6,9 +6,10 @@ import (
 
 	protocol "github.com/libp2p/go-libp2p-protocol"
 
+	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
+
 	p2pdiscovery "github.com/libp2p/go-libp2p-discovery"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	opts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	maddr "github.com/multiformats/go-multiaddr"
@@ -58,10 +59,9 @@ const DHTProtocolID = "/phore/kad/1.0.0"
 
 // NewDiscovery creates a new discovery service.
 func NewDiscovery(ctx context.Context, host *HostNode, discoveryOptions DiscoveryOptions) *Discovery {
-	routing, err := kaddht.New(ctx, host.GetHost(), func(options *opts.Options) error {
-		options.Protocols = []protocol.ID{DHTProtocolID}
-		return nil
-	})
+	routing, err := kaddht.New(ctx, host.GetHost(), dhtopts.Protocols(
+		protocol.ID(DHTProtocolID),
+	))
 	if err != nil {
 		panic(err)
 	}
@@ -214,10 +214,8 @@ func (d Discovery) startGetAddr() {
 	go func() {
 		for {
 			peerList := d.host.GetPeerList()
-			if len(peerList) < d.host.maxPeers {
-				for _, peer := range peerList {
-					peer.SendMessage(&pb.GetAddrMessage{})
-				}
+			for _, peer := range peerList {
+				peer.SendMessage(&pb.GetAddrMessage{})
 			}
 			select {
 			case <-time.After(60 * time.Second):

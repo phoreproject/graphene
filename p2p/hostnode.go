@@ -3,11 +3,13 @@ package p2p
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -46,7 +48,6 @@ type HostNode struct {
 	gossipSub *pubsub.PubSub
 	ctx       context.Context
 	cancel    context.CancelFunc
-	maxPeers  int
 
 	timeoutInterval   time.Duration
 	heartbeatInterval time.Duration
@@ -76,6 +77,8 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		ctx,
 		libp2p.ListenAddrs(listenAddress),
 		libp2p.Identity(privateKey),
+		libp2p.EnableRelay(),
+		libp2p.ConnectionManager(connmgr.NewConnManager(1, maxPeers, time.Second*5)),
 	)
 	if err != nil {
 		cancel()
@@ -112,7 +115,6 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		currentID:         0,
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
-		maxPeers:          maxPeers,
 		heartbeatInterval: heartbeatInterval,
 	}
 
@@ -121,6 +123,8 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 	// setup phore protocol
 	h.SetStreamHandler(protocolID, hostNode.handleStream)
+
+	fmt.Println(h.Mux().Protocols())
 
 	return hostNode, nil
 }
@@ -351,10 +355,6 @@ func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
 
 // PeerDiscovered is run when peers are discovered.
 func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
-	if node.maxPeers <= len(node.peerList) {
-		return
-	}
-
 	_, err := node.Connect(pi)
 	if err != nil {
 		logger.WithField("err", err).Debug("could not connect to peer")

@@ -114,8 +114,7 @@ func (app *BeaconApp) Run() error {
 		return err
 	}
 
-	// TODO: configurable timeout
-	app.syncManager = beacon.NewSyncManager(app.hostNode, time.Second*5, app.blockchain)
+	app.syncManager = beacon.NewSyncManager(app.hostNode, app.blockchain)
 
 	app.syncManager.Start()
 
@@ -158,7 +157,7 @@ func (app *BeaconApp) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers, app.config.HeartBeatInterval)
 	if err != nil {
 		panic(err)
 	}
@@ -208,9 +207,22 @@ func (app *BeaconApp) loadDatabase() error {
 
 	if app.config.Resync {
 		logger.Info("dropping all keys in database to resync")
-		err := database.Flush()
+
+		key, err := database.GetHostKey()
+		if err != nil {
+			key = nil
+		}
+
+		err = database.Flush()
 		if err != nil {
 			return err
+		}
+
+		if key != nil {
+			err := database.SetHostKey(key)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 
@@ -302,10 +314,7 @@ func (app BeaconApp) exit() {
 	}
 
 	for _, p := range app.hostNode.GetPeerList() {
-		err := p.Disconnect()
-		if err != nil {
-			logger.Error(err)
-		}
+		p.Disconnect()
 	}
 
 	os.Exit(0)

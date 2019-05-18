@@ -4,11 +4,16 @@ import (
 	"context"
 	"time"
 
+	protocol "github.com/libp2p/go-libp2p-protocol"
+
+	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
+
 	p2pdiscovery "github.com/libp2p/go-libp2p-discovery"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	maddr "github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -28,7 +33,8 @@ type DiscoveryOptions struct {
 
 var activeDiscoveryNS = "synapse"
 var defaultBootstrapAddrStrings = []string{
-	"/ip4/134.209.58.178/tcp/11781/ipfs/12D3KooWRNh4WkuCQB8LqMNqrxr348mNKfDkDZPm5Qth3EXxcEb8",
+	"/ip4/134.209.58.178/tcp/11781/ipfs/12D3KooWGeBbgdgVrfd6GhGscUp8LxAYGrvYSWpD4sHTNyrUYG3T",
+	"/ip4/206.189.214.61/tcp/11781/ipfs/12D3KooWMFRdDoWiS7LS3J3pjgGtNYTDtTeanFFUCJyTKxiyk2KZ",
 }
 
 // NewDiscoveryOptions creates a DiscoveryOptions with default values
@@ -49,9 +55,14 @@ type Discovery struct {
 	p2pDiscovery p2pdiscovery.Discovery
 }
 
+// DHTProtocolID is the protocol ID used for DHT for Phore.
+const DHTProtocolID = "/phore/kad/1.0.0"
+
 // NewDiscovery creates a new discovery service.
-func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions) *Discovery {
-	routing, err := kaddht.New(ctx, host.GetHost())
+func NewDiscovery(ctx context.Context, host *HostNode, discoveryOptions DiscoveryOptions) *Discovery {
+	routing, err := kaddht.New(ctx, host.GetHost(), dhtopts.Protocols(
+		protocol.ID(DHTProtocolID),
+	))
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +78,7 @@ func NewDiscovery(ctx context.Context, host *HostNode, options DiscoveryOptions)
 	return &Discovery{
 		host:         host,
 		ctx:          ctx,
-		options:      options,
+		options:      discoveryOptions,
 		p2pDiscovery: p2pdiscovery.NewRoutingDiscovery(routing),
 	}
 }
@@ -87,11 +98,27 @@ func (d Discovery) StartDiscovery() error {
 		}
 	}
 
+	for _, addrString := range defaultBootstrapAddrStrings {
+		addr, err := maddr.NewMultiaddr(addrString)
+		if err != nil {
+			logger.Error(err)
+		}
+
+		pinfo, err := ps.InfoFromP2pAddr(addr)
+		if err != nil {
+			logger.Error(err)
+		}
+
+		d.HandlePeerFound(*pinfo)
+	}
+
+	for _, pinfo := range d.options.PeerAddresses {
+		d.HandlePeerFound(pinfo)
+	}
+
 	d.startActiveDiscovery()
 
-	for _, p := range d.options.PeerAddresses {
-		d.HandlePeerFound(p)
-	}
+	d.startGetAddr()
 
 	return nil
 }
@@ -190,10 +217,29 @@ func (d Discovery) startFindPeers() {
 
 }
 
+func (d Discovery) startGetAddr() {
+	go func() {
+		for {
+			peerList := d.host.GetPeerList()
+			for _, peer := range peerList {
+				peer.SendMessage(&pb.GetAddrMessage{})
+			}
+			select {
+			case <-time.After(60 * time.Second):
+				continue
+
+			case <-d.ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
 // HandlePeerFound registers the peer with the host.
 func (d Discovery) HandlePeerFound(pi ps.PeerInfo) {
 	if d.host.GetHost().ID() == pi.ID {
 		return
 	}
+
 	d.host.PeerDiscovered(pi)
 }

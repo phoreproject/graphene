@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -62,6 +61,8 @@ type HostNode struct {
 	peerList     []*Peer
 	peerListLock *sync.Mutex
 
+	connectionLock *sync.Mutex
+
 	// a messageHandler is called when a message with certain name is received
 	messageHandlerMap map[string][]messageHandlerAndID
 	handlerLock       *sync.RWMutex
@@ -115,6 +116,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		currentID:         0,
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
+		connectionLock:    new(sync.Mutex),
 		heartbeatInterval: heartbeatInterval,
 	}
 
@@ -202,30 +204,42 @@ func (node *HostNode) RemoveMessageHandler(handler Handler) {
 }
 
 // Connect connects to a peer that we're not already connected to.
-func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
+func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) {
 	if peerInfo.ID == node.GetHost().ID() {
-		return nil, errors.New("cannot connect to self")
+		logger.WithField("Function", "Connect").Warn("can't connect to self")
+		return
 	}
 
 	if node.IsPeerConnected(peerInfo) {
-		return nil, nil
+		return
 	}
 
-	err := node.host.Connect(node.ctx, peerInfo)
-	if err != nil {
-		return nil, err
-	}
+	go func() {
+		err := node.host.Connect(node.ctx, peerInfo)
+		if err != nil {
+			logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to connect to peer")
+			return
+		}
 
-	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
+		node.connectionLock.Lock()
+		node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
+		node.connectionLock.Unlock()
 
-	stream, err := node.host.NewStream(context.Background(), peerInfo.ID, protocolID)
+		stream, err := node.host.NewStream(context.Background(), peerInfo.ID, protocolID)
 
-	if err != nil {
-		logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to open stream")
-		return nil, err
-	}
+		if err != nil {
+			logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to open stream")
+			return
+		}
 
-	return node.setupPeerNode(stream, true)
+		node.connectionLock.Lock()
+		_, err = node.setupPeerNode(stream, true)
+		node.connectionLock.Unlock()
+		if err != nil {
+			logger.WithField("Function", "Connect").WithField("error", err).Warn("failed to setup node")
+			return
+		}
+	}()
 }
 
 // IsPeerConnected checks if a peer is connected
@@ -352,10 +366,7 @@ func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
 
 // PeerDiscovered is run when peers are discovered.
 func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
-	_, err := node.Connect(pi)
-	if err != nil {
-		logger.WithField("err", err).Debug("could not connect to peer")
-	}
+	node.Connect(pi)
 }
 
 // Connected checks if the host node is connected.

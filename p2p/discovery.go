@@ -148,7 +148,7 @@ func (d Discovery) bootstrapActiveDiscovery() {
 		}
 		peerinfo, _ := ps.InfoFromP2pAddr(peerAddr)
 
-		if _, err = d.host.Connect(*peerinfo); err != nil {
+		if err = d.host.GetHost().Connect(d.ctx, *peerinfo); err != nil {
 			logger.Errorf("bootstrapActiveDiscovery connect error %s", err.Error())
 		} else {
 			logger.Infof("Connection established with bootstrap node: %v", *peerinfo)

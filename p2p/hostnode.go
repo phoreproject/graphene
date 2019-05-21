@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -126,8 +125,6 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 	// setup phore protocol
 	h.SetStreamHandler(protocolID, hostNode.handleStream)
 
-	fmt.Println(h.Mux().Protocols())
-
 	return hostNode, nil
 }
 
@@ -145,11 +142,6 @@ func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
 		"peerID":  peer.ID.String(),
 		"message": proto.MessageName(message),
 	}).Debug("received message")
-
-	err := peer.handleMessage(message)
-	if err != nil {
-		return err
-	}
 
 	node.handlerLock.RLock()
 	handlerMap, found := node.messageHandlerMap[proto.MessageName(message)]

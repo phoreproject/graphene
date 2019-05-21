@@ -118,7 +118,7 @@ func (d Discovery) StartDiscovery() error {
 
 	d.startActiveDiscovery()
 
-	d.startGetAddr()
+	//d.startGetAddr()
 
 	return nil
 }

@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"errors"
 	"sort"
 	"sync"
 
@@ -15,11 +16,15 @@ import (
 // Mempool keeps track of actions (attestations, deposits, exits, slashings) to include in blocks.
 type Mempool struct {
 	AttestationMempool *attestationMempool
+	blockchain         *Blockchain
 }
 
 // NewMempool creates a new mempool.
-func NewMempool() Mempool {
-	return Mempool{newAttestationMempool()}
+func NewMempool(blockchain *Blockchain) Mempool {
+	return Mempool{
+		AttestationMempool: newAttestationMempool(),
+		blockchain:         blockchain,
+	}
 }
 
 type attestationMempool struct {
@@ -35,7 +40,24 @@ func newAttestationMempool() *attestationMempool {
 }
 
 // ProcessNewAttestation processes a new attestation to be included in a block.
-func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) {
+func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
+	// first, validate the attestation
+	tipHash := m.blockchain.View.Chain.Tip().Hash
+	tipState, found := m.blockchain.stateManager.GetStateForHash(tipHash)
+	if !found {
+		return errors.New("no state for blockchain tip")
+	}
+	tipView, err := m.blockchain.GetSubView(tipHash)
+	if err != nil {
+		return err
+	}
+	tipView.SetTipSlot(att.Data.Slot)
+
+	err = tipState.ValidateAttestation(att, true, &tipView, m.blockchain.config, tipState.Slot)
+	if err != nil {
+		return err
+	}
+
 	m.AttestationMempool.attestationsLock.Lock()
 	defer m.AttestationMempool.attestationsLock.Unlock()
 	for _, a := range m.AttestationMempool.attestations {
@@ -43,12 +65,14 @@ func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) {
 			for i, b := range a.ParticipationBitfield {
 				if b&att.ParticipationBitfield[i] != 0 {
 					logrus.Debug("duplicate attestation, ignoring")
-					return
+					return nil
 				}
 			}
 		}
 	}
 	m.AttestationMempool.attestations = append(m.AttestationMempool.attestations, att)
+
+	return nil
 }
 
 type attestationWithRealSigAndCount struct {

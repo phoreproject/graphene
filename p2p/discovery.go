@@ -163,7 +163,7 @@ func (d Discovery) startAdvertise() {
 			if err != nil {
 				// it's error when there is no any peers yet, which is not an error.
 				// so we print the log as debug instead of error to avoid spamming the log.
-				logger.Debugf("Error advertising %s: %s", activeDiscoveryNS, err.Error())
+				//logger.Debugf("Error advertising %s: %s", activeDiscoveryNS, err.Error())
 				if d.ctx.Err() != nil {
 					return
 				}

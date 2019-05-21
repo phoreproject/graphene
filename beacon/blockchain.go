@@ -580,3 +580,9 @@ func (b *Blockchain) GetSubView(tip chainhash.Hash) (ChainView, error) {
 	}
 	return NewChainView(tipNode, b), nil
 }
+
+// GenesisHash gets the genesis hash for the chain.
+func (b *Blockchain) GenesisHash() chainhash.Hash {
+	h, _ := b.GetHashBySlot(0)
+	return h
+}

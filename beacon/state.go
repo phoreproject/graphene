@@ -122,7 +122,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	attestationUpdateStart := time.Now()
 
 	for _, a := range block.BlockBody.Attestations {
-		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config, newState.Slot-1)
 		if err != nil {
 			return nil, nil, err
 		}

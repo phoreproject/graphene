@@ -39,7 +39,10 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 	if err != nil {
 		return nil, err
 	}
-	s.mempool.ProcessNewAttestation(*a)
+	err = s.mempool.ProcessNewAttestation(*a)
+	if err != nil {
+		return nil, err
+	}
 
 	return &empty.Empty{}, nil
 }

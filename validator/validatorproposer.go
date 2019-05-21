@@ -120,10 +120,5 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		return nil
 	}
 
-	v.logger.WithFields(logrus.Fields{
-		"blockHash": fmt.Sprintf("%x", hashWithSignature),
-		"slot":      information.slot,
-	}).Debug("submitted block")
-
 	return err
 }

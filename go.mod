@@ -29,6 +29,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee
 	github.com/phoreproject/prysm v0.0.0-20190209202311-c85edb6a4546
+	github.com/pkg/errors v0.8.1
 	github.com/prysmaticlabs/prysm v0.0.0-20190514144052-d672a0602655
 	github.com/sirupsen/logrus v1.4.1
 	github.com/valyala/fasttemplate v1.0.1 // indirect

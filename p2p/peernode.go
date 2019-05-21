@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -43,6 +44,7 @@ type Peer struct {
 
 	outgoingMessages chan proto.Message
 	closeStream      func()
+	startBlock       uint64
 }
 
 // newPeer creates a P2pPeerNode
@@ -126,7 +128,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 			err := node.handleMessage(message)
 			if err != nil {
 				if err != io.EOF && err.Error() != "stream reset" {
-					logger.Errorf("error processing message from peer %s: %#v", node.ID, err)
+					logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 				}
 				node.cancel()
 			}
@@ -134,7 +136,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 			err = node.host.handleMessage(node, message)
 			if err != nil {
 				if err != io.EOF && err.Error() != "stream reset" {
-					logger.Errorf("error processing message from peer %s: %#v", node.ID, err)
+					logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 				}
 				node.cancel()
 			}
@@ -144,7 +146,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 	})
 	if err != nil {
 		if err != io.EOF && err.Error() != "stream reset" {
-			logger.Errorf("error processing message from peer %s: %#v", node.ID, err)
+			logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 		}
 	}
 }
@@ -178,8 +180,6 @@ func (node *Peer) handleConnection(connection inet.Stream) {
 
 	go node.sendMessages(bufio.NewWriter(connection))
 
-	//go node.sendHeartbeats()
-
 	// once we're done, clean up the streams
 	<-node.ctx.Done()
 
@@ -208,6 +208,8 @@ func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 
 // Disconnect disconnects from a peer cleanly
 func (node *Peer) Disconnect() {
+	logger.WithField("ID", node.ID).Info("disconnecting from peer")
+
 	node.closeStream()
 
 	node.cancel()
@@ -236,6 +238,13 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 	}
 	node.ID = peerID
 
+	genesisHash := node.host.chainProvider.GenesisHash()
+	if !bytes.Equal(genesisHash[:], message.GenesisHash[:]) {
+		logger.WithField("peerID", node.ID).Debug("connected to peer with wrong genesis hash. disconnecting...")
+		node.Disconnect()
+		return nil
+	}
+
 	peerInfo := peerstore.PeerInfo{}
 	if peerInfo.UnmarshalJSON(message.PeerInfo) == nil {
 		node.peerInfo = &peerInfo
@@ -246,6 +255,7 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 		return err
 	}
 	node.Connecting = false
+	node.startBlock = message.Height
 	node.SendMessage(&pb.VerackMessage{
 		Version: ClientVersion,
 		PeerID:  ourIDBytes,

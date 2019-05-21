@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/phoreproject/synapse/chainhash"
+
 	"github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -65,12 +67,14 @@ type HostNode struct {
 	messageHandlerMap map[string][]messageHandlerAndID
 	handlerLock       *sync.RWMutex
 	currentID         uint64
+
+	chainProvider ChainProvider
 }
 
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration, chainProvider ChainProvider) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
@@ -115,6 +119,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
 		heartbeatInterval: heartbeatInterval,
+		chainProvider:     chainProvider,
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -136,11 +141,6 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
-	logger.WithFields(logger.Fields{
-		"peerID":  peer.ID.String(),
-		"message": proto.MessageName(message),
-	}).Debug("received message")
-
 	node.handlerLock.RLock()
 	handlerMap, found := node.messageHandlerMap[proto.MessageName(message)]
 	node.handlerLock.RUnlock()
@@ -230,6 +230,12 @@ func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
 	return false
 }
 
+// ChainProvider is the interface from the blockchain to the host node packages.
+type ChainProvider interface {
+	Height() uint64
+	GenesisHash() chainhash.Hash
+}
+
 // Run runs the main loop of the host node
 func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
 	peerNode := newPeer(outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream, node.heartbeatInterval)
@@ -255,10 +261,14 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 			return nil, err
 		}
 
+		genesisHash := node.chainProvider.GenesisHash()
+
 		peerNode.SendMessage(&pb.VersionMessage{
-			Version:  ClientVersion,
-			PeerID:   peerIDBytes,
-			PeerInfo: peerInfoBytes,
+			Version:     ClientVersion,
+			PeerID:      peerIDBytes,
+			PeerInfo:    peerInfoBytes,
+			Height:      node.chainProvider.Height(),
+			GenesisHash: genesisHash[:],
 		})
 	}
 

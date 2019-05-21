@@ -69,6 +69,16 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 
 	firstCommonBlock := s.blockchain.View.Chain.Genesis()
 
+	if len(getBlockMesssage.LocatorHashes) == 0 {
+		// TODO: ban peer
+		return nil
+	}
+
+	if !bytes.Equal(firstCommonBlock.Hash[:], getBlockMesssage.LocatorHashes[0]) {
+		// TODO: ban peer
+		return nil
+	}
+
 	// find the first block that the peer has in our main chain
 	for _, h := range getBlockMesssage.LocatorHashes {
 		blockHash, err := chainhash.NewHash(h)
@@ -304,7 +314,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			randaoHashes = append(randaoHashes, slotBytesHash[:])
 
 			for _, att := range b.BlockBody.Attestations {
-				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
+				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config, epochStateCopy.Slot-1)
 				if err != nil {
 					return err
 				}

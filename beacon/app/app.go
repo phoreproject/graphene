@@ -78,7 +78,6 @@ func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
 		config:   config,
 		exitChan: make(chan struct{}),
-		mempool:  beacon.NewMempool(),
 	}
 	return app
 }
@@ -93,10 +92,6 @@ func (app *BeaconApp) Run() error {
 	if err != nil {
 		return err
 	}
-	err = app.loadP2P()
-	if err != nil {
-		return err
-	}
 
 	signalHandler := make(chan os.Signal, 1)
 	signal.Notify(signalHandler, os.Interrupt, syscall.SIGTERM)
@@ -106,6 +101,11 @@ func (app *BeaconApp) Run() error {
 	}
 
 	err = app.loadBlockchain()
+	if err != nil {
+		return err
+	}
+
+	err = app.loadP2P()
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (app *BeaconApp) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers, app.config.HeartBeatInterval)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers, app.config.HeartBeatInterval, app.blockchain)
 	if err != nil {
 		panic(err)
 	}
@@ -251,6 +251,8 @@ func (app *BeaconApp) loadBlockchain() error {
 	}
 
 	app.blockchain = blockchain
+
+	app.mempool = beacon.NewMempool(blockchain)
 
 	go app.watchBlocksForMempool()
 

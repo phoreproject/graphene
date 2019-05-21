@@ -9,6 +9,8 @@ message VersionMessage {
     uint64 Version = 1;
     bytes PeerID = 2;
     bytes PeerInfo = 3;
+    bytes GenesisHash = 4;
+    uint64 Height = 5;
 }
 
 message VerackMessage {

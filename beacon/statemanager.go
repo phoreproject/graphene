@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/phoreproject/synapse/beacon/db"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
-	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -200,14 +198,10 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 	var receipts []primitives.Receipt
 
 	if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
-		logrus.Info("processing epoch transition")
-		t := time.Now()
-
 		receipts, err = newState.ProcessEpochTransition(sm.config, &view)
 		if err != nil {
 			return nil, nil, err
 		}
-		logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 	}
 
 	blockHash, err := ssz.TreeHash(block)

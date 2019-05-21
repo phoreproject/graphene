@@ -130,6 +130,14 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 				}
 				node.cancel()
 			}
+
+			err = node.host.handleMessage(node, message)
+			if err != nil {
+				if err != io.EOF && err.Error() != "stream reset" {
+					logger.Errorf("error processing message from peer %s: %#v", node.ID, err)
+				}
+				node.cancel()
+			}
 		}()
 
 		return nil
@@ -308,7 +316,7 @@ func (node *Peer) handleMessage(message proto.Message) error {
 	name := proto.MessageName(message)
 
 	if handler, found := node.messageHandlers[name]; found {
-		handler(node, message)
+		go handler(node, message)
 	}
 	return nil
 }

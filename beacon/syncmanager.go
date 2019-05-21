@@ -379,7 +379,7 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 		logger.WithFields(logger.Fields{
 			"hash":       chainhash.Hash(block.BlockHeader.ParentRoot),
 			"slotTrying": block.BlockHeader.SlotNumber,
-		}).Debug("requesting parent block")
+		}).Info("requesting parent block")
 
 		// request all blocks up to this block
 		peerFrom.SendMessage(&pb.GetBlockMessage{

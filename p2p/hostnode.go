@@ -246,31 +246,29 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 	logger.WithField("peer", peerNode.ID.Pretty()).WithField("outbound", peerNode.Outbound).Info("connected to peer")
 
-	if outbound {
-		peerIDBytes, err := node.host.ID().MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-
-		peerInfo := peerstore.PeerInfo{
-			ID:    node.host.ID(),
-			Addrs: node.host.Addrs(),
-		}
-		peerInfoBytes, err := peerInfo.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-
-		genesisHash := node.chainProvider.GenesisHash()
-
-		peerNode.SendMessage(&pb.VersionMessage{
-			Version:     ClientVersion,
-			PeerID:      peerIDBytes,
-			PeerInfo:    peerInfoBytes,
-			Height:      node.chainProvider.Height(),
-			GenesisHash: genesisHash[:],
-		})
+	peerIDBytes, err := node.host.ID().MarshalBinary()
+	if err != nil {
+		return nil, err
 	}
+
+	peerInfo := peerstore.PeerInfo{
+		ID:    node.host.ID(),
+		Addrs: node.host.Addrs(),
+	}
+	peerInfoBytes, err := peerInfo.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	genesisHash := node.chainProvider.GenesisHash()
+
+	peerNode.SendMessage(&pb.VersionMessage{
+		Version:     ClientVersion,
+		PeerID:      peerIDBytes,
+		PeerInfo:    peerInfoBytes,
+		Height:      node.chainProvider.Height(),
+		GenesisHash: genesisHash[:],
+	})
 
 	return peerNode, nil
 }

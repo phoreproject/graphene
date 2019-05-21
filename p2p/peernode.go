@@ -79,10 +79,6 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
 	})
 
-	peer.registerMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handleVerackMessage(message.(*pb.VerackMessage))
-	})
-
 	peer.registerMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
 		return peer.handlePingMessage(message.(*pb.PingMessage))
 	})
@@ -250,22 +246,9 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 		node.peerInfo = &peerInfo
 	}
 
-	ourIDBytes, err := node.host.host.ID().MarshalBinary()
-	if err != nil {
-		return err
-	}
 	node.Connecting = false
 	node.startBlock = message.Height
-	node.SendMessage(&pb.VerackMessage{
-		Version: ClientVersion,
-		PeerID:  ourIDBytes,
-	})
 
-	return nil
-}
-
-func (node *Peer) handleVerackMessage(message *pb.VerackMessage) error {
-	node.Connecting = false
 	return nil
 }
 

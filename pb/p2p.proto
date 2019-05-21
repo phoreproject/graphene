@@ -13,11 +13,6 @@ message VersionMessage {
     uint64 Height = 5;
 }
 
-message VerackMessage {
-    uint64 Version = 1;
-    bytes PeerID = 2;
-}
-
 message PingMessage {
     uint64 Nonce = 1;
 }

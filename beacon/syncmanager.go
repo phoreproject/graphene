@@ -74,7 +74,7 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 		return nil
 	}
 
-	if !bytes.Equal(firstCommonBlock.Hash[:], getBlockMesssage.LocatorHashes[0]) {
+	if !bytes.Equal(firstCommonBlock.Hash[:], getBlockMesssage.LocatorHashes[len(getBlockMesssage.LocatorHashes)-1]) {
 		// TODO: ban peer
 		return nil
 	}
@@ -374,6 +374,8 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 	}
 
 	if !bytes.Equal(lastBlockHash[:], blockMessage.LatestBlockHash) && !bytes.Equal(blockMessage.LatestBlockHash, zeroHash[:]) {
+		logger.Infof("continuing sync to block %x", blockMessage.LatestBlockHash)
+
 		// request all blocks up to this block
 		peer.SendMessage(&pb.GetBlockMessage{
 			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),

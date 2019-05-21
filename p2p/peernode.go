@@ -178,7 +178,7 @@ func (node *Peer) handleConnection(connection inet.Stream) {
 
 	go node.sendMessages(bufio.NewWriter(connection))
 
-	go node.sendHeartbeats()
+	//go node.sendHeartbeats()
 
 	// once we're done, clean up the streams
 	<-node.ctx.Done()

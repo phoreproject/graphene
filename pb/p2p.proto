@@ -36,6 +36,7 @@ message GetBlockMessage {
 // Response to GetBlockMessage
 message BlockMessage {
     repeated Block Blocks = 1;
+    bytes LatestBlockHash = 2;
 }
 
 

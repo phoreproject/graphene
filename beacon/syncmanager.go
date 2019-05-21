@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -120,8 +121,11 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 		}).Debug("sending blocks to peer")
 	}
 
+	tipHash := s.blockchain.View.Chain.Tip()
+
 	blockMessage := &pb.BlockMessage{
-		Blocks: make([]*pb.Block, len(toSend)),
+		Blocks:          make([]*pb.Block, len(toSend)),
+		LatestBlockHash: tipHash.Hash[:],
 	}
 
 	for i := range toSend {
@@ -352,6 +356,19 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 				return err
 			}
 		}
+	}
+
+	lastBlockHash, err := ssz.TreeHash(blockMessage.Blocks[len(blockMessage.Blocks)-1])
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(lastBlockHash[:], blockMessage.LatestBlockHash) && !bytes.Equal(blockMessage.LatestBlockHash, zeroHash[:]) {
+		// request all blocks up to this block
+		peer.SendMessage(&pb.GetBlockMessage{
+			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+			HashStop:      blockMessage.LatestBlockHash,
+		})
 	}
 
 	peer.ProcessingRequest = false

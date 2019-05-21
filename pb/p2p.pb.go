@@ -3,11 +3,9 @@
 
 package pb
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -33,17 +31,16 @@ func (m *VersionMessage) Reset()         { *m = VersionMessage{} }
 func (m *VersionMessage) String() string { return proto.CompactTextString(m) }
 func (*VersionMessage) ProtoMessage()    {}
 func (*VersionMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{0}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{0}
 }
-
 func (m *VersionMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VersionMessage.Unmarshal(m, b)
 }
 func (m *VersionMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_VersionMessage.Marshal(b, m, deterministic)
 }
-func (m *VersionMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VersionMessage.Merge(m, src)
+func (dst *VersionMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VersionMessage.Merge(dst, src)
 }
 func (m *VersionMessage) XXX_Size() int {
 	return xxx_messageInfo_VersionMessage.Size(m)
@@ -87,17 +84,16 @@ func (m *VerackMessage) Reset()         { *m = VerackMessage{} }
 func (m *VerackMessage) String() string { return proto.CompactTextString(m) }
 func (*VerackMessage) ProtoMessage()    {}
 func (*VerackMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{1}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{1}
 }
-
 func (m *VerackMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VerackMessage.Unmarshal(m, b)
 }
 func (m *VerackMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_VerackMessage.Marshal(b, m, deterministic)
 }
-func (m *VerackMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VerackMessage.Merge(m, src)
+func (dst *VerackMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VerackMessage.Merge(dst, src)
 }
 func (m *VerackMessage) XXX_Size() int {
 	return xxx_messageInfo_VerackMessage.Size(m)
@@ -133,17 +129,16 @@ func (m *PingMessage) Reset()         { *m = PingMessage{} }
 func (m *PingMessage) String() string { return proto.CompactTextString(m) }
 func (*PingMessage) ProtoMessage()    {}
 func (*PingMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{2}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{2}
 }
-
 func (m *PingMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingMessage.Unmarshal(m, b)
 }
 func (m *PingMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PingMessage.Marshal(b, m, deterministic)
 }
-func (m *PingMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingMessage.Merge(m, src)
+func (dst *PingMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PingMessage.Merge(dst, src)
 }
 func (m *PingMessage) XXX_Size() int {
 	return xxx_messageInfo_PingMessage.Size(m)
@@ -172,17 +167,16 @@ func (m *PongMessage) Reset()         { *m = PongMessage{} }
 func (m *PongMessage) String() string { return proto.CompactTextString(m) }
 func (*PongMessage) ProtoMessage()    {}
 func (*PongMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{3}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{3}
 }
-
 func (m *PongMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PongMessage.Unmarshal(m, b)
 }
 func (m *PongMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PongMessage.Marshal(b, m, deterministic)
 }
-func (m *PongMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PongMessage.Merge(m, src)
+func (dst *PongMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PongMessage.Merge(dst, src)
 }
 func (m *PongMessage) XXX_Size() int {
 	return xxx_messageInfo_PongMessage.Size(m)
@@ -211,17 +205,16 @@ func (m *RejectMessage) Reset()         { *m = RejectMessage{} }
 func (m *RejectMessage) String() string { return proto.CompactTextString(m) }
 func (*RejectMessage) ProtoMessage()    {}
 func (*RejectMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{4}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{4}
 }
-
 func (m *RejectMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RejectMessage.Unmarshal(m, b)
 }
 func (m *RejectMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RejectMessage.Marshal(b, m, deterministic)
 }
-func (m *RejectMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RejectMessage.Merge(m, src)
+func (dst *RejectMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RejectMessage.Merge(dst, src)
 }
 func (m *RejectMessage) XXX_Size() int {
 	return xxx_messageInfo_RejectMessage.Size(m)
@@ -251,17 +244,16 @@ func (m *GetBlockMessage) Reset()         { *m = GetBlockMessage{} }
 func (m *GetBlockMessage) String() string { return proto.CompactTextString(m) }
 func (*GetBlockMessage) ProtoMessage()    {}
 func (*GetBlockMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{5}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{5}
 }
-
 func (m *GetBlockMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBlockMessage.Unmarshal(m, b)
 }
 func (m *GetBlockMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetBlockMessage.Marshal(b, m, deterministic)
 }
-func (m *GetBlockMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBlockMessage.Merge(m, src)
+func (dst *GetBlockMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetBlockMessage.Merge(dst, src)
 }
 func (m *GetBlockMessage) XXX_Size() int {
 	return xxx_messageInfo_GetBlockMessage.Size(m)
@@ -289,6 +281,7 @@ func (m *GetBlockMessage) GetHashStop() []byte {
 // Response to GetBlockMessage
 type BlockMessage struct {
 	Blocks               []*Block `protobuf:"bytes,1,rep,name=Blocks,proto3" json:"Blocks,omitempty"`
+	LatestBlockHash      []byte   `protobuf:"bytes,2,opt,name=LatestBlockHash,proto3" json:"LatestBlockHash,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -298,17 +291,16 @@ func (m *BlockMessage) Reset()         { *m = BlockMessage{} }
 func (m *BlockMessage) String() string { return proto.CompactTextString(m) }
 func (*BlockMessage) ProtoMessage()    {}
 func (*BlockMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{6}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{6}
 }
-
 func (m *BlockMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockMessage.Unmarshal(m, b)
 }
 func (m *BlockMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BlockMessage.Marshal(b, m, deterministic)
 }
-func (m *BlockMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockMessage.Merge(m, src)
+func (dst *BlockMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockMessage.Merge(dst, src)
 }
 func (m *BlockMessage) XXX_Size() int {
 	return xxx_messageInfo_BlockMessage.Size(m)
@@ -326,6 +318,13 @@ func (m *BlockMessage) GetBlocks() []*Block {
 	return nil
 }
 
+func (m *BlockMessage) GetLatestBlockHash() []byte {
+	if m != nil {
+		return m.LatestBlockHash
+	}
+	return nil
+}
+
 type GetAddrMessage struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -336,17 +335,16 @@ func (m *GetAddrMessage) Reset()         { *m = GetAddrMessage{} }
 func (m *GetAddrMessage) String() string { return proto.CompactTextString(m) }
 func (*GetAddrMessage) ProtoMessage()    {}
 func (*GetAddrMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{7}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{7}
 }
-
 func (m *GetAddrMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAddrMessage.Unmarshal(m, b)
 }
 func (m *GetAddrMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetAddrMessage.Marshal(b, m, deterministic)
 }
-func (m *GetAddrMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetAddrMessage.Merge(m, src)
+func (dst *GetAddrMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetAddrMessage.Merge(dst, src)
 }
 func (m *GetAddrMessage) XXX_Size() int {
 	return xxx_messageInfo_GetAddrMessage.Size(m)
@@ -368,17 +366,16 @@ func (m *AddrMessage) Reset()         { *m = AddrMessage{} }
 func (m *AddrMessage) String() string { return proto.CompactTextString(m) }
 func (*AddrMessage) ProtoMessage()    {}
 func (*AddrMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e7fdddb109e6467a, []int{8}
+	return fileDescriptor_p2p_31e17eea8058efdd, []int{8}
 }
-
 func (m *AddrMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddrMessage.Unmarshal(m, b)
 }
 func (m *AddrMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AddrMessage.Marshal(b, m, deterministic)
 }
-func (m *AddrMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AddrMessage.Merge(m, src)
+func (dst *AddrMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddrMessage.Merge(dst, src)
 }
 func (m *AddrMessage) XXX_Size() int {
 	return xxx_messageInfo_AddrMessage.Size(m)
@@ -408,25 +405,26 @@ func init() {
 	proto.RegisterType((*AddrMessage)(nil), "pb.AddrMessage")
 }
 
-func init() { proto.RegisterFile("p2p.proto", fileDescriptor_e7fdddb109e6467a) }
+func init() { proto.RegisterFile("p2p.proto", fileDescriptor_p2p_31e17eea8058efdd) }
 
-var fileDescriptor_e7fdddb109e6467a = []byte{
-	// 271 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x91, 0x41, 0x4b, 0xc3, 0x40,
-	0x10, 0x85, 0x49, 0xab, 0xd5, 0x4c, 0x92, 0x2a, 0x41, 0x24, 0xf4, 0x14, 0xb7, 0x1e, 0xe2, 0x25,
-	0x60, 0xfd, 0x05, 0x15, 0xa1, 0x0a, 0x2a, 0x65, 0x0b, 0x3d, 0x0a, 0x49, 0x3a, 0xd6, 0xaa, 0xdd,
-	0x59, 0x76, 0xf7, 0xff, 0x23, 0xd9, 0xec, 0xd6, 0xf6, 0x24, 0x78, 0x9b, 0xef, 0xcd, 0xcb, 0xe3,
-	0x4d, 0x16, 0x42, 0x39, 0x91, 0xa5, 0x54, 0x64, 0x28, 0xed, 0xc9, 0x7a, 0x14, 0x37, 0xb4, 0xdd,
-	0x92, 0xe8, 0x14, 0xf6, 0x06, 0xc3, 0x25, 0x2a, 0xbd, 0x21, 0xf1, 0x82, 0x5a, 0x57, 0x6b, 0x4c,
-	0x33, 0x38, 0x71, 0x4a, 0x16, 0xe4, 0x41, 0x71, 0xc4, 0x3d, 0xa6, 0x97, 0x30, 0x98, 0x23, 0xaa,
-	0xa7, 0x87, 0xac, 0x97, 0x07, 0x45, 0xcc, 0x1d, 0xa5, 0x23, 0x38, 0xb5, 0x93, 0x78, 0xa7, 0xac,
-	0x6f, 0x37, 0x3b, 0x66, 0x53, 0x48, 0x96, 0xa8, 0xaa, 0xe6, 0xeb, 0xdf, 0xf1, 0x6c, 0x0c, 0xd1,
-	0x7c, 0x23, 0xd6, 0x3e, 0xe0, 0x02, 0x8e, 0x5f, 0x49, 0x34, 0xe8, 0x3e, 0xef, 0xc0, 0x9a, 0xe8,
-	0x2f, 0xd3, 0x0d, 0x24, 0x1c, 0x3f, 0xb1, 0x31, 0x7b, 0x65, 0xdc, 0x68, 0x8d, 0x21, 0xf7, 0xc8,
-	0x16, 0x70, 0x36, 0x43, 0x73, 0xff, 0x4d, 0xbf, 0xcd, 0xaf, 0x21, 0x79, 0xa6, 0xa6, 0x32, 0xa4,
-	0x1e, 0x2b, 0xfd, 0x81, 0x3a, 0x0b, 0xf2, 0x7e, 0x11, 0xf3, 0x43, 0xb1, 0xfd, 0x19, 0xed, 0xb4,
-	0x30, 0x24, 0xdd, 0x1d, 0x3b, 0x66, 0xb7, 0x10, 0x1f, 0x24, 0x5e, 0xc1, 0xc0, 0x72, 0x17, 0x15,
-	0x4d, 0xc2, 0x52, 0xd6, 0xa5, 0x55, 0xb8, 0x5b, 0xb0, 0x73, 0x18, 0xce, 0xd0, 0x4c, 0x57, 0x2b,
-	0xe5, 0x9b, 0x8d, 0x21, 0xda, 0xc3, 0xf6, 0xd2, 0x16, 0x7d, 0x9b, 0x0e, 0xea, 0x81, 0x7d, 0xdd,
-	0xbb, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x62, 0x0d, 0x71, 0xae, 0xfc, 0x01, 0x00, 0x00,
+var fileDescriptor_p2p_31e17eea8058efdd = []byte{
+	// 288 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x92, 0x41, 0x4b, 0xfb, 0x40,
+	0x10, 0xc5, 0x49, 0xfb, 0xff, 0x47, 0x33, 0x49, 0x5a, 0x09, 0x22, 0xa1, 0xa7, 0xb8, 0xf5, 0x10,
+	0x2f, 0x39, 0xd4, 0x4f, 0x50, 0x11, 0xaa, 0x50, 0xa5, 0x6c, 0xa1, 0x17, 0x41, 0x48, 0xd2, 0xb1,
+	0x56, 0x6d, 0x66, 0xd9, 0xdd, 0xef, 0x8f, 0x64, 0xb3, 0x5b, 0x5b, 0x2f, 0x82, 0xb7, 0xf9, 0xbd,
+	0x99, 0x7d, 0xbc, 0x19, 0x16, 0x02, 0x31, 0x11, 0x85, 0x90, 0xa4, 0x29, 0xe9, 0x89, 0x6a, 0x14,
+	0xd5, 0xb4, 0xdb, 0x51, 0xd3, 0x29, 0xec, 0x05, 0x06, 0x2b, 0x94, 0x6a, 0x4b, 0xcd, 0x23, 0x2a,
+	0x55, 0x6e, 0x30, 0x49, 0xe1, 0xc4, 0x2a, 0xa9, 0x97, 0x79, 0xf9, 0x3f, 0xee, 0x30, 0xb9, 0x00,
+	0x7f, 0x81, 0x28, 0x1f, 0xee, 0xd2, 0x5e, 0xe6, 0xe5, 0x11, 0xb7, 0x94, 0x8c, 0xe0, 0xd4, 0x54,
+	0xcd, 0x2b, 0xa5, 0x7d, 0xd3, 0xd9, 0x33, 0x9b, 0x42, 0xbc, 0x42, 0x59, 0xd6, 0x1f, 0x7f, 0xb6,
+	0x67, 0x63, 0x08, 0x17, 0xdb, 0x66, 0xe3, 0x0c, 0xce, 0xe1, 0xff, 0x13, 0x35, 0x35, 0xda, 0xe7,
+	0x1d, 0x98, 0x21, 0xfa, 0x6d, 0xe8, 0x1a, 0x62, 0x8e, 0xef, 0x58, 0xeb, 0x83, 0x30, 0xb6, 0x34,
+	0x83, 0x01, 0x77, 0xc8, 0x96, 0x30, 0x9c, 0xa1, 0xbe, 0xfd, 0xa4, 0xef, 0xe4, 0x57, 0x10, 0xcf,
+	0xa9, 0x2e, 0x35, 0xc9, 0xfb, 0x52, 0xbd, 0xa1, 0x4a, 0xbd, 0xac, 0x9f, 0x47, 0xfc, 0x58, 0x6c,
+	0x8f, 0xd1, 0x56, 0x4b, 0x4d, 0xc2, 0xee, 0xb1, 0x67, 0xf6, 0x0c, 0xd1, 0x91, 0xe3, 0x25, 0xf8,
+	0x86, 0x3b, 0xab, 0x70, 0x12, 0x14, 0xa2, 0x2a, 0x8c, 0xc2, 0x6d, 0x23, 0xc9, 0x61, 0x38, 0x2f,
+	0x35, 0xaa, 0x2e, 0x4a, 0xeb, 0x64, 0x5d, 0x7f, 0xca, 0xec, 0x0c, 0x06, 0x33, 0xd4, 0xd3, 0xf5,
+	0x5a, 0xba, 0x1d, 0xc6, 0x10, 0x1e, 0x60, 0x7b, 0x93, 0x16, 0x5d, 0xee, 0x0e, 0x2a, 0xdf, 0xfc,
+	0x83, 0x9b, 0xaf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xeb, 0x42, 0xef, 0x04, 0x26, 0x02, 0x00, 0x00,
 }

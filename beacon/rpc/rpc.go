@@ -72,7 +72,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
-	canRetry, err := s.chain.ProcessBlock(b, true, true)
+	_, _, canRetry, err := s.chain.ProcessBlock(b, true, true)
 	if err != nil {
 		return &pb.SubmitBlockResponse{CanRetry: canRetry}, err
 	}

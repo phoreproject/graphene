@@ -418,7 +418,7 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 
 	} else {
 		logger.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
-		receipts, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)
+		receipts, newState, _, err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
 		}

@@ -123,7 +123,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 	}
 	block1.BlockHeader.Signature = sig.Serialize()
 
-	_, _, err = b.ProcessBlock(&block1, false, true)
+	_, _, _, err = b.ProcessBlock(&block1, false, true)
 	if err != nil {
 		return nil, err
 	}

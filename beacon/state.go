@@ -29,31 +29,31 @@ func (b *Blockchain) AddBlockToStateMap(block *primitives.Block, verifySignature
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verifySignature bool) ([]primitives.Receipt, *primitives.State, error) {
+func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verifySignature bool) ([]primitives.Receipt, *primitives.State, bool, error) {
 	genesisTime := b.stateManager.GetGenesisTime()
 
 	validationStart := time.Now()
 
 	// VALIDATE BLOCK HERE
 	if checkTime && (block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0) {
-		return nil, nil, errors.New("block slot too soon")
+		return nil, nil, false, errors.New("block slot too soon")
 	}
 
 	seen := b.View.Index.Has(block.BlockHeader.ParentRoot)
 	if !seen {
-		return nil, nil, errors.New("do not have parent block")
+		return nil, nil, true, errors.New("do not have parent block")
 	}
 
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	seen = b.View.Index.Has(blockHash)
 
 	if seen {
 		// we've already processed this block
-		return nil, nil, nil
+		return nil, nil, false, nil
 	}
 
 	validationTime := time.Since(validationStart)
@@ -66,7 +66,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	initialState, found := b.stateManager.GetStateForHash(block.BlockHeader.ParentRoot)
 	if !found {
-		return nil, nil, errors.New("could not find state for parent block")
+		return nil, nil, true, errors.New("could not find state for parent block")
 	}
 
 	initialJustifiedSlot := initialState.JustifiedSlot
@@ -74,7 +74,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	receipts, newState, err := b.AddBlockToStateMap(block, verifySignature)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	stateCalculationTime := time.Since(stateCalculationStart)
@@ -83,7 +83,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	err = b.StoreBlock(block)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	blockStorageTime := time.Since(blockStorageStart)
@@ -92,7 +92,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	databaseTipUpdateStart := time.Now()
@@ -114,7 +114,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	databaseTipUpdateTime := time.Since(databaseTipUpdateStart)
@@ -124,12 +124,12 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	for _, a := range block.BlockBody.Attestations {
 		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config, newState.Slot-1)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 
 		err = b.db.SetLatestAttestationsIfNeeded(participants, a)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 	}
 
@@ -141,7 +141,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	err = b.UpdateChainHead()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	updateChainHeadTime := time.Since(updateChainHeadStart)
@@ -156,17 +156,17 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	finalizedNode := node.GetAncestorAtSlot(newState.FinalizedSlot)
 	if finalizedNode == nil {
-		return nil, nil, errors.New("could not find finalized node in block index")
+		return nil, nil, false, errors.New("could not find finalized node in block index")
 	}
 	finalizedState, found := b.stateManager.GetStateForHash(finalizedNode.Hash)
 	if !found {
-		return nil, nil, errors.New("could not find finalized block Hash in state map")
+		return nil, nil, false, errors.New("could not find finalized block Hash in state map")
 	}
 
 	if initialFinalizedSlot != newState.FinalizedSlot {
 		err := b.db.SetFinalizedState(*finalizedState)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 	}
 
@@ -175,17 +175,17 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	err = b.db.SetFinalizedHead(finalizedNode.Hash)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	justifiedNode := node.GetAncestorAtSlot(newState.JustifiedSlot)
 	if justifiedNode == nil {
-		return nil, nil, errors.New("could not find justified node in block index")
+		return nil, nil, false, errors.New("could not find justified node in block index")
 	}
 
 	justifiedState, found := b.stateManager.GetStateForHash(justifiedNode.Hash)
 	if !found {
-		return nil, nil, errors.New("could not find justified block Hash in state map")
+		return nil, nil, false, errors.New("could not find justified block Hash in state map")
 	}
 	justifiedNodeAndState := blockNodeAndState{justifiedNode, *justifiedState}
 	b.View.justifiedHead = justifiedNodeAndState
@@ -193,13 +193,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	if initialJustifiedSlot != newState.JustifiedSlot {
 		err := b.db.SetJustifiedState(*justifiedState)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 	}
 
 	err = b.db.SetJustifiedHead(justifiedNode.Hash)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	finalizedStateUpdateTime := time.Since(finalizedStateUpdateStart)
@@ -208,7 +208,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	err = b.stateManager.DeleteStateBeforeFinalizedSlot(finalizedNode.Slot)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	stateCleanupTime := time.Since(stateCleanupStart)
@@ -226,7 +226,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		"totalTime":          time.Since(validationStart),
 	})
 
-	return receipts, newState, nil
+	return receipts, newState, false, nil
 }
 
 // GetState gets a copy of the current state of the blockchain.

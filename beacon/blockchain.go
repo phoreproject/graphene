@@ -14,7 +14,6 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/chainhash"
-	utilsync "github.com/phoreproject/synapse/utils/sync"
 )
 
 var zeroHash = chainhash.Hash{}
@@ -26,7 +25,17 @@ type Blockchain struct {
 	config       *config.Config
 	stateManager *StateManager
 
-	ConnectBlockNotifier *utilsync.Signal
+	Notifees []BlockchainNotifee
+}
+
+// BlockchainNotifee is a blockchain notifee.
+type BlockchainNotifee interface {
+	ConnectBlock(*primitives.Block)
+}
+
+// RegisterNotifee registers a notifee for blockchain
+func (b *Blockchain) RegisterNotifee(n BlockchainNotifee) {
+	b.Notifees = append(b.Notifees, n)
 }
 
 func blockNodeToHash(b *BlockNode) chainhash.Hash {
@@ -37,17 +46,11 @@ func blockNodeToHash(b *BlockNode) chainhash.Hash {
 }
 
 func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
-	childrenHashes := make([]chainhash.Hash, len(b.Children))
-	for i, c := range b.Children {
-		childrenHashes[i] = blockNodeToHash(c)
-	}
-
 	return db.BlockNodeDisk{
-		Hash:     b.Hash,
-		Height:   b.Height,
-		Slot:     b.Slot,
-		Parent:   blockNodeToHash(b.Parent),
-		Children: childrenHashes,
+		Hash:   b.Hash,
+		Height: b.Height,
+		Slot:   b.Slot,
+		Parent: blockNodeToHash(b.Parent),
 	}
 }
 
@@ -86,10 +89,9 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 // initial validators.
 func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
 	b := &Blockchain{
-		db:                   db,
-		config:               config,
-		View:                 NewBlockchainView(),
-		ConnectBlockNotifier: utilsync.NewSignal(),
+		db:     db,
+		config: config,
+		View:   NewBlockchainView(),
 	}
 
 	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)

@@ -3,6 +3,7 @@ module github.com/phoreproject/synapse
 go 1.12
 
 require (
+	github.com/beevik/ntp v0.2.0
 	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/ethereum/go-ethereum v1.8.27 // indirect
 	github.com/go-test/deep v1.0.1

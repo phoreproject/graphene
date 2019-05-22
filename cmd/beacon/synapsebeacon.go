@@ -33,6 +33,8 @@ func main() {
 	level := flag.String("level", "info", "log level")
 	flag.Parse()
 
+	utils.CheckNTP()
+
 	lvl, err := logrus.ParseLevel(*level)
 	if err != nil {
 		panic(err)

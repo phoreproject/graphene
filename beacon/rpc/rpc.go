@@ -4,11 +4,11 @@ package rpc
 
 import (
 	"net"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/utils"
 
 	"github.com/golang/protobuf/proto"
 
@@ -100,7 +100,7 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	config := s.chain.GetConfig()
 	genesisTime := state.GenesisTime
 	timePerSlot := config.SlotDuration
-	currentTime := time.Now().Unix()
+	currentTime := utils.Now().Unix()
 	currentSlot := (currentTime-int64(genesisTime))/int64(timePerSlot) - 1
 	if currentSlot < 0 {
 		currentSlot = 0
@@ -156,7 +156,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 	config := s.chain.GetConfig()
 	genesisTime := state.GenesisTime
 	timePerSlot := config.SlotDuration
-	currentTime := time.Now().Unix()
+	currentTime := utils.Now().Unix()
 	currentSlot := (currentTime - int64(genesisTime)) / int64(timePerSlot)
 
 	if currentSlot < 0 {

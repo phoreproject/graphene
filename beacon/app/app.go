@@ -15,7 +15,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/rpc"
 	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/utils"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -42,7 +42,7 @@ func NewConfig() Config {
 	return Config{
 		ListeningAddress:       "/ip4/127.0.0.1/tcp/20000",
 		RPCAddress:             "127.0.0.1:20002",
-		GenesisTime:            uint64(time.Now().Unix()),
+		GenesisTime:            uint64(utils.Now().Unix()),
 		InitialValidatorList:   []beacon.InitialValidatorEntry{},
 		NetworkConfig:          &config.MainNetConfig,
 		IsIntegrationTest:      false,
@@ -66,7 +66,7 @@ type BeaconApp struct {
 
 	database   db.Database
 	blockchain *beacon.Blockchain
-	mempool    beacon.Mempool
+	mempool    *beacon.Mempool
 
 	// P2P
 	hostNode    *p2p.HostNode
@@ -253,15 +253,12 @@ func (app *BeaconApp) loadBlockchain() error {
 	app.blockchain = blockchain
 
 	app.mempool = beacon.NewMempool(blockchain)
-
-	go app.watchBlocksForMempool()
-
 	return nil
 }
 
 func (app *BeaconApp) createRPCServer() error {
 	go func() {
-		err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.hostNode, &app.mempool)
+		err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.hostNode, app.mempool)
 		if err != nil {
 			panic(err)
 		}
@@ -325,17 +322,4 @@ func (app BeaconApp) exit() {
 // Exit sends a request to exit the application.
 func (app BeaconApp) Exit() {
 	app.exitChan <- struct{}{}
-}
-
-// watchBlocksForMempool watches for blocks and removes the corresponding attestations from the mempool.
-func (app BeaconApp) watchBlocksForMempool() {
-	for {
-		bl := <-app.blockchain.ConnectBlockNotifier.Watch()
-
-		block := bl.(primitives.Block)
-
-		for _, a := range block.BlockBody.Attestations {
-			app.mempool.RemoveAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
-		}
-	}
 }

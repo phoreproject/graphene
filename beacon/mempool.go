@@ -20,10 +20,21 @@ type Mempool struct {
 }
 
 // NewMempool creates a new mempool.
-func NewMempool(blockchain *Blockchain) Mempool {
-	return Mempool{
+func NewMempool(blockchain *Blockchain) *Mempool {
+	m := &Mempool{
 		AttestationMempool: newAttestationMempool(),
 		blockchain:         blockchain,
+	}
+
+	blockchain.RegisterNotifee(m)
+
+	return m
+}
+
+// ConnectBlock is part of the blockchain notifee.
+func (m *Mempool) ConnectBlock(b *primitives.Block) {
+	for _, a := range b.BlockBody.Attestations {
+		m.RemoveAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
 	}
 }
 
@@ -53,7 +64,8 @@ func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
 	}
 	tipView.SetTipSlot(att.Data.Slot)
 
-	err = tipState.ValidateAttestation(att, true, &tipView, m.blockchain.config, tipState.Slot)
+	// this assumes the state will be the same at att.Data.Slot
+	err = tipState.ValidateAttestation(att, true, &tipView, m.blockchain.config, att.Data.Slot)
 	if err != nil {
 		return err
 	}

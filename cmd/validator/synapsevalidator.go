@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/utils"
 
 	"github.com/phoreproject/synapse/validator"
 	"github.com/sirupsen/logrus"
@@ -21,6 +22,8 @@ func main() {
 	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
 	rootkey := flag.String("rootkey", "testnet", "root key to run validators")
 	flag.Parse()
+
+	utils.CheckNTP()
 
 	validatorsStrings := strings.Split(*validators, ",")
 	var validatorIndices []uint32

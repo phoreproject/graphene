@@ -29,6 +29,8 @@ func main() {
 	level := flag.String("level", "info", "log level")
 	flag.Parse()
 
+	utils.CheckNTP()
+
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {
 		panic(err)

@@ -60,7 +60,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	blockHashStr := fmt.Sprintf("%x", blockHash)
 
-	logger.WithField("hash", blockHashStr).Info("processing new block")
+	logger.WithFields(logger.Fields{
+		"hash": blockHashStr,
+		"slot": block.BlockHeader.SlotNumber,
+	}).Info("processing new block")
 
 	stateCalculationStart := time.Now()
 
@@ -148,7 +151,9 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	connectBlockSignalStart := time.Now()
 
-	b.ConnectBlockNotifier.Signal(*block)
+	for _, n := range b.Notifees {
+		go n.ConnectBlock(block)
+	}
 
 	connectBlockSignalTime := time.Since(connectBlockSignalStart)
 

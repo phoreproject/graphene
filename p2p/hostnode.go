@@ -1,23 +1,25 @@
 package p2p
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"sync"
 	"time"
 
+	"github.com/phoreproject/synapse/chainhash"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/libp2p/go-libp2p-host"
+	libp2p "github.com/libp2p/go-libp2p"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-peer"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peer "github.com/libp2p/go-libp2p-peer"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	ps "github.com/libp2p/go-libp2p-peerstore"
-	"github.com/libp2p/go-libp2p-protocol"
-	"github.com/libp2p/go-libp2p-pubsub"
-	"github.com/multiformats/go-multiaddr"
+	protocol "github.com/libp2p/go-libp2p-protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
@@ -48,7 +50,8 @@ type HostNode struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	timeoutInterval time.Duration
+	timeoutInterval   time.Duration
+	heartbeatInterval time.Duration
 
 	// discovery handles peer discovery (mDNS, DHT, etc)
 	discovery *Discovery
@@ -64,17 +67,21 @@ type HostNode struct {
 	messageHandlerMap map[string][]messageHandlerAndID
 	handlerLock       *sync.RWMutex
 	currentID         uint64
+
+	chainProvider ChainProvider
 }
 
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration, chainProvider ChainProvider) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
 		libp2p.ListenAddrs(listenAddress),
 		libp2p.Identity(privateKey),
+		libp2p.EnableRelay(),
+		libp2p.ConnectionManager(connmgr.NewConnManager(1, maxPeers, time.Second*5)),
 	)
 	if err != nil {
 		cancel()
@@ -111,6 +118,8 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		currentID:         0,
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
+		heartbeatInterval: heartbeatInterval,
+		chainProvider:     chainProvider,
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -132,16 +141,6 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
-	logger.WithFields(logger.Fields{
-		"peerID":  peer.ID.String(),
-		"message": proto.MessageName(message),
-	}).Debug("received message")
-
-	err := peer.handleMessage(message)
-	if err != nil {
-		return err
-	}
-
 	node.handlerLock.RLock()
 	handlerMap, found := node.messageHandlerMap[proto.MessageName(message)]
 	node.handlerLock.RUnlock()
@@ -200,11 +199,8 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		return nil, errors.New("cannot connect to self")
 	}
 
-	for _, p := range node.GetHost().Peerstore().PeersWithAddrs() {
-		// we're already connected to this peer
-		if p == peerInfo.ID {
-			return nil, nil
-		}
+	if node.IsPeerConnected(peerInfo) {
+		return nil, nil
 	}
 
 	err := node.host.Connect(node.ctx, peerInfo)
@@ -224,11 +220,25 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 	return node.setupPeerNode(stream, true)
 }
 
+// IsPeerConnected checks if a peer is connected
+func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
+	for _, p := range node.peerList {
+		if p.ID == peerInfo.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// ChainProvider is the interface from the blockchain to the host node packages.
+type ChainProvider interface {
+	Height() uint64
+	GenesisHash() chainhash.Hash
+}
+
 // Run runs the main loop of the host node
 func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
-	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-	peerNode := newPeer(rw, outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval)
+	peerNode := newPeer(outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream, node.heartbeatInterval)
 
 	node.peerListLock.Lock()
 	node.peerList = append(node.peerList, peerNode)
@@ -236,55 +246,29 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 	logger.WithField("peer", peerNode.ID.Pretty()).WithField("outbound", peerNode.Outbound).Info("connected to peer")
 
-	if outbound {
-		peerIDBytes, err := node.host.ID().MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-
-		err = peerNode.SendMessage(&pb.VersionMessage{
-			Version: ClientVersion,
-			PeerID:  peerIDBytes,
-		})
-		if err != nil {
-			return nil, err
-		}
+	peerIDBytes, err := node.host.ID().MarshalBinary()
+	if err != nil {
+		return nil, err
 	}
 
-	// TODO: switch handlers to be the responsibility of PeerNode so they can be cleaned up nicer
+	peerInfo := peerstore.PeerInfo{
+		ID:    node.host.ID(),
+		Addrs: node.host.Addrs(),
+	}
+	peerInfoBytes, err := peerInfo.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
 
-	handlers := make([]Handler, 0)
+	genesisHash := node.chainProvider.GenesisHash()
 
-	handlers = append(handlers, node.RegisterMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
-		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.VerackMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handleVerackMessage(message.(*pb.VerackMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handlePingMessage(message.(*pb.PingMessage))
-	}))
-
-	handlers = append(handlers, node.RegisterMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
-		return peer.handlePongMessage(message.(*pb.PongMessage))
-	}))
-
-	go func() {
-		err := processMessages(rw.Reader, func(message proto.Message) error {
-			return node.handleMessage(peerNode, message)
-		})
-		if err != nil {
-			for _, h := range handlers {
-				node.RemoveMessageHandler(h)
-			}
-
-			node.removePeer(peerNode)
-
-			logger.WithField("peer", peerNode.ID.Pretty()).Error(err)
-		}
-	}()
+	peerNode.SendMessage(&pb.VersionMessage{
+		Version:     ClientVersion,
+		PeerID:      peerIDBytes,
+		PeerInfo:    peerInfoBytes,
+		Height:      node.chainProvider.Height(),
+		GenesisHash: genesisHash[:],
+	})
 
 	return peerNode, nil
 }
@@ -350,11 +334,7 @@ func (node *HostNode) removePeer(peer *Peer) {
 
 // DisconnectPeer disconnects a peer
 func (node *HostNode) DisconnectPeer(peer *Peer) error {
-	err := peer.disconnect()
-	if err != nil {
-		return err
-	}
-	node.removePeer(peer)
+	peer.Disconnect()
 	return nil
 }
 

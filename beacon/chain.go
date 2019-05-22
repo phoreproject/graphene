@@ -3,10 +3,11 @@ package beacon
 import (
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"sync"
 )
 
 // BlockNode is an in-memory representation of a block.

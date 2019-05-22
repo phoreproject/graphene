@@ -11,8 +11,8 @@ import (
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/pb"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/golang/protobuf/proto"
 
@@ -35,12 +35,19 @@ func NewBadgerDB(databaseDir string) *BadgerDB {
 	opts := badger.LSMOnlyOptions
 	opts.Dir = databaseDir
 	opts.ValueDir = databaseDir
+
+	opts.ValueLogFileSize = 8 << 20
+
 	if runtime.GOOS == "windows" {
 		opts.Truncate = true
-		opts.ValueLogFileSize = 1024 * 1024
+		opts.ValueLogFileSize = 1 << 20
 		// Not sure how this option takes effect.
 		//opts.CompactL0OnClose = false
 	}
+	opts.NumMemtables = 4
+	opts.MaxTableSize = 32 << 20 // 32 MB
+	opts.NumCompactors = 1
+
 	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal(err)
@@ -64,10 +71,13 @@ func (b *BadgerDB) Flush() error {
 }
 
 // GetBlockForHash gets a block for a certain block hash.
-func (b *BadgerDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, error) {
+func (b *BadgerDB) GetBlockForHash(h chainhash.Hash, transaction ...interface{}) (*primitives.Block, error) {
 	key := append(blockPrefix, h[:]...)
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(key)
 	if err != nil {
 		return nil, err
@@ -86,7 +96,7 @@ func (b *BadgerDB) GetBlockForHash(h chainhash.Hash) (*primitives.Block, error) 
 }
 
 // SetBlock sets a block for a certain block hash.
-func (b *BadgerDB) SetBlock(block primitives.Block) error {
+func (b *BadgerDB) SetBlock(block primitives.Block, transaction ...interface{}) error {
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
 		return err
@@ -100,20 +110,23 @@ func (b *BadgerDB) SetBlock(block primitives.Block) error {
 		return err
 	}
 
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(key, blockSer)
-	})
+	}, transaction...)
 }
 
 var attestationPrefix = []byte("att")
 
 // GetLatestAttestation gets the latest attestation from a validator.
-func (b *BadgerDB) GetLatestAttestation(validator uint32) (*primitives.Attestation, error) {
+func (b *BadgerDB) GetLatestAttestation(validator uint32, transaction ...interface{}) (*primitives.Attestation, error) {
 	var validatorBytes [4]byte
 	binary.BigEndian.PutUint32(validatorBytes[:], validator)
 	key := append(attestationPrefix, validatorBytes[:]...)
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(key)
 	if err != nil {
 		return nil, err
@@ -132,7 +145,7 @@ func (b *BadgerDB) GetLatestAttestation(validator uint32) (*primitives.Attestati
 }
 
 // SetLatestAttestationsIfNeeded sets the latest attestation from a validator.
-func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation) error {
+func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestation primitives.Attestation, transaction ...interface{}) error {
 	validatorKeys := make([][]byte, len(validators))
 	for i := range validators {
 		var validatorBytes [4]byte
@@ -146,7 +159,7 @@ func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestatio
 		return err
 	}
 
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 
 		for _, key := range validatorKeys {
 			item, err := txn.Get(key[:])
@@ -184,7 +197,7 @@ func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestatio
 		}
 
 		return nil
-	})
+	}, transaction...)
 }
 
 var headBlockKey = []byte("head_block")
@@ -192,16 +205,19 @@ var justifiedHeadKey = []byte("justified_head")
 var finalizedHeadKey = []byte("finalized_head")
 
 // SetHeadBlock sets the head block for the chain.
-func (b *BadgerDB) SetHeadBlock(h chainhash.Hash) error {
-	return b.db.Update(func(txn *badger.Txn) error {
+func (b *BadgerDB) SetHeadBlock(h chainhash.Hash, transaction ...interface{}) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(headBlockKey, h[:])
-	})
+	}, transaction...)
 }
 
 // GetHeadBlock gets the head block for the chain.
-func (b *BadgerDB) GetHeadBlock() (*chainhash.Hash, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetHeadBlock(transaction ...interface{}) (*chainhash.Hash, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(headBlockKey)
 	if err != nil {
 		return nil, err
@@ -215,16 +231,19 @@ func (b *BadgerDB) GetHeadBlock() (*chainhash.Hash, error) {
 }
 
 // SetJustifiedHead sets the justified head block hash for the chain.
-func (b *BadgerDB) SetJustifiedHead(h chainhash.Hash) error {
-	return b.db.Update(func(txn *badger.Txn) error {
+func (b *BadgerDB) SetJustifiedHead(h chainhash.Hash, transaction ...interface{}) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(justifiedHeadKey, h[:])
-	})
+	}, transaction...)
 }
 
 // GetJustifiedHead gets the justified head block hash for the chain.
-func (b *BadgerDB) GetJustifiedHead() (*chainhash.Hash, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetJustifiedHead(transaction ...interface{}) (*chainhash.Hash, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(justifiedHeadKey)
 	if err != nil {
 		return nil, err
@@ -238,16 +257,19 @@ func (b *BadgerDB) GetJustifiedHead() (*chainhash.Hash, error) {
 }
 
 // SetFinalizedHead sets the finalized head block hash for the chain.
-func (b *BadgerDB) SetFinalizedHead(h chainhash.Hash) error {
-	return b.db.Update(func(txn *badger.Txn) error {
+func (b *BadgerDB) SetFinalizedHead(h chainhash.Hash, transaction ...interface{}) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(finalizedHeadKey, h[:])
-	})
+	}, transaction...)
 }
 
 // GetFinalizedHead gets the finalized head block hash for the chain.
-func (b *BadgerDB) GetFinalizedHead() (*chainhash.Hash, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetFinalizedHead(transaction ...interface{}) (*chainhash.Hash, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(finalizedHeadKey)
 	if err != nil {
 		return nil, err
@@ -271,7 +293,7 @@ type BlockNodeDiskWithoutChildren struct {
 }
 
 // SetBlockNode sets a block node in the database.
-func (b *BadgerDB) SetBlockNode(node BlockNodeDisk) error {
+func (b *BadgerDB) SetBlockNode(node BlockNodeDisk, transaction ...interface{}) error {
 	nodeWithoutChildren := BlockNodeDiskWithoutChildren{
 		Hash:   node.Hash,
 		Height: node.Height,
@@ -295,16 +317,19 @@ func (b *BadgerDB) SetBlockNode(node BlockNodeDisk) error {
 		return err
 	}
 	key := append(blockNodePrefix, node.Hash[:]...)
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(key, buf.Bytes())
-	})
+	}, transaction...)
 }
 
 // GetBlockNode gets a block node from the database.
-func (b *BadgerDB) GetBlockNode(h chainhash.Hash) (*BlockNodeDisk, error) {
+func (b *BadgerDB) GetBlockNode(h chainhash.Hash, transaction ...interface{}) (*BlockNodeDisk, error) {
 	key := append(blockNodePrefix, h[:]...)
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(key)
 	if err != nil {
 		return nil, err
@@ -347,9 +372,12 @@ var finalizedStateKey = []byte("finalized_state")
 var justifiedStateKey = []byte("justified_state")
 
 // GetFinalizedState gets the finalized state from the database.
-func (b *BadgerDB) GetFinalizedState() (*primitives.State, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetFinalizedState(transaction ...interface{}) (*primitives.State, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(finalizedStateKey)
 	if err != nil {
 		return nil, err
@@ -369,20 +397,23 @@ func (b *BadgerDB) GetFinalizedState() (*primitives.State, error) {
 }
 
 // SetFinalizedState sets the finalized state.
-func (b *BadgerDB) SetFinalizedState(state primitives.State) error {
+func (b *BadgerDB) SetFinalizedState(state primitives.State, transaction ...interface{}) error {
 	stateBytes, err := proto.Marshal(state.ToProto())
 	if err != nil {
 		return err
 	}
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(finalizedStateKey, stateBytes)
-	})
+	}, transaction...)
 }
 
 // GetJustifiedState gets the justified state from the database.
-func (b *BadgerDB) GetJustifiedState() (*primitives.State, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetJustifiedState(transaction ...interface{}) (*primitives.State, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(justifiedStateKey)
 	if err != nil {
 		return nil, err
@@ -402,14 +433,14 @@ func (b *BadgerDB) GetJustifiedState() (*primitives.State, error) {
 }
 
 // SetJustifiedState sets the justified state.
-func (b *BadgerDB) SetJustifiedState(state primitives.State) error {
+func (b *BadgerDB) SetJustifiedState(state primitives.State, transaction ...interface{}) error {
 	stateBytes, err := proto.Marshal(state.ToProto())
 	if err != nil {
 		return err
 	}
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(justifiedStateKey, stateBytes)
-	})
+	}, transaction...)
 }
 
 // Close closes the database.
@@ -417,12 +448,38 @@ func (b *BadgerDB) Close() error {
 	return b.db.Close()
 }
 
+func (b *BadgerDB) extractTransaction(transaction ...interface{}) *badger.Txn {
+	if transaction != nil && transaction[0] != nil {
+		return transaction[0].(*badger.Txn)
+	}
+
+	return nil
+}
+
+func (b *BadgerDB) updateInTransaction(cb func(txn *badger.Txn) error, transaction ...interface{}) error {
+	txn := b.extractTransaction(transaction...)
+	if txn != nil {
+		return cb(txn)
+	}
+	return b.db.Update(cb)
+}
+
+// TransactionalUpdate executes cb in an update transaction
+func (b *BadgerDB) TransactionalUpdate(cb func(transaction interface{}) error) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		return cb(txn)
+	})
+}
+
 var genesisTimeKey = []byte("genesis_time")
 
 // GetGenesisTime gets the genesis time of the blockchain.
-func (b *BadgerDB) GetGenesisTime() (uint64, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetGenesisTime(transaction ...interface{}) (uint64, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(genesisTimeKey)
 	if err != nil {
 		return 0, err
@@ -436,20 +493,23 @@ func (b *BadgerDB) GetGenesisTime() (uint64, error) {
 }
 
 // SetGenesisTime sets the head block for the chain.
-func (b *BadgerDB) SetGenesisTime(time uint64) error {
+func (b *BadgerDB) SetGenesisTime(time uint64, transaction ...interface{}) error {
 	genesisTimeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(genesisTimeBytes[:], time)
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(genesisTimeKey, genesisTimeBytes[:])
-	})
+	}, transaction...)
 }
 
 var hostPrivateKeyKey = []byte("host_key")
 
 // GetHostKey gets the key used by the P2P interface for identity.
-func (b *BadgerDB) GetHostKey() (crypto.PrivKey, error) {
-	txn := b.db.NewTransaction(false)
-	defer txn.Discard()
+func (b *BadgerDB) GetHostKey(transaction ...interface{}) (crypto.PrivKey, error) {
+	txn := b.extractTransaction(transaction...)
+	if txn == nil {
+		txn = b.db.NewTransaction(false)
+		defer txn.Discard()
+	}
 	i, err := txn.Get(hostPrivateKeyKey)
 	if err != nil {
 		return nil, err
@@ -463,15 +523,15 @@ func (b *BadgerDB) GetHostKey() (crypto.PrivKey, error) {
 }
 
 // SetHostKey sets the key used by the P2P interface for identity.
-func (b *BadgerDB) SetHostKey(key crypto.PrivKey) error {
+func (b *BadgerDB) SetHostKey(key crypto.PrivKey, transaction ...interface{}) error {
 	privKeyBytes, err := crypto.MarshalPrivateKey(key)
 	if err != nil {
 		return err
 	}
 
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateInTransaction(func(txn *badger.Txn) error {
 		return txn.Set(hostPrivateKeyKey, privKeyBytes)
-	})
+	}, transaction...)
 }
 
 // GarbageCollect runs badger garbage collection.

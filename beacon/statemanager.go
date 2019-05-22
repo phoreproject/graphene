@@ -3,17 +3,16 @@ package beacon
 import (
 	"errors"
 	"fmt"
-	"github.com/phoreproject/synapse/beacon/db"
 	"sync"
-	"time"
+
+	"github.com/phoreproject/synapse/beacon/db"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
-	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 // StateManager handles all state transitions, storing of states for different forks,
@@ -73,7 +72,7 @@ func (sm *StateManager) UpdateHead(blockHash chainhash.Hash) error {
 	}
 	sm.stateMapLock.RUnlock()
 	sm.stateLock.Lock()
-	logrus.WithField("slot", state.Slot).Debug("setting state head")
+	//logrus.WithField("slot", state.Slot).Debug("setting state head")
 	sm.state = state
 	sm.stateLock.Unlock()
 	return nil
@@ -165,59 +164,57 @@ func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitive
 	// add the state to the statemap
 	sm.stateMapLock.Lock()
 	defer sm.stateMapLock.Unlock()
-	logrus.WithField("hash", blockHash.String()).Debug("setting block state")
+	//logrus.WithField("hash", blockHash.String()).Debug("setting block state")
 	sm.stateMap[blockHash] = *state
 	return nil
 }
 
 // AddBlockToStateMap processes the block and adds it to the state map.
-func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.State, error) {
+func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) ([]primitives.Receipt, *primitives.State, error) {
 	lastBlockHash := block.BlockHeader.ParentRoot
 
 	view, err := sm.blockchain.GetSubView(lastBlockHash)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	lastBlockState, found := sm.GetStateForHash(lastBlockHash)
 	if !found {
-		return nil, errors.New("could not find block state of parent block")
+		return nil, nil, errors.New("could not find block state of parent block")
 	}
 
 	newState := lastBlockState.Copy()
 
 	err = newState.ProcessSlots(block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
-		logrus.Info("processing epoch transition")
-		t := time.Now()
+	var receipts []primitives.Receipt
 
-		_, err := newState.ProcessEpochTransition(sm.config, &view)
+	if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
+		receipts, err = newState.ProcessEpochTransition(sm.config, &view)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 	}
 
 	blockHash, err := ssz.TreeHash(block)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = sm.SetBlockState(blockHash, &newState)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &newState, nil
+	return receipts, &newState, nil
 }
 
 // DeleteStateBeforeFinalizedSlot deletes any states before the current finalized slot.

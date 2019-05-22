@@ -9,8 +9,6 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -23,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Role int32
 
@@ -1250,47 +1248,6 @@ type BlockchainRPCServer interface {
 	GetBlock(context.Context, *GetBlockRequest) (*GetBlockResponse, error)
 	SubmitAttestation(context.Context, *Attestation) (*empty.Empty, error)
 	GetMempool(context.Context, *empty.Empty) (*BlockBody, error)
-}
-
-// UnimplementedBlockchainRPCServer can be embedded to have forward compatible implementations.
-type UnimplementedBlockchainRPCServer struct {
-}
-
-func (*UnimplementedBlockchainRPCServer) SubmitBlock(ctx context.Context, req *SubmitBlockRequest) (*SubmitBlockResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SubmitBlock not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetSlotNumber(ctx context.Context, req *empty.Empty) (*SlotNumberResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetSlotNumber not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetBlockHash(ctx context.Context, req *GetBlockHashRequest) (*GetBlockHashResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBlockHash not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetLastBlockHash(ctx context.Context, req *empty.Empty) (*GetBlockHashResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLastBlockHash not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetState(ctx context.Context, req *empty.Empty) (*GetStateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetStateRoot(ctx context.Context, req *empty.Empty) (*GetStateRootResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetStateRoot not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetEpochInformation(ctx context.Context, req *empty.Empty) (*EpochInformation, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetEpochInformation not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetForkData(ctx context.Context, req *empty.Empty) (*ForkData, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetForkData not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetProposerForSlot(ctx context.Context, req *GetProposerForSlotRequest) (*GetProposerForSlotResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetProposerForSlot not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetBlock(ctx context.Context, req *GetBlockRequest) (*GetBlockResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBlock not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) SubmitAttestation(ctx context.Context, req *Attestation) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SubmitAttestation not implemented")
-}
-func (*UnimplementedBlockchainRPCServer) GetMempool(ctx context.Context, req *empty.Empty) (*BlockBody, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetMempool not implemented")
 }
 
 func RegisterBlockchainRPCServer(s *grpc.Server, srv BlockchainRPCServer) {

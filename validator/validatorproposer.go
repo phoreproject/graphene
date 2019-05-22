@@ -11,11 +11,11 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
 func (v *Validator) proposeBlock(information proposerAssignment) error {
@@ -27,7 +27,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		canRetry, err := v.tryProposeBlock(information)
 		if err != nil {
 			if canRetry {
-				<- time.NewTimer(time.Second * 10).C
+				<-time.NewTimer(time.Second * 10).C
 			} else {
 				return err
 			}

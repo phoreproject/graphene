@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/utils"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -20,7 +21,7 @@ import (
 
 func (v *Validator) proposeBlock(information proposerAssignment) error {
 	// wait for slot to happen to submit
-	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))
+	timer := time.NewTimer(time.Unix(int64(information.proposeAt), 0).Sub(utils.Now()))
 	<-timer.C
 
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})

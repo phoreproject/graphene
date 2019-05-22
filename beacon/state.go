@@ -8,6 +8,7 @@ import (
 	"github.com/prysmaticlabs/prysm/shared/ssz"
 
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/utils"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -35,7 +36,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	validationStart := time.Now()
 
 	// VALIDATE BLOCK HERE
-	if checkTime && (block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(time.Now().Unix()) || block.BlockHeader.SlotNumber == 0) {
+	if checkTime && (block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(utils.Now().Unix()) || block.BlockHeader.SlotNumber == 0) {
 		return nil, nil, errors.New("block slot too soon")
 	}
 

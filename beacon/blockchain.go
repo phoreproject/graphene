@@ -11,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/utils"
 
 	"github.com/phoreproject/synapse/chainhash"
 )
@@ -252,7 +253,7 @@ func (b *Blockchain) GetConfig() *config.Config {
 
 // GetCurrentSlot gets the current slot according to the time.
 func (b *Blockchain) GetCurrentSlot() uint64 {
-	currentTime := uint64(time.Now().Unix())
+	currentTime := uint64(utils.Now().Unix())
 
 	timeSinceGenesis := currentTime - b.stateManager.GetGenesisTime()
 

@@ -192,6 +192,8 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 
 // removeOldAttestations removes attestations that are more than one epoch old.
 func (am *attestationMempool) removeOldAttestations(slot uint64, c *config.Config) {
+	am.attestationsLock.Lock()
+	defer am.attestationsLock.Unlock()
 	newAttestations := make([]primitives.Attestation, 0)
 	for _, a := range am.attestations {
 		if a.Data.Slot+c.EpochLength < slot {
@@ -226,10 +228,6 @@ func (m *Mempool) RemoveAttestationsFromBitfield(slot uint64, shard uint64, bitf
 		}
 		newAttestations = append(newAttestations, att)
 	}
-	//logrus.WithFields(logrus.Fields{
-	//	"removed":         numRemoved,
-	//	"numAttestations": len(newAttestations),
-	//}).Debug("updated mempool with new block")
 
 	am.attestations = newAttestations
 }

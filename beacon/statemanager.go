@@ -80,11 +80,15 @@ func (sm *StateManager) UpdateHead(blockHash chainhash.Hash) error {
 
 // GetHeadSlot gets the slot of the head state.
 func (sm *StateManager) GetHeadSlot() uint64 {
+	sm.stateLock.Lock()
+	defer sm.stateLock.Unlock()
 	return sm.state.Slot
 }
 
 // GetHeadState gets the head state.
 func (sm *StateManager) GetHeadState() primitives.State {
+	sm.stateLock.Lock()
+	defer sm.stateLock.Unlock()
 	return sm.state
 }
 

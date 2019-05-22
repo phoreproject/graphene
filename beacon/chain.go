@@ -235,6 +235,8 @@ func NewChain() *Chain {
 
 // Genesis gets the genesis of the chain
 func (c *Chain) Genesis() *BlockNode {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if len(c.chain) > 0 {
 		return c.chain[0]
 	}
@@ -274,6 +276,8 @@ func (c *Chain) GetBlockByHeight(height int) *BlockNode {
 
 // Tip gets the tip of the chain.
 func (c *Chain) Tip() *BlockNode {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if len(c.chain) == 0 {
 		return nil
 	}
@@ -286,9 +290,7 @@ func (c *Chain) GetChainLocator() [][]byte {
 	step := uint64(1)
 	locator := make([][]byte, 0, 32)
 
-	c.lock.Lock()
 	current := c.Tip()
-	c.lock.Unlock()
 
 	for {
 		locator = append(locator, current.Hash[:])

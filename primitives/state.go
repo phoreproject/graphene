@@ -972,7 +972,7 @@ type BlockView interface {
 	GetHashBySlot(slot uint64) (chainhash.Hash, error)
 	Tip() (chainhash.Hash, error)
 	SetTipSlot(slot uint64)
-	GetStateBySlot(slot uint64) (*State, error)
+	GetLastState() (*State, error)
 }
 
 // ShuffleValidators shuffles an array of ints given a seed.
@@ -1972,7 +1972,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	// Check state root.
-	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
+	expectedState, err := view.GetLastState()
 	if err != nil {
 		return err
 	}
@@ -1985,7 +1985,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		return err
 	}
 	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
-		return errors.New("StateRoot doesn't match")
+		return errors.New("state root doesn't match")
 	}
 
 	//blockTransitionTime := time.Since(blockTransitionStart)

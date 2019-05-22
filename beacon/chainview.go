@@ -44,14 +44,9 @@ func (c *ChainView) Tip() (chainhash.Hash, error) {
 	return c.tip.Hash, nil
 }
 
-// GetLastState gets the state of the tip.
-func (c *ChainView) GetLastState() (*primitives.State, error) {
-	state, found := c.blockchain.stateManager.GetStateForHash(c.tip.Hash)
-	if !found {
-		return nil, errors.New("could not find state at slot")
-	}
-
-	return state, nil
+// GetLastStateRoot gets the state root of the tip.
+func (c *ChainView) GetLastStateRoot() (chainhash.Hash, error) {
+	return c.tip.StateRoot, nil
 }
 
 var _ primitives.BlockView = (*ChainView)(nil)

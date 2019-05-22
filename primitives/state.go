@@ -972,7 +972,7 @@ type BlockView interface {
 	GetHashBySlot(slot uint64) (chainhash.Hash, error)
 	Tip() (chainhash.Hash, error)
 	SetTipSlot(slot uint64)
-	GetLastState() (*State, error)
+	GetLastStateRoot() (chainhash.Hash, error)
 }
 
 // ShuffleValidators shuffles an array of ints given a seed.
@@ -1644,32 +1644,15 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		}
 	}
 
-	for index, validator := range s.ValidatorRegistry {
-		if validator.Status == Active && s.ValidatorBalances[index] < c.EjectionBalance {
-			err := s.UpdateValidatorStatus(uint32(index), ExitedWithoutPenalty, c)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	logrus.WithField("totalRewarded", totalRewarded).WithField("totalPenalized", totalPenalized).WithField("netRewards", int64(totalRewarded)-int64(totalPenalized)).Debug("finished processing rewards")
-
-	shouldUpdateRegistry := true
-
-	if s.FinalizedSlot <= s.ValidatorRegistryLatestChangeSlot {
-		shouldUpdateRegistry = false
+	if err := s.exitValidatorsUnderMinimum(c); err != nil {
+		return nil, err
 	}
 
-	for _, shardAndCommittees := range s.ShardAndCommitteeForSlots {
-		for _, committee := range shardAndCommittees {
-			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeSlot {
-				shouldUpdateRegistry = false
-				goto done
-			}
-		}
-	}
-done:
+	shouldUpdateRegistry := s.shouldUpdateRegistry()
 
+	// update registry if:
+	// - a slot has been finalized after the last time the registry was changed
+	// - every shard
 	if shouldUpdateRegistry {
 		err := s.UpdateValidatorRegistry(c)
 		if err != nil {
@@ -1705,6 +1688,19 @@ done:
 	s.LatestAttestations = newLatestAttestations
 
 	return receipts, nil
+}
+
+func (s *State) exitValidatorsUnderMinimum(c *config.Config) error {
+	for index, validator := range s.ValidatorRegistry {
+		if validator.Status == Active && s.ValidatorBalances[index] < c.EjectionBalance {
+			err := s.UpdateValidatorStatus(uint32(index), ExitedWithoutPenalty, c)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // ValidateAttestation checks if the attestation is valid.
@@ -1972,19 +1968,11 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	// Check state root.
-	expectedState, err := view.GetLastState()
+	expectedStateRoot, err := view.GetLastStateRoot()
 	if err != nil {
 		return err
 	}
-	expectedStateRoot, err := ssz.TreeHash(expectedState)
-	if err != nil {
-		return err
-	}
-	expectedStateRootHash, err := chainhash.NewHash(expectedStateRoot[:])
-	if err != nil {
-		return err
-	}
-	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
+	if !block.BlockHeader.StateRoot.IsEqual(&expectedStateRoot) {
 		return errors.New("state root doesn't match")
 	}
 
@@ -2028,6 +2016,25 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) erro
 	return nil
 }
 
+// shouldUpdateRegistry returns if the validator registry is ready to be shuffled.
+// The registry should only be updated if every shard has created a crosslink since the
+// last update and the beacon chain has been finalized since the last update.
+func (s *State) shouldUpdateRegistry() bool {
+	if s.FinalizedSlot <= s.ValidatorRegistryLatestChangeSlot {
+		return false
+	}
+
+	for _, shardAndCommittees := range s.ShardAndCommitteeForSlots {
+		for _, committee := range shardAndCommittees {
+			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeSlot {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 const (
 	// Active is a status for a validator that is active.
 	Active = iota
@@ -2044,7 +2051,8 @@ const (
 // Validator is a single validator session (logging in and out)
 type Validator struct {
 	// BLS public key
-	Pubkey          [96]byte
+	Pubkey [96]byte
+	// XXXPubkeyCached is the cached deserialized public key.
 	XXXPubkeyCached *bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash

@@ -62,10 +62,20 @@ func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
 	if err != nil {
 		return err
 	}
-	tipView.SetTipSlot(att.Data.Slot)
+
+	stateCopy := tipState.Copy()
+
+	firstSlotAttestationCouldBeIncluded := att.Data.Slot + m.blockchain.config.MinAttestationInclusionDelay
+
+	err = stateCopy.ProcessSlots(firstSlotAttestationCouldBeIncluded, &tipView, m.blockchain.config)
+	if err != nil {
+		return err
+	}
+
+	tipView.SetTipSlot(firstSlotAttestationCouldBeIncluded)
 
 	// this assumes the state will be the same at att.Data.Slot
-	err = tipState.ValidateAttestation(att, true, &tipView, m.blockchain.config, att.Data.Slot)
+	err = stateCopy.ValidateAttestation(att, true, &tipView, m.blockchain.config, firstSlotAttestationCouldBeIncluded)
 	if err != nil {
 		return err
 	}

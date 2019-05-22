@@ -15,10 +15,11 @@ func blockNodeToHash(b *BlockNode) chainhash.Hash {
 
 func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
 	return db.BlockNodeDisk{
-		Hash:   b.Hash,
-		Height: b.Height,
-		Slot:   b.Slot,
-		Parent: blockNodeToHash(b.Parent),
+		Hash:      b.Hash,
+		Height:    b.Height,
+		Slot:      b.Slot,
+		StateRoot: b.StateRoot,
+		Parent:    blockNodeToHash(b.Parent),
 	}
 }
 

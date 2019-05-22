@@ -92,9 +92,14 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	blockStorageTime := time.Since(blockStorageStart)
 
+	stateRoot, err := ssz.TreeHash(newState)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	//logger.Debug("applied with new state")
 
-	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash)
+	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash, stateRoot)
 	if err != nil {
 		return nil, nil, err
 	}

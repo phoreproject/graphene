@@ -12,11 +12,12 @@ import (
 
 // BlockNode is an in-memory representation of a block.
 type BlockNode struct {
-	Hash     chainhash.Hash
-	Height   uint64
-	Slot     uint64
-	Parent   *BlockNode
-	Children []*BlockNode
+	Hash      chainhash.Hash
+	Height    uint64
+	Slot      uint64
+	Parent    *BlockNode
+	StateRoot chainhash.Hash
+	Children  []*BlockNode
 }
 
 // GetAncestorAtHeight gets the ancestor of a block at a certain height.
@@ -142,7 +143,7 @@ func (bi *BlockIndex) GetBlockNodeByHash(hash chainhash.Hash) *BlockNode {
 }
 
 // AddBlockNodeToIndex adds a new block ot the blockchain.
-func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash) (*BlockNode, error) {
+func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash, stateRoot chainhash.Hash) (*BlockNode, error) {
 	bi.lock.Lock()
 	defer bi.lock.Unlock()
 
@@ -164,11 +165,12 @@ func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash cha
 	}
 
 	node := &BlockNode{
-		Hash:     blockHash,
-		Height:   height,
-		Slot:     block.BlockHeader.SlotNumber,
-		Parent:   parentNode,
-		Children: []*BlockNode{},
+		Hash:      blockHash,
+		Height:    height,
+		Slot:      block.BlockHeader.SlotNumber,
+		Parent:    parentNode,
+		StateRoot: stateRoot,
+		Children:  []*BlockNode{},
 	}
 
 	bi.index[blockHash] = node
@@ -190,11 +192,12 @@ func (bi *BlockIndex) LoadBlockNode(blockNodeDisk *db.BlockNodeDisk) (*BlockNode
 	}
 
 	newNode := &BlockNode{
-		Hash:     blockNodeDisk.Hash,
-		Height:   blockNodeDisk.Height,
-		Slot:     blockNodeDisk.Slot,
-		Parent:   parent,
-		Children: make([]*BlockNode, 0),
+		Hash:      blockNodeDisk.Hash,
+		Height:    blockNodeDisk.Height,
+		Slot:      blockNodeDisk.Slot,
+		StateRoot: blockNodeDisk.StateRoot,
+		Parent:    parent,
+		Children:  make([]*BlockNode, 0),
 	}
 
 	bi.index[blockNodeDisk.Hash] = newNode

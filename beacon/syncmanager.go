@@ -110,7 +110,7 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	toSend := make([]primitives.Block, 0, limitBlocksToSend)
 
 	for currentBlockNode != nil && len(toSend) < limitBlocksToSend {
-		currentBlock, err := s.blockchain.db.GetBlockForHash(currentBlockNode.Hash)
+		currentBlock, err := s.blockchain.DB.GetBlockForHash(currentBlockNode.Hash)
 		if err != nil {
 			return err
 		}

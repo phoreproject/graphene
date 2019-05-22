@@ -14,7 +14,7 @@ import (
 // StoreBlock adds a block header to the current chain. The block should already
 // have been validated by this point.
 func (b *Blockchain) StoreBlock(block *primitives.Block) error {
-	err := b.db.SetBlock(*block)
+	err := b.DB.SetBlock(*block)
 	if err != nil {
 		return err
 	}
@@ -100,15 +100,15 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	databaseTipUpdateStart := time.Now()
 
-	err = b.db.TransactionalUpdate(func(transaction interface{}) error {
+	err = b.DB.TransactionalUpdate(func(transaction interface{}) error {
 		// set the block node in the database
-		err = b.db.SetBlockNode(blockNodeToDisk(*node), transaction)
+		err = b.DB.SetBlockNode(blockNodeToDisk(*node), transaction)
 		if err != nil {
 			return err
 		}
 
 		// update the parent node in the database
-		err = b.db.SetBlockNode(blockNodeToDisk(*node.Parent), transaction)
+		err = b.DB.SetBlockNode(blockNodeToDisk(*node.Parent), transaction)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 			return nil, nil, err
 		}
 
-		err = b.db.SetLatestAttestationsIfNeeded(participants, a)
+		err = b.DB.SetLatestAttestationsIfNeeded(participants, a)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -169,7 +169,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	}
 
 	if initialFinalizedSlot != newState.FinalizedSlot {
-		err := b.db.SetFinalizedState(*finalizedState)
+		err := b.DB.SetFinalizedState(*finalizedState)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -178,7 +178,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	finalizedNodeAndState := blockNodeAndState{finalizedNode, *finalizedState}
 	b.View.finalizedHead = finalizedNodeAndState
 
-	err = b.db.SetFinalizedHead(finalizedNode.Hash)
+	err = b.DB.SetFinalizedHead(finalizedNode.Hash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -196,13 +196,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	b.View.justifiedHead = justifiedNodeAndState
 
 	if initialJustifiedSlot != newState.JustifiedSlot {
-		err := b.db.SetJustifiedState(*justifiedState)
+		err := b.DB.SetJustifiedState(*justifiedState)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	err = b.db.SetJustifiedHead(justifiedNode.Hash)
+	err = b.DB.SetJustifiedHead(justifiedNode.Hash)
 	if err != nil {
 		return nil, nil, err
 	}

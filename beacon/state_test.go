@@ -20,49 +20,6 @@ func TestMain(m *testing.M) {
 	os.Exit(retCode)
 }
 
-func TestLastBlockOnInitialSetup(t *testing.T) {
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	b, keys, err := util.SetupBlockchain(config.RegtestConfig.ShardCount*config.RegtestConfig.TargetCommitteeSize*2+1, &config.RegtestConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	b0, err := b.LastBlock()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if b0.BlockHeader.SlotNumber != 0 {
-		t.Fatal("invalid last block for initial chain")
-	}
-
-	s := b.GetState()
-
-	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, 0, b.GetConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = util.MineBlockWithFullAttestations(b, keys, proposerIndex)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if b.Height() != 1 {
-		t.Fatalf("invalid height (expected: 1, got: %d)", b.Height())
-	}
-
-	b1, err := b.LastBlock()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if b1.BlockHeader.SlotNumber != 1 {
-		t.Fatal("invalid last block after mining 1 block")
-	}
-}
-
 func TestStateInitialization(t *testing.T) {
 	logrus.SetLevel(logrus.ErrorLevel)
 

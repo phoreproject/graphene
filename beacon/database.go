@@ -1,9 +1,26 @@
 package beacon
 
 import (
+	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/sirupsen/logrus"
 )
+
+func blockNodeToHash(b *BlockNode) chainhash.Hash {
+	if b == nil {
+		return chainhash.Hash{}
+	}
+	return b.Hash
+}
+
+func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
+	return db.BlockNodeDisk{
+		Hash:   b.Hash,
+		Height: b.Height,
+		Slot:   b.Slot,
+		Parent: blockNodeToHash(b.Parent),
+	}
+}
 
 func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
 	finalizedHead, err := b.DB.GetFinalizedHead()

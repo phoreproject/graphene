@@ -358,3 +358,16 @@ func (c *Chain) Next(node *BlockNode) *BlockNode {
 
 	return c.next(node)
 }
+
+// GetBlockBySlot gets the block node at a certain slot.
+func (c *Chain) GetBlockBySlot(slot uint64) (*BlockNode, error) {
+	tip := c.Tip()
+	if tip.Slot < slot {
+		return tip, nil
+	}
+	node := tip.GetAncestorAtSlot(slot)
+	if node == nil {
+		return nil, fmt.Errorf("no block at slot %d", slot)
+	}
+	return node, nil
+}

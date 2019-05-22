@@ -151,7 +151,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			justifiedSlot = s.PreviousJustifiedSlot
 		}
 
-		justifiedHash, err := b.GetHashBySlot(justifiedSlot)
+		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedSlot)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +163,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			EpochBoundaryHash:   epochBoundaryHash,
 			ShardBlockHash:      chainhash.Hash{},
 			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,
-			JustifiedBlockHash:  justifiedHash,
+			JustifiedBlockHash:  justifiedNode.Hash,
 			JustifiedSlot:       justifiedSlot,
 		}
 

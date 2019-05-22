@@ -105,20 +105,20 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	if currentSlot < 0 {
 		currentSlot = 0
 	}
-	block, err := s.chain.GetHashBySlot(uint64(currentSlot))
+	block, err := s.chain.View.Chain.GetBlockBySlot(uint64(currentSlot))
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block[:]}, nil
+	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block.Hash[:]}, nil
 }
 
 // GetBlockHash gets the block hash for a certain slot in the main chain.
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
-	h, err := s.chain.GetHashBySlot(in.SlotNumber)
+	n, err := s.chain.View.Chain.GetBlockBySlot(in.SlotNumber)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetBlockHashResponse{Hash: h[:]}, nil
+	return &pb.GetBlockHashResponse{Hash: n.Hash[:]}, nil
 }
 
 // GetLastBlockHash gets the most recent block hash in the main chain.
@@ -182,7 +182,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		return nil, err
 	}
 
-	justifiedRoot, err := s.chain.GetHashBySlot(state.JustifiedSlot)
+	justifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.JustifiedSlot)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		EpochBoundaryRoot: epochBoundaryRoot[:],
 		LatestCrosslinks:  crosslinks,
 		JustifiedSlot:     state.JustifiedSlot,
-		JustifiedHash:     justifiedRoot[:],
+		JustifiedHash:     justifiedNode.Hash[:],
 	}, nil
 }
 

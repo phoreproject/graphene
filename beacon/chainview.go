@@ -46,11 +46,11 @@ func (c *ChainView) Tip() (chainhash.Hash, error) {
 
 // GetStateBySlot gets a state in a certain slot
 func (c *ChainView) GetStateBySlot(slot uint64) (*primitives.State, error) {
-	h, err := c.blockchain.GetHashBySlot(slot)
+	n, err := c.GetHashBySlot(slot)
 	if err != nil {
 		return nil, err
 	}
-	state, found := c.blockchain.stateManager.GetStateForHash(h)
+	state, found := c.blockchain.stateManager.GetStateForHash(n)
 	if !found {
 		return nil, errors.New("could not find state at slot")
 	}

@@ -184,12 +184,12 @@ func BenchmarkBlockTransition(t *testing.B) {
 	blocks := make([]primitives.Block, b.Height())
 
 	for i := range blocks {
-		hashAtSlot, err := b.GetHashBySlot(uint64(i + 1))
+		nodeAtSlot, err := b.View.Chain.GetBlockBySlot(uint64(i + 1))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		blockAtSlot, err := b.GetBlockByHash(hashAtSlot)
+		blockAtSlot, err := b.GetBlockByHash(nodeAtSlot.Hash)
 
 		blocks[i] = *blockAtSlot
 	}

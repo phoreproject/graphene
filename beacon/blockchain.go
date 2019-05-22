@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/prysmaticlabs/prysm/shared/ssz"
@@ -38,26 +37,14 @@ func (b *Blockchain) RegisterNotifee(n BlockchainNotifee) {
 	b.Notifees = append(b.Notifees, n)
 }
 
-func blockNodeToHash(b *BlockNode) chainhash.Hash {
-	if b == nil {
-		return chainhash.Hash{}
-	}
-	return b.Hash
-}
-
-func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
-	return db.BlockNodeDisk{
-		Hash:   b.Hash,
-		Height: b.Height,
-		Slot:   b.Slot,
-		Parent: blockNodeToHash(b.Parent),
-	}
-}
-
 // GetEpochBoundaryHash gets the Hash of the parent block at the epoch boundary.
 func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
 	epochBoundaryHeight := slot - (slot % b.config.EpochLength)
-	return b.GetHashBySlot(epochBoundaryHeight)
+	bl, err := b.View.Chain.GetBlockBySlot(epochBoundaryHeight)
+	if err != nil {
+		return chainhash.Hash{}, err
+	}
+	return bl.Hash, nil
 }
 
 func (b *Blockchain) getLatestAttestation(validator uint32) (*primitives.Attestation, error) {
@@ -83,6 +70,13 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 		return nil, errors.New("couldn't find block attested to by validator in index")
 	}
 	return node, nil
+}
+
+// InitialValidatorEntryAndPrivateKey is an initial validator entry and private key.
+type InitialValidatorEntryAndPrivateKey struct {
+	Entry InitialValidatorEntry
+
+	PrivateKey [32]byte
 }
 
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
@@ -230,102 +224,6 @@ type InitialValidatorEntry struct {
 	WithdrawalShard       uint32
 	WithdrawalCredentials chainhash.Hash
 	DepositSize           uint64
-}
-
-// InitialValidatorEntryAndPrivateKey is an initial validator entry and private key.
-type InitialValidatorEntryAndPrivateKey struct {
-	Entry InitialValidatorEntry
-
-	PrivateKey [32]byte
-}
-
-type blockNodeAndValidator struct {
-	node      *BlockNode
-	validator uint32
-}
-
-// UpdateChainHead updates the blockchain head if needed
-func (b *Blockchain) UpdateChainHead() error {
-	validators := b.View.justifiedHead.State.ValidatorRegistry
-	activeValidatorIndices := primitives.GetActiveValidatorIndices(validators)
-	var targets []blockNodeAndValidator
-	for _, i := range activeValidatorIndices {
-		bl, err := b.getLatestAttestationTarget(i)
-		if err != nil {
-			continue
-		}
-		targets = append(targets, blockNodeAndValidator{
-			node:      bl,
-			validator: i})
-	}
-
-	getVoteCount := func(block *BlockNode) uint64 {
-		votes := uint64(0)
-		for _, target := range targets {
-			node := target.node.GetAncestorAtSlot(block.Slot)
-			if node == nil {
-				return 0
-			}
-			if node.Hash.IsEqual(&block.Hash) {
-				votes += b.View.justifiedHead.State.GetEffectiveBalance(target.validator, b.config) / 1e8
-			}
-		}
-		return votes
-	}
-
-	head, _ := b.View.GetJustifiedHead()
-
-	// this may seem weird, but it occurs when importing when the justified block is not
-	// imported, but the finalized head is. It should never occurother than that
-	if head == nil {
-		head, _ = b.View.GetFinalizedHead()
-	}
-
-	for {
-		children := head.Children
-		if len(children) == 0 {
-			b.View.Chain.SetTip(head)
-			err := b.stateManager.UpdateHead(head.Hash)
-			if err != nil {
-				return err
-			}
-
-			err = b.DB.SetHeadBlock(head.Hash)
-			if err != nil {
-				return err
-			}
-
-			//logger.WithFields(logrus.Fields{
-			//	"height": head.Height,
-			//	"hash":   head.Hash.String(),
-			//	"slot":   b.stateManager.GetHeadSlot(),
-			//}).Debug("set tip")
-			return nil
-		}
-		bestVoteCountChild := children[0]
-		bestVotes := getVoteCount(bestVoteCountChild)
-		for _, c := range children[1:] {
-			vc := getVoteCount(c)
-			if vc > bestVotes {
-				bestVoteCountChild = c
-				bestVotes = vc
-			}
-		}
-		head = bestVoteCountChild
-	}
-}
-
-// GetHashBySlot gets the block Hash at a certain slot.
-func (b Blockchain) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
-	tip := b.View.Chain.Tip()
-	if tip.Slot < slot {
-		return tip.Hash, nil
-	}
-	node := tip.GetAncestorAtSlot(slot)
-	if node == nil {
-		return chainhash.Hash{}, fmt.Errorf("no block at slot %d", slot)
-	}
-	return node.Hash, nil
 }
 
 // Height returns the height of the chain.

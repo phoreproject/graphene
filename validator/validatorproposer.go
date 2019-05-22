@@ -23,9 +23,24 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))
 	<-timer.C
 
+	for {
+		canRetry, err := v.tryProposeBlock(information)
+		if err != nil {
+			if canRetry {
+				<- time.NewTimer(time.Second * 10).C
+			} else {
+				return err
+			}
+		} else {
+			return nil
+		}
+	}
+}
+
+func (v *Validator) tryProposeBlock(information proposerAssignment) (bool, error) {
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	v.logger.WithFields(logrus.Fields{
@@ -35,12 +50,12 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	stateRoot, err := chainhash.NewHash(stateRootBytes.StateRoot)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	var slotBytes [8]byte
@@ -51,17 +66,17 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 
 	randaoSig, err := bls.Sign(key, slotBytesHash[:], bls.DomainRandao)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	parentRootBytes, err := v.blockchainRPC.GetLastBlockHash(context.Background(), &empty.Empty{})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	parentRoot, err := chainhash.NewHash(parentRootBytes.Hash)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	blockBody, err := primitives.BlockBodyFromProto(mempool)
@@ -79,7 +94,7 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 
 	blockHash, err := ssz.TreeHash(newBlock)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	v.logger.Info("signing block")
@@ -92,17 +107,17 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 
 	psdHash, err := ssz.TreeHash(psd)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	sig, err := bls.Sign(v.keystore.GetKeyForValidator(v.id), psdHash[:], bls.DomainProposal)
 	if err != nil {
-		return err
+		return false, err
 	}
 	newBlock.BlockHeader.Signature = sig.Serialize()
 	hashWithSignature, err := ssz.TreeHash(newBlock)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	v.logger.WithFields(logrus.Fields{
@@ -114,10 +129,13 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		Block: newBlock.ToProto(),
 	}
 
-	_, err = v.blockchainRPC.SubmitBlock(context.Background(), submitBlockRequest)
+	response, err := v.blockchainRPC.SubmitBlock(context.Background(), submitBlockRequest)
 	if err != nil {
 		logrus.WithField("slot", information.slot).Error(err)
-		return nil
+		return false, nil
+	}
+	if response.CanRetry {
+		return true, fmt.Errorf("retry")
 	}
 
 	v.logger.WithFields(logrus.Fields{
@@ -125,5 +143,5 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		"slot":      information.slot,
 	}).Debug("submitted block")
 
-	return err
+	return false, err
 }

@@ -68,9 +68,9 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
-	err = s.chain.ProcessBlock(b, true, true)
+	canRetry, err := s.chain.ProcessBlock(b, true, true)
 	if err != nil {
-		return nil, err
+		return &pb.SubmitBlockResponse{CanRetry: canRetry}, err
 	}
 	h, err := ssz.TreeHash(b)
 	if err != nil {
@@ -87,7 +87,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SubmitBlockResponse{BlockHash: h[:]}, err
+	return &pb.SubmitBlockResponse{BlockHash: h[:], CanRetry: false}, err
 }
 
 // GetSlotNumber gets the current slot number.

@@ -91,6 +91,7 @@ message SubmitBlockRequest {
 
 message SubmitBlockResponse {
     bytes BlockHash = 1;
+    bool CanRetry = 2;
 }
 
 message SlotNumberResponse {

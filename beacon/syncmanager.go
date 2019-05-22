@@ -310,7 +310,7 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 		}
 
 	} else {
-		err := s.blockchain.ProcessBlock(block, true, verifySignature)
+		_, err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
 		}

@@ -231,7 +231,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		epochStateCopy := epochState.Copy()
 
-		view := NewChainView(tipNode, s.blockchain)
+		view := NewChainView(tipNode)
 
 		err := epochStateCopy.ProcessSlots(chunk[0].BlockHeader.SlotNumber, &view, s.blockchain.config)
 		if err != nil {

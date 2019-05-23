@@ -202,7 +202,7 @@ func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 
 	tipStateCopy := tipState.Copy()
 
-	view := NewChainView(tip, b)
+	view := NewChainView(tip)
 
 	err := tipStateCopy.ProcessSlots(upTo, &view, b.config)
 	if err != nil {

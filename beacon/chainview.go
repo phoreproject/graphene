@@ -13,13 +13,11 @@ type ChainView struct {
 
 	// effectiveTipSlot is used when the chain is being updated (excluding blocks)
 	effectiveTipSlot uint64
-
-	blockchain *Blockchain
 }
 
 // NewChainView creates a new chain view with a certain tip
-func NewChainView(tip *BlockNode, blockchain *Blockchain) ChainView {
-	return ChainView{tip, tip.Slot, blockchain}
+func NewChainView(tip *BlockNode) ChainView {
+	return ChainView{tip, tip.Slot}
 }
 
 // SetTipSlot sets the effective tip slot (which may be updated due to slot transitions)
@@ -57,5 +55,5 @@ func (b *Blockchain) GetSubView(tip chainhash.Hash) (ChainView, error) {
 	if tipNode == nil {
 		return ChainView{}, errors.New("could not find tip node")
 	}
-	return NewChainView(tipNode, b), nil
+	return NewChainView(tipNode), nil
 }

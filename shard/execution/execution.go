@@ -2,6 +2,7 @@ package execution
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -14,12 +15,24 @@ import (
 	"github.com/go-interpreter/wagon/wasm"
 )
 
+// ArgumentContext represents a single execution of a shard.
+type ArgumentContext interface {
+	LoadArgument(argumentNumber int32) []byte
+}
+
+// EmptyContext is a context that doesn't resolve arguments.
+type EmptyContext struct{}
+
+// LoadArgument for empty context doesn't load anything.
+func (e EmptyContext) LoadArgument(argumentNumber int32) []byte { return nil }
+
 // Shard represents a single shard on the Phore blockchain.
 type Shard struct {
-	Module        *wasm.Module
-	Storage       Storage
-	VM            *exec.VM
-	ExportedFuncs []int64
+	Module           *wasm.Module
+	Storage          Storage
+	VM               *exec.VM
+	ExportedFuncs    []int64
+	ExecutionContext ArgumentContext
 }
 
 // DecompressSignature decompresses a signature.
@@ -33,18 +46,55 @@ func DecompressSignature(sig [65]byte) *secp256k1.Signature {
 	return secp256k1.NewSignature(R, S)
 }
 
+// SafeRead reads from a process and handles errors while reading.
+func SafeRead(proc *exec.Process, location int32, out []byte) {
+	_, err := proc.ReadAt(out, int64(location))
+	if err != nil {
+		fmt.Printf("error reading from memory at address: 0x%x\n", location)
+		proc.Terminate()
+	}
+}
+
+// SafeWrite writes to a process and handles errors while writing.
+func SafeWrite(proc *exec.Process, location int32, val []byte) {
+	_, err := proc.WriteAt(val, int64(location))
+	if err != nil {
+		fmt.Printf("error writing to memory at address: 0x%x\n", location)
+		proc.Terminate()
+	}
+}
+
+// ReadHashAt reads a hash from WebAssembly memory.
+func ReadHashAt(proc *exec.Process, addr int32) [32]byte {
+	var hash [32]byte
+	SafeRead(proc, addr, hash[:])
+	return hash
+}
+
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
-func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, error) {
+func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage, execContext ArgumentContext) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
 	mod, err := wasm.ReadModule(buf, func(name string) (*wasm.Module, error) {
 		switch name {
 		case "phore":
-			load := func(proc *exec.Process, addr int64) int64 {
-				return storage.PhoreLoad(addr)
+			load := func(proc *exec.Process, outAddr int32, inAddr int32) {
+				addrHash := ReadHashAt(proc, inAddr)
+				outHash := storage.PhoreLoad(addrHash)
+				//fmt.Printf("load: load %x, got %x\n", addrHash[:], outHash[:])
+				SafeWrite(proc, outAddr, outHash[:])
 			}
 
-			store := func(proc *exec.Process, addr int64, val int64) {
-				storage.PhoreStore(addr, val)
+			store := func(proc *exec.Process, addr int32, val int32) {
+				addrHash := ReadHashAt(proc, addr)
+				valHash := ReadHashAt(proc, val)
+				//fmt.Printf("store: set addr %x to %x\n", addrHash[:], valHash[:])
+				storage.PhoreStore(addrHash, valHash)
+			}
+
+			loadArgument := func(proc *exec.Process, argNum int32, outAddr int32) {
+				out := execContext.LoadArgument(argNum)
+				//fmt.Printf("loadArg: get arg %d, got %x\n", argNum, out)
+				SafeWrite(proc, outAddr, out)
 			}
 
 			// validate ECDSA signature
@@ -52,41 +102,30 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 			//
 			validateECDSA := func(proc *exec.Process, hashAddr int32, signatureAddr int32, pubkeyOut int32) int64 {
 				var hash [32]byte
-				_, err := proc.ReadAt(hash[:], int64(hashAddr))
-				if err != nil {
-					fmt.Println("error reading hash from ECDSA")
-					proc.Terminate()
-				}
+				SafeRead(proc, hashAddr, hash[:])
 
 				var sigBytes [65]byte
-				_, err = proc.ReadAt(sigBytes[:], int64(signatureAddr))
-				if err != nil {
-					fmt.Println("error reading signature from ECDSA")
-					proc.Terminate()
-				}
+				SafeRead(proc, signatureAddr, sigBytes[:])
+
+				//fmt.Printf("validateECDSA: hash: %x, sig: %x\n", hash, sigBytes)
 
 				// as long as hash is a random oracle (not chosen by the user),
 				// we can derive the pubkey from the signature and the hash.
 				pub, _, err := secp256k1.RecoverCompact(sigBytes[:], hash[:])
 				if err != nil {
-					fmt.Printf("error recovering public key from ECDSA: %s\n", err.Error())
-					return 0
+					return 1
 				}
 
 				var pubkeyCompressed [33]byte
 
 				copy(pubkeyCompressed[:], pub.Serialize())
 
-				_, err = proc.WriteAt(pubkeyCompressed[:], int64(pubkeyOut))
-				if err != nil {
-					fmt.Println("error writing pubkey from ECDSA")
-					proc.Terminate()
-				}
+				SafeWrite(proc, pubkeyOut, pubkeyCompressed[:])
 
 				sig := DecompressSignature(sigBytes)
 
-				if sig.Verify(hash[:], pub) {
-					return 1
+				if !sig.Verify(hash[:], pub) {
+					return 2
 				}
 				return 0
 			}
@@ -94,19 +133,20 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 			hash := func(proc *exec.Process, hashOut int32, inputStart int32, inputSize int32) {
 				toHash := make([]byte, inputSize)
 
-				_, err := proc.ReadAt(toHash, int64(inputStart))
-				if err != nil {
-					fmt.Println("error reading hash value")
-					proc.Terminate()
-				}
+				SafeRead(proc, inputStart, toHash)
 
 				h := chainhash.HashH(toHash)
 
-				_, err = proc.WriteAt(h[:], int64(hashOut))
-				if err != nil {
-					fmt.Println("error writing hash value")
-					proc.Terminate()
-				}
+				//fmt.Printf("hash: hashing %x to get %x\n", toHash, h.CloneBytes())
+
+				SafeWrite(proc, hashOut, h[:])
+			}
+
+			writeLog := func(proc *exec.Process, strPtr int32, strlen int32) {
+				logMessage := make([]byte, strlen)
+
+				SafeRead(proc, strPtr, logMessage)
+				fmt.Printf("log message: %s\n", string(logMessage))
 			}
 
 			m := wasm.NewModule()
@@ -114,12 +154,8 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 				Entries: []wasm.FunctionSig{
 					{
 						Form:        0, // value for the 'func' type constructor
-						ParamTypes:  []wasm.ValueType{wasm.ValueTypeI64},
-						ReturnTypes: []wasm.ValueType{wasm.ValueTypeI64},
-					},
-					{
-						Form:       0, // value for the 'func' type constructor
-						ParamTypes: []wasm.ValueType{wasm.ValueTypeI64, wasm.ValueTypeI64},
+						ParamTypes:  []wasm.ValueType{wasm.ValueTypeI32, wasm.ValueTypeI32},
+						ReturnTypes: []wasm.ValueType{},
 					},
 					{
 						Form:        0, // value for the 'func' type constructor
@@ -139,19 +175,29 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
-					Sig:  &m.Types.Entries[1],
+					Sig:  &m.Types.Entries[0],
 					Host: reflect.ValueOf(store),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
-					Sig:  &m.Types.Entries[2],
+					Sig:  &m.Types.Entries[1],
 					Host: reflect.ValueOf(validateECDSA),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
-					Sig:  &m.Types.Entries[3],
+					Sig:  &m.Types.Entries[2],
 					Host: reflect.ValueOf(hash),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+				},
+				{
+					Sig:  &m.Types.Entries[0],
+					Host: reflect.ValueOf(loadArgument),
+					Body: &wasm.FunctionBody{},
+				},
+				{
+					Sig:  &m.Types.Entries[0],
+					Host: reflect.ValueOf(writeLog),
+					Body: &wasm.FunctionBody{},
 				},
 			}
 			m.Export = &wasm.SectionExports{
@@ -176,6 +222,16 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 						Kind:     wasm.ExternalFunction,
 						Index:    3,
 					},
+					"loadArgument": {
+						FieldStr: "loadArgument",
+						Kind:     wasm.ExternalFunction,
+						Index:    4,
+					},
+					"write_log": {
+						FieldStr: "write_log",
+						Kind:     wasm.ExternalFunction,
+						Index:    5,
+					},
 				},
 			}
 
@@ -198,13 +254,20 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage) (*Shard, 
 		storage,
 		vm,
 		exportedFuncs,
+		execContext,
 	}, nil
 }
 
 // RunFunc runs a shard function
-func (s *Shard) RunFunc(fnIndex int64, args ...uint64) (interface{}, error) {
+func (s *Shard) RunFunc(fnName string) (interface{}, error) {
 	// TODO: ensure in exportedFuncs
-	out, err := s.VM.ExecCode(fnIndex, args...)
+
+	fnToCall, found := s.Module.Export.Entries[fnName]
+	if !found {
+		return nil, fmt.Errorf("could not find function %s", fnName)
+	}
+
+	out, err := s.VM.ExecCode(int64(fnToCall.Index))
 	if err != nil {
 		return nil, err
 	}
@@ -215,31 +278,60 @@ func (s *Shard) RunFunc(fnIndex int64, args ...uint64) (interface{}, error) {
 
 // Storage is the storage backend interface
 type Storage interface {
-	PhoreLoad(address int64) int64
-	PhoreStore(address int64, value int64)
+	PhoreLoad(address chainhash.Hash) chainhash.Hash
+	PhoreLoad64(address chainhash.Hash) uint64
+	PhoreStore(address chainhash.Hash, value chainhash.Hash)
+	PhoreStore64(address chainhash.Hash, value uint64)
 }
 
 // MemoryStorage is a memory-backed storage backend
 type MemoryStorage struct {
-	memory map[int64]int64
+	memory map[chainhash.Hash]chainhash.Hash
 }
 
 // NewMemoryStorage creates a new memory-backed storage backend
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		memory: make(map[int64]int64),
+		memory: make(map[chainhash.Hash]chainhash.Hash),
 	}
 }
 
-// PhoreLoad loads a value from memory.
-func (m *MemoryStorage) PhoreLoad(address int64) int64 {
+var zeroHash = chainhash.Hash{}
+
+// PhoreLoad loads a 256-bit value from memory.
+func (m *MemoryStorage) PhoreLoad(address chainhash.Hash) chainhash.Hash {
 	if value, found := m.memory[address]; found {
 		return value
+	}
+	return zeroHash
+}
+
+// HashTo64 converts a hash to a uint64.
+func HashTo64(h chainhash.Hash) uint64 {
+	return binary.BigEndian.Uint64(h[24:])
+}
+
+// Uint64ToHash converts a uint64 to a hash.
+func Uint64ToHash(i uint64) chainhash.Hash {
+	var h chainhash.Hash
+	binary.BigEndian.PutUint64(h[24:], i)
+	return h
+}
+
+// PhoreLoad64 loads a 64-bit value from memory.
+func (m *MemoryStorage) PhoreLoad64(address chainhash.Hash) uint64 {
+	if value, found := m.memory[address]; found {
+		return HashTo64(value)
 	}
 	return 0
 }
 
 // PhoreStore stores a value to memory.
-func (m *MemoryStorage) PhoreStore(address int64, val int64) {
+func (m *MemoryStorage) PhoreStore(address chainhash.Hash, val chainhash.Hash) {
 	m.memory[address] = val
+}
+
+// PhoreStore64 stores a 64-bit value to memory.
+func (m *MemoryStorage) PhoreStore64(address chainhash.Hash, val uint64) {
+	m.memory[address] = Uint64ToHash(val)
 }

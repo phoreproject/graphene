@@ -11,7 +11,7 @@ import (
 )
 
 func TestShard(t *testing.T) {
-	shardFile, err := os.Open("transfer_shard.wasm")
+	shardFile, err := os.Open("test_shard.wasm")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,22 +23,22 @@ func TestShard(t *testing.T) {
 
 	store := NewMemoryStorage()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = s.RunFunc(3)
+	_, err = s.RunFunc("run")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = s.RunFunc(3)
+	_, err = s.RunFunc("run")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr0 := s.Storage.PhoreLoad(0)
+	addr0 := s.Storage.PhoreLoad64(Uint64ToHash(0))
 
 	if addr0 != 2 {
 		t.Fatalf("Expected to load 2 from Phore storage, got: %d", addr0)
@@ -46,7 +46,7 @@ func TestShard(t *testing.T) {
 }
 
 func BenchmarkShardCall(b *testing.B) {
-	shardFile, err := os.Open("transfer_shard.wasm")
+	shardFile, err := os.Open("test_shard.wasm")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func BenchmarkShardCall(b *testing.B) {
 
 	store := NewMemoryStorage()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func BenchmarkShardCall(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = s.RunFunc(3)
+		_, err = s.RunFunc("run")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -86,23 +86,23 @@ func TestECDSAShard(t *testing.T) {
 
 	store := NewMemoryStorage()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = s.RunFunc(4)
+	_, err = s.RunFunc("run")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	addr0 := s.Storage.PhoreLoad(0)
+	addr0 := s.Storage.PhoreLoad64(Uint64ToHash(0))
 
-	if addr0 != 1 {
-		t.Fatalf("Expected to load 1 from Phore storage, got: %d", addr0)
+	if addr0 != 0 {
+		t.Fatalf("Expected to load 0 from Phore storage, got: %d", addr0)
 	}
 
-	addr1 := s.Storage.PhoreLoad(1)
+	addr1 := s.Storage.PhoreLoad64(Uint64ToHash(1))
 	if byte(addr1) != chainhash.HashH([]byte{1, 2, 3, 4})[0] {
 		t.Fatal("Expected to load correct hash value from shard")
 	}
@@ -159,7 +159,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 
 	store := NewMemoryStorage()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = s.RunFunc(4)
+		_, err = s.RunFunc("run")
 		if err != nil {
 			b.Fatal(err)
 		}

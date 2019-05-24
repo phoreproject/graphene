@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/phoreproject/synapse/beacon/config"
+
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/phoreproject/synapse/bls"
@@ -147,6 +149,58 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	return nil
 }
 
+// BlockFilter is a filter for block hashes that returns whether the block hash
+// is in the filter or not.
+type BlockFilter interface {
+	Has(chainhash.Hash) bool
+}
+
+func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config, filter BlockFilter) ([][]*primitives.Block, error) {
+	firstBlock := blocks[0]
+
+	epochBlockChunks := make([][]*primitives.Block, 0)
+	currentEpochChunk := make([]*primitives.Block, 0)
+	currentEpoch := firstBlock.BlockHeader.SlotNumber / c.EpochLength
+
+	logger.WithFields(logger.Fields{
+		"firstBlock": blocks[0].BlockHeader.SlotNumber,
+		"lastBlock":  blocks[len(blocks)-1].BlockHeader.SlotNumber,
+	}).Info("received blocks from peer")
+
+	for i, block := range blocks {
+		blockHash, err := ssz.TreeHash(block)
+		if err != nil {
+			return nil, err
+		}
+
+		if filter.Has(blockHash) {
+			// ignore blocks we already have.
+			continue
+		}
+
+		addToNextEpoch := true
+
+		if currentEpoch != block.BlockHeader.SlotNumber/c.EpochLength || i == len(blocks)-1 {
+			if block.BlockHeader.SlotNumber%c.EpochLength == 0 || i == len(blocks)-1 {
+				currentEpochChunk = append(currentEpochChunk, block)
+				addToNextEpoch = false
+			}
+			if len(currentEpochChunk) > 0 {
+				epochBlockChunks = append(epochBlockChunks, currentEpochChunk)
+			}
+			currentEpochChunk = make([]*primitives.Block, 0)
+			currentEpoch = block.BlockHeader.SlotNumber / c.EpochLength
+		}
+
+		// add to chunk if this is not the next epoch
+		if addToNextEpoch {
+			currentEpochChunk = append(currentEpochChunk, block)
+		}
+	}
+
+	return epochBlockChunks, nil
+}
+
 func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error {
 	// TODO: limits for this and only should receive blocks if requested
 
@@ -167,58 +221,18 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		return nil
 	}
 
-	firstBlock, err := primitives.BlockFromProto(blockMessage.Blocks[0])
-	if err != nil {
-		return err
+	blocks := make([]*primitives.Block, len(blockMessage.Blocks))
+	for i := range blockMessage.Blocks {
+		b, err := primitives.BlockFromProto(blockMessage.Blocks[i])
+		if err != nil {
+			return err
+		}
+		blocks[i] = b
 	}
 
-	epochBlockChunks := make([][]*primitives.Block, 0)
-	currentEpochChunk := make([]*primitives.Block, 0)
-	currentEpoch := firstBlock.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
-
-	logger.WithFields(logger.Fields{
-		"firstBlock": blockMessage.Blocks[0].Header.SlotNumber,
-		"lastBlock":  blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
-	}).Info("received blocks from peer")
-
-	var block *primitives.Block
-
-	// TODO: separate the chunking code into own function and test it
-
-	for i := range blockMessage.Blocks {
-		block, err = primitives.BlockFromProto(blockMessage.Blocks[i])
-		if err != nil {
-			return err
-		}
-
-		blockHash, err := ssz.TreeHash(block)
-		if err != nil {
-			return err
-		}
-
-		if s.blockchain.View.Index.Has(blockHash) {
-			// ignore blocks we already have.
-			continue
-		}
-
-		addToNextEpoch := true
-
-		if currentEpoch != block.BlockHeader.SlotNumber/s.blockchain.config.EpochLength || i == len(blockMessage.Blocks)-1 {
-			if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 || i == len(blockMessage.Blocks)-1 {
-				currentEpochChunk = append(currentEpochChunk, block)
-				addToNextEpoch = false
-			}
-			if len(currentEpochChunk) > 0 {
-				epochBlockChunks = append(epochBlockChunks, currentEpochChunk)
-			}
-			currentEpochChunk = make([]*primitives.Block, 0)
-			currentEpoch = block.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
-		}
-
-		// add to chunk if this is not the next epoch
-		if addToNextEpoch {
-			currentEpochChunk = append(currentEpochChunk, block)
-		}
+	epochBlockChunks, err := splitIncomingBlocksIntoChunks(blocks, s.blockchain.config, s.blockchain.View.Index)
+	if err != nil {
+		return err
 	}
 
 	for _, chunk := range epochBlockChunks {

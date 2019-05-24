@@ -21,6 +21,7 @@ import (
 
 // Config is the config of an BeaconApp
 type Config struct {
+	RPCProto               string
 	RPCAddress             string
 	GenesisTime            uint64
 	DataDirectory          string
@@ -40,6 +41,7 @@ type Config struct {
 // NewConfig creates a default Config
 func NewConfig() Config {
 	return Config{
+		RPCProto:               "tcp",
 		ListeningAddress:       "/ip4/127.0.0.1/tcp/20000",
 		RPCAddress:             "127.0.0.1:20002",
 		GenesisTime:            uint64(utils.Now().Unix()),
@@ -258,7 +260,7 @@ func (app *BeaconApp) loadBlockchain() error {
 
 func (app *BeaconApp) createRPCServer() error {
 	go func() {
-		err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.hostNode, app.mempool)
+		err := rpc.Serve(app.config.RPCProto, app.config.RPCAddress, app.blockchain, app.hostNode, app.mempool)
 		if err != nil {
 			panic(err)
 		}

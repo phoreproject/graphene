@@ -19,10 +19,16 @@ import (
 	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
-func (v *Validator) proposeBlock(information proposerAssignment) error {
+func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
 	// wait for slot to happen to submit
 	timer := time.NewTimer(time.Unix(int64(information.proposeAt), 0).Sub(utils.Now()))
-	<-timer.C
+
+	select {
+	case <-timer.C:
+		break
+	case <-ctx.Done():
+		return nil
+	}
 
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
 	if err != nil {

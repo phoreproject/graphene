@@ -248,7 +248,7 @@ func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSl
 	}, nil
 }
 
-// getBlock gets a block by hash.
+// GetBlock gets a block by hash.
 func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
 	h, err := chainhash.NewHash(in.Hash)
 	if err != nil {
@@ -265,8 +265,8 @@ func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetB
 }
 
 // Serve serves the RPC server
-func Serve(listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {
-	lis, err := net.Listen("tcp", listenAddr)
+func Serve(proto string, listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {
+	lis, err := net.Listen(proto, listenAddr)
 	if err != nil {
 		return err
 	}

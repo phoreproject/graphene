@@ -1,6 +1,8 @@
 package app
 
-// ShardAppConfig represents the configuration for the runtime of the shard manager.
-type ShardAppConfig struct {
-	BeaconRPCAddress string
+import "google.golang.org/grpc"
+
+// ShardConfig is the configuration for the shard chain binary.
+type ShardConfig struct {
+	beaconConn *grpc.ClientConn
 }

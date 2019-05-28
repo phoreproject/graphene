@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"errors"
 	"sort"
 	"sync"
 
@@ -15,11 +16,26 @@ import (
 // Mempool keeps track of actions (attestations, deposits, exits, slashings) to include in blocks.
 type Mempool struct {
 	AttestationMempool *attestationMempool
+	blockchain         *Blockchain
 }
 
 // NewMempool creates a new mempool.
-func NewMempool() Mempool {
-	return Mempool{newAttestationMempool()}
+func NewMempool(blockchain *Blockchain) *Mempool {
+	m := &Mempool{
+		AttestationMempool: newAttestationMempool(),
+		blockchain:         blockchain,
+	}
+
+	blockchain.RegisterNotifee(m)
+
+	return m
+}
+
+// ConnectBlock is part of the blockchain notifee.
+func (m *Mempool) ConnectBlock(b *primitives.Block) {
+	for _, a := range b.BlockBody.Attestations {
+		m.RemoveAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
+	}
 }
 
 type attestationMempool struct {
@@ -35,7 +51,35 @@ func newAttestationMempool() *attestationMempool {
 }
 
 // ProcessNewAttestation processes a new attestation to be included in a block.
-func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) {
+func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
+	// first, validate the attestation
+	tipHash := m.blockchain.View.Chain.Tip().Hash
+	tipState, found := m.blockchain.stateManager.GetStateForHash(tipHash)
+	if !found {
+		return errors.New("no state for blockchain tip")
+	}
+	tipView, err := m.blockchain.GetSubView(tipHash)
+	if err != nil {
+		return err
+	}
+
+	stateCopy := tipState.Copy()
+
+	firstSlotAttestationCouldBeIncluded := att.Data.Slot + m.blockchain.config.MinAttestationInclusionDelay
+
+	err = stateCopy.ProcessSlots(firstSlotAttestationCouldBeIncluded, &tipView, m.blockchain.config)
+	if err != nil {
+		return err
+	}
+
+	tipView.SetTipSlot(firstSlotAttestationCouldBeIncluded)
+
+	// this assumes the state will be the same at att.Data.Slot
+	err = stateCopy.ValidateAttestation(att, true, &tipView, m.blockchain.config, firstSlotAttestationCouldBeIncluded)
+	if err != nil {
+		return err
+	}
+
 	m.AttestationMempool.attestationsLock.Lock()
 	defer m.AttestationMempool.attestationsLock.Unlock()
 	for _, a := range m.AttestationMempool.attestations {
@@ -43,12 +87,14 @@ func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) {
 			for i, b := range a.ParticipationBitfield {
 				if b&att.ParticipationBitfield[i] != 0 {
 					logrus.Debug("duplicate attestation, ignoring")
-					return
+					return nil
 				}
 			}
 		}
 	}
 	m.AttestationMempool.attestations = append(m.AttestationMempool.attestations, att)
+
+	return nil
 }
 
 type attestationWithRealSigAndCount struct {
@@ -156,6 +202,8 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 
 // removeOldAttestations removes attestations that are more than one epoch old.
 func (am *attestationMempool) removeOldAttestations(slot uint64, c *config.Config) {
+	am.attestationsLock.Lock()
+	defer am.attestationsLock.Unlock()
 	newAttestations := make([]primitives.Attestation, 0)
 	for _, a := range am.attestations {
 		if a.Data.Slot+c.EpochLength < slot {
@@ -190,10 +238,6 @@ func (m *Mempool) RemoveAttestationsFromBitfield(slot uint64, shard uint64, bitf
 		}
 		newAttestations = append(newAttestations, att)
 	}
-	//logrus.WithFields(logrus.Fields{
-	//	"removed":         numRemoved,
-	//	"numAttestations": len(newAttestations),
-	//}).Debug("updated mempool with new block")
 
 	am.attestations = newAttestations
 }

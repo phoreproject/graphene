@@ -3,10 +3,11 @@ package p2p
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/golang/protobuf/proto"
 	libp2p "github.com/libp2p/go-libp2p"
@@ -68,13 +69,14 @@ type HostNode struct {
 	handlerLock       *sync.RWMutex
 	currentID         uint64
 
-	maxPeers int
+	maxPeers      int
+	chainProvider ChainProvider
 }
 
 var protocolID = protocol.ID("/grpc/phore/0.0.1")
 
 // NewHostNode creates a host node
-func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration) (*HostNode, error) {
+func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration, chainProvider ChainProvider) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	h, err := libp2p.New(
 		ctx,
@@ -120,6 +122,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		peerListLock:      new(sync.Mutex),
 		heartbeatInterval: heartbeatInterval,
 		maxPeers:          maxPeers,
+		chainProvider:     chainProvider,
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -127,8 +130,6 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 
 	// setup phore protocol
 	h.SetStreamHandler(protocolID, hostNode.handleStream)
-
-	fmt.Println(h.Mux().Protocols())
 
 	return hostNode, nil
 }
@@ -143,16 +144,6 @@ func (node *HostNode) handleStream(stream inet.Stream) {
 }
 
 func (node *HostNode) handleMessage(peer *Peer, message proto.Message) error {
-	logger.WithFields(logger.Fields{
-		"peerID":  peer.ID.String(),
-		"message": proto.MessageName(message),
-	}).Debug("received message")
-
-	err := peer.handleMessage(message)
-	if err != nil {
-		return err
-	}
-
 	node.handlerLock.RLock()
 	handlerMap, found := node.messageHandlerMap[proto.MessageName(message)]
 	node.handlerLock.RUnlock()
@@ -361,6 +352,12 @@ func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
 	return false
 }
 
+// ChainProvider is the interface from the blockchain to the host node packages.
+type ChainProvider interface {
+	Height() uint64
+	GenesisHash() chainhash.Hash
+}
+
 // Run runs the main loop of the host node
 func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
 	peerNode := newPeer(outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream, node.heartbeatInterval)
@@ -371,27 +368,29 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 
 	logger.WithField("peer", peerNode.ID.Pretty()).WithField("outbound", peerNode.Outbound).Info("connected to peer")
 
-	if outbound {
-		peerIDBytes, err := node.host.ID().MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-
-		peerInfo := peerstore.PeerInfo{
-			ID:    node.host.ID(),
-			Addrs: node.host.Addrs(),
-		}
-		peerInfoBytes, err := peerInfo.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-
-		peerNode.SendMessage(&pb.VersionMessage{
-			Version:  ClientVersion,
-			PeerID:   peerIDBytes,
-			PeerInfo: peerInfoBytes,
-		})
+	peerIDBytes, err := node.host.ID().MarshalBinary()
+	if err != nil {
+		return nil, err
 	}
+
+	peerInfo := peerstore.PeerInfo{
+		ID:    node.host.ID(),
+		Addrs: node.host.Addrs(),
+	}
+	peerInfoBytes, err := peerInfo.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	genesisHash := node.chainProvider.GenesisHash()
+
+	peerNode.SendMessage(&pb.VersionMessage{
+		Version:     ClientVersion,
+		PeerID:      peerIDBytes,
+		PeerInfo:    peerInfoBytes,
+		Height:      node.chainProvider.Height(),
+		GenesisHash: genesisHash[:],
+	})
 
 	return peerNode, nil
 }

@@ -8,11 +8,12 @@ import (
 
 // BlockNodeDisk is a block node stored on the disk.
 type BlockNodeDisk struct {
-	Hash     chainhash.Hash
-	Height   uint64
-	Slot     uint64
-	Parent   chainhash.Hash
-	Children []chainhash.Hash
+	Hash      chainhash.Hash
+	Height    uint64
+	Slot      uint64
+	Parent    chainhash.Hash
+	StateRoot chainhash.Hash
+	Children  []chainhash.Hash
 }
 
 // Database is a very basic interface for pluggable

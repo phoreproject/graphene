@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/utils"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -18,10 +19,16 @@ import (
 	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
-func (v *Validator) proposeBlock(information proposerAssignment) error {
+func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
 	// wait for slot to happen to submit
-	timer := time.NewTimer(time.Until(time.Unix(int64(information.proposeAt), 0)))
-	<-timer.C
+	timer := time.NewTimer(time.Unix(int64(information.proposeAt), 0).Sub(utils.Now()))
+
+	select {
+	case <-timer.C:
+		break
+	case <-ctx.Done():
+		return nil
+	}
 
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
 	if err != nil {
@@ -119,11 +126,6 @@ func (v *Validator) proposeBlock(information proposerAssignment) error {
 		logrus.WithField("slot", information.slot).Error(err)
 		return nil
 	}
-
-	v.logger.WithFields(logrus.Fields{
-		"blockHash": fmt.Sprintf("%x", hashWithSignature),
-		"slot":      information.slot,
-	}).Debug("submitted block")
 
 	return err
 }

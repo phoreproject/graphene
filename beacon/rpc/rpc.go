@@ -4,11 +4,11 @@ package rpc
 
 import (
 	"net"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/utils"
 
 	"github.com/golang/protobuf/proto"
 
@@ -39,7 +39,10 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 	if err != nil {
 		return nil, err
 	}
-	s.mempool.ProcessNewAttestation(*a)
+	err = s.mempool.ProcessNewAttestation(*a)
+	if err != nil {
+		return nil, err
+	}
 
 	return &empty.Empty{}, nil
 }
@@ -97,25 +100,25 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	config := s.chain.GetConfig()
 	genesisTime := state.GenesisTime
 	timePerSlot := config.SlotDuration
-	currentTime := time.Now().Unix()
+	currentTime := utils.Now().Unix()
 	currentSlot := (currentTime-int64(genesisTime))/int64(timePerSlot) - 1
 	if currentSlot < 0 {
 		currentSlot = 0
 	}
-	block, err := s.chain.GetHashBySlot(uint64(currentSlot))
+	block, err := s.chain.View.Chain.GetBlockBySlot(uint64(currentSlot))
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block[:]}, nil
+	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block.Hash[:]}, nil
 }
 
 // GetBlockHash gets the block hash for a certain slot in the main chain.
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
-	h, err := s.chain.GetHashBySlot(in.SlotNumber)
+	n, err := s.chain.View.Chain.GetBlockBySlot(in.SlotNumber)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetBlockHashResponse{Hash: h[:]}, nil
+	return &pb.GetBlockHashResponse{Hash: n.Hash[:]}, nil
 }
 
 // GetLastBlockHash gets the most recent block hash in the main chain.
@@ -153,7 +156,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 	config := s.chain.GetConfig()
 	genesisTime := state.GenesisTime
 	timePerSlot := config.SlotDuration
-	currentTime := time.Now().Unix()
+	currentTime := utils.Now().Unix()
 	currentSlot := (currentTime - int64(genesisTime)) / int64(timePerSlot)
 
 	if currentSlot < 0 {
@@ -179,7 +182,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		return nil, err
 	}
 
-	justifiedRoot, err := s.chain.GetHashBySlot(state.JustifiedSlot)
+	justifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.JustifiedSlot)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +208,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 		EpochBoundaryRoot: epochBoundaryRoot[:],
 		LatestCrosslinks:  crosslinks,
 		JustifiedSlot:     state.JustifiedSlot,
-		JustifiedHash:     justifiedRoot[:],
+		JustifiedHash:     justifiedNode.Hash[:],
 	}, nil
 }
 
@@ -245,7 +248,7 @@ func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSl
 	}, nil
 }
 
-// getBlock gets a block by hash.
+// GetBlock gets a block by hash.
 func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
 	h, err := chainhash.NewHash(in.Hash)
 	if err != nil {
@@ -262,8 +265,8 @@ func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetB
 }
 
 // Serve serves the RPC server
-func Serve(listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {
-	lis, err := net.Listen("tcp", listenAddr)
+func Serve(proto string, listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {
+	lis, err := net.Listen(proto, listenAddr)
 	if err != nil {
 		return err
 	}

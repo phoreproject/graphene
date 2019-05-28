@@ -115,7 +115,7 @@ func (ex *Explorer) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second, 16, 8*time.Second)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second, 16, 8*time.Second, ex.blockchain)
 	if err != nil {
 		panic(err)
 	}
@@ -307,7 +307,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	// Update attestations
 	for _, att := range block.BlockBody.Attestations {
-		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig)
+		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig, state.Slot-1)
 		if err != nil {
 			panic(err)
 		}
@@ -363,11 +363,6 @@ func (ex *Explorer) StartExplorer() error {
 		return err
 	}
 
-	err = ex.loadP2P()
-	if err != nil {
-		return err
-	}
-
 	signalHandler := make(chan os.Signal, 1)
 	signal.Notify(signalHandler, os.Interrupt, syscall.SIGTERM)
 
@@ -378,6 +373,11 @@ func (ex *Explorer) StartExplorer() error {
 	}()
 
 	err = ex.loadBlockchain()
+	if err != nil {
+		return err
+	}
+
+	err = ex.loadP2P()
 	if err != nil {
 		return err
 	}

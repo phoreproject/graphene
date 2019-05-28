@@ -286,19 +286,21 @@ var blockNodePrefix = []byte("block_node")
 
 // BlockNodeDiskWithoutChildren is a block node stored on the disk.
 type BlockNodeDiskWithoutChildren struct {
-	Hash   chainhash.Hash
-	Height uint64
-	Slot   uint64
-	Parent chainhash.Hash
+	Hash      chainhash.Hash
+	Height    uint64
+	Slot      uint64
+	Parent    chainhash.Hash
+	StateRoot chainhash.Hash
 }
 
 // SetBlockNode sets a block node in the database.
 func (b *BadgerDB) SetBlockNode(node BlockNodeDisk, transaction ...interface{}) error {
 	nodeWithoutChildren := BlockNodeDiskWithoutChildren{
-		Hash:   node.Hash,
-		Height: node.Height,
-		Slot:   node.Slot,
-		Parent: node.Parent,
+		Hash:      node.Hash,
+		Height:    node.Height,
+		Slot:      node.Slot,
+		Parent:    node.Parent,
+		StateRoot: node.StateRoot,
 	}
 
 	children := node.Children
@@ -360,11 +362,12 @@ func (b *BadgerDB) GetBlockNode(h chainhash.Hash, transaction ...interface{}) (*
 	}
 
 	return &BlockNodeDisk{
-		Hash:     blockNode.Hash,
-		Height:   blockNode.Height,
-		Slot:     blockNode.Slot,
-		Parent:   blockNode.Parent,
-		Children: blockNodeChildren,
+		Hash:      blockNode.Hash,
+		Height:    blockNode.Height,
+		Slot:      blockNode.Slot,
+		Parent:    blockNode.Parent,
+		StateRoot: blockNode.StateRoot,
+		Children:  blockNodeChildren,
 	}, nil
 }
 

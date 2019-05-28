@@ -1,9 +1,12 @@
 package beacon
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+
+	"github.com/phoreproject/synapse/beacon/config"
 
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -68,6 +71,16 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 
 	firstCommonBlock := s.blockchain.View.Chain.Genesis()
 
+	if len(getBlockMesssage.LocatorHashes) == 0 {
+		// TODO: ban peer
+		return nil
+	}
+
+	if !bytes.Equal(firstCommonBlock.Hash[:], getBlockMesssage.LocatorHashes[len(getBlockMesssage.LocatorHashes)-1]) {
+		// TODO: ban peer
+		return nil
+	}
+
 	// find the first block that the peer has in our main chain
 	for _, h := range getBlockMesssage.LocatorHashes {
 		blockHash, err := chainhash.NewHash(h)
@@ -99,7 +112,7 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	toSend := make([]primitives.Block, 0, limitBlocksToSend)
 
 	for currentBlockNode != nil && len(toSend) < limitBlocksToSend {
-		currentBlock, err := s.blockchain.db.GetBlockForHash(currentBlockNode.Hash)
+		currentBlock, err := s.blockchain.DB.GetBlockForHash(currentBlockNode.Hash)
 		if err != nil {
 			return err
 		}
@@ -120,8 +133,11 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 		}).Debug("sending blocks to peer")
 	}
 
+	tipHash := s.blockchain.View.Chain.Tip()
+
 	blockMessage := &pb.BlockMessage{
-		Blocks: make([]*pb.Block, len(toSend)),
+		Blocks:          make([]*pb.Block, len(toSend)),
+		LatestBlockHash: tipHash.Hash[:],
 	}
 
 	for i := range toSend {
@@ -131,6 +147,58 @@ func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) er
 	peer.SendMessage(blockMessage)
 
 	return nil
+}
+
+// BlockFilter is a filter for block hashes that returns whether the block hash
+// is in the filter or not.
+type BlockFilter interface {
+	Has(chainhash.Hash) bool
+}
+
+func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config, filter BlockFilter) ([][]*primitives.Block, error) {
+	firstBlock := blocks[0]
+
+	epochBlockChunks := make([][]*primitives.Block, 0)
+	currentEpochChunk := make([]*primitives.Block, 0)
+	currentEpoch := firstBlock.BlockHeader.SlotNumber / c.EpochLength
+
+	logger.WithFields(logger.Fields{
+		"firstBlock": blocks[0].BlockHeader.SlotNumber,
+		"lastBlock":  blocks[len(blocks)-1].BlockHeader.SlotNumber,
+	}).Info("received blocks from peer")
+
+	for i, block := range blocks {
+		blockHash, err := ssz.TreeHash(block)
+		if err != nil {
+			return nil, err
+		}
+
+		if filter.Has(blockHash) {
+			// ignore blocks we already have.
+			continue
+		}
+
+		addToNextEpoch := true
+
+		if currentEpoch != block.BlockHeader.SlotNumber/c.EpochLength || i == len(blocks)-1 {
+			if block.BlockHeader.SlotNumber%c.EpochLength == 0 || i == len(blocks)-1 {
+				currentEpochChunk = append(currentEpochChunk, block)
+				addToNextEpoch = false
+			}
+			if len(currentEpochChunk) > 0 {
+				epochBlockChunks = append(epochBlockChunks, currentEpochChunk)
+			}
+			currentEpochChunk = make([]*primitives.Block, 0)
+			currentEpoch = block.BlockHeader.SlotNumber / c.EpochLength
+		}
+
+		// add to chunk if this is not the next epoch
+		if addToNextEpoch {
+			currentEpochChunk = append(currentEpochChunk, block)
+		}
+	}
+
+	return epochBlockChunks, nil
 }
 
 func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error {
@@ -153,58 +221,18 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		return nil
 	}
 
-	firstBlock, err := primitives.BlockFromProto(blockMessage.Blocks[0])
-	if err != nil {
-		return err
+	blocks := make([]*primitives.Block, len(blockMessage.Blocks))
+	for i := range blockMessage.Blocks {
+		b, err := primitives.BlockFromProto(blockMessage.Blocks[i])
+		if err != nil {
+			return err
+		}
+		blocks[i] = b
 	}
 
-	epochBlockChunks := make([][]*primitives.Block, 0)
-	currentEpochChunk := make([]*primitives.Block, 0)
-	currentEpoch := firstBlock.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
-
-	logger.WithFields(logger.Fields{
-		"firstBlock": blockMessage.Blocks[0].Header.SlotNumber,
-		"lastBlock":  blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
-	}).Info("received blocks from peer")
-
-	var block *primitives.Block
-
-	// TODO: separate the chunking code into own function and test it
-
-	for i := range blockMessage.Blocks {
-		block, err = primitives.BlockFromProto(blockMessage.Blocks[i])
-		if err != nil {
-			return err
-		}
-
-		blockHash, err := ssz.TreeHash(block)
-		if err != nil {
-			return err
-		}
-
-		if s.blockchain.View.Index.Has(blockHash) {
-			// ignore blocks we already have.
-			continue
-		}
-
-		addToNextEpoch := true
-
-		if currentEpoch != block.BlockHeader.SlotNumber/s.blockchain.config.EpochLength || i == len(blockMessage.Blocks)-1 {
-			if block.BlockHeader.SlotNumber%s.blockchain.config.EpochLength == 0 || i == len(blockMessage.Blocks)-1 {
-				currentEpochChunk = append(currentEpochChunk, block)
-				addToNextEpoch = false
-			}
-			if len(currentEpochChunk) > 0 {
-				epochBlockChunks = append(epochBlockChunks, currentEpochChunk)
-			}
-			currentEpochChunk = make([]*primitives.Block, 0)
-			currentEpoch = block.BlockHeader.SlotNumber / s.blockchain.config.EpochLength
-		}
-
-		// add to chunk if this is not the next epoch
-		if addToNextEpoch {
-			currentEpochChunk = append(currentEpochChunk, block)
-		}
+	epochBlockChunks, err := splitIncomingBlocksIntoChunks(blocks, s.blockchain.config, s.blockchain.View.Index)
+	if err != nil {
+		return err
 	}
 
 	for _, chunk := range epochBlockChunks {
@@ -217,7 +245,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		epochStateCopy := epochState.Copy()
 
-		view := NewChainView(tipNode, s.blockchain)
+		view := NewChainView(tipNode)
 
 		err := epochStateCopy.ProcessSlots(chunk[0].BlockHeader.SlotNumber, &view, s.blockchain.config)
 		if err != nil {
@@ -300,7 +328,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			randaoHashes = append(randaoHashes, slotBytesHash[:])
 
 			for _, att := range b.BlockBody.Attestations {
-				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
+				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config, epochStateCopy.Slot-1)
 				if err != nil {
 					return err
 				}
@@ -354,6 +382,21 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		}
 	}
 
+	lastBlockHash, err := ssz.TreeHash(blockMessage.Blocks[len(blockMessage.Blocks)-1])
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(lastBlockHash[:], blockMessage.LatestBlockHash) && !bytes.Equal(blockMessage.LatestBlockHash, zeroHash[:]) {
+		logger.Infof("continuing sync to block %x", blockMessage.LatestBlockHash)
+
+		// request all blocks up to this block
+		peer.SendMessage(&pb.GetBlockMessage{
+			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+			HashStop:      blockMessage.LatestBlockHash,
+		})
+	}
+
 	peer.ProcessingRequest = false
 
 	return nil
@@ -379,7 +422,7 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 		logger.WithFields(logger.Fields{
 			"hash":       chainhash.Hash(block.BlockHeader.ParentRoot),
 			"slotTrying": block.BlockHeader.SlotNumber,
-		}).Debug("requesting parent block")
+		}).Info("requesting parent block")
 
 		// request all blocks up to this block
 		peerFrom.SendMessage(&pb.GetBlockMessage{

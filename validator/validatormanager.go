@@ -122,7 +122,7 @@ type Manager struct {
 }
 
 // NewManager creates a new validator manager to manage some validators.
-func NewManager(blockchainConn *grpc.ClientConn, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
+func NewManager(ctx context.Context, blockchainConn *grpc.ClientConn, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
 	blockchainRPC := pb.NewBlockchainRPCClient(blockchainConn)
 
 	validatorObjs := make(map[uint32]*Validator)
@@ -138,7 +138,7 @@ func NewManager(blockchainConn *grpc.ClientConn, validators []uint32, keystore K
 	}
 
 	for idx, id := range validators {
-		v, err := NewValidator(keystore, blockchainRPC, validators[idx], c, forkData)
+		v, err := NewValidator(ctx, keystore, blockchainRPC, validators[idx], c, forkData)
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +184,7 @@ func (vm *Manager) UpdateSlotNumber() error {
 			vm.attestationAssignments = make([][]primitives.ShardAndCommittee, len(ei.slots))
 
 			for i, si := range ei.slots[vm.config.EpochLength:] {
-				if si.slot == 0 || si.slot <= int64(b.SlotNumber) {
+				if si.slot == 0 || si.slot <= int64(b.SlotNumber) || len(si.committees[0].Committee) == 0 {
 					continue
 				}
 				proposer := si.committees[0].Committee[(si.slot-1)%int64(len(si.committees[0].Committee))]
@@ -265,7 +265,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 }
 
 // Start starts goroutines for each validator
-func (vm *Manager) Start() {
+func (vm *Manager) Start() error {
 	go func() {
 		err := vm.ListenForBlockAndCycle()
 		if err != nil {
@@ -289,4 +289,6 @@ func (vm *Manager) Start() {
 	}
 
 	wg.Wait()
+
+	return nil
 }

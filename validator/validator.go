@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"context"
+
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/sirupsen/logrus"
 
@@ -19,10 +21,11 @@ type Validator struct {
 	forkData           *primitives.ForkData
 	attestationRequest chan attestationAssignment
 	proposerRequest    chan proposerAssignment
+	ctx                context.Context
 }
 
 // NewValidator gets a validator
-func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, id uint32, c *config.Config, f *primitives.ForkData) (*Validator, error) {
+func NewValidator(ctx context.Context, keystore Keystore, blockchainRPC pb.BlockchainRPCClient, id uint32, c *config.Config, f *primitives.ForkData) (*Validator, error) {
 	v := &Validator{
 		keystore:           keystore,
 		blockchainRPC:      blockchainRPC,
@@ -31,6 +34,7 @@ func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, id ui
 		forkData:           f,
 		attestationRequest: make(chan attestationAssignment),
 		proposerRequest:    make(chan proposerAssignment),
+		ctx:                ctx,
 	}
 	l := logrus.New()
 	l.SetLevel(logrus.DebugLevel)
@@ -41,10 +45,14 @@ func NewValidator(keystore Keystore, blockchainRPC pb.BlockchainRPCClient, id ui
 // RunValidator keeps track of assignments and creates/signs attestations as needed.
 func (v *Validator) RunValidator() error {
 	for {
-		p := <-v.proposerRequest
-		err := v.proposeBlock(p)
-		if err != nil {
-			return err
+		select {
+		case p := <-v.proposerRequest:
+			err := v.proposeBlock(v.ctx, p)
+			if err != nil {
+				return err
+			}
+		case <-v.ctx.Done():
+			break
 		}
 	}
 }

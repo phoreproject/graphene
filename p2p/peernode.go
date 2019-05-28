@@ -3,6 +3,7 @@ package p2p
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"math/rand"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 // ClientVersion is the version of the client.
@@ -36,6 +38,9 @@ type Peer struct {
 	LastMessageTime   time.Time
 	Version           uint64
 	ProcessingRequest bool
+
+	keyedNetGroup uint64
+	connectedTime int64
 
 	messageHandlers map[string]MessageHandler
 	ctx             context.Context
@@ -59,6 +64,9 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 		LastMessageTime:   time.Unix(0, 0),
 		Connecting:        true,
 		ProcessingRequest: false,
+
+		keyedNetGroup: binary.LittleEndian.Uint64(chainhash.HashB([]byte(id))),
+		connectedTime: time.Now().Unix(),
 
 		messageHandlers: make(map[string]MessageHandler),
 		ctx:             ctx,

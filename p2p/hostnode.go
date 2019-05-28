@@ -3,6 +3,7 @@ package p2p
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"time"
 
@@ -68,6 +69,7 @@ type HostNode struct {
 	handlerLock       *sync.RWMutex
 	currentID         uint64
 
+	maxPeers      int
 	chainProvider ChainProvider
 }
 
@@ -119,6 +121,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		timeoutInterval:   timeoutInterval,
 		peerListLock:      new(sync.Mutex),
 		heartbeatInterval: heartbeatInterval,
+		maxPeers:          maxPeers,
 		chainProvider:     chainProvider,
 	}
 
@@ -203,6 +206,13 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		return nil, nil
 	}
 
+	if len(node.peerList) >= node.maxPeers {
+		node.attemptToEvictConnection()
+		if len(node.peerList) >= node.maxPeers {
+			return nil, nil
+		}
+	}
+
 	err := node.host.Connect(node.ctx, peerInfo)
 	if err != nil {
 		return nil, err
@@ -218,6 +228,118 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 	}
 
 	return node.setupPeerNode(stream, true)
+}
+
+type nodeEvictionCandidate struct {
+	peer            *Peer
+	lastMessageTime int64
+	connectedTime   int64
+	keyedNetGroup   uint64
+}
+
+type nodeSorter struct {
+	candidates []nodeEvictionCandidate
+	comparator func(nodeEvictionCandidate, nodeEvictionCandidate) bool
+}
+
+func (a nodeSorter) Len() int {
+	return len(a.candidates)
+}
+
+func (a nodeSorter) Less(i, j int) bool {
+	return a.comparator(a.candidates[i], a.candidates[j])
+}
+
+func (a nodeSorter) Swap(i, j int) {
+	a.candidates[i], a.candidates[j] = a.candidates[j], a.candidates[i]
+}
+
+func eraseLastKElements(candidates []nodeEvictionCandidate, k int, comparator func(nodeEvictionCandidate, nodeEvictionCandidate) bool) []nodeEvictionCandidate {
+	if k >= len(candidates) {
+		return []nodeEvictionCandidate{}
+	}
+	if k == 0 {
+		return candidates
+	}
+	sorter := nodeSorter{
+		candidates: candidates,
+		comparator: comparator,
+	}
+	sort.Sort(sorter)
+
+	return candidates[0:k]
+}
+
+func (node *HostNode) attemptToEvictConnection() {
+	candidates := []nodeEvictionCandidate{}
+	for _, p := range node.peerList {
+		c := nodeEvictionCandidate{
+			peer:            p,
+			lastMessageTime: p.LastMessageTime.Unix(),
+			connectedTime:   p.connectedTime,
+			keyedNetGroup:   p.keyedNetGroup,
+		}
+		candidates = append(candidates, c)
+	}
+
+	// Deterministically select 2 peers to protect by netgroup.
+	// An attacker cannot predict which netgroups will be protected
+	// Note in Bitcoin it's 4 peers, we may change it to 4 as well.
+	candidates = eraseLastKElements(
+		candidates,
+		2,
+		func(a nodeEvictionCandidate, b nodeEvictionCandidate) bool {
+			return a.keyedNetGroup < b.keyedNetGroup
+		},
+	)
+
+	// Protect 2 nodes that most recently sent us messages.
+	// Note in Bitcoin it's 4 peers, we may change it to 4 as well.
+	candidates = eraseLastKElements(
+		candidates,
+		2,
+		func(a nodeEvictionCandidate, b nodeEvictionCandidate) bool {
+			return a.lastMessageTime < b.lastMessageTime
+		},
+	)
+
+	// Protect the half of the remaining nodes which have been connected the longest.
+	// This replicates the non-eviction implicit behavior, and precludes attacks that start later.
+	candidates = eraseLastKElements(
+		candidates,
+		len(candidates)/2,
+		func(a nodeEvictionCandidate, b nodeEvictionCandidate) bool {
+			return a.connectedTime > b.connectedTime
+		},
+	)
+
+	if len(candidates) == 0 {
+		return
+	}
+
+	var maxGroup uint64
+	var maxConnections int
+	var maxConnectionTime int64
+
+	mapNetGroupNodes := map[uint64][]nodeEvictionCandidate{}
+	for _, c := range candidates {
+		group, ok := mapNetGroupNodes[c.keyedNetGroup]
+		if !ok {
+			group = []nodeEvictionCandidate{}
+		}
+		group = append(group, c)
+		mapNetGroupNodes[c.keyedNetGroup] = group
+
+		groupTime := group[0].connectedTime
+		if len(group) > maxConnections || len(group) == maxConnections && groupTime > maxConnectionTime {
+			maxConnections = len(group)
+			maxConnectionTime = groupTime
+			maxGroup = c.keyedNetGroup
+		}
+	}
+
+	group := mapNetGroupNodes[maxGroup]
+	node.DisconnectPeer(group[0].peer)
 }
 
 // IsPeerConnected checks if a peer is connected
@@ -335,6 +457,7 @@ func (node *HostNode) removePeer(peer *Peer) {
 // DisconnectPeer disconnects a peer
 func (node *HostNode) DisconnectPeer(peer *Peer) error {
 	peer.Disconnect()
+	node.removePeer(peer)
 	return nil
 }
 

@@ -15,12 +15,13 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/beacon/rpc"
 	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/utils"
 	logger "github.com/sirupsen/logrus"
 )
 
 // Config is the config of an BeaconApp
 type Config struct {
+	RPCProto               string
 	RPCAddress             string
 	GenesisTime            uint64
 	DataDirectory          string
@@ -40,9 +41,10 @@ type Config struct {
 // NewConfig creates a default Config
 func NewConfig() Config {
 	return Config{
+		RPCProto:               "tcp",
 		ListeningAddress:       "/ip4/127.0.0.1/tcp/20000",
 		RPCAddress:             "127.0.0.1:20002",
-		GenesisTime:            uint64(time.Now().Unix()),
+		GenesisTime:            uint64(utils.Now().Unix()),
 		InitialValidatorList:   []beacon.InitialValidatorEntry{},
 		NetworkConfig:          &config.MainNetConfig,
 		IsIntegrationTest:      false,
@@ -66,7 +68,7 @@ type BeaconApp struct {
 
 	database   db.Database
 	blockchain *beacon.Blockchain
-	mempool    beacon.Mempool
+	mempool    *beacon.Mempool
 
 	// P2P
 	hostNode    *p2p.HostNode
@@ -78,7 +80,6 @@ func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
 		config:   config,
 		exitChan: make(chan struct{}),
-		mempool:  beacon.NewMempool(),
 	}
 	return app
 }
@@ -93,10 +94,6 @@ func (app *BeaconApp) Run() error {
 	if err != nil {
 		return err
 	}
-	err = app.loadP2P()
-	if err != nil {
-		return err
-	}
 
 	signalHandler := make(chan os.Signal, 1)
 	signal.Notify(signalHandler, os.Interrupt, syscall.SIGTERM)
@@ -106,6 +103,11 @@ func (app *BeaconApp) Run() error {
 	}
 
 	err = app.loadBlockchain()
+	if err != nil {
+		return err
+	}
+
+	err = app.loadP2P()
 	if err != nil {
 		return err
 	}
@@ -157,7 +159,7 @@ func (app *BeaconApp) loadP2P() error {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers, app.config.HeartBeatInterval)
+	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers, app.config.HeartBeatInterval, app.blockchain)
 	if err != nil {
 		panic(err)
 	}
@@ -252,14 +254,13 @@ func (app *BeaconApp) loadBlockchain() error {
 
 	app.blockchain = blockchain
 
-	go app.watchBlocksForMempool()
-
+	app.mempool = beacon.NewMempool(blockchain)
 	return nil
 }
 
 func (app *BeaconApp) createRPCServer() error {
 	go func() {
-		err := rpc.Serve(app.config.RPCAddress, app.blockchain, app.hostNode, &app.mempool)
+		err := rpc.Serve(app.config.RPCProto, app.config.RPCAddress, app.blockchain, app.hostNode, app.mempool)
 		if err != nil {
 			panic(err)
 		}
@@ -323,17 +324,4 @@ func (app BeaconApp) exit() {
 // Exit sends a request to exit the application.
 func (app BeaconApp) Exit() {
 	app.exitChan <- struct{}{}
-}
-
-// watchBlocksForMempool watches for blocks and removes the corresponding attestations from the mempool.
-func (app BeaconApp) watchBlocksForMempool() {
-	for {
-		bl := <-app.blockchain.ConnectBlockNotifier.Watch()
-
-		block := bl.(primitives.Block)
-
-		for _, a := range block.BlockBody.Attestations {
-			app.mempool.RemoveAttestationsFromBitfield(a.Data.Slot, a.Data.Shard, a.ParticipationBitfield)
-		}
-	}
 }

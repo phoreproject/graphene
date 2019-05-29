@@ -12,11 +12,12 @@ import (
 
 // BlockNode is an in-memory representation of a block.
 type BlockNode struct {
-	Hash     chainhash.Hash
-	Height   uint64
-	Slot     uint64
-	Parent   *BlockNode
-	Children []*BlockNode
+	Hash      chainhash.Hash
+	Height    uint64
+	Slot      uint64
+	Parent    *BlockNode
+	StateRoot chainhash.Hash
+	Children  []*BlockNode
 }
 
 // GetAncestorAtHeight gets the ancestor of a block at a certain height.
@@ -142,7 +143,7 @@ func (bi *BlockIndex) GetBlockNodeByHash(hash chainhash.Hash) *BlockNode {
 }
 
 // AddBlockNodeToIndex adds a new block ot the blockchain.
-func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash) (*BlockNode, error) {
+func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash, stateRoot chainhash.Hash) (*BlockNode, error) {
 	bi.lock.Lock()
 	defer bi.lock.Unlock()
 
@@ -164,11 +165,12 @@ func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash cha
 	}
 
 	node := &BlockNode{
-		Hash:     blockHash,
-		Height:   height,
-		Slot:     block.BlockHeader.SlotNumber,
-		Parent:   parentNode,
-		Children: []*BlockNode{},
+		Hash:      blockHash,
+		Height:    height,
+		Slot:      block.BlockHeader.SlotNumber,
+		Parent:    parentNode,
+		StateRoot: stateRoot,
+		Children:  []*BlockNode{},
 	}
 
 	bi.index[blockHash] = node
@@ -190,11 +192,12 @@ func (bi *BlockIndex) LoadBlockNode(blockNodeDisk *db.BlockNodeDisk) (*BlockNode
 	}
 
 	newNode := &BlockNode{
-		Hash:     blockNodeDisk.Hash,
-		Height:   blockNodeDisk.Height,
-		Slot:     blockNodeDisk.Slot,
-		Parent:   parent,
-		Children: make([]*BlockNode, 0),
+		Hash:      blockNodeDisk.Hash,
+		Height:    blockNodeDisk.Height,
+		Slot:      blockNodeDisk.Slot,
+		StateRoot: blockNodeDisk.StateRoot,
+		Parent:    parent,
+		Children:  make([]*BlockNode, 0),
 	}
 
 	bi.index[blockNodeDisk.Hash] = newNode
@@ -235,6 +238,8 @@ func NewChain() *Chain {
 
 // Genesis gets the genesis of the chain
 func (c *Chain) Genesis() *BlockNode {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if len(c.chain) > 0 {
 		return c.chain[0]
 	}
@@ -274,6 +279,8 @@ func (c *Chain) GetBlockByHeight(height int) *BlockNode {
 
 // Tip gets the tip of the chain.
 func (c *Chain) Tip() *BlockNode {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if len(c.chain) == 0 {
 		return nil
 	}
@@ -286,9 +293,7 @@ func (c *Chain) GetChainLocator() [][]byte {
 	step := uint64(1)
 	locator := make([][]byte, 0, 32)
 
-	c.lock.Lock()
 	current := c.Tip()
-	c.lock.Unlock()
 
 	for {
 		locator = append(locator, current.Hash[:])
@@ -357,4 +362,17 @@ func (c *Chain) Next(node *BlockNode) *BlockNode {
 	defer c.lock.Unlock()
 
 	return c.next(node)
+}
+
+// GetBlockBySlot gets the block node at a certain slot.
+func (c *Chain) GetBlockBySlot(slot uint64) (*BlockNode, error) {
+	tip := c.Tip()
+	if tip.Slot < slot {
+		return tip, nil
+	}
+	node := tip.GetAncestorAtSlot(slot)
+	if node == nil {
+		return nil, fmt.Errorf("no block at slot %d", slot)
+	}
+	return node, nil
 }

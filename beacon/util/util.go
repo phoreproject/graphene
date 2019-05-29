@@ -58,22 +58,14 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 
 // MineBlockWithSpecialsAndAttestations mines a block with the given specials and attestations.
 func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []primitives.Attestation, proposerSlashings []primitives.ProposerSlashing, casperSlashings []primitives.CasperSlashing, deposits []primitives.Deposit, exits []primitives.Exit, k validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
-	lastBlock, err := b.LastBlock()
-	if err != nil {
-		return nil, err
-	}
-
-	parentRoot, err := ssz.TreeHash(lastBlock)
-	if err != nil {
-		return nil, err
-	}
+	parentRoot := b.View.Chain.Tip().Hash
 
 	stateRoot, err := ssz.TreeHash(b.GetState())
 	if err != nil {
 		return nil, err
 	}
 
-	slotNumber := lastBlock.BlockHeader.SlotNumber + 1
+	slotNumber := b.View.Chain.Tip().Slot + 1
 
 	var slotsBytes [8]byte
 	binary.BigEndian.PutUint64(slotsBytes[:], slotNumber)
@@ -133,16 +125,13 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 
 // GenerateFakeAttestations generates a bunch of fake attestations.
 func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys validator.Keystore) ([]primitives.Attestation, error) {
-	lb, err := b.LastBlock()
-	if err != nil {
-		return nil, err
-	}
-
 	if s.Slot == 0 {
 		return []primitives.Attestation{}, nil
 	}
 
-	assignments, err := s.GetShardCommitteesAtSlot(s.Slot-1, lb.BlockHeader.SlotNumber, b.GetConfig())
+	lastSlot := b.View.Chain.Tip().Slot
+
+	assignments, err := s.GetShardCommitteesAtSlot(s.Slot-1, lastSlot, b.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +139,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochBoundaryHash, err := b.GetEpochBoundaryHash(lb.BlockHeader.SlotNumber)
+		epochBoundaryHash, err := b.GetEpochBoundaryHash(lastSlot)
 		if err != nil {
 			return nil, err
 		}
@@ -158,23 +147,23 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 		prevSlot := s.Slot - 1
 
 		justifiedSlot := s.JustifiedSlot
-		if lb.BlockHeader.SlotNumber < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
+		if lastSlot < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
 			justifiedSlot = s.PreviousJustifiedSlot
 		}
 
-		justifiedHash, err := b.GetHashBySlot(justifiedSlot)
+		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedSlot)
 		if err != nil {
 			return nil, err
 		}
 
 		dataToSign := primitives.AttestationData{
-			Slot:                lb.BlockHeader.SlotNumber,
+			Slot:                lastSlot,
 			Shard:               assignment.Shard,
 			BeaconBlockHash:     b.View.Chain.Tip().Hash,
 			EpochBoundaryHash:   epochBoundaryHash,
 			ShardBlockHash:      chainhash.Hash{},
 			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,
-			JustifiedBlockHash:  justifiedHash,
+			JustifiedBlockHash:  justifiedNode.Hash,
 			JustifiedSlot:       justifiedSlot,
 		}
 
@@ -222,12 +211,7 @@ func SetBit(bitfield []byte, id uint32) ([]byte, error) {
 
 // MineBlockWithFullAttestations generates attestations to include in a block and mines it.
 func MineBlockWithFullAttestations(b *beacon.Blockchain, keystore validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
-	lb, err := b.LastBlock()
-	if err != nil {
-		return nil, err
-	}
-
-	state, err := b.GetUpdatedState(lb.BlockHeader.SlotNumber + 1)
+	state, err := b.GetUpdatedState(b.View.Chain.Tip().Slot + 1)
 	if err != nil {
 		return nil, err
 	}

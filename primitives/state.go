@@ -3,10 +3,10 @@ package primitives
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math"
-	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/sirupsen/logrus"
 
@@ -572,7 +572,7 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
 	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
 	if int64(slot)-earliestSlot < 0 || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
-		return nil, fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot)
+		return nil, errors.WithStack(fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot))
 	}
 	return s.ShardAndCommitteeForSlots[int64(slot)-earliestSlot], nil
 }
@@ -831,8 +831,8 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 }
 
 // GetAttestationParticipants gets the indices of participants.
-func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
-	shardCommittees, err := s.GetShardCommitteesAtSlot(s.Slot-1, data.Slot, c)
+func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config, stateSlot uint64) ([]uint32, error) {
+	shardCommittees, err := s.GetShardCommitteesAtSlot(stateSlot, data.Slot, c)
 	if err != nil {
 		return nil, err
 	}
@@ -972,7 +972,7 @@ type BlockView interface {
 	GetHashBySlot(slot uint64) (chainhash.Hash, error)
 	Tip() (chainhash.Hash, error)
 	SetTipSlot(slot uint64)
-	GetStateBySlot(slot uint64) (*State, error)
+	GetLastStateRoot() (chainhash.Hash, error)
 }
 
 // ShuffleValidators shuffles an array of ints given a seed.
@@ -1108,8 +1108,6 @@ const (
 
 // ProcessEpochTransition processes an epoch transition and modifies state.
 func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Receipt, error) {
-	epochTransitionStart := time.Now()
-
 	s.EpochIndex = s.Slot / c.EpochLength
 
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
@@ -1135,7 +1133,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	// previousEpochAttesterIndices are all participants of attestations in the previous epoch
 	previousEpochAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
 		if err != nil {
 			return nil, err
 		}
@@ -1162,7 +1160,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	// epoch with a justified slot equal to the previous justified slot.
 	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochJustifiedAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
 		if err != nil {
 			return nil, err
 		}
@@ -1211,7 +1209,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochBoundaryAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochBoundaryAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
 		if err != nil {
 			return nil, err
 		}
@@ -1222,7 +1220,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
 	for _, a := range currentEpochBoundaryAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
 		if err != nil {
 			return nil, err
 		}
@@ -1247,7 +1245,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochHeadAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochHeadAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
 		if err != nil {
 			return nil, err
 		}
@@ -1407,7 +1405,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousAttestationCache := map[uint32]*PendingAttestation{}
 	for _, a := range previousEpochAttestations {
-		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
+		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
 		if err != nil {
 			return nil, err
 		}
@@ -1646,32 +1644,15 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		}
 	}
 
-	for index, validator := range s.ValidatorRegistry {
-		if validator.Status == Active && s.ValidatorBalances[index] < c.EjectionBalance {
-			err := s.UpdateValidatorStatus(uint32(index), ExitedWithoutPenalty, c)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	logrus.WithField("totalRewarded", totalRewarded).WithField("totalPenalized", totalPenalized).WithField("netRewards", int64(totalRewarded)-int64(totalPenalized)).Debug("finished processing rewards")
-
-	shouldUpdateRegistry := true
-
-	if s.FinalizedSlot <= s.ValidatorRegistryLatestChangeSlot {
-		shouldUpdateRegistry = false
+	if err := s.exitValidatorsUnderMinimum(c); err != nil {
+		return nil, err
 	}
 
-	for _, shardAndCommittees := range s.ShardAndCommitteeForSlots {
-		for _, committee := range shardAndCommittees {
-			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeSlot {
-				shouldUpdateRegistry = false
-				goto done
-			}
-		}
-	}
-done:
+	shouldUpdateRegistry := s.shouldUpdateRegistry()
 
+	// update registry if:
+	// - a slot has been finalized after the last time the registry was changed
+	// - every shard
 	if shouldUpdateRegistry {
 		err := s.UpdateValidatorRegistry(c)
 		if err != nil {
@@ -1706,23 +1687,24 @@ done:
 
 	s.LatestAttestations = newLatestAttestations
 
-	epochTransitionDuration := time.Since(epochTransitionStart)
-
-	logrus.WithField("slot", s.Slot).WithField("duration", epochTransitionDuration).Info("epoch transition")
-
 	return receipts, nil
 }
 
-// applyAttestation verifies and applies an attestation to the given state.
-func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool) error {
-	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
-		return errors.New("attestation included too soon")
+func (s *State) exitValidatorsUnderMinimum(c *config.Config) error {
+	for index, validator := range s.ValidatorRegistry {
+		if validator.Status == Active && s.ValidatorBalances[index] < c.EjectionBalance {
+			err := s.UpdateValidatorStatus(uint32(index), ExitedWithoutPenalty, c)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	if att.Data.Slot+c.EpochLength < s.Slot {
-		return errors.New("attestation was not included within 1 epoch")
-	}
+	return nil
+}
 
+// ValidateAttestation checks if the attestation is valid.
+func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view BlockView, c *config.Config, stateSlot uint64) error {
 	expectedJustifiedSlot := s.JustifiedSlot
 	prevSlot := s.Slot - 1
 	if att.Data.Slot < prevSlot-(prevSlot%c.EpochLength) { // 8 -> 0, 9 -> 8
@@ -1753,7 +1735,7 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 	}
 
 	if verifySignature {
-		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
+		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c, stateSlot)
 		if err != nil {
 			return err
 		}
@@ -1796,9 +1778,27 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 		return fmt.Errorf("beacon block hash is invalid (expected: %s, got: %s)", node, att.Data.BeaconBlockHash)
 	}
 
-	// REMOVEME
 	if !att.Data.ShardBlockHash.IsEqual(&zeroHash) {
 		return errors.New("invalid block Hash")
+	}
+
+	return nil
+}
+
+// applyAttestation verifies and applies an attestation to the given state.
+func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool) error {
+	err := s.ValidateAttestation(att, verifySignature, view, c, s.Slot-1)
+	if err != nil {
+		return err
+	}
+
+	// these checks are dependent on when the attestation is included
+	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
+		return errors.New("attestation included too soon")
+	}
+
+	if att.Data.Slot+c.EpochLength < s.Slot {
+		return errors.New("attestation was not included within 1 epoch")
 	}
 
 	s.LatestAttestations = append(s.LatestAttestations, PendingAttestation{
@@ -1968,20 +1968,12 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
 
 	// Check state root.
-	expectedState, err := view.GetStateBySlot(block.BlockHeader.SlotNumber - 1)
+	expectedStateRoot, err := view.GetLastStateRoot()
 	if err != nil {
 		return err
 	}
-	expectedStateRoot, err := ssz.TreeHash(expectedState)
-	if err != nil {
-		return err
-	}
-	expectedStateRootHash, err := chainhash.NewHash(expectedStateRoot[:])
-	if err != nil {
-		return err
-	}
-	if !block.BlockHeader.StateRoot.IsEqual(expectedStateRootHash) {
-		return errors.New("StateRoot doesn't match")
+	if !block.BlockHeader.StateRoot.IsEqual(&expectedStateRoot) {
+		return errors.New("state root doesn't match")
 	}
 
 	//blockTransitionTime := time.Since(blockTransitionStart)
@@ -2024,6 +2016,25 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) erro
 	return nil
 }
 
+// shouldUpdateRegistry returns if the validator registry is ready to be shuffled.
+// The registry should only be updated if every shard has created a crosslink since the
+// last update and the beacon chain has been finalized since the last update.
+func (s *State) shouldUpdateRegistry() bool {
+	if s.FinalizedSlot <= s.ValidatorRegistryLatestChangeSlot {
+		return false
+	}
+
+	for _, shardAndCommittees := range s.ShardAndCommitteeForSlots {
+		for _, committee := range shardAndCommittees {
+			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeSlot {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 const (
 	// Active is a status for a validator that is active.
 	Active = iota
@@ -2040,7 +2051,8 @@ const (
 // Validator is a single validator session (logging in and out)
 type Validator struct {
 	// BLS public key
-	Pubkey          [96]byte
+	Pubkey [96]byte
+	// XXXPubkeyCached is the cached deserialized public key.
 	XXXPubkeyCached *bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash

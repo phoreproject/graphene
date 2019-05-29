@@ -9,11 +9,8 @@ message VersionMessage {
     uint64 Version = 1;
     bytes PeerID = 2;
     bytes PeerInfo = 3;
-}
-
-message VerackMessage {
-    uint64 Version = 1;
-    bytes PeerID = 2;
+    bytes GenesisHash = 4;
+    uint64 Height = 5;
 }
 
 message PingMessage {
@@ -36,6 +33,7 @@ message GetBlockMessage {
 // Response to GetBlockMessage
 message BlockMessage {
     repeated Block Blocks = 1;
+    bytes LatestBlockHash = 2;
 }
 
 

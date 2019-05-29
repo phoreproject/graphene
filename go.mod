@@ -3,6 +3,7 @@ module github.com/phoreproject/synapse
 go 1.12
 
 require (
+	github.com/beevik/ntp v0.2.0
 	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/ethereum/go-ethereum v1.8.27 // indirect
 	github.com/go-test/deep v1.0.1
@@ -29,6 +30,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/phoreproject/bls v0.0.0-20190507172851-0b6cefc7f7ee
 	github.com/phoreproject/prysm v0.0.0-20190209202311-c85edb6a4546
+	github.com/pkg/errors v0.8.1
 	github.com/prysmaticlabs/prysm v0.0.0-20190514144052-d672a0602655
 	github.com/sirupsen/logrus v1.4.1
 	github.com/valyala/fasttemplate v1.0.1 // indirect

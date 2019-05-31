@@ -97,7 +97,10 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	enc.Encode(vList)
+	err := enc.Encode(vList)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // ByID sorts validator information by ID.
@@ -199,7 +202,9 @@ func main() {
 				continue
 			}
 
-			f.Seek(0, 0)
+			if _, err := f.Seek(0, 0); err != nil {
+				panic(err)
+			}
 
 			var lengthBytes [4]byte
 
@@ -209,8 +214,6 @@ func main() {
 			}
 
 			length := binary.BigEndian.Uint32(lengthBytes[:])
-
-			fmt.Println("read", length)
 
 			for i := uint32(0); i < length; i++ {
 				var validatorIDBytes [4]byte
@@ -265,7 +268,10 @@ func main() {
 
 		enc := json.NewEncoder(f)
 		enc.SetIndent("", "  ")
-		enc.Encode(vList)
+		err = enc.Encode(vList)
+		if err != nil {
+			panic(err)
+		}
 
 		err = f.Close()
 		if err != nil {

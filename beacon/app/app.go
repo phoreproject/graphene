@@ -168,7 +168,12 @@ func (app *BeaconApp) loadP2P() error {
 	app.hostNode = hostNode
 
 	logger.Debug("starting peer discovery")
-	go app.hostNode.StartDiscovery()
+	go func() {
+		err := app.hostNode.StartDiscovery()
+		if err != nil {
+			logger.Errorf("error discovering peers: %s", err)
+		}
+	}()
 
 	return nil
 }
@@ -287,7 +292,12 @@ func (app *BeaconApp) runMainLoop() error {
 
 		go app.syncManager.TryInitialSync()
 
-		go app.syncManager.ListenForBlocks()
+		go func() {
+			err := app.syncManager.ListenForBlocks()
+			if err != nil {
+				logger.Errorf("error listening for blocks: %s", err)
+			}
+		}()
 	}()
 
 	// the main loop for this thread is waiting for the exit and cleaning up

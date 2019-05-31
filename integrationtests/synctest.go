@@ -113,8 +113,6 @@ func (test *ValidateTest) runValidator() {
 	}()
 }
 
-const numBlocks = 100
-
 func (test *ValidateTest) waitForBlocks() error {
 	timer := time.NewTimer(10 * time.Second)
 

@@ -72,6 +72,9 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 	}
 
 	blockBody, err := primitives.BlockBodyFromProto(mempool)
+	if err != nil {
+		return err
+	}
 
 	newBlock := primitives.Block{
 		BlockHeader: primitives.BlockHeader{

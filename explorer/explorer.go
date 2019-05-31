@@ -286,6 +286,10 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	}
 
 	proposerIdx, err := state.GetBeaconProposerIndex(state.Slot, block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
+	if err != nil {
+		panic(err)
+	}
+
 	var idBytes [4]byte
 	binary.BigEndian.PutUint32(idBytes[:], proposerIdx)
 	pubAndID := append(state.ValidatorRegistry[proposerIdx].Pubkey[:], idBytes[:]...)
@@ -302,8 +306,6 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	}
 
 	ex.database.database.Create(blockDB)
-
-	var attestations []Attestation
 
 	// Update attestations
 	for _, att := range block.BlockBody.Attestations {
@@ -338,8 +340,6 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		}
 
 		ex.database.database.Create(attestation)
-
-		attestations = append(attestations, *attestation)
 	}
 }
 
@@ -392,7 +392,12 @@ func (ex *Explorer) StartExplorer() error {
 
 	go ex.syncManager.TryInitialSync()
 
-	go ex.syncManager.ListenForBlocks()
+	go func() {
+		err := ex.syncManager.ListenForBlocks()
+		if err != nil {
+			logger.Errorf("error listening for blocks: %s", err)
+		}
+	}()
 
 	t := &Template{
 		templates: template.Must(template.ParseGlob("templates/*.html")),

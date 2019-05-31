@@ -1645,10 +1645,6 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		}
 	}
 
-	if epochsSinceFinality > 4 {
-
-	}
-
 	if err := s.exitValidatorsUnderMinimum(c); err != nil {
 		return nil, err
 	}

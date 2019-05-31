@@ -32,9 +32,7 @@ func main() {
 
 	var entries []testframework.Entry
 	if len(flagTest) == 0 {
-		for _, entry := range testcase.EntryList {
-			entries = append(entries, entry)
-		}
+		entries = append(entries, testcase.EntryList...)
 	} else {
 		for _, name := range flagTest {
 			entries = append(entries, findEntryByName(name))

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	protocol "github.com/libp2p/go-libp2p-protocol"
+	logger "github.com/sirupsen/logrus"
 
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 
@@ -87,12 +88,12 @@ const mDNSTag = "_phore-discovery._udp"
 // TODO: add other discovery protocols such as DHT, etc.
 func (d Discovery) StartDiscovery() error {
 	fmt.Println("starting discovery")
-	// if d.options.MDNS.Enabled {
-	// 	err := d.discoverFromMDNS()
-	// 	if err != nil {
-	// 		logger.Error(err)
-	// 	}
-	// }
+	if d.options.MDNS.Enabled {
+		err := d.discoverFromMDNS()
+		if err != nil {
+			logger.Error(err)
+		}
+	}
 
 	for _, pinfo := range d.options.PeerAddresses {
 		fmt.Println(pinfo)
@@ -101,7 +102,7 @@ func (d Discovery) StartDiscovery() error {
 
 	d.startActiveDiscovery()
 
-	//d.startGetAddr()
+	d.startGetAddr()
 
 	return nil
 }

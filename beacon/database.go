@@ -3,6 +3,7 @@ package beacon
 import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,6 +22,68 @@ func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
 		StateRoot: b.StateRoot,
 		Parent:    blockNodeToHash(b.Parent),
 	}
+}
+
+// loadBlockchainFromDisk loads all information of the blockchain from disk
+// into memory.
+func (b *Blockchain) loadBlockchainFromDisk(genesisHash chainhash.Hash) error {
+	logrus.Info("loading block index...")
+	err := b.populateBlockIndexFromDatabase(genesisHash)
+	if err != nil {
+		return err
+	}
+
+	logrus.Info("loading justified and finalized states...")
+	err = b.populateJustifiedAndFinalizedNodes()
+	if err != nil {
+		return err
+	}
+
+	logrus.Info("populating state map...")
+	err = b.populateStateMap()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// initializeDatabase sets up the database initially with default
+// values based on the genesis block.
+func (b *Blockchain) initializeDatabase(node *BlockNode, initialState primitives.State) error {
+	b.View.Chain.SetTip(node)
+
+	b.View.SetFinalizedHead(node.Hash, initialState)
+	b.View.SetJustifiedHead(node.Hash, initialState)
+	err := b.DB.SetJustifiedHead(node.Hash)
+	if err != nil {
+		return err
+	}
+	err = b.DB.SetJustifiedState(initialState)
+	if err != nil {
+		return err
+	}
+	err = b.DB.SetFinalizedHead(node.Hash)
+	if err != nil {
+		return err
+	}
+	err = b.DB.SetFinalizedState(initialState)
+	if err != nil {
+		return err
+	}
+	b.View.Chain.SetTip(node)
+
+	err = b.stateManager.SetBlockState(node.Hash, &initialState)
+	if err != nil {
+		return err
+	}
+
+	err = b.DB.SetHeadBlock(node.Hash)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {

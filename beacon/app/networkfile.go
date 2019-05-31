@@ -82,8 +82,6 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 
 	c.DiscoveryOptions = p2p.NewDiscoveryOptions()
 
-	fmt.Println(chainConfig.BootstrapPeers)
-
 	c.DiscoveryOptions.PeerAddresses = make([]peerstore.PeerInfo, len(chainConfig.BootstrapPeers))
 
 	networkConfig, found := config.NetworkIDs[chainConfig.NetworkID]
@@ -103,8 +101,6 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 		}
 		c.DiscoveryOptions.PeerAddresses[i] = *peerInfo
 	}
-
-	fmt.Println(c.DiscoveryOptions.PeerAddresses)
 
 	return &c, nil
 }

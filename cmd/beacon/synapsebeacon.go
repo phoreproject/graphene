@@ -61,7 +61,7 @@ func main() {
 
 	appConfig.ListeningAddress = *listen
 	appConfig.RPCAddress = *rpcConnect
-	appConfig.DiscoveryOptions.PeerAddresses = initialPeers
+	appConfig.DiscoveryOptions.PeerAddresses = append(appConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
 	appConfig.DataDirectory = *datadir
 
 	appConfig.Resync = *resync

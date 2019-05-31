@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	protocol "github.com/libp2p/go-libp2p-protocol"
@@ -13,7 +14,6 @@ import (
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/phoreproject/synapse/pb"
-	logger "github.com/sirupsen/logrus"
 )
 
 // MDNSOptions are options for the MDNS discovery mechanism.
@@ -86,14 +86,16 @@ const mDNSTag = "_phore-discovery._udp"
 //
 // TODO: add other discovery protocols such as DHT, etc.
 func (d Discovery) StartDiscovery() error {
-	if d.options.MDNS.Enabled {
-		err := d.discoverFromMDNS()
-		if err != nil {
-			logger.Error(err)
-		}
-	}
+	fmt.Println("starting discovery")
+	// if d.options.MDNS.Enabled {
+	// 	err := d.discoverFromMDNS()
+	// 	if err != nil {
+	// 		logger.Error(err)
+	// 	}
+	// }
 
 	for _, pinfo := range d.options.PeerAddresses {
+		fmt.Println(pinfo)
 		d.HandlePeerFound(pinfo)
 	}
 

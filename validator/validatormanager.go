@@ -12,8 +12,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/pb"
-
-	"google.golang.org/grpc"
 )
 
 type attestationAssignment struct {
@@ -122,9 +120,7 @@ type Manager struct {
 }
 
 // NewManager creates a new validator manager to manage some validators.
-func NewManager(ctx context.Context, blockchainConn *grpc.ClientConn, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
-	blockchainRPC := pb.NewBlockchainRPCClient(blockchainConn)
-
+func NewManager(ctx context.Context, blockchainRPC pb.BlockchainRPCClient, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
 	validatorObjs := make(map[uint32]*Validator)
 
 	forkDataProto, err := blockchainRPC.GetForkData(context.Background(), &empty.Empty{})

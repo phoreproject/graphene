@@ -3,9 +3,8 @@
 package rpc
 
 import (
+	"fmt"
 	"net"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
@@ -86,7 +85,6 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 		return nil, err
 	}
 
-	logrus.Debug("broadcasting")
 	err = s.p2p.Broadcast("block", data)
 	if err != nil {
 		return nil, err
@@ -262,6 +260,18 @@ func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetB
 	return &pb.GetBlockResponse{
 		Block: block.ToProto(),
 	}, nil
+}
+
+func (s *server) GetValidatorInformation(ctx context.Context, in *pb.GetValidatorRequest) (*pb.Validator, error) {
+	state := s.chain.GetState()
+
+	if uint32(len(state.ValidatorRegistry)) <= in.ID {
+		return nil, fmt.Errorf("could not find validator with ID %d", in.ID)
+	}
+
+	validator := state.ValidatorRegistry[in.ID]
+
+	return validator.ToProto(), nil
 }
 
 // Serve serves the RPC server

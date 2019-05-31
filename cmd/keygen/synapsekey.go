@@ -2,10 +2,18 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+
 	"flag"
+	"fmt"
+	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/phoreproject/synapse/beacon/app"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
@@ -17,11 +25,99 @@ import (
 	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
+var zeroHash = chainhash.Hash{}
+
+func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
+	validatorsStrings := strings.Split(validatorsToGenerate, ",")
+	var validatorIndices []uint32
+
+	for _, s := range validatorsStrings {
+		if !strings.ContainsRune(s, '-') {
+			i, err := strconv.Atoi(s)
+			if err != nil {
+				panic("invalid validators parameter")
+			}
+			validatorIndices = append(validatorIndices, uint32(i))
+		} else {
+			parts := strings.SplitN(s, "-", 2)
+			if len(parts) != 2 {
+				panic("invalid validators parameter")
+			}
+			first, err := strconv.Atoi(parts[0])
+			if err != nil {
+				panic("invalid validators parameter")
+			}
+			second, err := strconv.Atoi(parts[1])
+			if err != nil {
+				panic("invalid validators parameter")
+			}
+			for i := first; i <= second; i++ {
+				validatorIndices = append(validatorIndices, uint32(i))
+			}
+		}
+	}
+
+	validators := make([]app.InitialValidatorInformation, len(validatorIndices))
+
+	for i, v := range validatorIndices {
+		key, _ := bls.RandSecretKey(validator.GetReaderForID(rootkey, v))
+
+		pub := key.DerivePublicKey()
+
+		pubSer := pub.Serialize()
+
+		h, err := ssz.TreeHash(pubSer)
+		if err != nil {
+			panic(err)
+		}
+
+		sig, err := bls.Sign(key, h[:], bls.DomainDeposit)
+		if err != nil {
+			panic(err)
+		}
+
+		sigSer := sig.Serialize()
+
+		iv := app.InitialValidatorInformation{
+			PubKey:                fmt.Sprintf("%x", pubSer),
+			ProofOfPossession:     fmt.Sprintf("%x", sigSer),
+			WithdrawalShard:       0,
+			WithdrawalCredentials: fmt.Sprintf("%x", zeroHash[:]),
+			DepositSize:           config.MainNetConfig.MaxDeposit,
+			ID:                    v,
+		}
+
+		validators[i] = iv
+	}
+
+	vList := app.InitialValidatorList{
+		NumValidators: len(validatorIndices),
+		Validators:    validators,
+	}
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	enc.Encode(vList)
+}
+
+// ByID sorts validator information by ID.
+type ByID []app.InitialValidatorInformation
+
+func (b ByID) Len() int { return len(b) }
+
+func (b ByID) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b ByID) Less(i, j int) bool {
+	return b[i].ID < b[j].ID
+}
+
 func main() {
 	generate := flag.Bool("generate", false, "generate validator key files")
 	rootkey := flag.String("rootkey", "", "this key derives all other keys")
 	validators := flag.String("validators", "", "validator assignment")
-	outfile := flag.String("outfile", "validators.pubs", "file with all of the public keys of validators")
+	outfile := flag.String("outfile", "validators.json", "file with all of the public keys of validators")
 
 	combine := flag.Bool("combine", false, "combine validator key files")
 	combineFiles := flag.String("input", "", "space separated list of files to combine")
@@ -41,94 +137,19 @@ func main() {
 		}
 	}
 
-	var validatorIndices []uint32
-
 	if *generate {
-		validatorsStrings := strings.Split(*validators, ",")
-		for _, s := range validatorsStrings {
-			if !strings.ContainsRune(s, '-') {
-				i, err := strconv.Atoi(s)
-				if err != nil {
-					panic("invalid validators parameter")
-				}
-				validatorIndices = append(validatorIndices, uint32(i))
-			} else {
-				parts := strings.SplitN(s, "-", 2)
-				if len(parts) != 2 {
-					panic("invalid validators parameter")
-				}
-				first, err := strconv.Atoi(parts[0])
-				if err != nil {
-					panic("invalid validators parameter")
-				}
-				second, err := strconv.Atoi(parts[1])
-				if err != nil {
-					panic("invalid validators parameter")
-				}
-				for i := first; i <= second; i++ {
-					validatorIndices = append(validatorIndices, uint32(i))
-				}
-			}
-		}
-
 		f, err := os.Create(*outfile)
 		if err != nil {
 			panic(err)
 		}
-		var numValidatorBytes [4]byte
-		binary.BigEndian.PutUint32(numValidatorBytes[:], uint32(len(validatorIndices)))
-		_, err = f.Write(numValidatorBytes[:])
-		if err != nil {
-			panic(err)
-		}
 
-		for _, v := range validatorIndices {
-			key, _ := bls.RandSecretKey(validator.GetReaderForID(*rootkey, v))
-
-			pub := key.DerivePublicKey()
-
-			var validatorIndexBytes [4]byte
-			binary.BigEndian.PutUint32(validatorIndexBytes[:], v)
-			_, err := f.Write(validatorIndexBytes[:])
-			if err != nil {
-				panic(err)
-			}
-
-			pubSer := pub.Serialize()
-
-			h, err := ssz.TreeHash(pubSer)
-			if err != nil {
-				panic(err)
-			}
-
-			sig, err := bls.Sign(key, h[:], bls.DomainDeposit)
-			if err != nil {
-				panic(err)
-			}
-
-			sigSer := sig.Serialize()
-
-			iv := beacon.InitialValidatorEntry{
-				PubKey:                pubSer,
-				ProofOfPossession:     sigSer,
-				WithdrawalShard:       0,
-				WithdrawalCredentials: chainhash.Hash{},
-				DepositSize:           config.MainNetConfig.MaxDeposit,
-			}
-
-			err = binary.Write(f, binary.BigEndian, iv)
-			if err != nil {
-				panic(err)
-			}
-		}
+		generateKeyFile(*validators, *rootkey, f)
 
 		err = f.Close()
 		if err != nil {
 			panic(err)
 		}
-	}
-
-	if *combine {
+	} else if *combine {
 		validatorList := make(map[uint32]beacon.InitialValidatorEntry)
 
 		for _, fileToCombine := range filesToCombine {
@@ -138,6 +159,48 @@ func main() {
 				panic(err)
 			}
 
+			decoder := json.NewDecoder(f)
+
+			var ivList app.InitialValidatorList
+
+			err = decoder.Decode(&ivList)
+			if err == nil {
+				for _, validator := range ivList.Validators {
+					pubKeyBytes, err := hex.DecodeString(validator.PubKey)
+					if err != nil {
+						panic(err)
+					}
+					var pubKey [96]byte
+					copy(pubKey[:], pubKeyBytes)
+
+					sigBytes, err := hex.DecodeString(validator.ProofOfPossession)
+					if err != nil {
+						panic(err)
+					}
+					var signature [48]byte
+					copy(signature[:], sigBytes)
+
+					withdrawalCredentialsBytes, err := hex.DecodeString(validator.WithdrawalCredentials)
+					if err != nil {
+						panic(err)
+					}
+					var withdrawalCredentials [32]byte
+					copy(withdrawalCredentials[:], withdrawalCredentialsBytes)
+
+					validatorList[validator.ID] = beacon.InitialValidatorEntry{
+						PubKey:                pubKey,
+						ProofOfPossession:     signature,
+						WithdrawalCredentials: withdrawalCredentials,
+						WithdrawalShard:       validator.WithdrawalShard,
+						DepositSize:           validator.DepositSize,
+					}
+				}
+
+				continue
+			}
+
+			f.Seek(0, 0)
+
 			var lengthBytes [4]byte
 
 			_, err = f.Read(lengthBytes[:])
@@ -146,6 +209,8 @@ func main() {
 			}
 
 			length := binary.BigEndian.Uint32(lengthBytes[:])
+
+			fmt.Println("read", length)
 
 			for i := uint32(0); i < length; i++ {
 				var validatorIDBytes [4]byte
@@ -170,30 +235,37 @@ func main() {
 			f.Close()
 		}
 
+		validators := make([]app.InitialValidatorInformation, len(validatorList))
+
+		i := 0
+
+		for index, entry := range validatorList {
+			validators[i] = app.InitialValidatorInformation{
+				PubKey:                fmt.Sprintf("%x", entry.PubKey),
+				ProofOfPossession:     fmt.Sprintf("%x", entry.ProofOfPossession),
+				WithdrawalShard:       entry.WithdrawalShard,
+				WithdrawalCredentials: fmt.Sprintf("%x", entry.WithdrawalCredentials[:]),
+				DepositSize:           entry.DepositSize,
+				ID:                    index,
+			}
+			i++
+		}
+
 		f, err := os.Create(*outfile)
 		if err != nil {
 			panic(err)
 		}
-		var numValidatorBytes [4]byte
-		binary.BigEndian.PutUint32(numValidatorBytes[:], uint32(len(validatorList)))
-		_, err = f.Write(numValidatorBytes[:])
-		if err != nil {
-			panic(err)
+
+		sort.Sort(ByID(validators))
+
+		vList := app.InitialValidatorList{
+			NumValidators: len(validators),
+			Validators:    validators,
 		}
 
-		for index, entry := range validatorList {
-			var validatorIndexBytes [4]byte
-			binary.BigEndian.PutUint32(validatorIndexBytes[:], index)
-			_, err := f.Write(validatorIndexBytes[:])
-			if err != nil {
-				panic(err)
-			}
-
-			err = binary.Write(f, binary.BigEndian, entry)
-			if err != nil {
-				panic(err)
-			}
-		}
+		enc := json.NewEncoder(f)
+		enc.SetIndent("", "  ")
+		enc.Encode(vList)
 
 		err = f.Close()
 		if err != nil {

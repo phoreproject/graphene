@@ -146,7 +146,8 @@ type PendingAttestation struct {
 	Data                  AttestationData
 	ParticipationBitfield []byte
 	CustodyBitfield       []byte
-	SlotIncluded          uint64
+	InclusionDelay        uint64
+	ProposerIndex         uint32
 }
 
 // Copy copies a pending attestation
@@ -163,7 +164,8 @@ func (pa *PendingAttestation) ToProto() *pb.PendingAttestation {
 	paProto.CustodyBitfield = pa.CustodyBitfield
 	paProto.Data = pa.Data.ToProto()
 	paProto.ParticipationBitfield = pa.ParticipationBitfield
-	paProto.SlotIncluded = pa.SlotIncluded
+	paProto.InclusionDelay = pa.InclusionDelay
+	paProto.ProposerIndex = pa.ProposerIndex
 	return paProto
 }
 
@@ -177,7 +179,8 @@ func PendingAttestationFromProto(pa *pb.PendingAttestation) (*PendingAttestation
 	return &PendingAttestation{
 		CustodyBitfield:       pa.CustodyBitfield,
 		ParticipationBitfield: pa.ParticipationBitfield,
-		SlotIncluded:          pa.SlotIncluded,
+		InclusionDelay:        pa.InclusionDelay,
+		ProposerIndex:         pa.ProposerIndex,
 		Data:                  *data,
 	}, nil
 }

@@ -4,12 +4,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/phoreproject/synapse/beacon/config"
 	"google.golang.org/grpc"
 )
 
 // ValidatorConfig is the config passed into the validator app.
 type ValidatorConfig struct {
 	BlockchainConn   *grpc.ClientConn
+	NetworkConfig    *config.Config
 	ValidatorIndices []uint32
 	RootKey          string
 }

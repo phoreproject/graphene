@@ -89,14 +89,17 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		View:   NewBlockchainView(),
 	}
 
-	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)
+	sm, err := NewStateManager(config, genesisTime, b, db)
 	if err != nil {
 		return nil, err
 	}
 
 	b.stateManager = sm
 
-	initialState := sm.GetHeadState()
+	initialState, err := InitializeState(config, validators, genesisTime, skipValidation)
+	if err != nil {
+		return nil, err
+	}
 
 	stateRoot, err := ssz.TreeHash(initialState)
 	if err != nil {
@@ -142,13 +145,13 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	if err != nil {
 		b.View.Chain.SetTip(node)
 
-		b.View.SetFinalizedHead(blockHash, initialState)
-		b.View.SetJustifiedHead(blockHash, initialState)
+		b.View.SetFinalizedHead(blockHash, *initialState)
+		b.View.SetJustifiedHead(blockHash, *initialState)
 		err = b.DB.SetJustifiedHead(node.Hash)
 		if err != nil {
 			return nil, err
 		}
-		err = b.DB.SetJustifiedState(initialState)
+		err = b.DB.SetJustifiedState(*initialState)
 		if err != nil {
 			return nil, err
 		}
@@ -156,13 +159,13 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		if err != nil {
 			return nil, err
 		}
-		err = b.DB.SetFinalizedState(initialState)
+		err = b.DB.SetFinalizedState(*initialState)
 		if err != nil {
 			return nil, err
 		}
 		b.View.Chain.SetTip(node)
 
-		err = b.stateManager.SetBlockState(blockHash, &initialState)
+		err = b.stateManager.SetBlockState(blockHash, initialState)
 		if err != nil {
 			return nil, err
 		}
@@ -198,23 +201,21 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 	tip := b.View.Chain.Tip()
 
-	tipState := b.stateManager.GetHeadState()
-
-	tipStateCopy := tipState.Copy()
-
 	view := NewChainView(tip)
 
-	err := tipStateCopy.ProcessSlots(upTo, &view, b.config)
+	tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
 	if err != nil {
 		return nil, err
 	}
+
+	tipStateCopy := tipState.Copy()
 
 	return &tipStateCopy, nil
 }
 
 // GetNextSlotTime returns the timestamp of the next slot.
 func (b *Blockchain) GetNextSlotTime() time.Time {
-	return time.Unix(int64((b.stateManager.GetHeadSlot()+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
+	return time.Unix(int64((b.View.Chain.Tip().Slot+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
 }
 
 // InitialValidatorEntry is the validator entry to be added

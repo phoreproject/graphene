@@ -1,7 +1,6 @@
 package beacon
 
 import (
-	"errors"
 	"sort"
 	"sync"
 
@@ -54,28 +53,23 @@ func newAttestationMempool() *attestationMempool {
 func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
 	// first, validate the attestation
 	tipHash := m.blockchain.View.Chain.Tip().Hash
-	tipState, found := m.blockchain.stateManager.GetStateForHash(tipHash)
-	if !found {
-		return errors.New("no state for blockchain tip")
-	}
+
 	tipView, err := m.blockchain.GetSubView(tipHash)
 	if err != nil {
 		return err
 	}
 
-	stateCopy := tipState.Copy()
-
 	firstSlotAttestationCouldBeIncluded := att.Data.Slot + m.blockchain.config.MinAttestationInclusionDelay
 
-	err = stateCopy.ProcessSlots(firstSlotAttestationCouldBeIncluded, &tipView, m.blockchain.config)
+	tipState, err := m.blockchain.stateManager.GetStateForHashAtSlot(tipHash, firstSlotAttestationCouldBeIncluded, &tipView, m.blockchain.config)
 	if err != nil {
 		return err
 	}
 
 	tipView.SetTipSlot(firstSlotAttestationCouldBeIncluded)
 
-	// this assumes the state will be the same at att.Data.Slot
-	err = stateCopy.ValidateAttestation(att, true, &tipView, m.blockchain.config, firstSlotAttestationCouldBeIncluded)
+	// if the first slot it could be included is
+	err = tipState.ValidateAttestation(att, true, &tipView, m.blockchain.config, tipState.Slot-1)
 	if err != nil {
 		return err
 	}

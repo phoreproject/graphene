@@ -23,9 +23,7 @@ import (
 type Config struct {
 	RPCProto               string
 	RPCAddress             string
-	GenesisTime            uint64
 	DataDirectory          string
-	InitialValidatorList   []beacon.InitialValidatorEntry
 	NetworkConfig          *config.Config
 	Resync                 bool
 	IsIntegrationTest      bool
@@ -34,8 +32,12 @@ type Config struct {
 	MinPeerCountToWait     int
 	HeartBeatInterval      time.Duration
 	TimeOutInterval        time.Duration
-	DiscoveryOptions       p2p.DiscoveryOptions
 	MaxPeers               int
+
+	// These options are filled in through the chain file.
+	GenesisTime          uint64
+	InitialValidatorList []beacon.InitialValidatorEntry
+	DiscoveryOptions     p2p.DiscoveryOptions
 }
 
 // NewConfig creates a default Config

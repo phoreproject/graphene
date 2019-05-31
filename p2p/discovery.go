@@ -12,7 +12,6 @@ import (
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
-	maddr "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
@@ -32,10 +31,6 @@ type DiscoveryOptions struct {
 }
 
 var activeDiscoveryNS = "synapse"
-var defaultBootstrapAddrStrings = []string{
-	"/ip4/134.209.58.178/tcp/11781/ipfs/12D3KooWGeBbgdgVrfd6GhGscUp8LxAYGrvYSWpD4sHTNyrUYG3T",
-	"/ip4/206.189.214.61/tcp/11781/ipfs/12D3KooWMFRdDoWiS7LS3J3pjgGtNYTDtTeanFFUCJyTKxiyk2KZ",
-}
 
 // NewDiscoveryOptions creates a DiscoveryOptions with default values
 func NewDiscoveryOptions() DiscoveryOptions {
@@ -98,20 +93,6 @@ func (d Discovery) StartDiscovery() error {
 		}
 	}
 
-	for _, addrString := range defaultBootstrapAddrStrings {
-		addr, err := maddr.NewMultiaddr(addrString)
-		if err != nil {
-			logger.Error(err)
-		}
-
-		pinfo, err := ps.InfoFromP2pAddr(addr)
-		if err != nil {
-			logger.Error(err)
-		}
-
-		d.HandlePeerFound(*pinfo)
-	}
-
 	for _, pinfo := range d.options.PeerAddresses {
 		d.HandlePeerFound(pinfo)
 	}
@@ -141,19 +122,6 @@ func (d Discovery) startActiveDiscovery() {
 }
 
 func (d Discovery) bootstrapActiveDiscovery() {
-	for _, p := range defaultBootstrapAddrStrings {
-		peerAddr, err := maddr.NewMultiaddr(p)
-		if err != nil {
-			logger.Errorf("bootstrapActiveDiscovery address error %s", err.Error())
-		}
-		peerinfo, _ := ps.InfoFromP2pAddr(peerAddr)
-
-		if _, err = d.host.Connect(*peerinfo); err != nil {
-			logger.Errorf("bootstrapActiveDiscovery connect error %s", err.Error())
-		} else {
-			logger.Infof("Connection established with bootstrap node: %v", *peerinfo)
-		}
-	}
 }
 
 func (d Discovery) startAdvertise() {

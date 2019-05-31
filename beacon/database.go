@@ -109,11 +109,6 @@ func (b *Blockchain) populateStateMap() error {
 
 	b.View.Chain.SetTip(finalizedNode)
 
-	err = b.stateManager.UpdateHead(finalizedNode.Hash)
-	if err != nil {
-		return err
-	}
-
 	for len(loadQueue) > 0 {
 		itemToLoad := loadQueue[0]
 

@@ -81,6 +81,29 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, err
 	}
 
+	reasons := map[uint8]int64{}
+
+	netRewarded := int64(0)
+	for _, r := range receipts {
+		netRewarded += r.Amount
+		if _, found := reasons[r.Type]; found {
+			reasons[r.Type] += r.Amount
+		} else {
+			reasons[r.Type] = r.Amount
+		}
+	}
+
+	if len(reasons) > 0 {
+		for reason, amount := range reasons {
+			if amount > 0 {
+				logger.Debugf("reward: %-50s %.08f PHR", primitives.ReceiptTypeToMeaning(reason), float64(amount)/1e8)
+			} else {
+				logger.Debugf("penalty: %-50s %.08f PHR", primitives.ReceiptTypeToMeaning(reason), float64(amount)/1e8)
+			}
+		}
+		logger.Debugf("net rewards:                                               %.08f PHR", float64(netRewarded)/1e8)
+	}
+
 	stateCalculationTime := time.Since(stateCalculationStart)
 
 	blockStorageStart := time.Now()
@@ -175,6 +198,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	}
 
 	if initialFinalizedSlot != newState.FinalizedSlot {
+		logger.WithFields(logger.Fields{
+			"finalizedSlot": newState.FinalizedSlot,
+		}).Info("finalized slot")
+
 		err := b.DB.SetFinalizedState(*finalizedState)
 		if err != nil {
 			return nil, nil, err
@@ -202,6 +229,12 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	b.View.justifiedHead = justifiedNodeAndState
 
 	if initialJustifiedSlot != newState.JustifiedSlot {
+		logger.WithFields(logger.Fields{
+			"justifiedSlot":         newState.JustifiedSlot,
+			"previousJustifiedSlot": newState.PreviousJustifiedSlot,
+			"justificationBitfield": newState.JustificationBitfield,
+		}).Info("justified slot")
+
 		err := b.DB.SetJustifiedState(*justifiedState)
 		if err != nil {
 			return nil, nil, err
@@ -242,5 +275,12 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 // GetState gets a copy of the current state of the blockchain.
 func (b *Blockchain) GetState() primitives.State {
-	return b.stateManager.GetHeadState()
+	tipHash := b.View.Chain.Tip().Hash
+
+	state, found := b.stateManager.GetStateForHash(tipHash)
+	if !found {
+		panic("don't have state for tip")
+	}
+
+	return *state
 }

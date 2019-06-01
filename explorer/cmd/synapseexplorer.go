@@ -1,12 +1,9 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"os"
 
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
 
@@ -18,8 +15,7 @@ import (
 )
 
 func main() {
-	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
-	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
+	chainconfig := flag.String("chainconfig", "testnet.json", "file of chain config")
 	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
 	datadir := flag.String("datadir", "", "location to store blockchain data")
 	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
@@ -52,40 +48,19 @@ func main() {
 	defer db.Close()
 
 	// we should load the keys from the validator keystore
-	f, err := os.Open(*initialpubkeys)
+	f, err := os.Open(*chainconfig)
 	if err != nil {
 		panic(err)
 	}
 
-	var lengthBytes [4]byte
-
-	_, err = f.Read(lengthBytes[:])
+	explorerConfig, err := explorer.ReadChainFileToConfig(f)
 	if err != nil {
 		panic(err)
 	}
 
-	length := binary.BigEndian.Uint32(lengthBytes[:])
-
-	initialValidatorList := make([]beacon.InitialValidatorEntry, length)
-
-	for i := uint32(0); i < length; i++ {
-		var validatorIDBytes [4]byte
-		n, err := f.Read(validatorIDBytes[:])
-		if err != nil {
-			panic(err)
-		}
-		if n != 4 {
-			panic("unexpected end of pubkey file")
-		}
-
-		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
-
-		var iv beacon.InitialValidatorEntry
-		err = binary.Read(f, binary.BigEndian, &iv)
-		if err != nil {
-			panic(err)
-		}
-		initialValidatorList[validatorID] = iv
+	err = f.Close()
+	if err != nil {
+		panic(err)
 	}
 
 	initialPeers, err := p2p.ParseInitialConnections(*initialConnections)
@@ -93,20 +68,13 @@ func main() {
 		panic(err)
 	}
 
-	options := p2p.NewDiscoveryOptions()
-	options.PeerAddresses = initialPeers
+	explorerConfig.DiscoveryOptions.PeerAddresses = append(explorerConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
 
-	explorerConfig := explorer.Config{
-		GenesisTime:          *genesisTime,
-		DataDirectory:        *datadir,
-		Resync:               *resync,
-		InitialValidatorList: initialValidatorList,
-		NetworkConfig:        &config.MainNetConfig,
-		ListeningAddress:     *listen,
-		DiscoveryOptions:     options,
-	}
+	explorerConfig.DataDirectory = *datadir
+	explorerConfig.Resync = *resync
+	explorerConfig.ListeningAddress = *listen
 
-	ex, err := explorer.NewExplorer(explorerConfig, db)
+	ex, err := explorer.NewExplorer(*explorerConfig, db)
 	if err != nil {
 		panic(err)
 	}

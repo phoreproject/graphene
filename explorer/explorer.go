@@ -28,17 +28,6 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Config is the explorer app config.
-type Config struct {
-	GenesisTime          uint64
-	DataDirectory        string
-	InitialValidatorList []beacon.InitialValidatorEntry
-	NetworkConfig        *config.Config
-	Resync               bool
-	ListeningAddress     string
-	DiscoveryOptions     p2p.DiscoveryOptions
-}
-
 // Explorer is a blockchain explorer.
 // The explorer streams blocks from the beacon chain as they are received
 // and then keeps track of its own blockchain so that it can access more
@@ -400,7 +389,7 @@ func (ex *Explorer) StartExplorer() error {
 	}()
 
 	t := &Template{
-		templates: template.Must(template.ParseGlob("templates/*.html")),
+		templates: template.Must(template.ParseGlob("explorer/templates/*.html")),
 	}
 
 	e := echo.New()

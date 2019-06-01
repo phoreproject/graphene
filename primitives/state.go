@@ -1345,24 +1345,30 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	// winningRoot finds the winning shard block Hash
 	winningRoot := func(shardCommittee ShardAndCommittee) (*chainhash.Hash, error) {
-		balances := map[chainhash.Hash]struct{}{}
+		// find all possible hashes for the winning root
+		possibleHashes := map[chainhash.Hash]struct{}{}
 		for _, a := range currentEpochAttestations {
 			if a.Data.Shard != shardCommittee.Shard {
 				continue
 			}
-			balances[a.Data.ShardBlockHash] = struct{}{}
+			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
 		}
 		for _, a := range previousEpochAttestations {
 			if a.Data.Shard != shardCommittee.Shard {
 				continue
 			}
-			balances[a.Data.ShardBlockHash] = struct{}{}
+			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
 		}
 
-		topBalance := uint64(0)
-		topHash := chainhash.Hash{1}
+		if len(possibleHashes) == 0 {
+			return nil, fmt.Errorf("no votes counted for shard %d", shardCommittee.Shard)
+		}
 
-		for b := range balances {
+		// find the top balance
+		topBalance := uint64(0)
+		topHash := chainhash.Hash{}
+
+		for b := range possibleHashes {
 			validatorIndices, err := attestingValidatorIndices(shardCommittee, b)
 			if err != nil {
 				return nil, err
@@ -1376,6 +1382,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			}
 
 			if sumBalance == totalBalance {
+				// in case of a tie, favor the lower hash
 				if bytes.Compare(topHash[:], b[:]) > 0 {
 					topHash = b
 				}
@@ -1387,7 +1394,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		return &topHash, nil
 	}
 
-	shardWinnerCache := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
+	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
@@ -1398,10 +1405,10 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			if bestRoot == nil {
 				continue
 			}
-			if shardWinnerCache[i] == nil {
-				shardWinnerCache[i] = make(map[uint64]chainhash.Hash)
+			if slotWinners[i] == nil {
+				slotWinners[i] = make(map[uint64]chainhash.Hash)
 			}
-			shardWinnerCache[i][shardCommittee.Shard] = *bestRoot
+			slotWinners[i][shardCommittee.Shard] = *bestRoot
 			attestingCommittee, err := attestingValidatorIndices(shardCommittee, *bestRoot)
 			if err != nil {
 				return nil, err
@@ -1604,7 +1611,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	if s.Slot >= 2*c.EpochLength {
 		for slot, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots[:c.EpochLength] {
 			for _, shardCommittee := range shardCommitteeAtSlot {
-				winningRoot := shardWinnerCache[slot][shardCommittee.Shard]
+				winningRoot := slotWinners[slot][shardCommittee.Shard]
 				participationIndices, err := attestingValidatorIndices(shardCommittee, winningRoot)
 				if err != nil {
 					return nil, err

@@ -7,6 +7,9 @@ type Node interface {
 	IsLeaf() bool
 }
 
+// For leaf node, key == hash
+// For inner node, key is used for internal usage, it's the max key of the left and right child
+// hash is the combined hash of left and right hash
 type nodeBase struct {
 	key  Key
 	hash Hash
@@ -25,6 +28,8 @@ func (node nodeBase) GetHash() *Hash {
 // LeafNode is the leaf node
 type LeafNode struct {
 	nodeBase
+
+	value interface{}
 }
 
 // IsLeaf implements Node
@@ -54,13 +59,20 @@ func (node InnerNode) GetRight() Node {
 	return node.right
 }
 
+// GetValue returns the value
+func (node LeafNode) GetValue() interface{} {
+	return node.value
+}
+
 // NewLeafNode constructs a new LeafNode
-func NewLeafNode(key *Key, hash *Hash) LeafNode {
+func NewLeafNode(hash *Hash, value interface{}) LeafNode {
 	return LeafNode{
 		nodeBase: nodeBase{
-			key:  *key,
+			key:  *hash,
 			hash: *hash,
 		},
+
+		value: value,
 	}
 }
 

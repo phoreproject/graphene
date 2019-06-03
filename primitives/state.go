@@ -1361,7 +1361,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		}
 
 		if len(possibleHashes) == 0 {
-			return nil, fmt.Errorf("no votes counted for shard %d", shardCommittee.Shard)
+			return nil, nil
 		}
 
 		// find the top balance

@@ -36,7 +36,7 @@ const UnitInCoin = 100000000
 
 // MainNetConfig is the config used on the mainnet
 var MainNetConfig = Config{
-	ShardCount:                         8,
+	ShardCount:                         64,
 	TargetCommitteeSize:                3,
 	EjectionBalance:                    16,
 	MaxBalanceChurnQuotient:            32,

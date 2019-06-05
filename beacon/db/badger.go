@@ -541,7 +541,7 @@ func (b *BadgerDB) SetHostKey(key crypto.PrivKey, transaction ...interface{}) er
 func (b *BadgerDB) GarbageCollect() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	b.db.RunValueLogGC(0.5)
+	_ = b.db.RunValueLogGC(0.5)
 	for range ticker.C {
 		logrus.Debug("running database garbage collection")
 	again:

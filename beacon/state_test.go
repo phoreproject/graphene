@@ -190,6 +190,9 @@ func BenchmarkBlockTransition(t *testing.B) {
 		}
 
 		blockAtSlot, err := b.GetBlockByHash(nodeAtSlot.Hash)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		blocks[i] = *blockAtSlot
 	}

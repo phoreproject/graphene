@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math/rand"
 	"time"
 
 	inet "github.com/libp2p/go-libp2p-net"
@@ -77,7 +76,7 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 		heartbeatInterval: heartbeatInterval,
 		outgoingMessages:  make(chan proto.Message),
 		closeStream: func() {
-			connection.Reset()
+			_ = connection.Reset()
 		},
 	}
 
@@ -114,7 +113,10 @@ func (node *Peer) sendMessages(writer *bufio.Writer) {
 				"peer":    node.ID,
 				"message": proto.MessageName(msg),
 			}).Debug("sending message")
-			writeMessage(msg, writer)
+			err := writeMessage(msg, writer)
+			if err != nil {
+				logger.Errorf("error writing message to peer: %s", err)
+			}
 		case <-node.ctx.Done():
 			break
 		}
@@ -151,30 +153,6 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 	if err != nil {
 		if err != io.EOF && err.Error() != "stream reset" {
 			logger.Errorf("error processing message from peer %s: %s", node.ID, err)
-		}
-	}
-}
-
-func (node *Peer) sendHeartbeat() {
-	nonce := rand.Uint64()
-	node.LastPingNonce = nonce
-	node.SendMessage(&pb.PingMessage{
-		Nonce: rand.Uint64(),
-	})
-}
-
-func (node *Peer) sendHeartbeats() {
-	if !node.Outbound {
-		return
-	}
-	node.sendHeartbeat()
-	heartbeatTicker := time.NewTicker(node.heartbeatInterval)
-	for {
-		select {
-		case <-heartbeatTicker.C:
-			node.sendHeartbeat()
-		case <-node.ctx.Done():
-			break
 		}
 	}
 }
@@ -317,7 +295,12 @@ func (node *Peer) handleMessage(message proto.Message) error {
 	name := proto.MessageName(message)
 
 	if handler, found := node.messageHandlers[name]; found {
-		go handler(node, message)
+		go func() {
+			err := handler(node, message)
+			if err != nil {
+				logger.Errorf("error handling message: %s", err)
+			}
+		}()
 	}
 	return nil
 }

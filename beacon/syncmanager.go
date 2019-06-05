@@ -369,9 +369,11 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			return errors.New("block randaos did not validate")
 		}
 
-		valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
-		if !valid {
-			return errors.New("block attestations did not validate")
+		if len(attestationAggregatedPubkeys) > 0 {
+			valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
+			if !valid {
+				return errors.New("block attestations did not validate")
+			}
 		}
 
 		for _, b := range chunk {

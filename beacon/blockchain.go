@@ -18,7 +18,16 @@ import (
 
 var zeroHash = chainhash.Hash{}
 
-// Blockchain represents a chain of blocks.
+// Blockchain handles the communication between 3 main components.
+// 1. BlockchainView stores block nodes as a chain and an index to allow
+//    easy access. All block nodes are stored in memory and only store
+//    information needed often.
+// 2. DB keeps track of the persistent data. It stores large block
+//    files, a representation of the chain through block nodes, and
+//    important information about the state of the chain.
+// 3. StateManager stores information about the state of certain blocks.
+//    The state manager stores the state and derived states of every block
+//    after the finalized block.
 type Blockchain struct {
 	View         *BlockchainView
 	DB           db.Database
@@ -26,16 +35,6 @@ type Blockchain struct {
 	stateManager *StateManager
 
 	Notifees []BlockchainNotifee
-}
-
-// BlockchainNotifee is a blockchain notifee.
-type BlockchainNotifee interface {
-	ConnectBlock(*primitives.Block)
-}
-
-// RegisterNotifee registers a notifee for blockchain
-func (b *Blockchain) RegisterNotifee(n BlockchainNotifee) {
-	b.Notifees = append(b.Notifees, n)
 }
 
 // GetEpochBoundaryHash gets the Hash of the parent block at the epoch boundary.
@@ -46,10 +45,6 @@ func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
 		return chainhash.Hash{}, err
 	}
 	return bl.Hash, nil
-}
-
-func (b *Blockchain) getLatestAttestation(validator uint32) (*primitives.Attestation, error) {
-	return b.DB.GetLatestAttestation(validator)
 }
 
 func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, error) {
@@ -73,13 +68,6 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 	return node, nil
 }
 
-// InitialValidatorEntryAndPrivateKey is an initial validator entry and private key.
-type InitialValidatorEntryAndPrivateKey struct {
-	Entry InitialValidatorEntry
-
-	PrivateKey [32]byte
-}
-
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
 func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
@@ -89,14 +77,17 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		View:   NewBlockchainView(),
 	}
 
-	sm, err := NewStateManager(config, validators, genesisTime, skipValidation, b, db)
+	sm, err := NewStateManager(config, genesisTime, b, db)
 	if err != nil {
 		return nil, err
 	}
 
 	b.stateManager = sm
 
-	initialState := sm.GetHeadState()
+	initialState, err := InitializeState(config, validators, genesisTime, skipValidation)
+	if err != nil {
+		return nil, err
+	}
 
 	stateRoot, err := ssz.TreeHash(initialState)
 	if err != nil {
@@ -138,55 +129,16 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		return nil, err
 	}
 
+	// check if the block index exists in the database
 	_, err = b.DB.GetBlockNode(blockHash)
 	if err != nil {
-		b.View.Chain.SetTip(node)
-
-		b.View.SetFinalizedHead(blockHash, initialState)
-		b.View.SetJustifiedHead(blockHash, initialState)
-		err = b.DB.SetJustifiedHead(node.Hash)
-		if err != nil {
-			return nil, err
-		}
-		err = b.DB.SetJustifiedState(initialState)
-		if err != nil {
-			return nil, err
-		}
-		err = b.DB.SetFinalizedHead(node.Hash)
-		if err != nil {
-			return nil, err
-		}
-		err = b.DB.SetFinalizedState(initialState)
-		if err != nil {
-			return nil, err
-		}
-		b.View.Chain.SetTip(node)
-
-		err = b.stateManager.SetBlockState(blockHash, &initialState)
-		if err != nil {
-			return nil, err
-		}
-
-		err = b.DB.SetHeadBlock(blockHash)
-		if err != nil {
+		// if it doesn't, initialize the database
+		if err := b.initializeDatabase(node, *initialState); err != nil {
 			return nil, err
 		}
 	} else {
-		logrus.Info("loading block index...")
-		err := b.populateBlockIndexFromDatabase(blockHash)
-		if err != nil {
-			return nil, err
-		}
-
-		logrus.Info("loading justified and finalized states...")
-		err = b.populateJustifiedAndFinalizedNodes()
-		if err != nil {
-			return nil, err
-		}
-
-		logrus.Info("populating state map...")
-		err = b.populateStateMap()
-		if err != nil {
+		// if it does, load everything needed from disk
+		if err := b.loadBlockchainFromDisk(blockHash); err != nil {
 			return nil, err
 		}
 	}
@@ -198,23 +150,21 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 	tip := b.View.Chain.Tip()
 
-	tipState := b.stateManager.GetHeadState()
-
-	tipStateCopy := tipState.Copy()
-
 	view := NewChainView(tip)
 
-	err := tipStateCopy.ProcessSlots(upTo, &view, b.config)
+	tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
 	if err != nil {
 		return nil, err
 	}
+
+	tipStateCopy := tipState.Copy()
 
 	return &tipStateCopy, nil
 }
 
 // GetNextSlotTime returns the timestamp of the next slot.
 func (b *Blockchain) GetNextSlotTime() time.Time {
-	return time.Unix(int64((b.stateManager.GetHeadSlot()+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
+	return time.Unix(int64((b.View.Chain.Tip().Slot+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
 }
 
 // InitialValidatorEntry is the validator entry to be added

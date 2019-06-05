@@ -131,7 +131,8 @@ message PendingAttestation {
     AttestationData Data = 1;
     bytes ParticipationBitfield = 2;
     bytes CustodyBitfield = 3;
-    uint64 SlotIncluded = 4;
+    uint64 InclusionDelay = 4;
+    uint32 ProposerIndex = 5;
 }
 
 message State {

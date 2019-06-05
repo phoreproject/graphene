@@ -25,9 +25,7 @@ func createCSMT() *CSMT {
 func TestCSMTMembershipProof(t *testing.T) {
 	csmt := createCSMT()
 
-	var h *Hash
-
-	h = newHashFromStr("fe")
+	h := newHashFromStr("fe")
 	err := csmt.Insert(h)
 	if err != nil {
 		t.Fatal(err)
@@ -186,9 +184,7 @@ func TestCSMTNonMembershipProof(t *testing.T) {
 func TestCSMTDuplicatedHash(t *testing.T) {
 	csmt := createCSMT()
 
-	var h *Hash
-
-	h = newHashFromStr("fe")
+	h := newHashFromStr("fe")
 	err := csmt.Insert(h)
 	if err != nil {
 		t.Fatal(err)
@@ -226,9 +222,7 @@ func TestCSMTDuplicatedHash(t *testing.T) {
 }
 
 func TestDistance(t *testing.T) {
-	var dist int
-
-	dist = distance(newHashFromStr("ff"), newHashFromStr("00"))
+	dist := distance(newHashFromStr("ff"), newHashFromStr("00"))
 	if dist != 256 {
 		t.Errorf("distance: got %d, expected %d", dist, 256)
 	}

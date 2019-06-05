@@ -1,7 +1,6 @@
 package beacon
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -15,12 +14,51 @@ import (
 	"github.com/prysmaticlabs/prysm/shared/ssz"
 )
 
+type stateDerivedFromBlock struct {
+	slotsAfterBlock []*primitives.State // slotsAfterBlock[n].Slot = blockSlot + n
+	firstSlot       uint64
+	lock            *sync.Mutex
+}
+
+func newStateDerivedFromBlock(stateAfterProcessingBlock *primitives.State) *stateDerivedFromBlock {
+	return &stateDerivedFromBlock{
+		slotsAfterBlock: []*primitives.State{stateAfterProcessingBlock},
+		firstSlot:       stateAfterProcessingBlock.Slot,
+		lock:            new(sync.Mutex),
+	}
+}
+
+func (s *stateDerivedFromBlock) deriveState(slot uint64, view primitives.BlockView, c *config.Config) (*primitives.State, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	slotIndex := slot - s.firstSlot
+
+	if slotIndex < uint64(len(s.slotsAfterBlock)) {
+		return s.slotsAfterBlock[slotIndex], nil
+	}
+	for generatingSlot := len(s.slotsAfterBlock); uint64(generatingSlot) <= slotIndex; generatingSlot++ {
+		bestState := s.slotsAfterBlock[len(s.slotsAfterBlock)-1].Copy()
+
+		err := bestState.ProcessSlots(s.firstSlot+uint64(generatingSlot), view, c)
+		if err != nil {
+			return nil, err
+		}
+
+		s.slotsAfterBlock = append(s.slotsAfterBlock, &bestState)
+	}
+
+	return s.slotsAfterBlock[slotIndex], nil
+}
+
 // StateManager handles all state transitions, storing of states for different forks,
 // and time-based state updates.
 type StateManager struct {
-	config       *config.Config
-	state        primitives.State // state of the head
-	stateMap     map[chainhash.Hash]primitives.State
+	config *config.Config
+
+	// stateMap maps block hashes to states where the last block processed is that block
+	// hash. The internal store tracks slots processed
+	stateMap     map[chainhash.Hash]*stateDerivedFromBlock
 	db           db.Database
 	blockchain   *Blockchain
 	stateMapLock *sync.RWMutex
@@ -29,21 +67,16 @@ type StateManager struct {
 }
 
 // NewStateManager creates a new state manager.
-func NewStateManager(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool, blockchain *Blockchain, db db.Database) (*StateManager, error) {
+func NewStateManager(c *config.Config, genesisTime uint64, blockchain *Blockchain, db db.Database) (*StateManager, error) {
 	s := &StateManager{
 		config:       c,
-		stateMap:     make(map[chainhash.Hash]primitives.State),
+		stateMap:     make(map[chainhash.Hash]*stateDerivedFromBlock),
 		stateMapLock: new(sync.RWMutex),
 		stateLock:    new(sync.Mutex),
 		genesisTime:  genesisTime,
 		blockchain:   blockchain,
 		db:           db,
 	}
-	intialState, err := InitializeState(c, initialValidators, genesisTime, skipValidation)
-	if err != nil {
-		return nil, err
-	}
-	s.state = *intialState
 	return s, nil
 }
 
@@ -55,41 +88,27 @@ func (sm *StateManager) GetGenesisTime() uint64 {
 // GetStateForHash gets the state for a certain block Hash.
 func (sm *StateManager) GetStateForHash(blockHash chainhash.Hash) (*primitives.State, bool) {
 	sm.stateMapLock.RLock()
-	state, found := sm.stateMap[blockHash]
+	derivedState, found := sm.stateMap[blockHash]
 	sm.stateMapLock.RUnlock()
 	if !found {
 		return nil, false
 	}
-	return &state, true
+	derivedState.lock.Lock()
+	defer derivedState.lock.Unlock()
+	return derivedState.slotsAfterBlock[0], true
 }
 
-// UpdateHead updates the head state to a state in the stateMap.
-func (sm *StateManager) UpdateHead(blockHash chainhash.Hash) error {
+// GetStateForHashAtSlot gets the state derived from a certain block Hash at a given
+// slot.
+func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uint64, view primitives.BlockView, c *config.Config) (*primitives.State, error) {
 	sm.stateMapLock.RLock()
-	state, found := sm.stateMap[blockHash]
-	if !found {
-		return fmt.Errorf("couldn't find block with Hash %s in state map", blockHash)
-	}
+	derivedState, found := sm.stateMap[blockHash]
 	sm.stateMapLock.RUnlock()
-	sm.stateLock.Lock()
-	//logrus.WithField("slot", state.Slot).Debug("setting state head")
-	sm.state = state
-	sm.stateLock.Unlock()
-	return nil
-}
+	if !found {
+		return nil, fmt.Errorf("could not find state for block %s", blockHash)
+	}
 
-// GetHeadSlot gets the slot of the head state.
-func (sm *StateManager) GetHeadSlot() uint64 {
-	sm.stateLock.Lock()
-	defer sm.stateLock.Unlock()
-	return sm.state.Slot
-}
-
-// GetHeadState gets the head state.
-func (sm *StateManager) GetHeadState() primitives.State {
-	sm.stateLock.Lock()
-	defer sm.stateLock.Unlock()
-	return sm.state
+	return derivedState.deriveState(slot, view, c)
 }
 
 // InitializeState initializes state to the genesis state according to the config.
@@ -165,11 +184,11 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 // SetBlockState sets the state for a certain block. This SHOULD ONLY
 // BE USED FOR THE GENESIS BLOCK!
 func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitives.State) error {
-	// add the state to the statemap
+	// add the state to the state map
 	sm.stateMapLock.Lock()
 	defer sm.stateMapLock.Unlock()
 	//logrus.WithField("hash", blockHash.String()).Debug("setting block state")
-	sm.stateMap[blockHash] = *state
+	sm.stateMap[blockHash] = newStateDerivedFromBlock(state)
 	return nil
 }
 
@@ -182,17 +201,12 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, nil, err
 	}
 
-	lastBlockState, found := sm.GetStateForHash(lastBlockHash)
-	if !found {
-		return nil, nil, errors.New("could not find block state of parent block")
-	}
-
-	newState := lastBlockState.Copy()
-
-	err = newState.ProcessSlots(block.BlockHeader.SlotNumber, &view, sm.config)
+	lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	newState := lastBlockState.Copy()
 
 	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {
@@ -228,7 +242,7 @@ func (sm *StateManager) DeleteStateBeforeFinalizedSlot(finalizedSlot uint64) err
 	// once we finalize the block, we can get rid of any states before finalizedSlot
 	for i := range sm.stateMap {
 		// if it happened before finalized slot, we don't need it
-		if sm.stateMap[i].Slot < finalizedSlot {
+		if sm.stateMap[i].firstSlot < finalizedSlot {
 			delete(sm.stateMap, i)
 		}
 	}

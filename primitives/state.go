@@ -431,8 +431,8 @@ func (s *State) InitiateValidatorExit(index uint32) error {
 
 // GetBeaconProposerIndex gets the validator index of the block proposer at a certain
 // slot.
-func (s *State) GetBeaconProposerIndex(stateSlot uint64, slot uint64, c *config.Config) (uint32, error) {
-	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, c)
+func (s *State) GetBeaconProposerIndex(slot uint64, c *config.Config) (uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(slot, c)
 	if err != nil {
 		return 0, err
 	}
@@ -455,7 +455,7 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 	if status == ExitedWithPenalty {
 		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
 
-		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, s.Slot, c)
+		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, c)
 		if err != nil {
 			return err
 		}
@@ -569,7 +569,8 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 }
 
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
-func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
+func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
+	stateSlot := s.EpochIndex * c.EpochLength
 	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
 	if int64(slot)-earliestSlot < 0 || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
 		return nil, errors.WithStack(fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot))
@@ -586,8 +587,8 @@ func (s *State) GetAttesterCommitteeSize(slot uint64, con *config.Config) uint32
 
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
-	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, con)
+func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(slot, con)
 	if err != nil {
 		return nil, err
 	}
@@ -831,8 +832,8 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 }
 
 // GetAttestationParticipants gets the indices of participants.
-func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config, stateSlot uint64) ([]uint32, error) {
-	shardCommittees, err := s.GetShardCommitteesAtSlot(stateSlot, data.Slot, c)
+func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
+	shardCommittees, err := s.GetShardCommitteesAtSlot(data.Slot, c)
 	if err != nil {
 		return nil, err
 	}
@@ -1139,8 +1140,6 @@ const (
 
 // ProcessEpochTransition processes an epoch transition and modifies state.
 func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Receipt, error) {
-	s.EpochIndex = s.Slot / c.EpochLength
-
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
 
@@ -1164,7 +1163,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	// previousEpochAttesterIndices are all participants of attestations in the previous epoch
 	previousEpochAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
@@ -1191,7 +1190,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	// epoch with a justified slot equal to the previous justified slot.
 	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochJustifiedAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
@@ -1240,7 +1239,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochBoundaryAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochBoundaryAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
@@ -1251,7 +1250,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
 	for _, a := range currentEpochBoundaryAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
@@ -1276,7 +1275,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochHeadAttesterIndices := map[uint32]struct{}{}
 	for _, a := range previousEpochHeadAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
+		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
@@ -1447,7 +1446,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	// previousAttestationCache tracks which validator attested to which attestation
 	previousAttestationCache := map[uint32]*PendingAttestation{}
 	for _, a := range previousEpochAttestations {
-		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
+		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
@@ -1576,8 +1575,10 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	}
 
 	// reward for including each attestation
-	for _, a := range previousEpochAttestations {
-		proposerIndex := a.ProposerIndex
+	for attester := range previousEpochAttesterIndices {
+		att := previousAttestationCache[attester]
+
+		proposerIndex := att.ProposerIndex
 
 		reward := baseReward(proposerIndex) / c.IncluderRewardQuotient
 		totalRewarded += reward
@@ -1589,20 +1590,17 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			Index:  proposerIndex,
 			Amount: int64(reward),
 		})
-	}
 
-	// reward for submitting attestation
-	for index := range previousAttestationCache {
-		inclusionDistance := previousAttestationCache[index].InclusionDelay
+		inclusionDistance := att.InclusionDelay
 
-		reward := baseReward(index) * c.MinAttestationInclusionDelay / inclusionDistance
+		reward = baseReward(attester) * c.MinAttestationInclusionDelay / inclusionDistance
 		totalRewarded += reward
-		s.ValidatorBalances[index] += reward
+		s.ValidatorBalances[attester] += reward
 
 		receipts = append(receipts, Receipt{
 			Slot:   s.Slot,
 			Type:   AttestationInclusionDistanceReward,
-			Index:  index,
+			Index:  attester,
 			Amount: int64(reward),
 		})
 	}
@@ -1685,6 +1683,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			copy(s.ShardAndCommitteeForSlots[c.EpochLength:], newShuffling)
 		}
 	}
+	s.EpochIndex = s.Slot / c.EpochLength
 
 	newLatestAttestations := make([]PendingAttestation, 0)
 	for _, a := range s.LatestAttestations {
@@ -1712,10 +1711,10 @@ func (s *State) exitValidatorsUnderMinimum(c *config.Config) error {
 }
 
 // ValidateAttestation checks if the attestation is valid.
-func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view BlockView, c *config.Config, stateSlot uint64) error {
+func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view BlockView, c *config.Config) error {
 	expectedJustifiedSlot := s.JustifiedSlot
-	prevSlot := s.Slot - 1
-	if att.Data.Slot < prevSlot-(prevSlot%c.EpochLength) { // 8 -> 0, 9 -> 8
+	attEpoch := (att.Data.Slot - 1) / c.EpochLength
+	if attEpoch < s.EpochIndex { // 8 -> 0, 9 -> 8
 		expectedJustifiedSlot = s.PreviousJustifiedSlot
 	}
 
@@ -1743,7 +1742,7 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 	}
 
 	if verifySignature {
-		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c, stateSlot)
+		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
 		if err != nil {
 			return err
 		}
@@ -1795,7 +1794,7 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 
 // applyAttestation verifies and applies an attestation to the given state.
 func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool, proposerIndex uint32) error {
-	err := s.ValidateAttestation(att, verifySignature, view, c, s.Slot-1)
+	err := s.ValidateAttestation(att, verifySignature, view, c)
 	if err != nil {
 		return err
 	}
@@ -1825,7 +1824,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 
 	//blockTransitionStart := time.Now()
 
-	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, block.BlockHeader.SlotNumber-1, con)
+	proposerIndex, err := s.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, con)
 	if err != nil {
 		return err
 	}
@@ -1995,33 +1994,37 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 // ProcessSlots uses the current head to process slots up to a certain slot, applying
 // slot transitions and epoch transitions, and returns the updated state. Note that this should
 // only process up to the current slot number so that the lastBlockHash remains constant.
-func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) error {
+func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]Receipt, error) {
+	var receipts []Receipt
+
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
 			//t := time.Now()
 
-			_, err := s.ProcessEpochTransition(c, view)
+			epochReceipts, err := s.ProcessEpochTransition(c, view)
 			if err != nil {
-				return err
+				return nil, err
 			}
+
+			receipts = append(receipts, epochReceipts...)
 			//logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
 		}
 
 		tip, err := view.Tip()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = s.ProcessSlot(tip, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		view.SetTipSlot(s.Slot)
 	}
 
-	return nil
+	return receipts, nil
 }
 
 // shouldUpdateRegistry returns if the validator registry is ready to be shuffled.

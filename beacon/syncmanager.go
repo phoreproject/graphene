@@ -255,7 +255,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		view := NewChainView(tipNode)
 
-		err := epochStateCopy.ProcessSlots(chunk[0].BlockHeader.SlotNumber, &view, s.blockchain.config)
+		_, err := epochStateCopy.ProcessSlots(chunk[0].BlockHeader.SlotNumber, &view, s.blockchain.config)
 		if err != nil {
 			return err
 		}
@@ -276,12 +276,12 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		// go through each of the blocks in the past epoch or so
 		for _, b := range chunk {
-			err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber-1, &view, s.blockchain.config)
+			_, err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber-1, &view, s.blockchain.config)
 			if err != nil {
 				return err
 			}
 
-			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(epochStateCopy.Slot-1, b.BlockHeader.SlotNumber-1, s.blockchain.config)
+			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(b.BlockHeader.SlotNumber-1, s.blockchain.config)
 			if err != nil {
 				return err
 			}
@@ -336,7 +336,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			randaoHashes = append(randaoHashes, slotBytesHash[:])
 
 			for _, att := range b.BlockBody.Attestations {
-				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config, epochStateCopy.Slot-1)
+				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
 				if err != nil {
 					return err
 				}

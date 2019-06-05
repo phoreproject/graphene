@@ -131,7 +131,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 
 	lastSlot := b.View.Chain.Tip().Slot
 
-	assignments, err := s.GetShardCommitteesAtSlot(s.Slot-1, lastSlot, b.GetConfig())
+	assignments, err := s.GetShardCommitteesAtSlot(lastSlot, b.GetConfig())
 	if err != nil {
 		return nil, err
 	}

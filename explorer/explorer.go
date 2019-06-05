@@ -237,7 +237,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		var assignments []Assignment
 
 		for i := epochStart; i < epochStart+ex.config.NetworkConfig.EpochLength; i++ {
-			assignmentForSlot, err := state.GetShardCommitteesAtSlot(state.Slot, i, ex.config.NetworkConfig)
+			assignmentForSlot, err := state.GetShardCommitteesAtSlot(i, ex.config.NetworkConfig)
 			if err != nil {
 				panic(err)
 			}
@@ -274,7 +274,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		panic(err)
 	}
 
-	proposerIdx, err := state.GetBeaconProposerIndex(state.Slot, block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
+	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -298,7 +298,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	// Update attestations
 	for _, att := range block.BlockBody.Attestations {
-		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig, state.Slot-1)
+		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig)
 		if err != nil {
 			panic(err)
 		}

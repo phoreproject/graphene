@@ -152,7 +152,7 @@ func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 
 	view := NewChainView(tip)
 
-	tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
+	_, tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
 	if err != nil {
 		return nil, err
 	}

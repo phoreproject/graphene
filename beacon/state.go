@@ -154,7 +154,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	attestationUpdateStart := time.Now()
 
 	for _, a := range block.BlockBody.Attestations {
-		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config, newState.Slot-1)
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -232,7 +232,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		logger.WithFields(logger.Fields{
 			"justifiedSlot":         newState.JustifiedSlot,
 			"previousJustifiedSlot": newState.PreviousJustifiedSlot,
-			"justificationBitfield": newState.JustificationBitfield,
+			"justificationBitfield": fmt.Sprintf("0b%b", newState.JustificationBitfield),
 		}).Info("justified slot")
 
 		err := b.DB.SetJustifiedState(*justifiedState)

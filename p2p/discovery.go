@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	protocol "github.com/libp2p/go-libp2p-protocol"
@@ -87,7 +86,6 @@ const mDNSTag = "_phore-discovery._udp"
 //
 // TODO: add other discovery protocols such as DHT, etc.
 func (d Discovery) StartDiscovery() error {
-	fmt.Println("starting discovery")
 	if d.options.MDNS.Enabled {
 		err := d.discoverFromMDNS()
 		if err != nil {

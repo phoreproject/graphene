@@ -99,7 +99,7 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	genesisTime := state.GenesisTime
 	timePerSlot := config.SlotDuration
 	currentTime := utils.Now().Unix()
-	currentSlot := (currentTime-int64(genesisTime))/int64(timePerSlot) - 1
+	currentSlot := (currentTime - int64(genesisTime)) / int64(timePerSlot)
 	if currentSlot < 0 {
 		currentSlot = 0
 	}
@@ -137,38 +137,37 @@ func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateRes
 
 // GetStateRoot gets the hash of the state in the main chain.
 func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStateRootResponse, error) {
-	state := s.chain.GetState()
-
-	root, err := ssz.TreeHash(state)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.GetStateRootResponse{StateRoot: root[:]}, nil
+	return &pb.GetStateRootResponse{StateRoot: s.chain.View.Chain.Tip().StateRoot[:]}, nil
 }
 
 // GetEpochInformation gets information about the current epoch used for attestation
 // assignment and generation.
-func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.EpochInformation, error) {
+func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformationRequest) (*pb.EpochInformation, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
-	genesisTime := state.GenesisTime
-	timePerSlot := config.SlotDuration
-	currentTime := utils.Now().Unix()
-	currentSlot := (currentTime - int64(genesisTime)) / int64(timePerSlot)
 
-	if currentSlot < 0 {
-		return &pb.EpochInformation{
-			Slot: -1,
-		}, nil
-	}
+	requestedEpochSlot := uint64(in.EpochIndex) * s.chain.GetConfig().EpochLength
 
-	if currentSlot > int64(state.Slot) {
-		updatedState, err := s.chain.GetUpdatedState(uint64(currentSlot))
+	if requestedEpochSlot > state.Slot {
+		updatedState, err := s.chain.GetUpdatedState(requestedEpochSlot)
 		if err != nil {
 			return nil, err
 		}
 		state = *updatedState
+	}
+
+	if state.EpochIndex < in.EpochIndex {
+		state = state.Copy()
+
+		view, err := s.chain.GetSubView(s.chain.View.Chain.Tip().Hash)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = state.ProcessEpochTransition(s.chain.GetConfig(), &view)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash(s.chain.GetCurrentSlot())
@@ -181,6 +180,11 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 	}
 
 	justifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.JustifiedSlot)
+	if err != nil {
+		return nil, err
+	}
+
+	previousJustifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.PreviousJustifiedSlot)
 	if err != nil {
 		return nil, err
 	}
@@ -201,12 +205,15 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 	}
 
 	return &pb.EpochInformation{
-		Slots:             slots,
-		Slot:              int64(state.Slot) - int64(state.Slot%config.EpochLength),
-		EpochBoundaryRoot: epochBoundaryRoot[:],
-		LatestCrosslinks:  crosslinks,
-		JustifiedSlot:     state.JustifiedSlot,
-		JustifiedHash:     justifiedNode.Hash[:],
+		Slots:                 slots,
+		Slot:                  int64(state.Slot) - int64(state.Slot%config.EpochLength),
+		EpochBoundaryRoot:     epochBoundaryRoot[:],
+		LatestCrosslinks:      crosslinks,
+		JustifiedSlot:         state.JustifiedSlot,
+		PreviousJustifiedSlot: state.PreviousJustifiedSlot,
+		JustifiedHash:         justifiedNode.Hash[:],
+		EpochIndex:            state.EpochIndex,
+		PreviousJustifiedRoot: previousJustifiedNode.Hash[:],
 	}, nil
 }
 
@@ -214,7 +221,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *empty.Empty) (*pb.
 func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesForSlotRequest) (*pb.ShardCommitteesForSlot, error) {
 	state := s.chain.GetState()
 
-	sc, err := state.GetShardCommitteesAtSlot(state.Slot, in.Slot, s.chain.GetConfig())
+	sc, err := state.GetShardCommitteesAtSlot(in.Slot, s.chain.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +244,7 @@ func (s *server) GetForkData(ctx context.Context, in *empty.Empty) (*pb.ForkData
 // GetProposerForSlot gets the proposer for a certain slot.
 func (s *server) GetProposerForSlot(ctx context.Context, in *pb.GetProposerForSlotRequest) (*pb.GetProposerForSlotResponse, error) {
 	state := s.chain.GetState()
-	idx, err := state.GetBeaconProposerIndex(state.Slot, in.Slot, s.chain.GetConfig())
+	idx, err := state.GetBeaconProposerIndex(in.Slot, s.chain.GetConfig())
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package beacon
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
@@ -21,7 +22,7 @@ type Mempool struct {
 // NewMempool creates a new mempool.
 func NewMempool(blockchain *Blockchain) *Mempool {
 	m := &Mempool{
-		AttestationMempool: newAttestationMempool(),
+		AttestationMempool: newAttestationMempool(blockchain),
 		blockchain:         blockchain,
 	}
 
@@ -38,14 +39,16 @@ func (m *Mempool) ConnectBlock(b *primitives.Block) {
 }
 
 type attestationMempool struct {
+	blockchain       *Blockchain
 	attestations     []primitives.Attestation // maps the hashed data
 	attestationsLock *sync.RWMutex
 }
 
-func newAttestationMempool() *attestationMempool {
+func newAttestationMempool(blockchain *Blockchain) *attestationMempool {
 	return &attestationMempool{
 		attestations:     make([]primitives.Attestation, 0),
 		attestationsLock: new(sync.RWMutex),
+		blockchain:       blockchain,
 	}
 }
 
@@ -201,6 +204,21 @@ func (am *attestationMempool) removeOldAttestations(slot uint64, c *config.Confi
 	newAttestations := make([]primitives.Attestation, 0)
 	for _, a := range am.attestations {
 		if a.Data.Slot+c.EpochLength < slot {
+			continue
+		}
+
+		tipHash := am.blockchain.View.Chain.Tip().Hash
+
+		tipView, err := am.blockchain.GetSubView(tipHash)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		state := am.blockchain.GetState()
+
+		err = state.ValidateAttestation(a, false, &tipView, c, state.Slot)
+		if err != nil {
 			continue
 		}
 

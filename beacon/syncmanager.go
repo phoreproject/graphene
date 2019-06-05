@@ -155,19 +155,22 @@ type BlockFilter interface {
 	Has(chainhash.Hash) bool
 }
 
+// 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16, 17 w/ epoch_length 8
+// [1 2 3 4 5 6 7 8], [9, 10, 11, 12, 13, 14, 15, 16], [17]
+
 func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config, filter BlockFilter) ([][]*primitives.Block, error) {
 	firstBlock := blocks[0]
 
 	epochBlockChunks := make([][]*primitives.Block, 0)
 	currentEpochChunk := make([]*primitives.Block, 0)
-	currentEpoch := firstBlock.BlockHeader.SlotNumber / c.EpochLength
+	currentEpoch := (firstBlock.BlockHeader.SlotNumber + c.EpochLength - 1) / c.EpochLength
 
 	logger.WithFields(logger.Fields{
 		"firstBlock": blocks[0].BlockHeader.SlotNumber,
 		"lastBlock":  blocks[len(blocks)-1].BlockHeader.SlotNumber,
 	}).Info("received blocks from peer")
 
-	for i, block := range blocks {
+	for _, block := range blocks {
 		blockHash, err := ssz.TreeHash(block)
 		if err != nil {
 			return nil, err
@@ -180,8 +183,8 @@ func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config,
 
 		addToNextEpoch := true
 
-		if currentEpoch != block.BlockHeader.SlotNumber/c.EpochLength || i == len(blocks)-1 {
-			if block.BlockHeader.SlotNumber%c.EpochLength == 0 || i == len(blocks)-1 {
+		if currentEpoch != (block.BlockHeader.SlotNumber+c.EpochLength-1)/c.EpochLength {
+			if block.BlockHeader.SlotNumber%c.EpochLength == 0 {
 				currentEpochChunk = append(currentEpochChunk, block)
 				addToNextEpoch = false
 			}
@@ -189,13 +192,18 @@ func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config,
 				epochBlockChunks = append(epochBlockChunks, currentEpochChunk)
 			}
 			currentEpochChunk = make([]*primitives.Block, 0)
-			currentEpoch = block.BlockHeader.SlotNumber / c.EpochLength
+			currentEpoch = (block.BlockHeader.SlotNumber + c.EpochLength - 1) / c.EpochLength
+
 		}
 
 		// add to chunk if this is not the next epoch
 		if addToNextEpoch {
 			currentEpochChunk = append(currentEpochChunk, block)
 		}
+	}
+
+	if len(currentEpochChunk) > 0 {
+		epochBlockChunks = append(epochBlockChunks, currentEpochChunk)
 	}
 
 	return epochBlockChunks, nil
@@ -268,7 +276,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 
 		// go through each of the blocks in the past epoch or so
 		for _, b := range chunk {
-			err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber, &view, s.blockchain.config)
+			err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber-1, &view, s.blockchain.config)
 			if err != nil {
 				return err
 			}

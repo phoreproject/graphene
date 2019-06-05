@@ -96,7 +96,6 @@ func (d Discovery) StartDiscovery() error {
 	}
 
 	for _, pinfo := range d.options.PeerAddresses {
-		fmt.Println(pinfo)
 		d.HandlePeerFound(pinfo)
 	}
 

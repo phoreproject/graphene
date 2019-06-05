@@ -36,7 +36,7 @@ const UnitInCoin = 100000000
 
 // MainNetConfig is the config used on the mainnet
 var MainNetConfig = Config{
-	ShardCount:                         8,
+	ShardCount:                         64,
 	TargetCommitteeSize:                3,
 	EjectionBalance:                    16,
 	MaxBalanceChurnQuotient:            32,
@@ -46,9 +46,39 @@ var MainNetConfig = Config{
 	LatestBlockRootsLength:             8192,
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
-	SlotDuration:                       4,
-	EpochLength:                        64,
+	SlotDuration:                       7,
+	EpochLength:                        32,
 	MinAttestationInclusionDelay:       4,
+	CollectivePenaltyCalculationPeriod: 1048576,
+	ZeroBalanceValidatorTTL:            4194304,
+	BaseRewardQuotient:                 1024,
+	WhistleblowerRewardQuotient:        512,
+	IncluderRewardQuotient:             8,
+	InactivityPenaltyQuotient:          17179869184,
+	MaxProposerSlashings:               16,
+	MaxCasperSlashings:                 16,
+	MaxAttestations:                    128,
+	MaxDeposits:                        16,
+	MaxExits:                           16,
+	MaxDeposit:                         64 * UnitInCoin,
+	MinDeposit:                         2 * UnitInCoin,
+}
+
+// LocalnetConfig is the config used for testing the blockchain locally
+var LocalnetConfig = Config{
+	ShardCount:                         32,
+	TargetCommitteeSize:                4,
+	EjectionBalance:                    16,
+	MaxBalanceChurnQuotient:            32,
+	BeaconShardNumber:                  18446744073709551615,
+	BLSWithdrawalPrefixByte:            '\x00',
+	MaxCasperVotes:                     1024,
+	LatestBlockRootsLength:             8192,
+	InitialForkVersion:                 0,
+	InitialSlotNumber:                  0,
+	SlotDuration:                       4,
+	EpochLength:                        8,
+	MinAttestationInclusionDelay:       2,
 	CollectivePenaltyCalculationPeriod: 1048576,
 	ZeroBalanceValidatorTTL:            4194304,
 	BaseRewardQuotient:                 1024,
@@ -92,4 +122,11 @@ var RegtestConfig = Config{
 	MaxExits:                           16,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+}
+
+// NetworkIDs maps a network ID string to the corresponding config.
+var NetworkIDs = map[string]Config{
+	"localnet": LocalnetConfig,
+	"regtest":  RegtestConfig,
+	"testnet":  MainNetConfig,
 }

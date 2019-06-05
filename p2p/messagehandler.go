@@ -114,7 +114,6 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 			} else {
 				return err
 			}
-			break
 
 		case stateReadMessage:
 			if _, err := io.ReadFull(stream, messageBuffer); err == nil {
@@ -130,7 +129,6 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 			} else {
 				return err
 			}
-			break
 		}
 	}
 }

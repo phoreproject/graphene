@@ -57,9 +57,6 @@ type HostNode struct {
 	// discovery handles peer discovery (mDNS, DHT, etc)
 	discovery *Discovery
 
-	// peerChan is a channel that handles incoming peers
-	peerChan chan ps.PeerInfo
-
 	// All peers that connected successfully with correct handshake
 	peerList     []*Peer
 	peerListLock *sync.Mutex
@@ -96,6 +93,10 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 			listenAddress,
 		},
 	})
+	if err != nil {
+		cancel()
+		return nil, err
+	}
 
 	for _, a := range addrs {
 		logger.WithField("addr", a).Info("binding to address")
@@ -339,7 +340,10 @@ func (node *HostNode) attemptToEvictConnection() {
 	}
 
 	group := mapNetGroupNodes[maxGroup]
-	node.DisconnectPeer(group[0].peer)
+	err := node.DisconnectPeer(group[0].peer)
+	if err != nil {
+		return
+	}
 }
 
 // IsPeerConnected checks if a peer is connected
@@ -486,7 +490,7 @@ func (node *HostNode) Connected() bool {
 	node.peerListLock.Lock()
 	defer node.peerListLock.Unlock()
 	for _, p := range node.peerList {
-		if p.Connecting == false {
+		if !p.Connecting {
 			return true
 		}
 	}
@@ -499,7 +503,7 @@ func (node *HostNode) PeersConnected() int {
 	defer node.peerListLock.Unlock()
 	peersConnected := 0
 	for _, p := range node.peerList {
-		if p.Connecting == false {
+		if !p.Connecting {
 			peersConnected++
 		}
 	}

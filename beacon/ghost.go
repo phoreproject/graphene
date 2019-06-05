@@ -48,12 +48,8 @@ func (b *Blockchain) UpdateChainHead() error {
 		children := head.Children
 		if len(children) == 0 {
 			b.View.Chain.SetTip(head)
-			err := b.stateManager.UpdateHead(head.Hash)
-			if err != nil {
-				return err
-			}
 
-			err = b.DB.SetHeadBlock(head.Hash)
+			err := b.DB.SetHeadBlock(head.Hash)
 			if err != nil {
 				return err
 			}

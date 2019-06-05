@@ -1,17 +1,17 @@
 package testcase
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"path"
 	"time"
 
-	"github.com/phoreproject/synapse/beacon"
-
 	"google.golang.org/grpc/connectivity"
 
 	beaconapp "github.com/phoreproject/synapse/beacon/app"
+
+	"github.com/phoreproject/synapse/beacon/config"
+
 	testframework "github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/utils"
 	validatorapp "github.com/phoreproject/synapse/validator/app"
@@ -34,50 +34,29 @@ func (test *ValidateTest) setup() error {
 		return err
 	}
 
-	beaconConfig := beaconapp.NewConfig()
+	f, err := os.Open("regtest.json")
+	if err != nil {
+		panic(err)
+	}
+
+	beaconConfig, err := beaconapp.ReadChainFileToConfig(f)
+	if err != nil {
+		panic(err)
+	}
+
+	err = f.Close()
+	if err != nil {
+		panic(err)
+	}
+
 	beaconConfig.RPCProto = "unix"
 	beaconConfig.RPCAddress = "/tmp/beacon.sock"
 	beaconConfig.GenesisTime = uint64(utils.Now().Unix())
 	beaconConfig.Resync = true
 	beaconConfig.DataDirectory = test.dataDir
+	beaconConfig.NetworkConfig = &config.LocalnetConfig
 
-	f, err := os.Open("testnet.pubs")
-	if err != nil {
-		panic(err)
-	}
-
-	var lengthBytes [4]byte
-
-	_, err = f.Read(lengthBytes[:])
-	if err != nil {
-		panic(err)
-	}
-
-	length := binary.BigEndian.Uint32(lengthBytes[:])
-
-	beaconConfig.InitialValidatorList = make([]beacon.InitialValidatorEntry, length)
-
-	for i := uint32(0); i < length; i++ {
-		var validatorIDBytes [4]byte
-		n, err := f.Read(validatorIDBytes[:])
-		if err != nil {
-			panic(err)
-		}
-		if n != 4 {
-			panic("unexpected end of pubkey file")
-		}
-
-		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
-
-		var iv beacon.InitialValidatorEntry
-		err = binary.Read(f, binary.BigEndian, &iv)
-		if err != nil {
-			panic(err)
-		}
-		beaconConfig.InitialValidatorList[validatorID] = iv
-	}
-
-	test.beacon = beaconapp.NewBeaconApp(beaconConfig)
+	test.beacon = beaconapp.NewBeaconApp(*beaconConfig)
 
 	beaconConn, err := grpc.Dial("unix:///tmp/beacon.sock", grpc.WithInsecure())
 	if err != nil {
@@ -95,6 +74,7 @@ func (test *ValidateTest) setup() error {
 		BlockchainConn:   beaconConn,
 		ValidatorIndices: validatorIndices,
 		RootKey:          "testnet",
+		NetworkConfig:    &config.LocalnetConfig,
 	}
 
 	test.validator = validatorapp.NewValidatorApp(validatorConfig)
@@ -132,8 +112,6 @@ func (test *ValidateTest) runValidator() {
 		}
 	}()
 }
-
-const numBlocks = 100
 
 func (test *ValidateTest) waitForBlocks() error {
 	timer := time.NewTimer(10 * time.Second)

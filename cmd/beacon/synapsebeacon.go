@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"os"
 
@@ -10,18 +9,15 @@ import (
 
 	"github.com/phoreproject/synapse/beacon/app"
 
-	"github.com/phoreproject/synapse/beacon"
-
 	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
-const clientVersion = "0.2.3"
+const clientVersion = "0.2.6"
 
 func main() {
 	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
-	genesisTime := flag.Uint64("genesistime", 0, "beacon chain genesis time")
-	initialpubkeys := flag.String("initialpubkeys", "testnet.pubs", "file of pub keys for initial validators")
+	chainconfig := flag.String("chainconfig", "testnet.json", "chain config file")
 	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
 	datadir := flag.String("datadir", "", "location to store blockchain data")
 
@@ -48,15 +44,29 @@ func main() {
 		panic(err)
 	}
 
-	appConfig := app.NewConfig()
+	f, err := os.Open(*chainconfig)
+	if err != nil {
+		panic(err)
+	}
+
+	appConfig, err := app.ReadChainFileToConfig(f)
+	if err != nil {
+		panic(err)
+	}
+
+	err = f.Close()
+	if err != nil {
+		panic(err)
+	}
+
 	appConfig.ListeningAddress = *listen
 	appConfig.RPCAddress = *rpcConnect
-	appConfig.DiscoveryOptions.PeerAddresses = initialPeers
+	appConfig.DiscoveryOptions.PeerAddresses = append(appConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
 	appConfig.DataDirectory = *datadir
 
 	appConfig.Resync = *resync
-	if *genesisTime != 0 {
-		appConfig.GenesisTime = *genesisTime
+	if appConfig.GenesisTime == 0 {
+		appConfig.GenesisTime = uint64(utils.Now().Unix())
 	}
 
 	changed, newLimit, err := utils.ManageFdLimit()
@@ -64,47 +74,10 @@ func main() {
 		panic(err)
 	}
 	if changed {
-		logger.Infof("changed ulimit to: %d", newLimit)
+		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	// we should load the keys from the validator keystore
-	f, err := os.Open(*initialpubkeys)
-	if err != nil {
-		panic(err)
-	}
-
-	var lengthBytes [4]byte
-
-	_, err = f.Read(lengthBytes[:])
-	if err != nil {
-		panic(err)
-	}
-
-	length := binary.BigEndian.Uint32(lengthBytes[:])
-
-	appConfig.InitialValidatorList = make([]beacon.InitialValidatorEntry, length)
-
-	for i := uint32(0); i < length; i++ {
-		var validatorIDBytes [4]byte
-		n, err := f.Read(validatorIDBytes[:])
-		if err != nil {
-			panic(err)
-		}
-		if n != 4 {
-			panic("unexpected end of pubkey file")
-		}
-
-		validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
-
-		var iv beacon.InitialValidatorEntry
-		err = binary.Read(f, binary.BigEndian, &iv)
-		if err != nil {
-			panic(err)
-		}
-		appConfig.InitialValidatorList[validatorID] = iv
-	}
-
-	a := app.NewBeaconApp(appConfig)
+	a := app.NewBeaconApp(*appConfig)
 	err = a.Run()
 	if err != nil {
 		panic(err)

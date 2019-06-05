@@ -202,7 +202,7 @@ func TestState_ToFromProto(t *testing.T) {
 		LatestCrosslinks:                  []primitives.Crosslink{{Slot: 1}},
 		LatestBlockHashes:                 []chainhash.Hash{{1}},
 		LatestPenalizedExitBalances:       []uint64{1},
-		LatestAttestations:                []primitives.PendingAttestation{{SlotIncluded: 1}},
+		LatestAttestations:                []primitives.PendingAttestation{{InclusionDelay: 1}},
 		BatchedBlockRoots:                 []chainhash.Hash{{1}},
 	}
 

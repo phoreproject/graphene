@@ -12,6 +12,7 @@ require (
 	github.com/jinzhu/gorm v1.9.8
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
 	github.com/karlseguin/expect v1.0.1 // indirect
+	github.com/karrick/godirwalk v1.10.3 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.8 // indirect
 	github.com/libp2p/go-libp2p v0.0.23
@@ -33,6 +34,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prysmaticlabs/prysm v0.0.0-20190514144052-d672a0602655
 	github.com/sirupsen/logrus v1.4.1
+	github.com/uudashr/gopkgs v2.0.1+incompatible // indirect
 	github.com/valyala/fasttemplate v1.0.1 // indirect
 	github.com/wsxiaoys/terminal v0.0.0-20160513160801-0940f3fc43a0 // indirect
 	golang.org/x/net v0.0.0-20190514140710-3ec191127204

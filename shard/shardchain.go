@@ -1,13 +1,18 @@
 package shard
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
+	"math/big"
+
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/primitives"
+
 	"github.com/phoreproject/synapse/beacon/config"
 	beacondb "github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
-	"math/big"
 )
 
 // BlockHeader represents a single shard chain block header.
@@ -38,7 +43,9 @@ type BlockBody struct {
 
 // Blockchain represents a chain of shard blocks.
 type Blockchain struct {
-	config *config.Config
+	config        *config.Config
+	ctx           context.Context
+	blockchainRPC pb.BlockchainRPCClient
 }
 
 func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, beaconDB beacondb.Database) error {
@@ -55,8 +62,16 @@ func (b *Blockchain) verifyBlockHeader(header *BlockHeader, shardDB Database, be
 		return fmt.Errorf("slot of shard block must not be larger than beacon block")
 	}
 
-	// TODO: get the beaconState from beaconRefBlock
-	var beaconState *primitives.State
+	beaconStateProto, err := b.blockchainRPC.GetState(b.ctx, &empty.Empty{})
+	if err != nil {
+		return err
+	}
+
+	beaconState, err := primitives.StateFromProto(beaconStateProto.State)
+	if err != nil {
+		return err
+	}
+
 	committeeIndices, err := beaconState.GetCommitteeIndices(beaconState.Slot, header.SlotNumber, header.ShardID, b.config)
 	if err != nil {
 		return err

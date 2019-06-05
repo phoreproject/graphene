@@ -23,9 +23,7 @@ import (
 type Config struct {
 	RPCProto               string
 	RPCAddress             string
-	GenesisTime            uint64
 	DataDirectory          string
-	InitialValidatorList   []beacon.InitialValidatorEntry
 	NetworkConfig          *config.Config
 	Resync                 bool
 	IsIntegrationTest      bool
@@ -34,8 +32,12 @@ type Config struct {
 	MinPeerCountToWait     int
 	HeartBeatInterval      time.Duration
 	TimeOutInterval        time.Duration
-	DiscoveryOptions       p2p.DiscoveryOptions
 	MaxPeers               int
+
+	// These options are filled in through the chain file.
+	GenesisTime          uint64
+	InitialValidatorList []beacon.InitialValidatorEntry
+	DiscoveryOptions     p2p.DiscoveryOptions
 }
 
 // NewConfig creates a default Config
@@ -166,7 +168,12 @@ func (app *BeaconApp) loadP2P() error {
 	app.hostNode = hostNode
 
 	logger.Debug("starting peer discovery")
-	go app.hostNode.StartDiscovery()
+	go func() {
+		err := app.hostNode.StartDiscovery()
+		if err != nil {
+			logger.Errorf("error discovering peers: %s", err)
+		}
+	}()
 
 	return nil
 }
@@ -285,7 +292,12 @@ func (app *BeaconApp) runMainLoop() error {
 
 		go app.syncManager.TryInitialSync()
 
-		go app.syncManager.ListenForBlocks()
+		go func() {
+			err := app.syncManager.ListenForBlocks()
+			if err != nil {
+				logger.Errorf("error listening for blocks: %s", err)
+			}
+		}()
 	}()
 
 	// the main loop for this thread is waiting for the exit and cleaning up

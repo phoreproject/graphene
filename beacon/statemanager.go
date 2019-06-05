@@ -35,6 +35,9 @@ func (s *stateDerivedFromBlock) deriveState(slot uint64, view primitives.BlockVi
 	slotIndex := slot - s.firstSlot
 
 	if slotIndex < uint64(len(s.slotsAfterBlock)) {
+		// in case we didn't generate this state (already cached)
+		view.SetTipSlot(slot)
+
 		return s.slotsAfterBlock[slotIndex], nil
 	}
 	for generatingSlot := len(s.slotsAfterBlock); uint64(generatingSlot) <= slotIndex; generatingSlot++ {

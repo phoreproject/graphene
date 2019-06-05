@@ -1,10 +1,15 @@
 package csmt
 
+import (
+	"fmt"
+)
+
 // Node is the interface of a node
 type Node interface {
 	GetKey() *Key
 	GetHash() *Hash
 	IsLeaf() bool
+	DebugToJSONString() string
 }
 
 // For leaf node, key == hash
@@ -32,9 +37,36 @@ type LeafNode struct {
 	value interface{}
 }
 
+// NewLeafNode constructs a new LeafNode
+func NewLeafNode(hash *Hash, value interface{}) LeafNode {
+	return LeafNode{
+		nodeBase: nodeBase{
+			key:  *hash,
+			hash: *hash,
+		},
+
+		value: value,
+	}
+}
+
 // IsLeaf implements Node
 func (node LeafNode) IsLeaf() bool {
 	return true
+}
+
+// DebugToJSONString implements Node
+func (node LeafNode) DebugToJSONString() string {
+	result := ""
+	result += "{"
+	result += fmt.Sprintf("\"key\":\"%s\", ", node.GetKey().String())
+	result += fmt.Sprintf("\"hash\":\"%s\" ", node.GetHash().String())
+	result += "}"
+	return result
+}
+
+// GetValue returns the value
+func (node LeafNode) GetValue() interface{} {
+	return node.value
 }
 
 // InnerNode is the non-leaf node
@@ -42,6 +74,18 @@ type InnerNode struct {
 	nodeBase
 	left  Node
 	right Node
+}
+
+// NewInnerNode constructs a new InnerNode
+func NewInnerNode(hash Hash, left Node, right Node) InnerNode {
+	return InnerNode{
+		nodeBase: nodeBase{
+			key:  *getMaxKey(left.GetKey(), right.GetKey()),
+			hash: hash,
+		},
+		left:  left,
+		right: right,
+	}
 }
 
 // IsLeaf implements Node
@@ -59,31 +103,22 @@ func (node InnerNode) GetRight() Node {
 	return node.right
 }
 
-// GetValue returns the value
-func (node LeafNode) GetValue() interface{} {
-	return node.value
-}
-
-// NewLeafNode constructs a new LeafNode
-func NewLeafNode(hash *Hash, value interface{}) LeafNode {
-	return LeafNode{
-		nodeBase: nodeBase{
-			key:  *hash,
-			hash: *hash,
-		},
-
-		value: value,
+// DebugToJSONString implements Node
+func (node InnerNode) DebugToJSONString() string {
+	result := ""
+	result += "{"
+	result += fmt.Sprintf("\"key\":\"%s\", ", node.GetKey().String())
+	result += fmt.Sprintf("\"hash\":\"%s\", ", node.GetHash().String())
+	leftString := "null"
+	if node.left != nil {
+		leftString = node.left.DebugToJSONString()
 	}
-}
-
-// NewInnerNode constructs a new InnerNode
-func NewInnerNode(hash Hash, left Node, right Node) InnerNode {
-	return InnerNode{
-		nodeBase: nodeBase{
-			key:  *getMaxKey(left.GetKey(), right.GetKey()),
-			hash: hash,
-		},
-		left:  left,
-		right: right,
+	rightString := "null"
+	if node.right != nil {
+		rightString = node.right.DebugToJSONString()
 	}
+	result += fmt.Sprintf("\"left\": %s, ", leftString)
+	result += fmt.Sprintf("\"right\": %s ", rightString)
+	result += "}"
+	return result
 }

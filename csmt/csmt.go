@@ -33,12 +33,20 @@ func NewCSMT(nodeHashFunction NodeHashFunction) CSMT {
 	}
 }
 
-// GetRootHash implements interface SMT
+// DebugToJSONString return a JSON string, for debug purpose
+func (tree *CSMT) DebugToJSONString() string {
+	if tree.root == nil {
+		return "null"
+	}
+	return tree.root.DebugToJSONString()
+}
+
+// GetRootHash get the root hash
 func (tree *CSMT) GetRootHash() *Hash {
 	return tree.root.GetHash()
 }
 
-// Insert implements interface SMT
+// Insert inserts a hash
 func (tree *CSMT) Insert(leafHash *Hash, value interface{}) error {
 	if tree.root == nil {
 		tree.root = tree.createLeafNode(leafHash, value)
@@ -105,7 +113,7 @@ func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash, value interface{
 	return tree.createInnerNode(left, newNode), nil
 }
 
-// GetValue implements interface SMT
+// GetValue gets the value at leafHash
 func (tree *CSMT) GetValue(leafHash *Hash) (interface{}, error) {
 	if tree.root == nil {
 		return nil, fmt.Errorf("No such key")
@@ -159,7 +167,7 @@ func (tree *CSMT) doGetValue(node InnerNode, leafHash *Hash) (interface{}, error
 	return nil, fmt.Errorf("Illegal state")
 }
 
-// Remove implements interface SMT
+// Remove removes a hash
 func (tree *CSMT) Remove(leafHash *Hash) error {
 	if tree.root == nil {
 		return fmt.Errorf("No such key")

@@ -123,35 +123,33 @@ func (node *Peer) sendMessages(writer *bufio.Writer) {
 				logger.Errorf("error writing message to peer: %s", err)
 			}
 		case <-node.ctx.Done():
-			break
+			return
 		}
 	}
 }
 
 func (node *Peer) processMessages(reader *bufio.Reader) {
 	err := processMessages(reader, func(message proto.Message) error {
-		go func() {
-			logger.WithFields(logger.Fields{
-				"peer":    node.ID,
-				"message": proto.MessageName(message),
-			}).Debug("received message")
+		logger.WithFields(logger.Fields{
+			"peer":    node.ID,
+			"message": proto.MessageName(message),
+		}).Debug("received message")
 
-			err := node.handleMessage(message)
-			if err != nil {
-				if err != io.EOF && err.Error() != "stream reset" {
-					logger.Errorf("error processing message from peer %s: %s", node.ID, err)
-				}
-				node.cancel()
+		err := node.handleMessage(message)
+		if err != nil {
+			if err != io.EOF && err.Error() != "stream reset" {
+				logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 			}
+			node.cancel()
+		}
 
-			err = node.host.handleMessage(node, message)
-			if err != nil {
-				if err != io.EOF && err.Error() != "stream reset" {
-					logger.Errorf("error processing message from peer %s: %s", node.ID, err)
-				}
-				node.cancel()
+		err = node.host.handleMessage(node, message)
+		if err != nil {
+			if err != io.EOF && err.Error() != "stream reset" {
+				logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 			}
-		}()
+			node.cancel()
+		}
 
 		return nil
 	})
@@ -312,13 +310,10 @@ func (node *Peer) handleMessage(message proto.Message) error {
 	name := proto.MessageName(message)
 
 	if handler, found := node.messageHandlers[name]; found {
-		go func() {
-			// Each handler should guarantee its concurrent safety.
-			err := handler(node, message)
-			if err != nil {
-				logger.Errorf("error handling message: %s", err)
-			}
-		}()
+		err := handler(node, message)
+		if err != nil {
+			logger.Errorf("error handling message: %s", err)
+		}
 	}
 	return nil
 }

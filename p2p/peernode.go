@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"sync"
 	"time"
 
 	inet "github.com/libp2p/go-libp2p-net"
@@ -49,6 +50,8 @@ type Peer struct {
 	outgoingMessages chan proto.Message
 	closeStream      func()
 	startBlock       uint64
+
+	handlerLock *sync.RWMutex
 }
 
 // newPeer creates a P2pPeerNode
@@ -78,6 +81,8 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 		closeStream: func() {
 			_ = connection.Reset()
 		},
+
+		handlerLock: new(sync.RWMutex),
 	}
 
 	go peer.handleConnection(connection)
@@ -260,6 +265,10 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 	addrMessage := pb.AddrMessage{
 		Addrs: [][]byte{},
 	}
+
+	// For concurrent safety, we need to either copy node.host.GetPeerList()
+	// or lock it. Copying it is time and memory consuming, so let's just lock it.
+	node.host.peerListLock.Lock()
 	for _, peer := range node.host.GetPeerList() {
 		if peer.IsConnected() {
 			data, err := peer.GetPeerInfo().MarshalJSON()
@@ -268,6 +277,8 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 			}
 		}
 	}
+	node.host.peerListLock.Unlock()
+
 	node.SendMessage(&addrMessage)
 
 	return nil
@@ -286,16 +297,23 @@ func (node *Peer) handleAddrMessage(message *pb.AddrMessage) error {
 }
 
 func (node *Peer) registerMessageHandler(messageName string, handler MessageHandler) {
+	node.handlerLock.RLock()
+	defer node.handlerLock.RUnlock()
+
 	node.messageHandlers[messageName] = handler
 }
 
 func (node *Peer) handleMessage(message proto.Message) error {
+	node.handlerLock.RLock()
+	defer node.handlerLock.RUnlock()
+
 	node.LastMessageTime = time.Now()
 
 	name := proto.MessageName(message)
 
 	if handler, found := node.messageHandlers[name]; found {
 		go func() {
+			// Each handler should guarantee its concurrent safety.
 			err := handler(node, message)
 			if err != nil {
 				logger.Errorf("error handling message: %s", err)

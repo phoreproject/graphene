@@ -52,7 +52,7 @@ func (v *Validator) RunValidator() error {
 				return err
 			}
 		case <-v.ctx.Done():
-			break
+			return nil
 		}
 	}
 }

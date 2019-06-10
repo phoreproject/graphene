@@ -61,6 +61,9 @@ type HostNode struct {
 	peerList     []*Peer
 	peerListLock *sync.Mutex
 
+	peerIDList     []peer.ID
+	peerIDListLock *sync.RWMutex
+
 	// a messageHandler is called when a message with certain name is received
 	messageHandlerMap map[string][]messageHandlerAndID
 	handlerLock       *sync.RWMutex
@@ -124,6 +127,8 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		heartbeatInterval: heartbeatInterval,
 		maxPeers:          maxPeers,
 		chainProvider:     chainProvider,
+		peerIDList:        make([]peer.ID, 0),
+		peerIDListLock:    new(sync.RWMutex),
 	}
 
 	discovery := NewDiscovery(ctx, hostNode, options)
@@ -203,9 +208,12 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		return nil, errors.New("cannot connect to self")
 	}
 
-	if node.IsPeerConnected(peerInfo) {
+	node.peerIDListLock.RLock()
+	if node.IsPeerConnected(peerInfo.ID) {
 		return nil, nil
 	}
+	node.peerIDList = append(node.peerIDList, peerInfo.ID)
+	node.peerIDListLock.RUnlock()
 
 	if len(node.peerList) >= node.maxPeers {
 		node.attemptToEvictConnection()
@@ -347,9 +355,9 @@ func (node *HostNode) attemptToEvictConnection() {
 }
 
 // IsPeerConnected checks if a peer is connected
-func (node *HostNode) IsPeerConnected(peerInfo peerstore.PeerInfo) bool {
-	for _, p := range node.peerList {
-		if p.ID == peerInfo.ID {
+func (node *HostNode) IsPeerConnected(peerID peer.ID) bool {
+	for _, p := range node.peerIDList {
+		if p == peerID {
 			return true
 		}
 	}
@@ -448,13 +456,22 @@ func (node *HostNode) UnsubscribeMessage(subscription *pubsub.Subscription) {
 
 func (node *HostNode) removePeer(peer *Peer) {
 	node.peerListLock.Lock()
-	defer node.peerListLock.Unlock()
 	for i, p := range node.peerList {
 		if p == peer {
 			node.peerList = append(node.peerList[:i], node.peerList[i+1:]...)
 			break
 		}
 	}
+	node.peerListLock.Unlock()
+
+	node.peerIDListLock.Lock()
+	for i, p := range node.peerIDList {
+		if p == peer.ID {
+			node.peerIDList = append(node.peerIDList[:i], node.peerIDList[i+1:]...)
+			break
+		}
+	}
+	node.peerIDListLock.Unlock()
 	node.host.Peerstore().ClearAddrs(peer.ID)
 }
 

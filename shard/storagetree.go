@@ -120,19 +120,17 @@ func (pn *partialNode) deepClone() *partialNode {
 
 // PartialTree keeps track of updates to the tree and can calculate a state root if provided correct witnesses
 type PartialTree struct {
-	rootHash   chainhash.Hash
-	witnesses  []Witness
-	keyNodeMap map[chainhash.Hash]*partialNode
-	nodeList   []*partialNode
+	rootHash  chainhash.Hash
+	witnesses []Witness
+	nodeList  []*partialNode
 }
 
 // NewPartialTree creates a PartialTree
 func NewPartialTree(rootHash chainhash.Hash, witnesses []Witness) PartialTree {
 	ptree := PartialTree{
-		rootHash:   rootHash,
-		witnesses:  witnesses,
-		keyNodeMap: map[chainhash.Hash]*partialNode{},
-		nodeList:   []*partialNode{},
+		rootHash:  rootHash,
+		witnesses: witnesses,
+		nodeList:  []*partialNode{},
 	}
 	ptree.initialize()
 	return ptree
@@ -140,10 +138,6 @@ func NewPartialTree(rootHash chainhash.Hash, witnesses []Witness) PartialTree {
 
 func (ptree *PartialTree) initialize() {
 	for _, w := range ptree.witnesses {
-		ptree.keyNodeMap[w.key] = &partialNode{
-			witness: w,
-			key:     w.key,
-		}
 		ptree.nodeList = append(ptree.nodeList, &partialNode{
 			witness: w,
 			key:     w.key,

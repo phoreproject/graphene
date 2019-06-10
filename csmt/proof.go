@@ -22,15 +22,32 @@ type MembershipProofEntry struct {
 	direction int
 }
 
+// NewMembershipProofEntry creates MembershipProofEntry
+func NewMembershipProofEntry(hash *Hash, direction int) MembershipProofEntry {
+	return MembershipProofEntry{
+		hash:      hash,
+		direction: direction,
+	}
+}
+
 // GetHash gets hash
 func (pe MembershipProofEntry) GetHash() *Hash {
 	return pe.hash
 }
 
+// GetDirection gets direction
+func (pe MembershipProofEntry) GetDirection() int {
+	return pe.direction
+}
+
 // MembershipProof is a Proof for membership
 type MembershipProof struct {
-	node    LeafNode
 	entries []*MembershipProofEntry
+}
+
+// NewMembershipProof creates MembershipProof
+func NewMembershipProof(entries []*MembershipProofEntry) MembershipProof {
+	return MembershipProof{entries}
 }
 
 // NonMembershipProof is a Proof for non-membership

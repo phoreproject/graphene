@@ -245,10 +245,7 @@ func (tree *CSMT) GetProof(leafHash *Hash) Proof {
 	}
 
 	if tree.root.IsLeaf() {
-		rootProof := MembershipProof{
-			node:    tree.root.(LeafNode),
-			entries: []*MembershipProofEntry{},
-		}
+		rootProof := NewMembershipProof([]*MembershipProofEntry{})
 
 		if leafHash.IsEqual(tree.root.GetHash()) {
 			return rootProof
@@ -308,11 +305,10 @@ func (tree *CSMT) findProof(root InnerNode, key *Key) *MembershipProof {
 	} else {
 		resultEntries, resultNode = tree.findProofHelper(left, DirRight, right, key)
 	}
+	_ = resultNode
 
-	return &MembershipProof{
-		node:    resultNode,
-		entries: resultEntries,
-	}
+	proof := NewMembershipProof(resultEntries)
+	return &proof
 }
 
 func (tree *CSMT) findProofHelper(sibling Node, direction int, node Node, key *Key) ([]*MembershipProofEntry, LeafNode) {

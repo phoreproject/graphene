@@ -13,8 +13,8 @@ type Reader struct {
 }
 
 // NewReaderWithEndian creates a reader
-func NewReaderWithEndian(reader io.Reader, endian binary.ByteOrder) Reader {
-	return Reader{
+func NewReaderWithEndian(reader io.Reader, endian binary.ByteOrder) *Reader {
+	return &Reader{
 		reader: reader,
 		endian: endian,
 		buffer: make([]byte, 8),
@@ -22,7 +22,7 @@ func NewReaderWithEndian(reader io.Reader, endian binary.ByteOrder) Reader {
 }
 
 // NewReader creates a reader
-func NewReader(reader io.Reader) Reader {
+func NewReader(reader io.Reader) *Reader {
 	return NewReaderWithEndian(reader, binary.LittleEndian)
 }
 

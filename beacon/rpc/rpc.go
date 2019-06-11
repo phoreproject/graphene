@@ -170,21 +170,32 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 		}
 	}
 
-	epochBoundaryRoot, err := s.chain.GetEpochBoundaryHash(s.chain.GetCurrentSlot())
-	crosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
-	for i := range crosslinks {
-		crosslinks[i] = state.LatestCrosslinks[i].ToProto()
-	}
+	epochBoundaryRoot, err := s.chain.View.Chain.GetBlockBySlot(in.EpochIndex * config.EpochLength)
 	if err != nil {
 		return nil, err
 	}
 
-	justifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.JustifiedSlot)
+	previousEpochBoundaryRoot, err := s.chain.View.Chain.GetBlockBySlot((in.EpochIndex - 1) * config.EpochLength)
 	if err != nil {
 		return nil, err
 	}
 
-	previousJustifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.PreviousJustifiedSlot)
+	latestCrosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
+	for i := range latestCrosslinks {
+		latestCrosslinks[i] = state.LatestCrosslinks[i].ToProto()
+	}
+
+	previousCrosslinks := make([]*pb.Crosslink, len(state.PreviousCrosslinks))
+	for i := range latestCrosslinks {
+		previousCrosslinks[i] = state.PreviousCrosslinks[i].ToProto()
+	}
+
+	justifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.JustifiedEpoch * config.EpochLength)
+	if err != nil {
+		return nil, err
+	}
+
+	previousJustifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.PreviousJustifiedEpoch * config.EpochLength)
 	if err != nil {
 		return nil, err
 	}
@@ -205,15 +216,17 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	}
 
 	return &pb.EpochInformation{
-		Slots:                 slots,
-		Slot:                  int64(state.Slot) - int64(state.Slot%config.EpochLength),
-		EpochBoundaryRoot:     epochBoundaryRoot[:],
-		LatestCrosslinks:      crosslinks,
-		JustifiedSlot:         state.JustifiedSlot,
-		PreviousJustifiedSlot: state.PreviousJustifiedSlot,
-		JustifiedHash:         justifiedNode.Hash[:],
-		EpochIndex:            state.EpochIndex,
-		PreviousJustifiedRoot: previousJustifiedNode.Hash[:],
+		Slots:                  slots,
+		Slot:                   int64(state.Slot) - int64(state.Slot%config.EpochLength),
+		TargetHash:             epochBoundaryRoot.Hash[:],
+		JustifiedEpoch:         state.JustifiedEpoch,
+		LatestCrosslinks:       latestCrosslinks,
+		PreviousCrosslinks:     previousCrosslinks,
+		JustifiedHash:          justifiedNode.Hash[:],
+		EpochIndex:             state.EpochIndex,
+		PreviousTargetHash:     previousEpochBoundaryRoot.Hash[:],
+		PreviousJustifiedEpoch: state.PreviousJustifiedEpoch,
+		PreviousJustifiedHash:  previousJustifiedNode.Hash[:],
 	}, nil
 }
 
@@ -269,6 +282,7 @@ func (s *server) GetBlock(ctx context.Context, in *pb.GetBlockRequest) (*pb.GetB
 	}, nil
 }
 
+// GetValidatorInformation gets information about a validator.
 func (s *server) GetValidatorInformation(ctx context.Context, in *pb.GetValidatorRequest) (*pb.Validator, error) {
 	state := s.chain.GetState()
 

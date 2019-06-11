@@ -314,17 +314,16 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 			participantHashes[i] = validatorHash
 		}
 
+		// TODO: fixme
+
 		attestation := &Attestation{
 			ParticipantHashes:   combineHashes(participantHashes),
 			Signature:           att.AggregateSig[:],
 			Slot:                att.Data.Slot,
 			Shard:               att.Data.Shard,
 			BeaconBlockHash:     att.Data.BeaconBlockHash[:],
-			EpochBoundaryHash:   att.Data.EpochBoundaryHash[:],
 			ShardBlockHash:      att.Data.ShardBlockHash[:],
 			LatestCrosslinkHash: att.Data.LatestCrosslinkHash[:],
-			JustifiedBlockHash:  att.Data.JustifiedBlockHash[:],
-			JustifiedSlot:       att.Data.JustifiedSlot,
 			BlockID:             blockDB.ID,
 		}
 

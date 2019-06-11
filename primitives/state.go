@@ -90,7 +90,7 @@ type State struct {
 
 	// ValidatorRegistryLatestChangeSlot is the slot where the validator registry
 	// last changed.
-	ValidatorRegistryLatestChangeSlot uint64
+	ValidatorRegistryLatestChangeEpoch uint64
 
 	// ValidatorRegistryExitCount is the number of validators that are exited.
 	ValidatorRegistryExitCount uint64
@@ -112,16 +112,18 @@ type State struct {
 	ShardAndCommitteeForSlots [][]ShardAndCommittee
 
 	// FINALITY
-	PreviousJustifiedSlot uint64
-	JustifiedSlot         uint64
-	JustificationBitfield uint64
-	FinalizedSlot         uint64
+	PreviousJustifiedEpoch uint64
+	JustifiedEpoch         uint64
+	JustificationBitfield  uint64
+	FinalizedEpoch         uint64
 
 	// RECENT STATE
 	LatestCrosslinks            []Crosslink
+	PreviousCrosslinks          []Crosslink
 	LatestBlockHashes           []chainhash.Hash
 	LatestPenalizedExitBalances []uint64
-	LatestAttestations          []PendingAttestation
+	CurrentEpochAttestations    []PendingAttestation
+	PreviousEpochAttestations   []PendingAttestation
 	BatchedBlockRoots           []chainhash.Hash
 }
 
@@ -152,38 +154,49 @@ func (s *State) Copy() State {
 
 	newLatestCrosslinks := make([]Crosslink, len(s.LatestCrosslinks))
 	copy(newLatestCrosslinks, s.LatestCrosslinks)
+
+	newPreviousCrosslinks := make([]Crosslink, len(s.PreviousCrosslinks))
+	copy(newLatestCrosslinks, s.PreviousCrosslinks)
+
 	newLatestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
 	copy(newLatestBlockHashes, s.LatestBlockHashes)
 	newLatestPenalizedExitBalances := make([]uint64, len(s.LatestPenalizedExitBalances))
 	copy(newLatestPenalizedExitBalances, s.LatestPenalizedExitBalances)
-	newLatestAttestations := make([]PendingAttestation, len(s.LatestAttestations))
-	for i := range s.LatestAttestations {
-		newLatestAttestations[i] = s.LatestAttestations[i].Copy()
+	newCurrentAttestations := make([]PendingAttestation, len(s.CurrentEpochAttestations))
+	for i := range s.CurrentEpochAttestations {
+		newCurrentAttestations[i] = s.CurrentEpochAttestations[i].Copy()
+	}
+
+	newPreviousAttestations := make([]PendingAttestation, len(s.PreviousEpochAttestations))
+	for i := range s.PreviousEpochAttestations {
+		newPreviousAttestations[i] = s.PreviousEpochAttestations[i].Copy()
 	}
 	newBatchedBlockRoots := make([]chainhash.Hash, len(s.BatchedBlockRoots))
 	copy(newBatchedBlockRoots, s.BatchedBlockRoots)
 	newState := State{
-		Slot:                              s.Slot,
-		GenesisTime:                       s.GenesisTime,
-		ForkData:                          s.ForkData.Copy(),
-		EpochIndex:                        s.EpochIndex,
-		ValidatorRegistry:                 newValidatorRegistry,
-		ValidatorBalances:                 newValidatorBalances,
-		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
-		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
-		ValidatorRegistryDeltaChainTip:    newValidatorRegistryDeltaChainTip,
-		RandaoMix:                         newRandaoMix,
-		NextSeed:                          newNextSeed,
-		ShardAndCommitteeForSlots:         newShardAndCommitteeForSlots,
-		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
-		JustifiedSlot:                     s.JustifiedSlot,
-		JustificationBitfield:             s.JustificationBitfield,
-		FinalizedSlot:                     s.FinalizedSlot,
-		LatestCrosslinks:                  newLatestCrosslinks,
-		LatestBlockHashes:                 newLatestBlockHashes,
-		LatestPenalizedExitBalances:       newLatestPenalizedExitBalances,
-		LatestAttestations:                newLatestAttestations,
-		BatchedBlockRoots:                 newBatchedBlockRoots,
+		Slot:                               s.Slot,
+		GenesisTime:                        s.GenesisTime,
+		ForkData:                           s.ForkData.Copy(),
+		EpochIndex:                         s.EpochIndex,
+		ValidatorRegistry:                  newValidatorRegistry,
+		ValidatorBalances:                  newValidatorBalances,
+		ValidatorRegistryLatestChangeEpoch: s.ValidatorRegistryLatestChangeEpoch,
+		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
+		ValidatorRegistryDeltaChainTip:     newValidatorRegistryDeltaChainTip,
+		RandaoMix:                          newRandaoMix,
+		NextSeed:                           newNextSeed,
+		ShardAndCommitteeForSlots:          newShardAndCommitteeForSlots,
+		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
+		JustifiedEpoch:                     s.JustifiedEpoch,
+		JustificationBitfield:              s.JustificationBitfield,
+		FinalizedEpoch:                     s.FinalizedEpoch,
+		LatestCrosslinks:                   newLatestCrosslinks,
+		PreviousCrosslinks:                 newPreviousCrosslinks,
+		LatestBlockHashes:                  newLatestBlockHashes,
+		LatestPenalizedExitBalances:        newLatestPenalizedExitBalances,
+		PreviousEpochAttestations:          newPreviousAttestations,
+		CurrentEpochAttestations:           newCurrentAttestations,
+		BatchedBlockRoots:                  newBatchedBlockRoots,
 	}
 
 	return newState
@@ -194,8 +207,10 @@ func (s *State) ToProto() *pb.State {
 	validatorRegistry := make([]*pb.Validator, len(s.ValidatorRegistry))
 	shardCommittees := make([]*pb.ShardCommitteesForSlot, len(s.ShardAndCommitteeForSlots))
 	latestCrosslinks := make([]*pb.Crosslink, len(s.LatestCrosslinks))
+	previousCrosslinks := make([]*pb.Crosslink, len(s.PreviousCrosslinks))
 	latestBlockHashes := make([][]byte, len(s.LatestBlockHashes))
-	latestAttestations := make([]*pb.PendingAttestation, len(s.LatestAttestations))
+	currentAttestations := make([]*pb.PendingAttestation, len(s.CurrentEpochAttestations))
+	previousAttestations := make([]*pb.PendingAttestation, len(s.PreviousEpochAttestations))
 	batchedBlockRoots := make([][]byte, len(s.BatchedBlockRoots))
 
 	for i := range validatorRegistry {
@@ -217,12 +232,20 @@ func (s *State) ToProto() *pb.State {
 		latestCrosslinks[i] = s.LatestCrosslinks[i].ToProto()
 	}
 
+	for i := range previousCrosslinks {
+		previousCrosslinks[i] = s.PreviousCrosslinks[i].ToProto()
+	}
+
 	for i := range latestBlockHashes {
 		latestBlockHashes[i] = s.LatestBlockHashes[i][:]
 	}
 
-	for i := range latestAttestations {
-		latestAttestations[i] = s.LatestAttestations[i].ToProto()
+	for i := range currentAttestations {
+		currentAttestations[i] = s.CurrentEpochAttestations[i].ToProto()
+	}
+
+	for i := range previousAttestations {
+		previousAttestations[i] = s.PreviousEpochAttestations[i].ToProto()
 	}
 
 	for i := range batchedBlockRoots {
@@ -230,27 +253,29 @@ func (s *State) ToProto() *pb.State {
 	}
 
 	return &pb.State{
-		Slot:                              s.Slot,
-		GenesisTime:                       s.GenesisTime,
-		EpochIndex:                        s.EpochIndex,
-		ForkData:                          s.ForkData.ToProto(),
-		ValidatorRegistry:                 validatorRegistry,
-		ValidatorBalances:                 s.ValidatorBalances,
-		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
-		ValidatorRegistryDeltaChainTip:    s.ValidatorRegistryDeltaChainTip[:],
-		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
-		RandaoMix:                         s.RandaoMix[:],
-		NextSeed:                          s.NextSeed[:],
-		ShardCommittees:                   shardCommittees,
-		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
-		JustifiedSlot:                     s.JustifiedSlot,
-		JustificationBitField:             s.JustificationBitfield,
-		FinalizedSlot:                     s.FinalizedSlot,
-		LatestCrosslinks:                  latestCrosslinks,
-		LatestBlockHashes:                 latestBlockHashes,
-		LatestPenalizedExitBalances:       s.LatestPenalizedExitBalances,
-		LatestAttestations:                latestAttestations,
-		BatchedBlockRoots:                 batchedBlockRoots,
+		Slot:                               s.Slot,
+		GenesisTime:                        s.GenesisTime,
+		EpochIndex:                         s.EpochIndex,
+		ForkData:                           s.ForkData.ToProto(),
+		ValidatorRegistry:                  validatorRegistry,
+		ValidatorBalances:                  s.ValidatorBalances,
+		ValidatorRegistryLatestChangeEpoch: s.ValidatorRegistryLatestChangeEpoch,
+		ValidatorRegistryDeltaChainTip:     s.ValidatorRegistryDeltaChainTip[:],
+		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
+		RandaoMix:                          s.RandaoMix[:],
+		NextSeed:                           s.NextSeed[:],
+		ShardCommittees:                    shardCommittees,
+		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
+		JustifiedEpoch:                     s.JustifiedEpoch,
+		JustificationBitField:              s.JustificationBitfield,
+		FinalizedEpoch:                     s.FinalizedEpoch,
+		LatestCrosslinks:                   latestCrosslinks,
+		PreviousCrosslinks:                 previousCrosslinks,
+		LatestBlockHashes:                  latestBlockHashes,
+		LatestPenalizedExitBalances:        s.LatestPenalizedExitBalances,
+		CurrentEpochAttestations:           currentAttestations,
+		PreviousEpochAttestations:          previousAttestations,
+		BatchedBlockRoots:                  batchedBlockRoots,
 	}
 }
 
@@ -259,8 +284,10 @@ func StateFromProto(s *pb.State) (*State, error) {
 	validatorRegistry := make([]Validator, len(s.ValidatorRegistry))
 	shardAndCommitteeForSlots := make([][]ShardAndCommittee, len(s.ShardCommittees))
 	latestCrosslinks := make([]Crosslink, len(s.LatestCrosslinks))
+	previousCrosslinks := make([]Crosslink, len(s.PreviousCrosslinks))
 	latestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
-	latestAttestations := make([]PendingAttestation, len(s.LatestAttestations))
+	currentAttestations := make([]PendingAttestation, len(s.CurrentEpochAttestations))
+	previousAttestations := make([]PendingAttestation, len(s.PreviousEpochAttestations))
 	batchedBlockRoots := make([]chainhash.Hash, len(s.BatchedBlockRoots))
 
 	fd, err := ForkDataFromProto(s.ForkData)
@@ -295,6 +322,14 @@ func StateFromProto(s *pb.State) (*State, error) {
 		latestCrosslinks[i] = *c
 	}
 
+	for i := range previousCrosslinks {
+		c, err := CrosslinkFromProto(s.PreviousCrosslinks[i])
+		if err != nil {
+			return nil, err
+		}
+		previousCrosslinks[i] = *c
+	}
+
 	for i := range latestBlockHashes {
 		err := latestBlockHashes[i].SetBytes(s.LatestBlockHashes[i])
 		if err != nil {
@@ -302,12 +337,20 @@ func StateFromProto(s *pb.State) (*State, error) {
 		}
 	}
 
-	for i := range latestAttestations {
-		a, err := PendingAttestationFromProto(s.LatestAttestations[i])
+	for i := range previousAttestations {
+		a, err := PendingAttestationFromProto(s.PreviousEpochAttestations[i])
 		if err != nil {
 			return nil, err
 		}
-		latestAttestations[i] = *a
+		previousAttestations[i] = *a
+	}
+
+	for i := range currentAttestations {
+		a, err := PendingAttestationFromProto(s.CurrentEpochAttestations[i])
+		if err != nil {
+			return nil, err
+		}
+		currentAttestations[i] = *a
 	}
 
 	for i := range batchedBlockRoots {
@@ -318,22 +361,24 @@ func StateFromProto(s *pb.State) (*State, error) {
 	}
 
 	newState := &State{
-		Slot:                              s.Slot,
-		GenesisTime:                       s.GenesisTime,
-		EpochIndex:                        s.EpochIndex,
-		ForkData:                          *fd,
-		ValidatorRegistry:                 validatorRegistry,
-		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
-		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
-		ShardAndCommitteeForSlots:         shardAndCommitteeForSlots,
-		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
-		JustifiedSlot:                     s.JustifiedSlot,
-		JustificationBitfield:             s.JustificationBitField,
-		FinalizedSlot:                     s.FinalizedSlot,
-		LatestCrosslinks:                  latestCrosslinks,
-		LatestBlockHashes:                 latestBlockHashes,
-		LatestAttestations:                latestAttestations,
-		BatchedBlockRoots:                 batchedBlockRoots,
+		Slot:                               s.Slot,
+		GenesisTime:                        s.GenesisTime,
+		EpochIndex:                         s.EpochIndex,
+		ForkData:                           *fd,
+		ValidatorRegistry:                  validatorRegistry,
+		ValidatorRegistryLatestChangeEpoch: s.ValidatorRegistryLatestChangeEpoch,
+		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
+		ShardAndCommitteeForSlots:          shardAndCommitteeForSlots,
+		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
+		JustifiedEpoch:                     s.JustifiedEpoch,
+		JustificationBitfield:              s.JustificationBitField,
+		FinalizedEpoch:                     s.FinalizedEpoch,
+		LatestCrosslinks:                   latestCrosslinks,
+		PreviousCrosslinks:                 previousCrosslinks,
+		LatestBlockHashes:                  latestBlockHashes,
+		CurrentEpochAttestations:           currentAttestations,
+		PreviousEpochAttestations:          previousAttestations,
+		BatchedBlockRoots:                  batchedBlockRoots,
 	}
 
 	err = newState.ValidatorRegistryDeltaChainTip.SetBytes(s.ValidatorRegistryDeltaChainTip)
@@ -460,6 +505,7 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 			return err
 		}
 		whistleblowerReward := s.GetEffectiveBalance(index, c) / c.WhistleblowerRewardQuotient
+
 		s.ValidatorBalances[whistleblowerIndex] += whistleblowerReward
 		s.ValidatorBalances[index] -= whistleblowerReward
 	}
@@ -673,17 +719,17 @@ func indices(vote SlashableVoteData) []uint32 {
 	return append(vote.AggregateSignaturePoC0Indices, vote.AggregateSignaturePoC1Indices...)
 }
 
-func isDoubleVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
-	targetEpoch1 := ad1.Slot / c.EpochLength
-	targetEpoch2 := ad2.Slot / c.EpochLength
+func isDoubleVote(ad1 AttestationData, ad2 AttestationData) bool {
+	targetEpoch1 := ad1.TargetEpoch
+	targetEpoch2 := ad2.TargetEpoch
 	return targetEpoch1 == targetEpoch2
 }
 
-func isSurroundVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
-	targetEpoch1 := ad1.Slot / c.EpochLength
-	targetEpoch2 := ad2.Slot / c.EpochLength
-	sourceEpoch1 := ad1.JustifiedSlot / c.EpochLength
-	sourceEpoch2 := ad2.JustifiedSlot / c.EpochLength
+func isSurroundVote(ad1 AttestationData, ad2 AttestationData) bool {
+	targetEpoch1 := ad1.TargetEpoch
+	targetEpoch2 := ad2.TargetEpoch
+	sourceEpoch1 := ad1.SourceEpoch
+	sourceEpoch2 := ad2.SourceEpoch
 	return (sourceEpoch1 < sourceEpoch2) &&
 		(sourceEpoch2+1 == targetEpoch2) &&
 		(targetEpoch2 < targetEpoch1)
@@ -745,8 +791,8 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	}, aggregateSignature, GetDomain(s.ForkData, s.Slot, bls.DomainAttestation))
 }
 
-// ApplyCasperSlashing applies a casper slashing claim to the current state.
-func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
+// applyCasperSlashing applies a casper slashing claim to the current state.
+func (s *State) applyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
 	var intersection []uint32
 	indices1 := indices(casperSlashing.Votes1)
 	indices2 := indices(casperSlashing.Votes2)
@@ -766,8 +812,8 @@ func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Con
 		return errors.New("casper slashing votes are the same")
 	}
 
-	if !isDoubleVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) &&
-		!isSurroundVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) {
+	if !isDoubleVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data) &&
+		!isSurroundVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data) {
 		return errors.New("casper slashing is not double or surround vote")
 	}
 
@@ -833,7 +879,7 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 
 // GetAttestationParticipants gets the indices of participants.
 func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
-	shardCommittees, err := s.GetShardCommitteesAtSlot(data.Slot, c)
+	shardCommittees, err := s.GetShardCommitteesAtSlot(data.Slot-1, c)
 	if err != nil {
 		return nil, err
 	}
@@ -856,10 +902,12 @@ func (s *State) GetAttestationParticipants(data AttestationData, participationBi
 	var participants []uint32
 	for i, validatorIndex := range shardCommittee.Committee {
 		participationBit := participationBitfield[i/8] & (1 << (uint(i) % 8))
+
 		if participationBit != 0 {
 			participants = append(participants, validatorIndex)
 		}
 	}
+
 	return participants, nil
 }
 
@@ -1072,20 +1120,20 @@ type Receipt struct {
 // ReceiptTypeToMeaning converts a receipt type to a meaningful string.
 func ReceiptTypeToMeaning(t uint8) string {
 	switch t {
-	case AttestedToPreviousEpochJustifiedSlot:
-		return "attested to previous epoch justified slot"
-	case AttestedToPreviousEpochBoundaryHash:
-		return "attested to previous epoch justified boundary hash"
-	case AttestedToCorrectBlockHashInPreviousEpoch:
-		return "attested to correct block hash in previous epoch"
+	case AttestedInPreviousEpoch:
+		return "attested to target matching previous epoch"
+	case AttestedToMatchingTargetHash:
+		return "attested to correct target hash"
+	case AttestedToCorrectBeaconBlockHash:
+		return "attested to correct beacon block"
 	case AttestationInclusionDistanceReward:
 		return "attestation inclusion distance reward"
-	case DidNotAttestToCorrectBeaconBlock:
+	case AttestedToIncorrectBeaconBlockHash:
 		return "did not attest to correct beacon block"
-	case DidNotAttestToPreviousEpochBoundary:
-		return "did not attest to correct boundary block"
-	case DidNotAttestToPreviousJustifiedSlot:
-		return "did not attest to correct justified slot"
+	case AttestedToIncorrectTargetHash:
+		return "did not attest to correct target hash"
+	case DidNotAttestToPreviousEpoch:
+		return "did not attest to target matching previous epoch"
 	case InactivityPenalty:
 		return "inactivity"
 	case AttestationInclusionDistancePenalty:
@@ -1101,26 +1149,26 @@ func ReceiptTypeToMeaning(t uint8) string {
 }
 
 const (
-	// AttestedToPreviousEpochJustifiedSlot is a reward when a validator attests to the previous epoch justified slot.
-	AttestedToPreviousEpochJustifiedSlot = iota
+	// AttestedInPreviousEpoch is a reward when a validator attests to the previous epoch justified slot.
+	AttestedInPreviousEpoch = iota
 
-	// AttestedToPreviousEpochBoundaryHash is a reward when a validator attests to the previous epoch boundary hash.
-	AttestedToPreviousEpochBoundaryHash
+	// AttestedToMatchingTargetHash is a reward when a validator attests to the previous epoch boundary hash.
+	AttestedToMatchingTargetHash
 
-	// AttestedToCorrectBlockHashInPreviousEpoch is a reward when a validator attests to the correct beacon block hash for their slot.
-	AttestedToCorrectBlockHashInPreviousEpoch
+	// AttestedToCorrectBeaconBlockHash is a reward when a validator attests to the correct beacon block hash for their slot.
+	AttestedToCorrectBeaconBlockHash
 
 	// AttestationInclusionDistanceReward is a reward for including attestations in beacon blocks.
 	AttestationInclusionDistanceReward
 
-	// DidNotAttestToCorrectBeaconBlock is a penalty for not attesting to the correct beacon block.
-	DidNotAttestToCorrectBeaconBlock
+	// AttestedToIncorrectBeaconBlockHash is a penalty for not attesting to the correct beacon block.
+	AttestedToIncorrectBeaconBlockHash
 
-	// DidNotAttestToPreviousEpochBoundary is a penalty for not attesting to the previous epoch boundary.
-	DidNotAttestToPreviousEpochBoundary
+	// AttestedToIncorrectTargetHash is a penalty for not attesting to the previous epoch boundary.
+	AttestedToIncorrectTargetHash
 
-	// DidNotAttestToPreviousJustifiedSlot is a penalty for not attesting to the previous justified slot.
-	DidNotAttestToPreviousJustifiedSlot
+	// DidNotAttestToPreviousEpoch is a penalty for not attesting to the previous justified slot.
+	DidNotAttestToPreviousEpoch
 
 	// InactivityPenalty is a penalty for being exited with penalty.
 	InactivityPenalty
@@ -1143,26 +1191,12 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
 
-	// currentEpochAttestations is any attestation that happened in the last epoch
-	var currentEpochAttestations []PendingAttestation
-	for _, a := range s.LatestAttestations {
-		// slot is greater than last epoch slot and slot is less than current slot
-		if s.Slot-c.EpochLength <= a.Data.Slot && a.Data.Slot < s.Slot {
-			currentEpochAttestations = append(currentEpochAttestations, a)
-		}
-	}
-
-	// previousEpochAttestations is any attestation in the last epoch
-	var previousEpochAttestations []PendingAttestation
-	for _, a := range s.LatestAttestations {
-		if s.Slot-2*c.EpochLength <= a.Data.Slot && a.Data.Slot < s.Slot-c.EpochLength {
-			previousEpochAttestations = append(previousEpochAttestations, a)
-		}
-	}
+	// s.PreviousEpochAttestations are all of the attestations that use the previous epoch as the source
+	// s.CurrentEpochAttestations are all of the attestations that use the current epoch as the source
 
 	// previousEpochAttesterIndices are all participants of attestations in the previous epoch
 	previousEpochAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochAttestations {
+	for _, a := range s.PreviousEpochAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
@@ -1172,24 +1206,10 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		}
 	}
 
-	// previousEpochJustifiedAttestations are any attestations in the previous epoch that have a
-	// justified slot equal to the previous justified slot.
-	var previousEpochJustifiedAttestations []PendingAttestation
-	for _, a := range previousEpochAttestations {
-		if a.Data.JustifiedSlot == s.PreviousJustifiedSlot {
-			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
-		}
-	}
-	for _, a := range currentEpochAttestations {
-		if a.Data.JustifiedSlot == s.PreviousJustifiedSlot {
-			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
-		}
-	}
-
 	// previousEpochJustifiedAttesterIndices are all participants of attestations in the previous
 	// epoch with a justified slot equal to the previous justified slot.
 	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochJustifiedAttestations {
+	for _, a := range s.PreviousEpochAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
@@ -1201,80 +1221,81 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochJustifiedAttestingBalance := s.GetTotalBalanceMap(previousEpochJustifiedAttesterIndices, c)
 
-	epochBoundaryHashMinus2 := chainhash.Hash{}
+	previousEpochBoundaryHash := chainhash.Hash{}
 	if s.Slot >= 2*c.EpochLength {
 		ebhm2, err := view.GetHashBySlot(s.Slot - 2*c.EpochLength)
 		if err != nil {
 			ebhm2 = chainhash.Hash{}
 		}
-		epochBoundaryHashMinus2 = ebhm2
+		previousEpochBoundaryHash = ebhm2
 	}
 
-	epochBoundaryHashMinus1 := chainhash.Hash{}
+	currentEpochBoundaryHash := chainhash.Hash{}
 	if s.Slot >= c.EpochLength {
 		ebhm1, err := view.GetHashBySlot(s.Slot - c.EpochLength)
 		if err != nil {
 			ebhm1 = chainhash.Hash{}
 		}
-		epochBoundaryHashMinus1 = ebhm1
+		currentEpochBoundaryHash = ebhm1
 	}
 
-	// previousEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
-	// set to the epoch boundary two epochs ago
-	var previousEpochBoundaryAttestations []PendingAttestation
-	for _, a := range previousEpochJustifiedAttestations {
-		if epochBoundaryHashMinus2.IsEqual(&a.Data.EpochBoundaryHash) {
-			previousEpochBoundaryAttestations = append(previousEpochBoundaryAttestations, a)
+	// attestationsMatchingPreviousTarget is any attestation where the source is the previous epoch and the
+	// target is the previousEpochBoundaryHash
+	var attestationsMatchingPreviousTarget []PendingAttestation
+	for _, a := range s.PreviousEpochAttestations {
+		if previousEpochBoundaryHash.IsEqual(&a.Data.TargetHash) {
+			attestationsMatchingPreviousTarget = append(attestationsMatchingPreviousTarget, a)
 		}
 	}
 
-	// currentEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
+	// attestationsMatchingCurrentTarget is any attestation in the previous epoch where the epoch boundary is
 	// set to the epoch boundary two epochs ago
-	var currentEpochBoundaryAttestations []PendingAttestation
-	for _, a := range currentEpochAttestations {
-		if epochBoundaryHashMinus1.IsEqual(&a.Data.EpochBoundaryHash) {
-			currentEpochBoundaryAttestations = append(currentEpochBoundaryAttestations, a)
+	var attestationsMatchingCurrentTarget []PendingAttestation
+	for _, a := range s.CurrentEpochAttestations {
+		// source is current epoch and
+		if currentEpochBoundaryHash.IsEqual(&a.Data.TargetHash) {
+			attestationsMatchingCurrentTarget = append(attestationsMatchingCurrentTarget, a)
 		}
 	}
 
-	previousEpochBoundaryAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochBoundaryAttestations {
+	attestersMatchingPreviousTarget := map[uint32]struct{}{}
+	for _, a := range attestationsMatchingPreviousTarget {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
 		for _, p := range participants {
-			previousEpochBoundaryAttesterIndices[p] = struct{}{}
+			attestersMatchingPreviousTarget[p] = struct{}{}
 		}
 	}
 
-	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
-	for _, a := range currentEpochBoundaryAttestations {
+	attestersMatchingCurrentTarget := map[uint32]struct{}{}
+	for _, a := range attestationsMatchingCurrentTarget {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
 		}
 		for _, p := range participants {
-			currentEpochBoundaryAttesterIndices[p] = struct{}{}
+			attestersMatchingCurrentTarget[p] = struct{}{}
 		}
 	}
 
-	previousEpochBoundaryAttestingBalance := s.GetTotalBalanceMap(previousEpochBoundaryAttesterIndices, c)
-	currentEpochBoundaryAttestingBalance := s.GetTotalBalanceMap(currentEpochBoundaryAttesterIndices, c)
+	previousEpochBoundaryAttestingBalance := s.GetTotalBalanceMap(attestersMatchingPreviousTarget, c)
+	currentEpochBoundaryAttestingBalance := s.GetTotalBalanceMap(attestersMatchingCurrentTarget, c)
 
-	var previousEpochHeadAttestations []PendingAttestation
-	for _, a := range previousEpochAttestations {
+	var previousEpochAttestationsMatchingBeaconBlock []PendingAttestation
+	for _, a := range s.PreviousEpochAttestations {
 		blockRoot, err := view.GetHashBySlot(a.Data.Slot)
 		if err != nil {
 			break
 		}
 		if a.Data.BeaconBlockHash.IsEqual(&blockRoot) {
-			previousEpochHeadAttestations = append(previousEpochHeadAttestations, a)
+			previousEpochAttestationsMatchingBeaconBlock = append(previousEpochAttestationsMatchingBeaconBlock, a)
 		}
 	}
 
 	previousEpochHeadAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochHeadAttestations {
+	for _, a := range s.PreviousEpochAttestations {
 		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
@@ -1286,34 +1307,34 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochHeadAttestingBalance := s.GetTotalBalanceMap(previousEpochHeadAttesterIndices, c)
 
-	oldPreviousJustifiedSlot := s.PreviousJustifiedSlot
+	oldPreviousJustifiedEpoch := s.PreviousJustifiedEpoch
 
-	s.PreviousJustifiedSlot = s.JustifiedSlot
+	s.PreviousJustifiedEpoch = s.JustifiedEpoch
 	s.JustificationBitfield = s.JustificationBitfield * 2
 
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
 		s.JustificationBitfield |= (1 << 1) // mark the last epoch as justified
-		s.JustifiedSlot = s.Slot - 2*c.EpochLength
+		s.JustifiedEpoch = s.EpochIndex - 1
 	}
 	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
 		s.JustificationBitfield |= (1 << 0) // mark the last epoch as justified
-		s.JustifiedSlot = s.Slot - c.EpochLength
+		s.JustifiedEpoch = s.EpochIndex
 	}
 
-	if ((s.JustificationBitfield>>1)%8 == 7 && s.PreviousJustifiedSlot == s.Slot-c.EpochLength*3) || // 1110
-		((s.JustificationBitfield>>1)%4 == 3 && s.PreviousJustifiedSlot == s.Slot-c.EpochLength*2) { // 110 <- old previous justified would be
-		s.FinalizedSlot = oldPreviousJustifiedSlot
+	if ((s.JustificationBitfield>>1)%8 == 7 && s.PreviousJustifiedEpoch == s.EpochIndex-2) || // 1110
+		((s.JustificationBitfield>>1)%4 == 3 && s.PreviousJustifiedEpoch == s.EpochIndex-1) { // 110 <- old previous justified would be
+		s.FinalizedEpoch = oldPreviousJustifiedEpoch
 	}
 
-	if ((s.JustificationBitfield>>0)%8 == 7 && s.JustifiedSlot == s.Slot-c.EpochLength*2) ||
-		((s.JustificationBitfield>>0)%4 == 3 && s.JustifiedSlot == s.Slot-c.EpochLength*1) {
-		s.FinalizedSlot = s.PreviousJustifiedSlot
+	if ((s.JustificationBitfield>>0)%8 == 7 && s.JustifiedEpoch == s.EpochIndex-1) ||
+		((s.JustificationBitfield>>0)%4 == 3 && s.JustifiedEpoch == s.EpochIndex) {
+		s.FinalizedEpoch = s.PreviousJustifiedEpoch
 	}
 
 	// attestingValidatorIndices gets the participants that attested to a certain shardblockRoot for a certain shardCommittee
 	attestingValidatorIndices := func(shardComittee ShardAndCommittee, shardBlockRoot chainhash.Hash) ([]uint32, error) {
 		outMap := map[uint32]struct{}{}
-		for _, a := range currentEpochAttestations {
+		for _, a := range s.CurrentEpochAttestations {
 			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
 				for i, s := range shardComittee.Committee {
 					bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
@@ -1323,7 +1344,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				}
 			}
 		}
-		for _, a := range previousEpochAttestations {
+		for _, a := range s.PreviousEpochAttestations {
 			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
 				for i, s := range shardComittee.Committee {
 					bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
@@ -1346,13 +1367,13 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	winningRoot := func(shardCommittee ShardAndCommittee) (*chainhash.Hash, error) {
 		// find all possible hashes for the winning root
 		possibleHashes := map[chainhash.Hash]struct{}{}
-		for _, a := range currentEpochAttestations {
+		for _, a := range s.CurrentEpochAttestations {
 			if a.Data.Shard != shardCommittee.Shard {
 				continue
 			}
 			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
 		}
-		for _, a := range previousEpochAttestations {
+		for _, a := range s.PreviousEpochAttestations {
 			if a.Data.Shard != shardCommittee.Shard {
 				continue
 			}
@@ -1394,6 +1415,8 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	}
 
 	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
+
+	s.PreviousCrosslinks = s.LatestCrosslinks[:]
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
@@ -1441,11 +1464,11 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		return s.GetEffectiveBalance(index, c) * epochsSinceFinality / c.InactivityPenaltyQuotient
 	}
 
-	epochsSinceFinality := (s.Slot - s.FinalizedSlot) / c.EpochLength
+	epochsSinceFinality := s.EpochIndex - s.FinalizedEpoch
 
 	// previousAttestationCache tracks which validator attested to which attestation
 	previousAttestationCache := map[uint32]*PendingAttestation{}
-	for _, a := range previousEpochAttestations {
+	for _, a := range s.PreviousEpochAttestations {
 		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
 		if err != nil {
 			return nil, err
@@ -1479,7 +1502,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				s.ValidatorBalances[index] += reward
 				receipts = append(receipts, Receipt{
 					Slot:   s.Slot,
-					Type:   AttestedToCorrectBlockHashInPreviousEpoch,
+					Type:   AttestedToCorrectBeaconBlockHash,
 					Index:  index,
 					Amount: int64(reward),
 				})
@@ -1489,20 +1512,20 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				s.ValidatorBalances[index] -= penalty
 				receipts = append(receipts, Receipt{
 					Slot:   s.Slot,
-					Type:   DidNotAttestToCorrectBeaconBlock,
+					Type:   AttestedToIncorrectBeaconBlockHash,
 					Index:  index,
 					Amount: -int64(penalty),
 				})
 			}
 
 			// reward or slash based on if they attested to the correct source
-			if _, found := previousEpochBoundaryAttesterIndices[index]; found {
+			if _, found := attestersMatchingPreviousTarget[index]; found {
 				reward := baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
 				totalRewarded += reward
 				s.ValidatorBalances[index] += reward
 				receipts = append(receipts, Receipt{
 					Slot:   s.Slot,
-					Type:   AttestedToPreviousEpochBoundaryHash,
+					Type:   AttestedToMatchingTargetHash,
 					Index:  index,
 					Amount: int64(reward),
 				})
@@ -1512,7 +1535,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				s.ValidatorBalances[index] -= baseReward(index)
 				receipts = append(receipts, Receipt{
 					Slot:   s.Slot,
-					Type:   DidNotAttestToPreviousEpochBoundary,
+					Type:   AttestedToIncorrectTargetHash,
 					Index:  index,
 					Amount: -int64(penalty),
 				})
@@ -1525,7 +1548,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				s.ValidatorBalances[index] += reward
 				receipts = append(receipts, Receipt{
 					Slot:   s.Slot,
-					Type:   AttestedToPreviousEpochJustifiedSlot,
+					Type:   AttestedInPreviousEpoch,
 					Index:  index,
 					Amount: int64(reward),
 				})
@@ -1535,7 +1558,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				s.ValidatorBalances[index] -= penalty
 				receipts = append(receipts, Receipt{
 					Slot:   s.Slot,
-					Type:   DidNotAttestToPreviousJustifiedSlot,
+					Type:   DidNotAttestToPreviousEpoch,
 					Index:  index,
 					Amount: -int64(penalty),
 				})
@@ -1656,6 +1679,8 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	shouldUpdateRegistry := s.shouldUpdateRegistry()
 
+	s.EpochIndex = s.Slot / c.EpochLength
+
 	// update registry if:
 	// - a slot has been finalized after the last time the registry was changed
 	// - every shard
@@ -1665,7 +1690,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			return nil, err
 		}
 
-		s.ValidatorRegistryLatestChangeSlot = s.Slot
+		s.ValidatorRegistryLatestChangeEpoch = s.EpochIndex
 		copy(s.ShardAndCommitteeForSlots[:c.EpochLength], s.ShardAndCommitteeForSlots[c.EpochLength:])
 		lastSlot := s.ShardAndCommitteeForSlots[len(s.ShardAndCommitteeForSlots)-1]
 		lastCommittee := lastSlot[len(lastSlot)-1]
@@ -1674,7 +1699,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		copy(s.ShardAndCommitteeForSlots[c.EpochLength:], newShuffling)
 	} else {
 		copy(s.ShardAndCommitteeForSlots[:c.EpochLength], s.ShardAndCommitteeForSlots[c.EpochLength:])
-		epochsSinceLastRegistryChange := (s.Slot - s.ValidatorRegistryLatestChangeSlot) / c.EpochLength
+		epochsSinceLastRegistryChange := s.EpochIndex - s.ValidatorRegistryLatestChangeEpoch
 		startShard := s.ShardAndCommitteeForSlots[0][0].Shard
 
 		// epochsSinceLastRegistryChange is a power of 2
@@ -1683,16 +1708,10 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			copy(s.ShardAndCommitteeForSlots[c.EpochLength:], newShuffling)
 		}
 	}
-	s.EpochIndex = s.Slot / c.EpochLength
 
-	newLatestAttestations := make([]PendingAttestation, 0)
-	for _, a := range s.LatestAttestations {
-		if a.Data.Slot >= s.Slot-2*c.EpochLength {
-			newLatestAttestations = append(newLatestAttestations, a)
-		}
-	}
+	s.PreviousEpochAttestations = s.CurrentEpochAttestations
 
-	s.LatestAttestations = newLatestAttestations
+	s.CurrentEpochAttestations = make([]PendingAttestation, 0)
 
 	return receipts, nil
 }
@@ -1712,23 +1731,46 @@ func (s *State) exitValidatorsUnderMinimum(c *config.Config) error {
 
 // ValidateAttestation checks if the attestation is valid.
 func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view BlockView, c *config.Config) error {
-	expectedJustifiedSlot := s.JustifiedSlot
-	attEpoch := (att.Data.Slot - 1) / c.EpochLength
-	if attEpoch < s.EpochIndex { // 8 -> 0, 9 -> 8
-		expectedJustifiedSlot = s.PreviousJustifiedSlot
-	}
+	if att.Data.TargetEpoch == s.EpochIndex {
+		if att.Data.SourceEpoch != s.JustifiedEpoch {
+			return fmt.Errorf("expected source epoch to equal the justified epoch if the target epoch is the current epoch (expected: %d, got %d)", s.EpochIndex, att.Data.TargetEpoch)
+		}
 
-	if att.Data.JustifiedSlot != expectedJustifiedSlot {
-		return fmt.Errorf("justified slot did not match expected justified slot. (expected: %d, got: %d)", expectedJustifiedSlot, att.Data.JustifiedSlot)
-	}
+		justifiedHash, err := view.GetHashBySlot(s.JustifiedEpoch * c.EpochLength)
+		if err != nil {
+			return err
+		}
 
-	node, err := view.GetHashBySlot(att.Data.JustifiedSlot)
-	if err != nil {
-		return err
-	}
+		if !att.Data.SourceHash.IsEqual(&justifiedHash) {
+			return fmt.Errorf("expected source hash to equal the current epoch hash if the target epoch is the current epoch (expected: %s, got %s)", justifiedHash, att.Data.TargetHash)
+		}
 
-	if !att.Data.JustifiedBlockHash.IsEqual(&node) {
-		return errors.New("justified block Hash did not match")
+		if !att.Data.LatestCrosslinkHash.IsEqual(&s.LatestCrosslinks[att.Data.Shard].ShardBlockHash) {
+			return fmt.Errorf("expected latest crosslink hash to match if the target epoch is the current epoch (expected: %s, got %s)",
+				s.LatestCrosslinks[att.Data.Shard].ShardBlockHash,
+				att.Data.LatestCrosslinkHash)
+		}
+	} else if att.Data.TargetEpoch == s.EpochIndex-1 {
+		if att.Data.SourceEpoch != s.PreviousJustifiedEpoch {
+			return fmt.Errorf("expected source epoch to equal the previous justified epoch if the target epoch is the previous epoch (expected: %d, got %d)", s.EpochIndex-1, att.Data.TargetEpoch)
+		}
+
+		previousJustifiedHash, err := view.GetHashBySlot(s.PreviousJustifiedEpoch * c.EpochLength)
+		if err != nil {
+			return err
+		}
+
+		if !att.Data.SourceHash.IsEqual(&previousJustifiedHash) {
+			return fmt.Errorf("expected source hash to equal the previous justified hash if the target epoch is the previous epoch (expected: %s, got %s)", previousJustifiedHash, att.Data.TargetHash)
+		}
+
+		if !att.Data.LatestCrosslinkHash.IsEqual(&s.PreviousCrosslinks[att.Data.Shard].ShardBlockHash) {
+			return fmt.Errorf("expected latest crosslink hash to match if the target epoch is the previous epoch(expected: %s, got %s)",
+				s.PreviousCrosslinks[att.Data.Shard].ShardBlockHash,
+				att.Data.LatestCrosslinkHash)
+		}
+	} else {
+		return fmt.Errorf("attestation should have target epoch of either the current epoch (%d) or the previous epoch (%d) but got %d", s.EpochIndex, s.EpochIndex-1, att.Data.TargetEpoch)
 	}
 
 	if len(s.LatestCrosslinks) <= int(att.Data.Shard) {
@@ -1776,7 +1818,7 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 		}
 	}
 
-	node, err = view.GetHashBySlot(att.Data.Slot)
+	node, err := view.GetHashBySlot(att.Data.Slot)
 	if err != nil {
 		return err
 	}
@@ -1808,13 +1850,23 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 		return errors.New("attestation was not included within 1 epoch")
 	}
 
-	s.LatestAttestations = append(s.LatestAttestations, PendingAttestation{
-		Data:                  att.Data,
-		ParticipationBitfield: att.ParticipationBitfield,
-		CustodyBitfield:       att.CustodyBitfield,
-		InclusionDelay:        s.Slot - att.Data.Slot,
-		ProposerIndex:         proposerIndex,
-	})
+	if att.Data.TargetEpoch == s.EpochIndex {
+		s.CurrentEpochAttestations = append(s.CurrentEpochAttestations, PendingAttestation{
+			Data:                  att.Data,
+			ParticipationBitfield: att.ParticipationBitfield,
+			CustodyBitfield:       att.CustodyBitfield,
+			InclusionDelay:        s.Slot - att.Data.Slot,
+			ProposerIndex:         proposerIndex,
+		})
+	} else {
+		s.PreviousEpochAttestations = append(s.PreviousEpochAttestations, PendingAttestation{
+			Data:                  att.Data,
+			ParticipationBitfield: att.ParticipationBitfield,
+			CustodyBitfield:       att.CustodyBitfield,
+			InclusionDelay:        s.Slot - att.Data.Slot,
+			ProposerIndex:         proposerIndex,
+		})
+	}
 
 	return nil
 }
@@ -1949,7 +2001,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	}
 
 	for _, c := range block.BlockBody.CasperSlashings {
-		err := s.ApplyCasperSlashing(c, con)
+		err := s.applyCasperSlashing(c, con)
 		if err != nil {
 			return err
 		}
@@ -2031,13 +2083,13 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]R
 // The registry should only be updated if every shard has created a crosslink since the
 // last update and the beacon chain has been finalized since the last update.
 func (s *State) shouldUpdateRegistry() bool {
-	if s.FinalizedSlot <= s.ValidatorRegistryLatestChangeSlot {
+	if s.FinalizedEpoch <= s.ValidatorRegistryLatestChangeEpoch {
 		return false
 	}
 
 	for _, shardAndCommittees := range s.ShardAndCommitteeForSlots {
 		for _, committee := range shardAndCommittees {
-			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeSlot {
+			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeEpoch {
 				return false
 			}
 		}

@@ -10,13 +10,14 @@ import (
 func getAttestation(information attestationAssignment) (*primitives.AttestationData, [32]byte, error) {
 	a := primitives.AttestationData{
 		Slot:                information.slot,
-		Shard:               information.shard,
 		BeaconBlockHash:     information.beaconBlockHash,
-		EpochBoundaryHash:   information.epochBoundaryRoot,
+		SourceEpoch:         information.sourceEpoch,
+		SourceHash:          information.sourceHash,
+		TargetHash:          information.targetHash,
+		TargetEpoch:         information.targetEpoch,
+		Shard:               information.shard,
 		ShardBlockHash:      chainhash.Hash{}, // only attest to 0 hashes in phase 0
 		LatestCrosslinkHash: information.latestCrosslinks[information.shard].ShardBlockHash,
-		JustifiedSlot:       information.justifiedSlot,
-		JustifiedBlockHash:  information.justifiedRoot,
 	}
 
 	attestationAndPoCBit := primitives.AttestationDataAndCustodyBit{Data: a, PoCBit: false}

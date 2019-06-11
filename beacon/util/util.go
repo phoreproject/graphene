@@ -60,10 +60,7 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []primitives.Attestation, proposerSlashings []primitives.ProposerSlashing, casperSlashings []primitives.CasperSlashing, deposits []primitives.Deposit, exits []primitives.Exit, k validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
 	parentRoot := b.View.Chain.Tip().Hash
 
-	stateRoot, err := ssz.TreeHash(b.GetState())
-	if err != nil {
-		return nil, err
-	}
+	stateRoot := b.View.Chain.Tip().StateRoot
 
 	slotNumber := b.View.Chain.Tip().Slot + 1
 
@@ -131,7 +128,11 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 
 	lastSlot := b.View.Chain.Tip().Slot
 
-	assignments, err := s.GetShardCommitteesAtSlot(lastSlot, b.GetConfig())
+	if lastSlot == 0 {
+		return []primitives.Attestation{}, nil
+	}
+
+	assignments, err := s.GetShardCommitteesAtSlot(lastSlot-1, b.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -146,12 +147,12 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 
 		prevSlot := s.Slot - 1
 
-		justifiedSlot := s.JustifiedSlot
+		justifiedEpoch := s.JustifiedEpoch
 		if lastSlot < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
-			justifiedSlot = s.PreviousJustifiedSlot
+			justifiedEpoch = s.PreviousJustifiedEpoch
 		}
 
-		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedSlot)
+		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * b.GetConfig().EpochLength)
 		if err != nil {
 			return nil, err
 		}
@@ -160,11 +161,12 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			Slot:                lastSlot,
 			Shard:               assignment.Shard,
 			BeaconBlockHash:     b.View.Chain.Tip().Hash,
-			EpochBoundaryHash:   epochBoundaryHash,
+			SourceEpoch:         justifiedEpoch,
+			SourceHash:          justifiedNode.Hash,
 			ShardBlockHash:      chainhash.Hash{},
 			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,
-			JustifiedBlockHash:  justifiedNode.Hash,
-			JustifiedSlot:       justifiedSlot,
+			TargetEpoch:         prevSlot / b.GetConfig().EpochLength,
+			TargetHash:          epochBoundaryHash,
 		}
 
 		dataAndCustodyBit := primitives.AttestationDataAndCustodyBit{Data: dataToSign, PoCBit: false}

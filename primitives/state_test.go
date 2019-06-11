@@ -54,26 +54,28 @@ func TestForkData_ToFromProto(t *testing.T) {
 
 func TestState_Copy(t *testing.T) {
 	baseState := &primitives.State{
-		Slot:                              0,
-		GenesisTime:                       0,
-		ForkData:                          primitives.ForkData{},
-		ValidatorRegistry:                 []primitives.Validator{},
-		ValidatorBalances:                 []uint64{},
-		ValidatorRegistryLatestChangeSlot: 0,
-		ValidatorRegistryExitCount:        0,
-		ValidatorRegistryDeltaChainTip:    chainhash.Hash{},
-		RandaoMix:                         chainhash.Hash{},
-		NextSeed:                          chainhash.Hash{},
-		ShardAndCommitteeForSlots:         [][]primitives.ShardAndCommittee{},
-		PreviousJustifiedSlot:             0,
-		JustifiedSlot:                     0,
-		JustificationBitfield:             0,
-		FinalizedSlot:                     0,
-		LatestCrosslinks:                  []primitives.Crosslink{},
-		LatestBlockHashes:                 []chainhash.Hash{},
-		LatestPenalizedExitBalances:       []uint64{},
-		LatestAttestations:                []primitives.PendingAttestation{},
-		BatchedBlockRoots:                 []chainhash.Hash{},
+		Slot:                               0,
+		GenesisTime:                        0,
+		ForkData:                           primitives.ForkData{},
+		ValidatorRegistry:                  []primitives.Validator{},
+		ValidatorBalances:                  []uint64{},
+		ValidatorRegistryLatestChangeEpoch: 0,
+		ValidatorRegistryExitCount:         0,
+		ValidatorRegistryDeltaChainTip:     chainhash.Hash{},
+		RandaoMix:                          chainhash.Hash{},
+		NextSeed:                           chainhash.Hash{},
+		ShardAndCommitteeForSlots:          [][]primitives.ShardAndCommittee{},
+		PreviousJustifiedEpoch:             0,
+		JustifiedEpoch:                     0,
+		JustificationBitfield:              0,
+		FinalizedEpoch:                     0,
+		LatestCrosslinks:                   []primitives.Crosslink{},
+		PreviousCrosslinks:                 []primitives.Crosslink{},
+		LatestBlockHashes:                  []chainhash.Hash{},
+		LatestPenalizedExitBalances:        []uint64{},
+		CurrentEpochAttestations:           []primitives.PendingAttestation{},
+		PreviousEpochAttestations:          []primitives.PendingAttestation{},
+		BatchedBlockRoots:                  []chainhash.Hash{},
 	}
 
 	copyState := baseState.Copy()
@@ -107,8 +109,8 @@ func TestState_Copy(t *testing.T) {
 		t.Fatal("mutating validator balances mutates base")
 	}
 
-	copyState.ValidatorRegistryLatestChangeSlot = 1
-	if baseState.ValidatorRegistryLatestChangeSlot == 1 {
+	copyState.ValidatorRegistryLatestChangeEpoch = 1
+	if baseState.ValidatorRegistryLatestChangeEpoch == 1 {
 		t.Fatal("mutating ValidatorRegistryLatestChangeSlot mutates base")
 	}
 
@@ -137,8 +139,8 @@ func TestState_Copy(t *testing.T) {
 		t.Fatal("mutating ShardAndCommitteeForSlots mutates base")
 	}
 
-	copyState.JustifiedSlot = 1
-	if baseState.JustifiedSlot == 1 {
+	copyState.JustifiedEpoch = 1
+	if baseState.JustifiedEpoch == 1 {
 		t.Fatal("mutating justifiedSlot mutates base")
 	}
 
@@ -147,13 +149,18 @@ func TestState_Copy(t *testing.T) {
 		t.Fatal("mutating baseSlot mutates base")
 	}
 
-	copyState.FinalizedSlot = 1
-	if baseState.FinalizedSlot == 1 {
+	copyState.FinalizedEpoch = 1
+	if baseState.FinalizedEpoch == 1 {
 		t.Fatal("mutating finalizedSlot mutates base")
 	}
 
 	copyState.LatestCrosslinks = []primitives.Crosslink{{}}
 	if len(baseState.LatestCrosslinks) == 1 {
+		t.Fatal("mutating latestCrosslinks mutates base")
+	}
+
+	copyState.PreviousCrosslinks = []primitives.Crosslink{{}}
+	if len(baseState.PreviousCrosslinks) == 1 {
 		t.Fatal("mutating latestCrosslinks mutates base")
 	}
 
@@ -167,8 +174,13 @@ func TestState_Copy(t *testing.T) {
 		t.Fatal("mutating latestPenalizedExitBalances mutates base")
 	}
 
-	copyState.LatestAttestations = []primitives.PendingAttestation{{}}
-	if len(baseState.LatestAttestations) == 1 {
+	copyState.CurrentEpochAttestations = []primitives.PendingAttestation{{}}
+	if len(baseState.CurrentEpochAttestations) == 1 {
+		t.Fatal("mutating latestAttestations mutates base")
+	}
+
+	copyState.PreviousEpochAttestations = []primitives.PendingAttestation{{}}
+	if len(baseState.PreviousEpochAttestations) == 1 {
 		t.Fatal("mutating latestAttestations mutates base")
 	}
 
@@ -188,22 +200,24 @@ func TestState_ToFromProto(t *testing.T) {
 				Status: 1,
 			},
 		},
-		ValidatorBalances:                 []uint64{1},
-		ValidatorRegistryLatestChangeSlot: 1,
-		ValidatorRegistryExitCount:        1,
-		ValidatorRegistryDeltaChainTip:    chainhash.Hash{1},
-		RandaoMix:                         chainhash.Hash{1},
-		NextSeed:                          chainhash.Hash{1},
-		ShardAndCommitteeForSlots:         [][]primitives.ShardAndCommittee{{{Shard: 1, Committee: []uint32{1}}}},
-		PreviousJustifiedSlot:             1,
-		JustifiedSlot:                     1,
-		JustificationBitfield:             1,
-		FinalizedSlot:                     1,
-		LatestCrosslinks:                  []primitives.Crosslink{{Slot: 1}},
-		LatestBlockHashes:                 []chainhash.Hash{{1}},
-		LatestPenalizedExitBalances:       []uint64{1},
-		LatestAttestations:                []primitives.PendingAttestation{{InclusionDelay: 1}},
-		BatchedBlockRoots:                 []chainhash.Hash{{1}},
+		ValidatorBalances:                  []uint64{1},
+		ValidatorRegistryLatestChangeEpoch: 1,
+		ValidatorRegistryExitCount:         1,
+		ValidatorRegistryDeltaChainTip:     chainhash.Hash{1},
+		RandaoMix:                          chainhash.Hash{1},
+		NextSeed:                           chainhash.Hash{1},
+		ShardAndCommitteeForSlots:          [][]primitives.ShardAndCommittee{{{Shard: 1, Committee: []uint32{1}}}},
+		PreviousJustifiedEpoch:             1,
+		JustifiedEpoch:                     1,
+		JustificationBitfield:              1,
+		FinalizedEpoch:                     1,
+		LatestCrosslinks:                   []primitives.Crosslink{{Slot: 1}},
+		PreviousCrosslinks:                 []primitives.Crosslink{{Slot: 1}},
+		LatestBlockHashes:                  []chainhash.Hash{{1}},
+		LatestPenalizedExitBalances:        []uint64{1},
+		CurrentEpochAttestations:           []primitives.PendingAttestation{{InclusionDelay: 1}},
+		PreviousEpochAttestations:          []primitives.PendingAttestation{{InclusionDelay: 1}},
+		BatchedBlockRoots:                  []chainhash.Hash{{1}},
 	}
 
 	stateProto := baseState.ToProto()

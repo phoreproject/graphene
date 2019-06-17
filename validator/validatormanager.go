@@ -239,9 +239,7 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 
 	slotToAttest := slotNumber
 
-	epochIndex := int64(slotToAttest) - earliestSlot
-
-	slotCommittees := vm.attestationAssignments[epochIndex-1] // we actually want to attest MinAttestationInclusionDistance after the slot
+	slotCommittees := vm.attestationAssignments[int64(slotToAttest)-earliestSlot-1] // we actually want to attest MinAttestationInclusionDistance after the slot
 
 	blockHashResponse, err := vm.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{
 		SlotNumber: slotToAttest,

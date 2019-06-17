@@ -152,19 +152,26 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 	}
 	am.attestationsLock.Unlock()
 
+	tipHash := am.blockchain.View.Chain.Tip().Hash
+
+	tipView, err := am.blockchain.GetSubView(tipHash)
+	if err != nil {
+		return nil, err
+	}
+
+	state := am.blockchain.GetState()
+
+	// assume the tip slot is the slot before
+	tipView.SetTipSlot(slot - 1)
+
 	attestations := make([]attestationWithRealSigAndCount, 0, len(aggregatedAttestationMap))
 	i := 0
 	for _, att := range aggregatedAttestationMap {
-		tipHash := am.blockchain.View.Chain.Tip().Hash
 
-		tipView, err := am.blockchain.GetSubView(tipHash)
-		if err != nil {
+		// too soon
+		if att.data.TargetEpoch > state.EpochIndex {
 			continue
 		}
-
-		state := am.blockchain.GetState()
-
-		tipView.SetTipSlot(state.Slot)
 
 		err = state.ValidateAttestation(primitives.Attestation{
 			AggregateSig:          att.aggregateSignature.Serialize(),

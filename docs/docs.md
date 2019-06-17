@@ -4,27 +4,28 @@ This documentation gives information about how each of the different modules int
 
 ## Table of Contents
 
+
 1. [Overview](overview.md)
-  a. [Overview](overview.md#overview)
-  b. [Beacon Chain](overview.md#beacon-chain)
-  c. [Attestations](overview.md#attestations)
-  d. [Shard/Block Assignments](overview.md#shard-block-assignments)
-  e. [Entropy](overview.md#entropy)
-  f. [Slashings](overview.md#slashings)
-  g. [Rewards](overview.md#rewards)
+    1. [Overview](overview.md#overview)
+    2. [Beacon Chain](overview.md#beacon-chain)
+    3. [Attestations](overview.md#attestations)
+    4. [Shard/Block Assignments](overview.md#shard-block-assignments)
+    5. [Entropy](overview.md#entropy)
+    6. [Slashings](overview.md#slashings)
+    7. [Rewards](overview.md#rewards)
 2. [Block Processing](block-processing.md)
 3. [Mempool](mempool.md)
-  a. [Validation](mempool.md#validation)
-  b. [Prioritization](mempool.md#prioritization)
-  c. [Limits](mempool.md#limits)
+    1. [Validation](mempool.md#validation)
+    2. [Prioritization](mempool.md#prioritization)
+    3. [Limits](mempool.md#limits)
 4. State Management
 5. BLS Signatures
 6. Modules
-  a. Beacon
-  b. [Validator](validator.md)
-  c. Shard
-  d. Explorer
+    1. Beacon
+    2. [Validator](validator.md)
+    3. Shard
+    4. Explorer
 7. Communication
-  a. P2P
-  b. Beacon-Validator
-  c. Beacon-Shard
+    1. P2P
+    2. Beacon-Validator
+    3. Beacon-Shard

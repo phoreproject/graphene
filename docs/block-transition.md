@@ -10,6 +10,9 @@ Block transitions occur only when a proposer submits a block, after the slot tra
     1. [Block Header](#block-header)
     2. [Block Body](#block-body)
 2. [Processing](#processing)
+    1. [Signatures](#signatures)
+    2. [Transactions](#transactions)
+        1. [Proposer Slashings](#proposer-slashing)
 
 ## Data Structure
 
@@ -46,6 +49,8 @@ first_commitee = s.shard_committees_at_slots[slot_index][0].Committee
 proposer_index = first_committee[(slot-1) % len(first_committee)]
 ```
 
+### Signatures
+
 The `RandaoReveal` property of the block must verify with the proposer's public key, the hash of the slot number, and the domain `DomainRandao`.
 
 The node should calculate the proposal root by calculating the hash of:
@@ -66,3 +71,31 @@ Then, the node should validate that the signature in the block validates with th
 Update `state.randao_mix` by XORing it with the hash of the RANDAO signature:  `new_mix = old_mix ^ hash(block.randao_reveal)`.
 
 Ensure that `Attestation`, `CasperSlashing`, `ProposerSlashing`, `Deposit`, and `Exit` objects do not exceed the maximum allowed as specified in the config.
+
+### Transactions
+
+Transactions are validated as they are included in each block. The five main types of transactions are: `ProposerSlashing`, `CasperSlashing`, `Exit`, `Deposit`, `Attestation`.
+
+#### Proposer Slashing
+
+A proposer slashing has the following data structure:
+
+```go
+type ProposerSlashing struct {
+	ProposerIndex      uint32
+	ProposalData1      ProposalSignedData
+	ProposalSignature1 [48]byte
+	ProposalData2      ProposalSignedData
+	ProposalSignature2 [48]byte
+}
+```
+
+
+
+For each proposer slashing in a block, verify that:
+
+- `proposer_index` is less than `len(s.ValidatorRegistry)`
+- `proposal_data_1.slot == proposal_data_2.slot`
+- `proposal_data_1.shard == proposal_data_2.shard`
+- `proposal_data_1.hash != proposal_data_2.hash`
+- Both signatures should validate given the proposer's public key and the hashes of the two `proposal_data` items.

@@ -498,6 +498,12 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 	validator.LatestStatusChangeSlot = s.Slot
 
 	if status == ExitedWithPenalty {
+		if uint64(len(s.LatestPenalizedExitBalances)) <= s.Slot/c.CollectivePenaltyCalculationPeriod {
+			needed := s.Slot/c.CollectivePenaltyCalculationPeriod - uint64(len(s.LatestPenalizedExitBalances)) + 1
+
+			s.LatestPenalizedExitBalances = append(s.LatestPenalizedExitBalances, make([]uint64, needed)...)
+		}
+
 		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
 
 		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, c)
@@ -656,8 +662,8 @@ func (s *State) ValidateProofOfPossession(pubkey *bls.PublicKey, proofOfPossessi
 	return valid, nil
 }
 
-// ApplyProposerSlashing applies a proposer slashing if valid.
-func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config *config.Config) error {
+// applyProposerSlashing applies a proposer slashing if valid.
+func (s *State) applyProposerSlashing(proposerSlashing ProposerSlashing, config *config.Config) error {
 	if proposerSlashing.ProposerIndex >= uint32(len(s.ValidatorRegistry)) {
 		return errors.New("invalid proposer index")
 	}
@@ -1996,7 +2002,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	}
 
 	for _, slashing := range block.BlockBody.ProposerSlashings {
-		err := s.ApplyProposerSlashing(slashing, con)
+		err := s.applyProposerSlashing(slashing, con)
 		if err != nil {
 			return err
 		}

@@ -697,3 +697,268 @@ func TestBlockMaximums(t *testing.T) {
 		}
 	}
 }
+
+func TestProposerSlashingValidation(t *testing.T) {
+	c := &config.RegtestConfig
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state, keystore, err := SetupState(c.ShardCount*c.TargetCommitteeSize*2+5, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// sign two conflicting blocks at the same height
+	slotToPropose := state.Slot + 1
+	proposerIndex, err := state.GetBeaconProposerIndex(slotToPropose-1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type BodyShouldValidate struct {
+		ps        primitives.ProposerSlashing
+		validates bool
+		reason    string
+	}
+
+	block1 := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	key := keystore.GetKeyForValidator(proposerIndex)
+
+	var slotBytes [8]byte
+	binary.BigEndian.PutUint64(slotBytes[:], block1.BlockHeader.SlotNumber)
+	slotBytesHash := chainhash.HashH(slotBytes[:])
+
+	slotBytesSignature, err := bls.Sign(key, slotBytesHash[:], bls.DomainRandao)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block1.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
+	block1.BlockHeader.Signature = bls.EmptySignature.Serialize()
+
+	blockWithoutSignatureRoot, err := ssz.TreeHash(block1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposal1 := primitives.ProposalSignedData{
+		Slot:      block1.BlockHeader.SlotNumber,
+		Shard:     c.BeaconShardNumber,
+		BlockHash: blockWithoutSignatureRoot,
+	}
+
+	proposalRoot1, err := ssz.TreeHash(proposal1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blockSignature1, err := bls.Sign(key, proposalRoot1[:], bls.DomainProposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block2 := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      []primitives.Attestation{{}},
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	binary.BigEndian.PutUint64(slotBytes[:], block2.BlockHeader.SlotNumber)
+	slotBytesHash = chainhash.HashH(slotBytes[:])
+
+	slotBytesSignature, err = bls.Sign(key, slotBytesHash[:], bls.DomainRandao)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block2.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
+	block2.BlockHeader.Signature = bls.EmptySignature.Serialize()
+
+	blockWithoutSignatureRoot, err = ssz.TreeHash(block2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposal2 := primitives.ProposalSignedData{
+		Slot:      block2.BlockHeader.SlotNumber,
+		Shard:     c.BeaconShardNumber,
+		BlockHash: blockWithoutSignatureRoot,
+	}
+
+	proposalRoot2, err := ssz.TreeHash(proposal2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blockSignature2, err := bls.Sign(key, proposalRoot2[:], bls.DomainProposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposal2DifferentShard := proposal2.Copy()
+	proposal2DifferentShard.Shard++
+
+	proposal2DifferentShardHash, err := ssz.TreeHash(proposal2DifferentShard)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposal2DifferentShardSignature, err := bls.Sign(key, proposal2DifferentShardHash[:], bls.DomainProposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposal2DifferentSlot := proposal2.Copy()
+	proposal2DifferentSlot.Slot++
+
+	proposal2DifferentSlotHash, err := ssz.TreeHash(proposal2DifferentSlot)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposal2DifferentSlotSignature, err := bls.Sign(key, proposal2DifferentSlotHash[:], bls.DomainProposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// ProposerSlashings happen when validators sign two blocks at the same slot.
+
+	testBlockBodies := []BodyShouldValidate{
+		{
+			primitives.ProposerSlashing{
+				ProposerIndex:      proposerIndex,
+				ProposalData1:      proposal1,
+				ProposalSignature1: blockSignature1.Serialize(),
+				ProposalData2:      proposal2,
+				ProposalSignature2: blockSignature2.Serialize(),
+			},
+			true,
+			"should validate with two different signed blocks",
+		},
+		{
+			primitives.ProposerSlashing{
+				ProposerIndex:      proposerIndex,
+				ProposalData1:      proposal1,
+				ProposalSignature1: blockSignature1.Serialize(),
+				ProposalData2:      proposal1,
+				ProposalSignature2: blockSignature1.Serialize(),
+			},
+			false,
+			"should not validate with same signed block",
+		},
+		{
+			primitives.ProposerSlashing{
+				ProposerIndex:      proposerIndex,
+				ProposalData1:      proposal1,
+				ProposalSignature1: [48]byte{},
+				ProposalData2:      proposal2,
+				ProposalSignature2: blockSignature2.Serialize(),
+			},
+			false,
+			"should not validate with invalid signature 1",
+		},
+		{
+			primitives.ProposerSlashing{
+				ProposerIndex:      proposerIndex,
+				ProposalData1:      proposal1,
+				ProposalSignature1: blockSignature1.Serialize(),
+				ProposalData2:      proposal2,
+				ProposalSignature2: [48]byte{},
+			},
+			false,
+			"should not validate with invalid signature 2",
+		},
+		{
+			primitives.ProposerSlashing{
+				ProposerIndex:      proposerIndex,
+				ProposalData1:      proposal2,
+				ProposalSignature1: blockSignature2.Serialize(),
+				ProposalData2:      proposal2DifferentShard,
+				ProposalSignature2: proposal2DifferentShardSignature.Serialize(),
+			},
+			false,
+			"should not validate with different shard",
+		},
+		{
+			primitives.ProposerSlashing{
+				ProposerIndex:      proposerIndex,
+				ProposalData1:      proposal2,
+				ProposalSignature1: blockSignature2.Serialize(),
+				ProposalData2:      proposal2DifferentSlot,
+				ProposalSignature2: proposal2DifferentSlotSignature.Serialize(),
+			},
+			false,
+			"should not validate with different slot",
+		},
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, b := range testBlockBodies {
+		blockTest := &primitives.Block{
+			BlockHeader: primitives.BlockHeader{
+				SlotNumber:   slotToPropose,
+				ParentRoot:   chainhash.Hash{},
+				StateRoot:    chainhash.Hash{},
+				RandaoReveal: [48]byte{},
+				Signature:    [48]byte{},
+			},
+			BlockBody: primitives.BlockBody{
+				Attestations: nil,
+				ProposerSlashings: []primitives.ProposerSlashing{
+					b.ps,
+				},
+				CasperSlashings: nil,
+				Deposits:        nil,
+				Exits:           nil,
+			},
+		}
+
+		err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stateCopy := state.Copy()
+
+		err = stateCopy.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+
+		if (err == nil) != b.validates {
+			if b.validates {
+				t.Fatalf("expected block to validate, but got error: %s for case: %s", err, b.reason)
+			} else {
+				t.Fatalf("expected block to fail with reason: %s", b.reason)
+			}
+		}
+	}
+}

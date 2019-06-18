@@ -14,6 +14,10 @@ This documentation gives information about how each of the different modules int
     6. [Slashings](overview.md#slashings)
     7. [Rewards](overview.md#rewards)
 2. [Block Processing](block-processing.md)
+
+    1. Slot Transition
+    2. [Block Transition](block-transition.md)
+    3. Epoch Transition
 3. [Mempool](mempool.md)
     1. [Validation](mempool.md#validation)
     2. [Prioritization](mempool.md#prioritization)

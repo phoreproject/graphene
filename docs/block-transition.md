@@ -39,9 +39,9 @@ The block body stores a certain number of 5 types of important transactions:
 
 The proposer of a block is defined by the following algorithm:
 
-```python3
+```python
 state_slot = s.epoch_index * epoch_length
 slot_index = block.slot - 1 - state_slot + state_slot % epoch_length + epoch_length
 first_commitee = s.shard_committees_at_slots[slot_index][0].Committee
-proposer_index = first_committee[slot % len(first_committee)]
+proposer_index = first_committee[(slot-1) % len(first_committee)]
 ```

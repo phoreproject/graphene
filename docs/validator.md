@@ -16,7 +16,7 @@ b. act as a vote for a shard block
 
 Attestations should be submitted halfway through a slot, or at `0.5 * slot_duration + slot_number * slot_duration + genesis_time`.
 
-At this point, the validator should call, `UpdateEpochInformation` to retrieve the current epoch information from the beacon chain. The current epoch information includes:
+At this point, the validator should call, `UpdateEpochInformation(slot_number / epoch_length)` to retrieve the current epoch information from the beacon chain. The current epoch information includes:
 
 ```go
 type epochInformation struct {

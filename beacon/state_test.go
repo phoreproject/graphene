@@ -60,7 +60,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5; i++ {
+	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5+1; i++ {
 		s := b.GetState()
 
 		if s.EpochIndex != i/b.GetConfig().EpochLength {

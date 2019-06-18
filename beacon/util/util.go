@@ -132,7 +132,9 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 		return []primitives.Attestation{}, nil
 	}
 
-	assignments, err := s.GetShardCommitteesAtSlot(lastSlot-1, b.GetConfig())
+	config := b.GetConfig()
+
+	assignments, err := s.GetShardCommitteesAtSlot(lastSlot-1, config)
 	if err != nil {
 		return nil, err
 	}
@@ -140,19 +142,29 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochBoundaryHash, err := b.GetEpochBoundaryHash(lastSlot)
+		epochIndex := lastSlot / config.EpochLength
+
+		targetHash, err := b.View.Chain.GetBlockBySlot(epochIndex * config.EpochLength)
 		if err != nil {
 			return nil, err
 		}
 
-		prevSlot := s.Slot - 1
-
 		justifiedEpoch := s.JustifiedEpoch
-		if lastSlot < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
+		crosslinks := s.LatestCrosslinks
+		if lastSlot%config.EpochLength == 0 {
 			justifiedEpoch = s.PreviousJustifiedEpoch
+
+			targetHash, err = b.View.Chain.GetBlockBySlot(epochIndex*config.EpochLength - config.EpochLength)
+			if err != nil {
+				return nil, err
+			}
+
+			epochIndex--
+
+			crosslinks = s.PreviousCrosslinks
 		}
 
-		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * b.GetConfig().EpochLength)
+		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * config.EpochLength)
 		if err != nil {
 			return nil, err
 		}
@@ -164,9 +176,9 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			SourceEpoch:         justifiedEpoch,
 			SourceHash:          justifiedNode.Hash,
 			ShardBlockHash:      chainhash.Hash{},
-			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,
-			TargetEpoch:         prevSlot / b.GetConfig().EpochLength,
-			TargetHash:          epochBoundaryHash,
+			LatestCrosslinkHash: crosslinks[assignment.Shard].ShardBlockHash,
+			TargetEpoch:         epochIndex,
+			TargetHash:          targetHash.Hash,
 		}
 
 		dataAndCustodyBit := primitives.AttestationDataAndCustodyBit{Data: dataToSign, PoCBit: false}

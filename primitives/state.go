@@ -1845,8 +1845,14 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 		return errors.New("attestation included too soon")
 	}
 
-	if att.Data.Slot+c.EpochLength < s.Slot {
+	// 4 -> 8 should not work
+	// 5 -> 8 should work
+	if att.Data.Slot+c.EpochLength <= s.Slot {
 		return errors.New("attestation was not included within 1 epoch")
+	}
+
+	if (att.Data.Slot-1)/c.EpochLength != att.Data.TargetEpoch {
+		return errors.New("attestation slot did not match target epoch")
 	}
 
 	if att.Data.TargetEpoch == s.EpochIndex {

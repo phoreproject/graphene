@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/utils"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -20,16 +18,6 @@ import (
 )
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
-	// wait for slot to happen to submit
-	timer := time.NewTimer(time.Unix(int64(information.proposeAt), 0).Sub(utils.Now()))
-
-	select {
-	case <-timer.C:
-		break
-	case <-ctx.Done():
-		return nil
-	}
-
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
 	if err != nil {
 		return err

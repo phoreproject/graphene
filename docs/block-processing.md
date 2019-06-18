@@ -14,15 +14,16 @@ update, state storage, etc.
 ## Important Types
 
 - Block
-    - full block including attestations/exits/deposits/slashings
+  - full block including attestations/exits/deposits/slashings
 - State
-    - full state of blockchain (equivalent to UTXO set in BTC)
+  - full state of blockchain (equivalent to UTXO set in BTC)
 - Block Node
-    - Block hash
-    - Block height
-    - Slot
-    - Parent
-    - Children
+  - Block hash
+- Block height
+  - Slot
+  - Parent
+  - Children
+
 ---
 Side note: block `height != slot` because slots progress even if blocks aren't proposed.
 
@@ -37,46 +38,46 @@ Side note: block `height != slot` because slots progress even if blocks aren't p
 ## Storage
 
 - Database
-    - Blocks
-    - Finalized/Justified Blocks
-    - Block Index
-    - Latest Attestations from each Validator
-    - Genesis Time
-    - Map of block hash to update state
-- State Map
-    - Map of block hash to updated state
+- Blocks
+- Finalized/Justified Blocks
 - Block Index
-    - Finalized block node and state
-    - Justified block node and state
-    - Tip block node
-    - Map of block hash to block node
+- Latest Attestations from each Validator
+- Genesis Time
+- Map of block hash to update state
+- State Map
+- Map of block hash to updated state
+- Block Index
+- Finalized block node and state
+- Justified block node and state
+- Tip block node
+- Map of block hash to block node
 
 ## State Transition
 
 State transitions are done in 3 phases.
+
 - **Slot Transition**
-    - happen every single slot regardless of whether a block was proposed
+- happen every single slot regardless of whether a block was proposed
 - **Block Transition**
-    - happen after the slot transition for `block.slot`
-    - only happen if a block was proposed
+- happen after the slot transition for `block.slot`
+- only happen if a block was proposed
 - **Epoch Transition**
-    - happen regardless of whether a block was proposed
-    - run at the end of `state.slot` if `state.slot % epochLength == 0`
+- happen regardless of whether a block was proposed
+- run at the end of `state.slot` if `state.slot % epochLength == 0`
 
 ## Process
 
 1. Validation
-    1. Make sure the block isn't processed too soon. A block can only be created on or after `genesisTime + slotNumber *
-    seconds per slot`.
-    2. Ensure the block has a parent block in the block index.
-    3. Ensure we haven't already processed a block with this hash.
+  a. Make sure the block isn't processed too soon. A block can only be created on or after `genesisTime + slotNumber * seconds per slot`.
+  b. Ensure the block has a parent block in the block index.
+  c. Ensure we haven't already processed a block with this hash.
 2. Calculate block state and add to state map. (`blockchain.StateManager.AddBlockToStateMap`)
-    1. State update phase
-        1. Run slot transitions until `state.slot == block.slot`
-        2. Run block transition
-        3. If `slot % epochLength == 0`, run epoch transition
-    2. Set the block hash in the database to the updated state
-    3. Set the block hash in the memory state map to the updated state
+  a. State update phase
+    i. Run slot transitions until `state.slot == block.slot`
+    ii. Run block transition
+    iii. If `slot % epochLength == 0`, run epoch transition
+  b. Set the block hash in the database to the updated state
+  c. Set the block hash in the memory state map to the updated state
 3. Store block in database (`blockchain.StoreBlock`)
 4. Add block to block index (`blockchain.addBlockNodeToIndex`)
 5. Update database block index

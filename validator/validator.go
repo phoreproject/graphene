@@ -41,18 +41,3 @@ func NewValidator(ctx context.Context, keystore Keystore, blockchainRPC pb.Block
 	v.logger = l.WithField("validator", id)
 	return v, nil
 }
-
-// RunValidator keeps track of assignments and creates/signs attestations as needed.
-func (v *Validator) RunValidator() error {
-	for {
-		select {
-		case p := <-v.proposerRequest:
-			err := v.proposeBlock(v.ctx, p)
-			if err != nil {
-				return err
-			}
-		case <-v.ctx.Done():
-			return nil
-		}
-	}
-}

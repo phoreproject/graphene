@@ -37,16 +37,6 @@ type Blockchain struct {
 	Notifees []BlockchainNotifee
 }
 
-// GetEpochBoundaryHash gets the Hash of the parent block at the epoch boundary.
-func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
-	epochBoundaryHeight := slot - (slot % b.config.EpochLength)
-	bl, err := b.View.Chain.GetBlockBySlot(epochBoundaryHeight)
-	if err != nil {
-		return chainhash.Hash{}, err
-	}
-	return bl.Hash, nil
-}
-
 func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, error) {
 	att, err := b.DB.GetLatestAttestation(validator)
 	if err != nil {
@@ -152,7 +142,7 @@ func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 
 	view := NewChainView(tip)
 
-	tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
+	_, tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
 	if err != nil {
 		return nil, err
 	}

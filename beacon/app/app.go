@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -67,6 +68,7 @@ type BeaconApp struct {
 
 	// exitChan receives a struct when an exit is requested.
 	exitChan chan struct{}
+	exited   *sync.Mutex
 
 	database   db.Database
 	blockchain *beacon.Blockchain
@@ -82,7 +84,11 @@ func NewBeaconApp(config Config) *BeaconApp {
 	app := &BeaconApp{
 		config:   config,
 		exitChan: make(chan struct{}),
+		exited:   new(sync.Mutex),
 	}
+
+	// locked while running
+	app.exited.Lock()
 	return app
 }
 
@@ -331,9 +337,17 @@ func (app BeaconApp) exit() {
 	}
 
 	os.Exit(0)
+
+	app.exited.Unlock()
 }
 
 // Exit sends a request to exit the application.
 func (app BeaconApp) Exit() {
 	app.exitChan <- struct{}{}
+}
+
+// WaitForExit waits for the beacon chain to exit.
+func (app BeaconApp) WaitForExit() {
+	app.exited.Lock()
+	defer app.exited.Unlock()
 }

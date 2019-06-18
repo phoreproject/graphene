@@ -29,7 +29,7 @@ func TestStateInitialization(t *testing.T) {
 	}
 
 	s := b.GetState()
-	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, 0, b.GetConfig())
+	proposerIndex, err := s.GetBeaconProposerIndex(0, b.GetConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,9 +60,24 @@ func TestCrystallizedStateTransition(t *testing.T) {
 
 	firstValidator := b.GetState().ShardAndCommitteeForSlots[0][0].Committee[0]
 
-	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5; i++ {
+	for i := uint64(0); i < uint64(b.GetConfig().EpochLength)*5+1; i++ {
 		s := b.GetState()
-		proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, i, b.GetConfig())
+
+		if s.EpochIndex != i/b.GetConfig().EpochLength {
+			s = s.Copy()
+
+			view, err := b.GetSubView(b.View.Chain.Tip().Hash)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = s.ProcessEpochTransition(b.GetConfig(), &view)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		proposerIndex, err := s.GetBeaconProposerIndex(i, b.GetConfig())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -70,8 +85,6 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		s = b.GetState()
 	}
 	stateAfterSlot20 := b.GetState()
 
@@ -79,7 +92,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 	if firstValidator == firstValidator2 {
 		t.Fatal("validators were not shuffled")
 	}
-	if stateAfterSlot20.FinalizedSlot != 12 || stateAfterSlot20.JustifiedSlot != 16 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedSlot != 12 {
+	if stateAfterSlot20.FinalizedEpoch != 3 || stateAfterSlot20.JustifiedEpoch != 4 || stateAfterSlot20.JustificationBitfield != 31 || stateAfterSlot20.PreviousJustifiedEpoch != 3 {
 		t.Fatal("justification/finalization is working incorrectly")
 	}
 }
@@ -169,7 +182,7 @@ func BenchmarkBlockTransition(t *testing.B) {
 
 	for i := uint64(0); i < uint64(t.N); i++ {
 		s := b.GetState()
-		proposerIndex, err := s.GetBeaconProposerIndex(s.Slot, i, b.GetConfig())
+		proposerIndex, err := s.GetBeaconProposerIndex(i, b.GetConfig())
 		if err != nil {
 			t.Fatal(err)
 		}

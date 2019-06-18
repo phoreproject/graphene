@@ -128,6 +128,8 @@ func (test *ValidateTest) exit() {
 	test.beacon.Exit()
 	test.validator.Exit()
 
+	test.beacon.WaitForExit()
+
 	err := os.Remove("/tmp/beacon.sock")
 	if err != nil {
 		panic(err)

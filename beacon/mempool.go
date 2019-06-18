@@ -54,29 +54,6 @@ func newAttestationMempool(blockchain *Blockchain) *attestationMempool {
 
 // ProcessNewAttestation processes a new attestation to be included in a block.
 func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
-	// first, validate the attestation
-	tipHash := m.blockchain.View.Chain.Tip().Hash
-
-	tipView, err := m.blockchain.GetSubView(tipHash)
-	if err != nil {
-		return err
-	}
-
-	firstSlotAttestationCouldBeIncluded := att.Data.Slot + m.blockchain.config.MinAttestationInclusionDelay
-
-	tipState, err := m.blockchain.stateManager.GetStateForHashAtSlot(tipHash, firstSlotAttestationCouldBeIncluded, &tipView, m.blockchain.config)
-	if err != nil {
-		return err
-	}
-
-	tipView.SetTipSlot(firstSlotAttestationCouldBeIncluded)
-
-	// if the first slot it could be included is
-	err = tipState.ValidateAttestation(att, true, &tipView, m.blockchain.config, tipState.Slot-1)
-	if err != nil {
-		return err
-	}
-
 	m.AttestationMempool.attestationsLock.Lock()
 	defer m.AttestationMempool.attestationsLock.Unlock()
 	for _, a := range m.AttestationMempool.attestations {
@@ -175,10 +152,39 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 	}
 	am.attestationsLock.Unlock()
 
-	attestations := make([]attestationWithRealSigAndCount, len(aggregatedAttestationMap))
+	tipHash := am.blockchain.View.Chain.Tip().Hash
+
+	tipView, err := am.blockchain.GetSubView(tipHash)
+	if err != nil {
+		return nil, err
+	}
+
+	state := am.blockchain.GetState()
+
+	// assume the tip slot is the slot before
+	tipView.SetTipSlot(slot - 1)
+
+	attestations := make([]attestationWithRealSigAndCount, 0, len(aggregatedAttestationMap))
 	i := 0
 	for _, att := range aggregatedAttestationMap {
-		attestations[i] = *att
+
+		// too soon
+		if att.data.TargetEpoch > state.EpochIndex {
+			continue
+		}
+
+		err = state.ValidateAttestation(primitives.Attestation{
+			AggregateSig:          att.aggregateSignature.Serialize(),
+			ParticipationBitfield: att.participationBitfield,
+			Data:                  att.data,
+			CustodyBitfield:       att.custodyBitfield,
+		}, false, &tipView, c)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		attestations = append(attestations, *att)
 		i++
 	}
 
@@ -204,21 +210,6 @@ func (am *attestationMempool) removeOldAttestations(slot uint64, c *config.Confi
 	newAttestations := make([]primitives.Attestation, 0)
 	for _, a := range am.attestations {
 		if a.Data.Slot+c.EpochLength < slot {
-			continue
-		}
-
-		tipHash := am.blockchain.View.Chain.Tip().Hash
-
-		tipView, err := am.blockchain.GetSubView(tipHash)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		state := am.blockchain.GetState()
-
-		err = state.ValidateAttestation(a, false, &tipView, c, state.Slot)
-		if err != nil {
 			continue
 		}
 

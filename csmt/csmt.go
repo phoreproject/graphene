@@ -15,13 +15,6 @@ type Key = chainhash.Hash
 // Hash is the hash type of a CSMT
 type Hash = Key
 
-// SMT is Sparse Merkle Tree
-type SMT interface {
-	GetRootHash() *Hash
-	Insert(leafHash *Hash) error
-	GetProof(key *Key) Proof
-}
-
 // NodeHashFunction computes the hash for the children for a inner node
 type NodeHashFunction func(*Hash, *Hash) Hash
 
@@ -32,17 +25,33 @@ type CSMT struct {
 	nodeHashFunction NodeHashFunction
 }
 
-// GetRootHash implements interface SMT
+// NewCSMT creates a CSMT
+func NewCSMT(nodeHashFunction NodeHashFunction) CSMT {
+	return CSMT{
+		root:             nil,
+		nodeHashFunction: nodeHashFunction,
+	}
+}
+
+// DebugToJSONString return a JSON string, for debug purpose
+func (tree *CSMT) DebugToJSONString() string {
+	if tree.root == nil {
+		return "null"
+	}
+	return tree.root.DebugToJSONString()
+}
+
+// GetRootHash get the root hash
 func (tree *CSMT) GetRootHash() *Hash {
 	return tree.root.GetHash()
 }
 
-// Insert implements interface SMT
-func (tree *CSMT) Insert(leafHash *Hash) error {
+// Insert inserts a hash
+func (tree *CSMT) Insert(leafHash *Hash, value interface{}) error {
 	if tree.root == nil {
-		tree.root = tree.createLeafNode(leafHash)
+		tree.root = tree.createLeafNode(leafHash, value)
 	} else {
-		node, err := tree.doInsert(tree.root, leafHash, leafHash)
+		node, err := tree.doInsert(tree.root, leafHash, leafHash, value)
 		if err == nil {
 			tree.root = node
 		} else {
@@ -52,21 +61,21 @@ func (tree *CSMT) Insert(leafHash *Hash) error {
 	return nil
 }
 
-func (tree *CSMT) createLeafNode(leafHash *Hash) Node {
-	return NewLeafNode(leafHash, leafHash)
+func (tree *CSMT) createLeafNode(leafHash *Hash, value interface{}) Node {
+	return NewLeafNode(leafHash, value)
 }
 
 func (tree *CSMT) createInnerNode(left Node, right Node) Node {
 	return NewInnerNode(tree.nodeHashFunction(left.GetHash(), right.GetHash()), left, right)
 }
 
-func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash) (Node, error) {
+func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash, value interface{}) (Node, error) {
 	if node.IsLeaf() {
 		if key.IsEqual(node.GetKey()) {
 			return nil, fmt.Errorf("key exists")
 		}
 
-		newLeaf := tree.createLeafNode(leafHash)
+		newLeaf := tree.createLeafNode(leafHash, value)
 		if compareKey(key, node.GetKey()) < 0 {
 			return tree.createInnerNode(newLeaf, node), nil
 		}
@@ -80,7 +89,7 @@ func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash) (Node, error) {
 	rightDistance := distance(key, right.GetKey())
 
 	if leftDistance == rightDistance {
-		newLeaf := tree.createLeafNode(leafHash)
+		newLeaf := tree.createLeafNode(leafHash, value)
 		minKey := getMinKey(left.GetKey(), right.GetKey())
 
 		if compareKey(key, minKey) < 0 {
@@ -90,22 +99,144 @@ func (tree *CSMT) doInsert(node Node, key *Key, leafHash *Hash) (Node, error) {
 	}
 
 	if leftDistance < rightDistance {
-		newNode, err := tree.doInsert(left, key, leafHash)
+		newNode, err := tree.doInsert(left, key, leafHash, value)
 		if err != nil {
 			return nil, err
 		}
 		return tree.createInnerNode(newNode, right), nil
 	}
 
-	newNode, err := tree.doInsert(right, key, leafHash)
+	newNode, err := tree.doInsert(right, key, leafHash, value)
 	if err != nil {
 		return nil, err
 	}
 	return tree.createInnerNode(left, newNode), nil
 }
 
-// GetProof gets the proof for key
-func (tree *CSMT) GetProof(key *Key) Proof {
+// GetValue gets the value at leafHash
+func (tree *CSMT) GetValue(leafHash *Hash) (interface{}, error) {
+	if tree.root == nil {
+		return nil, fmt.Errorf("No such key")
+	}
+
+	if tree.root.IsLeaf() {
+		if leafHash.IsEqual(tree.root.GetHash()) {
+			return tree.root.(LeafNode).GetValue(), nil
+		}
+	} else {
+		return tree.doGetValue(tree.root.(InnerNode), leafHash)
+	}
+
+	return nil, fmt.Errorf("No such key")
+}
+
+func (tree *CSMT) doGetValue(node InnerNode, leafHash *Hash) (interface{}, error) {
+	left := node.GetLeft()
+	right := node.GetRight()
+
+	if left.IsLeaf() && leafHash.IsEqual(left.GetHash()) {
+		return left.(LeafNode).GetValue(), nil
+	}
+	if right.IsLeaf() && leafHash.IsEqual(right.GetHash()) {
+		return right.(LeafNode).GetValue(), nil
+	}
+
+	leftDistance := distance(leafHash, left.GetKey())
+	rightDistance := distance(leafHash, right.GetKey())
+
+	if leftDistance == rightDistance {
+		return nil, fmt.Errorf("No such key")
+	}
+
+	if leftDistance < rightDistance {
+		if left.IsLeaf() {
+			return nil, fmt.Errorf("No such key")
+		}
+
+		return tree.doGetValue(left.(InnerNode), leafHash)
+	}
+
+	if leftDistance > rightDistance {
+		if right.IsLeaf() {
+			return nil, fmt.Errorf("No such key")
+		}
+
+		return tree.doGetValue(right.(InnerNode), leafHash)
+	}
+
+	return nil, fmt.Errorf("Illegal state")
+}
+
+// Remove removes a hash
+func (tree *CSMT) Remove(leafHash *Hash) error {
+	if tree.root == nil {
+		return fmt.Errorf("No such key")
+	}
+
+	if tree.root.IsLeaf() {
+		if leafHash.IsEqual(tree.root.GetHash()) {
+			tree.root = nil
+			return nil
+		}
+	} else {
+		newRoot, err := tree.doRemove(tree.root.(InnerNode), leafHash)
+		if err != nil {
+			return err
+		}
+		tree.root = newRoot
+		return nil
+	}
+
+	return fmt.Errorf("No such key")
+}
+
+func (tree *CSMT) doRemove(node InnerNode, leafHash *Hash) (Node, error) {
+	left := node.GetLeft()
+	right := node.GetRight()
+
+	if left.IsLeaf() && leafHash.IsEqual(left.GetHash()) {
+		return right, nil
+	}
+	if right.IsLeaf() && leafHash.IsEqual(right.GetHash()) {
+		return left, nil
+	}
+
+	leftDistance := distance(leafHash, left.GetKey())
+	rightDistance := distance(leafHash, right.GetKey())
+
+	if leftDistance == rightDistance {
+		return nil, fmt.Errorf("No such key")
+	}
+
+	if leftDistance < rightDistance {
+		if left.IsLeaf() {
+			return nil, fmt.Errorf("No such key")
+		}
+
+		newNode, err := tree.doRemove(left.(InnerNode), leafHash)
+		if err != nil {
+			return nil, err
+		}
+		return tree.createInnerNode(newNode, right), nil
+	}
+
+	if leftDistance > rightDistance {
+		if right.IsLeaf() {
+			return nil, fmt.Errorf("No such key")
+		}
+
+		newNode, err := tree.doRemove(right.(InnerNode), leafHash)
+		if err != nil {
+			return nil, err
+		}
+		return tree.createInnerNode(left, newNode), nil
+	}
+
+	return nil, fmt.Errorf("Illegal state")
+}
+
+// GetProof gets the proof for hash
+func (tree *CSMT) GetProof(leafHash *Hash) Proof {
 	if tree.root == nil {
 		return NonMembershipProof{
 			leftBoundProof:  nil,
@@ -114,16 +245,13 @@ func (tree *CSMT) GetProof(key *Key) Proof {
 	}
 
 	if tree.root.IsLeaf() {
-		rootProof := MembershipProof{
-			node:    tree.root.(LeafNode),
-			entries: []*MembershipProofEntry{},
-		}
+		rootProof := NewMembershipProof([]*MembershipProofEntry{})
 
-		if key.IsEqual(tree.root.GetKey()) {
+		if leafHash.IsEqual(tree.root.GetHash()) {
 			return rootProof
 		}
 
-		if compareKey(key, tree.root.GetKey()) < 0 {
+		if compareKey(leafHash, tree.root.GetKey()) < 0 {
 			return NonMembershipProof{
 				leftBoundProof:  nil,
 				rightBoundProof: &rootProof,
@@ -136,7 +264,7 @@ func (tree *CSMT) GetProof(key *Key) Proof {
 	}
 
 	castedRoot := tree.root.(InnerNode)
-	leftBound, rightBound := tree.findBounds(castedRoot, key)
+	leftBound, rightBound := tree.findBounds(castedRoot, leafHash)
 
 	if leftBound != nil && leftBound.IsEqual(rightBound) {
 		return *tree.findProof(castedRoot, leftBound)
@@ -177,11 +305,10 @@ func (tree *CSMT) findProof(root InnerNode, key *Key) *MembershipProof {
 	} else {
 		resultEntries, resultNode = tree.findProofHelper(left, DirRight, right, key)
 	}
+	_ = resultNode
 
-	return &MembershipProof{
-		node:    resultNode,
-		entries: resultEntries,
-	}
+	proof := NewMembershipProof(resultEntries)
+	return &proof
 }
 
 func (tree *CSMT) findProofHelper(sibling Node, direction int, node Node, key *Key) ([]*MembershipProofEntry, LeafNode) {
@@ -342,6 +469,7 @@ func compareKey(keyA *Key, keyB *Key) int {
 }
 
 // Fast calc log2(keyA ^ keyB)
+// Note the keys must be the key in the node, not the hash in the node
 func distance(keyA *Key, keyB *Key) int {
 	result := chainhash.HashSize * 8
 	for i := 0; i < chainhash.HashSize; i++ {

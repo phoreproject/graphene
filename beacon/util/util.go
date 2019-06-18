@@ -26,7 +26,7 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTime time.Time) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()
 
-	var validators []beacon.InitialValidatorEntry
+	var validators []primitives.InitialValidatorEntry
 
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
@@ -39,7 +39,7 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 		if err != nil {
 			return nil, nil, err
 		}
-		validators = append(validators, beacon.InitialValidatorEntry{
+		validators = append(validators, primitives.InitialValidatorEntry{
 			PubKey:                pub.Serialize(),
 			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,

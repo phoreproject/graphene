@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/phoreproject/synapse/primitives"
+
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
-	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
 
@@ -19,7 +20,7 @@ import (
 type Config struct {
 	GenesisTime          uint64
 	DataDirectory        string
-	InitialValidatorList []beacon.InitialValidatorEntry
+	InitialValidatorList []primitives.InitialValidatorEntry
 	NetworkConfig        *config.Config
 	Resync               bool
 	ListeningAddress     string
@@ -33,7 +34,7 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 		GenesisTime: chainConfig.GenesisTime,
 	}
 
-	c.InitialValidatorList = make([]beacon.InitialValidatorEntry, chainConfig.InitialValidators.NumValidators)
+	c.InitialValidatorList = make([]primitives.InitialValidatorEntry, chainConfig.InitialValidators.NumValidators)
 	for i := range c.InitialValidatorList {
 		validator := chainConfig.InitialValidators.Validators[i]
 
@@ -58,7 +59,7 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 		var withdrawalCredentials [32]byte
 		copy(withdrawalCredentials[:], withdrawalCredentialsBytes)
 
-		c.InitialValidatorList[i] = beacon.InitialValidatorEntry{
+		c.InitialValidatorList[i] = primitives.InitialValidatorEntry{
 			PubKey:                pubKey,
 			ProofOfPossession:     signature,
 			WithdrawalCredentials: withdrawalCredentials,

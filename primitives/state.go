@@ -1878,9 +1878,6 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 
 // ProcessBlock tries to apply a block to the state.
 func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
-
-	//blockTransitionStart := time.Now()
-
 	proposerIndex, err := s.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, con)
 	if err != nil {
 		return err

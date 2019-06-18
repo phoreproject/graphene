@@ -60,7 +60,7 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
-func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
+func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []primitives.InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
 	b := &Blockchain{
 		DB:     db,
 		config: config,
@@ -74,7 +74,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 
 	b.stateManager = sm
 
-	initialState, err := InitializeState(config, validators, genesisTime, skipValidation)
+	initialState, err := primitives.InitializeState(config, validators, genesisTime, skipValidation)
 	if err != nil {
 		return nil, err
 	}
@@ -155,16 +155,6 @@ func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 // GetNextSlotTime returns the timestamp of the next slot.
 func (b *Blockchain) GetNextSlotTime() time.Time {
 	return time.Unix(int64((b.View.Chain.Tip().Slot+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
-}
-
-// InitialValidatorEntry is the validator entry to be added
-// at the beginning of a blockchain.
-type InitialValidatorEntry struct {
-	PubKey                [96]byte
-	ProofOfPossession     [48]byte
-	WithdrawalShard       uint32
-	WithdrawalCredentials chainhash.Hash
-	DepositSize           uint64
 }
 
 // Height returns the height of the chain.

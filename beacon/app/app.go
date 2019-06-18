@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/phoreproject/synapse/primitives"
+
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	homedir "github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
@@ -37,7 +39,7 @@ type Config struct {
 
 	// These options are filled in through the chain file.
 	GenesisTime          uint64
-	InitialValidatorList []beacon.InitialValidatorEntry
+	InitialValidatorList []primitives.InitialValidatorEntry
 	DiscoveryOptions     p2p.DiscoveryOptions
 }
 
@@ -48,7 +50,7 @@ func NewConfig() Config {
 		ListeningAddress:       "/ip4/127.0.0.1/tcp/20000",
 		RPCAddress:             "127.0.0.1:20002",
 		GenesisTime:            uint64(utils.Now().Unix()),
-		InitialValidatorList:   []beacon.InitialValidatorEntry{},
+		InitialValidatorList:   []primitives.InitialValidatorEntry{},
 		NetworkConfig:          &config.MainNetConfig,
 		IsIntegrationTest:      false,
 		DataDirectory:          "",

@@ -1,7 +1,15 @@
 package primitives_test
 
 import (
+	"encoding/binary"
 	"testing"
+	"time"
+
+	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/bls"
+	"github.com/phoreproject/synapse/validator"
+	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/chainhash"
 
@@ -359,5 +367,184 @@ func TestShardAndCommittee_ToFromProto(t *testing.T) {
 
 	if diff := deep.Equal(fromProto, baseShardCommittee); diff != nil {
 		t.Fatal(diff)
+	}
+}
+
+// SetupState initializes state with a certain number of initial validators
+func SetupState(initialValidators int, c *config.Config) (*primitives.State, validator.Keystore, error) {
+	keystore := validator.NewFakeKeyStore()
+
+	var validators []primitives.InitialValidatorEntry
+
+	for i := 0; i <= initialValidators; i++ {
+		key := keystore.GetKeyForValidator(uint32(i))
+		pub := key.DerivePublicKey()
+		hashPub, err := ssz.TreeHash(pub.Serialize())
+		if err != nil {
+			return nil, nil, err
+		}
+		proofOfPossession, err := bls.Sign(key, hashPub[:], bls.DomainDeposit)
+		if err != nil {
+			return nil, nil, err
+		}
+		validators = append(validators, primitives.InitialValidatorEntry{
+			PubKey:                pub.Serialize(),
+			ProofOfPossession:     proofOfPossession.Serialize(),
+			WithdrawalShard:       1,
+			WithdrawalCredentials: chainhash.Hash{},
+			DepositSize:           c.MaxDeposit,
+		})
+	}
+
+	s, err := primitives.InitializeState(c, validators, uint64(time.Now().Unix()), false)
+	return s, &keystore, err
+}
+
+// FakeBlockView always returns 0-hash for all slots and the last state root.
+type FakeBlockView struct{}
+
+func (f FakeBlockView) GetHashBySlot(slot uint64) (chainhash.Hash, error) {
+	return chainhash.Hash{}, nil
+}
+
+func (f FakeBlockView) Tip() (chainhash.Hash, error) {
+	return chainhash.Hash{}, nil
+}
+
+func (f FakeBlockView) SetTipSlot(slot uint64) {}
+
+func (f FakeBlockView) GetLastStateRoot() (chainhash.Hash, error) {
+	return chainhash.Hash{}, nil
+}
+
+func SignBlock(block *primitives.Block, key *bls.SecretKey, c *config.Config) error {
+	var slotBytes [8]byte
+	binary.BigEndian.PutUint64(slotBytes[:], block.BlockHeader.SlotNumber)
+	slotBytesHash := chainhash.HashH(slotBytes[:])
+
+	slotBytesSignature, err := bls.Sign(key, slotBytesHash[:], bls.DomainRandao)
+	if err != nil {
+		return err
+	}
+
+	block.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
+	block.BlockHeader.Signature = bls.EmptySignature.Serialize()
+
+	blockWithoutSignatureRoot, err := ssz.TreeHash(block)
+	if err != nil {
+		return err
+	}
+
+	proposal := primitives.ProposalSignedData{
+		Slot:      block.BlockHeader.SlotNumber,
+		Shard:     c.BeaconShardNumber,
+		BlockHash: blockWithoutSignatureRoot,
+	}
+
+	proposalRoot, err := ssz.TreeHash(proposal)
+	if err != nil {
+		return err
+	}
+
+	blockSignature, err := bls.Sign(key, proposalRoot[:], bls.DomainProposal)
+	if err != nil {
+		return err
+	}
+
+	block.BlockHeader.Signature = blockSignature.Serialize()
+
+	return nil
+}
+
+func TestProposerIndex(t *testing.T) {
+	c := &config.RegtestConfig
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state, keystore, err := SetupState(c.ShardCount*c.TargetCommitteeSize*2+5, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slotToPropose := state.Slot + 1
+
+	stateSlot := state.EpochIndex * c.EpochLength
+	slotIndex := int64(slotToPropose-1) - int64(stateSlot) + int64(stateSlot%c.EpochLength) + int64(c.EpochLength)
+
+	firstCommittee := state.ShardAndCommitteeForSlots[slotIndex][0].Committee
+
+	proposerIndex := firstCommittee[int(slotToPropose-1)%len(firstCommittee)]
+
+	blockTest := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slotToPropose = state.Slot + 1
+
+	stateSlot = state.EpochIndex * c.EpochLength
+	slotIndex = int64(slotToPropose-1) - int64(stateSlot) + int64(stateSlot%c.EpochLength) + int64(c.EpochLength)
+
+	firstCommittee = state.ShardAndCommitteeForSlots[slotIndex][0].Committee
+
+	proposerIndex = firstCommittee[int(slotToPropose-1)%len(firstCommittee)]
+
+	blockTest = &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex-1), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+	if err == nil {
+		t.Fatal("expected block with wrong validator to fail")
 	}
 }

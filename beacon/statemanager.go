@@ -7,7 +7,6 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -127,78 +126,6 @@ func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uin
 	}
 
 	return derivedState.deriveState(slot, view, c)
-}
-
-// InitializeState initializes state to the genesis state according to the config.
-func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool) (*primitives.State, error) {
-	crosslinks := make([]primitives.Crosslink, c.ShardCount)
-
-	for i := 0; i < c.ShardCount; i++ {
-		crosslinks[i] = primitives.Crosslink{
-			Slot:           c.InitialSlotNumber,
-			ShardBlockHash: zeroHash,
-		}
-	}
-
-	recentBlockHashes := make([]chainhash.Hash, c.LatestBlockRootsLength)
-	for i := uint64(0); i < c.LatestBlockRootsLength; i++ {
-		recentBlockHashes[i] = zeroHash
-	}
-
-	initialState := primitives.State{
-		Slot:        0,
-		EpochIndex:  0,
-		GenesisTime: genesisTime,
-		ForkData: primitives.ForkData{
-			PreForkVersion:  c.InitialForkVersion,
-			PostForkVersion: c.InitialForkVersion,
-			ForkSlotNumber:  c.InitialSlotNumber,
-		},
-		ValidatorRegistry:                  []primitives.Validator{},
-		ValidatorBalances:                  []uint64{},
-		ValidatorRegistryLatestChangeEpoch: 0,
-		ValidatorRegistryExitCount:         0,
-		ValidatorRegistryDeltaChainTip:     chainhash.Hash{},
-
-		RandaoMix:                 chainhash.Hash{},
-		NextSeed:                  chainhash.Hash{},
-		ShardAndCommitteeForSlots: [][]primitives.ShardAndCommittee{},
-
-		PreviousJustifiedEpoch: 0,
-		JustifiedEpoch:         0,
-		JustificationBitfield:  0,
-		FinalizedEpoch:         0,
-
-		LatestCrosslinks:            crosslinks,
-		PreviousCrosslinks:          crosslinks,
-		LatestBlockHashes:           recentBlockHashes,
-		LatestPenalizedExitBalances: []uint64{},
-		CurrentEpochAttestations:    []primitives.PendingAttestation{},
-		PreviousEpochAttestations:   []primitives.PendingAttestation{},
-		BatchedBlockRoots:           []chainhash.Hash{},
-	}
-
-	for _, deposit := range initialValidators {
-		pub, err := bls.DeserializePublicKey(deposit.PubKey)
-		if err != nil {
-			return nil, err
-		}
-		validatorIndex, err := initialState.ProcessDeposit(pub, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, c)
-		if err != nil {
-			return nil, err
-		}
-		if initialState.GetEffectiveBalance(validatorIndex, c) == c.MaxDeposit {
-			err := initialState.UpdateValidatorStatus(validatorIndex, primitives.Active, c)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	initialShuffling := primitives.GetNewShuffling(zeroHash, initialState.ValidatorRegistry, 0, c)
-	initialState.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
-
-	return &initialState, nil
 }
 
 // SetBlockState sets the state for a certain block. This SHOULD ONLY

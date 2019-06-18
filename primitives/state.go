@@ -1310,6 +1310,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	oldPreviousJustifiedEpoch := s.PreviousJustifiedEpoch
 
 	s.PreviousJustifiedEpoch = s.JustifiedEpoch
+	s.PreviousCrosslinks = s.LatestCrosslinks[:]
 	s.JustificationBitfield = s.JustificationBitfield * 2
 
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
@@ -1415,8 +1416,6 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 	}
 
 	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
-
-	s.PreviousCrosslinks = s.LatestCrosslinks[:]
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {

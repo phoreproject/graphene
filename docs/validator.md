@@ -36,18 +36,10 @@ type epochInformation struct {
 
 The validator can then access information about current epoch assignments through the `Slots` field, which includes information about the proposal time, the committees and the slot number of each slot in the array.
 
-The slot number of `Slots[0]` can be calculated as follows:
-
-```python3
-earliest_slot = vm.latestEpochInformation.epochIndex * vm.config.EpochLength - vm.config.EpochLength
-```
-
-Note that this value can be negative as is the case for the first epoch.
-
 The index into the `Slots` field can be calculated as follows:
 
 ```python3
-epoch_offset = current_slot - earliest_slot - 1
+epoch_offset = current_slot - vm.latestEpochInformation.slot - 1
 ```
 
 The committees for the slot can are stored in `Slots[epoch_offset]`.

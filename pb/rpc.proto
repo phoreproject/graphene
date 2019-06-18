@@ -18,7 +18,7 @@ service BlockchainRPC {
 
     rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);
 
-    rpc GetEpochInformation(EpochInformationRequest) returns (EpochInformation);
+    rpc GetEpochInformation(EpochInformationRequest) returns (EpochInformationResponse);
 
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
 
@@ -57,24 +57,22 @@ message EpochInformationRequest {
     uint64 EpochIndex = 1;
 }
 
-message EpochInformation {
-    repeated SlotInformation Slots = 1;
-    int64 Slot = 2;
-    repeated Crosslink LatestCrosslinks = 3;
-    uint64 EpochIndex = 4;
-    uint64 JustifiedEpoch = 5;
-    bytes JustifiedHash = 6;
-    bytes TargetHash = 7;
-    bytes PreviousTargetHash = 8;
-    uint64 PreviousJustifiedEpoch = 9;
-    bytes PreviousJustifiedHash = 10;
-    repeated Crosslink PreviousCrosslinks = 11;
+message EpochInformationResponse {
+    bool HasEpochInformation = 1;
+    EpochInformation Information = 2;
 }
 
-message SlotInformation {
-    int64 Slot = 1;
-    repeated ShardCommittee Committees = 2;
-    uint64 ProposeAt = 3;
+message EpochInformation {
+    repeated ShardCommitteesForSlot ShardCommitteesForSlots = 1;
+    int64 Slot = 2;
+    repeated Crosslink LatestCrosslinks = 3;
+    uint64 JustifiedEpoch = 4;
+    bytes JustifiedHash = 5;
+    bytes TargetHash = 6;
+    bytes PreviousTargetHash = 7;
+    uint64 PreviousJustifiedEpoch = 8;
+    bytes PreviousJustifiedHash = 9;
+    repeated Crosslink PreviousCrosslinks = 10;
 }
 
 message DisconnectResponse {

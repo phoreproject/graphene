@@ -142,7 +142,7 @@ func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStat
 
 // GetEpochInformation gets information about the current epoch used for attestation
 // assignment and generation.
-func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformationRequest) (*pb.EpochInformation, error) {
+func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformationRequest) (*pb.EpochInformationResponse, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
 
@@ -202,31 +202,31 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 
 	earliestSlot := int64(state.Slot) - int64(state.Slot%config.EpochLength) - int64(config.EpochLength)
 
-	slots := make([]*pb.SlotInformation, len(state.ShardAndCommitteeForSlots))
+	slots := make([]*pb.ShardCommitteesForSlot, len(state.ShardAndCommitteeForSlots))
 	for s := range slots {
 		shardAndCommittees := make([]*pb.ShardCommittee, len(state.ShardAndCommitteeForSlots[s]))
 		for i := range shardAndCommittees {
 			shardAndCommittees[i] = state.ShardAndCommitteeForSlots[s][i].ToProto()
 		}
-		slots[s] = &pb.SlotInformation{
-			Slot:       earliestSlot + int64(s) + 1,
+		slots[s] = &pb.ShardCommitteesForSlot{
 			Committees: shardAndCommittees,
-			ProposeAt:  uint64(earliestSlot+int64(s)+1)*uint64(config.SlotDuration) + state.GenesisTime,
 		}
 	}
 
-	return &pb.EpochInformation{
-		Slots:                  slots,
-		Slot:                   int64(state.Slot) - int64(state.Slot%config.EpochLength),
-		TargetHash:             epochBoundaryRoot.Hash[:],
-		JustifiedEpoch:         state.JustifiedEpoch,
-		LatestCrosslinks:       latestCrosslinks,
-		PreviousCrosslinks:     previousCrosslinks,
-		JustifiedHash:          justifiedNode.Hash[:],
-		EpochIndex:             state.EpochIndex,
-		PreviousTargetHash:     previousEpochBoundaryRoot.Hash[:],
-		PreviousJustifiedEpoch: state.PreviousJustifiedEpoch,
-		PreviousJustifiedHash:  previousJustifiedNode.Hash[:],
+	return &pb.EpochInformationResponse{
+		HasEpochInformation: true,
+		Information: &pb.EpochInformation{
+			ShardCommitteesForSlots: slots,
+			Slot:                    earliestSlot,
+			TargetHash:              epochBoundaryRoot.Hash[:],
+			JustifiedEpoch:          state.JustifiedEpoch,
+			LatestCrosslinks:        latestCrosslinks,
+			PreviousCrosslinks:      previousCrosslinks,
+			JustifiedHash:           justifiedNode.Hash[:],
+			PreviousTargetHash:      previousEpochBoundaryRoot.Hash[:],
+			PreviousJustifiedEpoch:  state.PreviousJustifiedEpoch,
+			PreviousJustifiedHash:   previousJustifiedNode.Hash[:],
+		},
 	}, nil
 }
 

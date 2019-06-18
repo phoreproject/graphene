@@ -34,49 +34,39 @@ type proposerAssignment struct {
 }
 
 type epochInformation struct {
-	slots                  []slotInformation
-	slot                   int64
+	slots                  [][]primitives.ShardAndCommittee
+	earliestSlot           int64
 	targetHash             chainhash.Hash
 	justifiedEpoch         uint64
 	latestCrosslinks       []primitives.Crosslink
 	previousCrosslinks     []primitives.Crosslink
 	justifiedHash          chainhash.Hash
-	epochIndex             uint64
 	previousTargetHash     chainhash.Hash
 	previousJustifiedEpoch uint64
 	previousJustifiedHash  chainhash.Hash
 }
 
-type slotInformation struct {
-	slot       int64
-	committees []primitives.ShardAndCommittee
-	proposeAt  uint64
-}
-
 // epochInformationFromProto gets the epoch information from the protobuf format
 func epochInformationFromProto(information *pb.EpochInformation) (*epochInformation, error) {
-	if information.Slot < 0 {
-		return &epochInformation{
-			slot: -1,
-		}, nil
-	}
-
 	ei := &epochInformation{
-		slots:                  make([]slotInformation, len(information.Slots)),
-		slot:                   information.Slot,
+		slots:                  make([][]primitives.ShardAndCommittee, len(information.ShardCommitteesForSlots)),
 		justifiedEpoch:         information.JustifiedEpoch,
 		previousJustifiedEpoch: information.PreviousJustifiedEpoch,
-		epochIndex:             information.EpochIndex,
 		latestCrosslinks:       make([]primitives.Crosslink, len(information.LatestCrosslinks)),
 		previousCrosslinks:     make([]primitives.Crosslink, len(information.PreviousCrosslinks)),
+		earliestSlot:           information.Slot,
 	}
 
 	for i := range ei.slots {
-		s, err := slotInformationFromProto(information.Slots[i])
-		if err != nil {
-			return nil, err
+		ei.slots[i] = make([]primitives.ShardAndCommittee, len(information.ShardCommitteesForSlots[i].Committees))
+		for j := range ei.slots[i] {
+			sc, err := primitives.ShardAndCommitteeFromProto(information.ShardCommitteesForSlots[i].Committees[j])
+			if err != nil {
+				return nil, err
+			}
+
+			ei.slots[i][j] = *sc
 		}
-		ei.slots[i] = *s
 	}
 
 	for i := range ei.latestCrosslinks {
@@ -114,34 +104,17 @@ func epochInformationFromProto(information *pb.EpochInformation) (*epochInformat
 	return ei, err
 }
 
-// slotInformationFromProto gets the slot information from the protobuf format
-func slotInformationFromProto(information *pb.SlotInformation) (*slotInformation, error) {
-	si := &slotInformation{
-		slot:      information.Slot,
-		proposeAt: information.ProposeAt,
-	}
-
-	si.committees = make([]primitives.ShardAndCommittee, len(information.Committees))
-	for i := range information.Committees {
-		c, err := primitives.ShardAndCommitteeFromProto(information.Committees[i])
-		if err != nil {
-			return nil, err
-		}
-		si.committees[i] = *c
-	}
-	return si, nil
-}
-
 // Manager is a manager that keeps track of multiple validators.
 type Manager struct {
 	blockchainRPC          pb.BlockchainRPCClient
 	validatorMap           map[uint32]*Validator
 	keystore               Keystore
-	attestationAssignments [][]primitives.ShardAndCommittee
 	latestEpochInformation epochInformation
+	epochIndex             uint64
 	currentSlot            uint64
 	config                 *config.Config
 	synced                 bool
+	genesisTime            uint64
 }
 
 // NewManager creates a new validator manager to manage some validators.
@@ -186,35 +159,28 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 		return err
 	}
 
-	ei, err := epochInformationFromProto(epochInformation)
+	if !epochInformation.HasEpochInformation {
+		return nil
+	}
+
+	ei, err := epochInformationFromProto(epochInformation.Information)
 	if err != nil {
 		return err
 	}
 
-	if ei.slot < 0 {
-		return nil
-	}
-
-	vm.attestationAssignments = make([][]primitives.ShardAndCommittee, len(ei.slots))
-
-	for i, si := range ei.slots {
-		vm.attestationAssignments[i] = si.committees
-	}
-
 	vm.latestEpochInformation = *ei
 	vm.synced = true
+	vm.epochIndex = slotNumber / vm.config.EpochLength
 
 	return nil
 }
 
 // NewSlot is run when a new slot starts.
 func (vm *Manager) NewSlot(slotNumber uint64) error {
-	stateSlot := vm.latestEpochInformation.epochIndex * vm.config.EpochLength
-	earliestSlot := int64(stateSlot) - int64(vm.config.EpochLength)
-
+	earliestSlot := vm.latestEpochInformation.earliestSlot
 	logrus.WithField("slot", slotNumber).Debug("heard new slot")
 
-	proposerSlotCommittees := vm.attestationAssignments[int64(slotNumber-1)-earliestSlot]
+	proposerSlotCommittees := vm.latestEpochInformation.slots[int64(slotNumber-1)-earliestSlot]
 
 	proposer := proposerSlotCommittees[0].Committee[(slotNumber-1)%uint64(len(proposerSlotCommittees[0].Committee))]
 	if validator, found := vm.validatorMap[proposer]; found {
@@ -226,20 +192,21 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 		}
 	}
 
-	<-time.After(time.Millisecond * 500 * time.Duration(vm.config.SlotDuration))
+	halfSlot := time.Unix(int64(slotNumber*uint64(vm.config.SlotDuration)+vm.genesisTime), 0)
+
+	<-time.NewTimer(halfSlot.Sub(utils.Now())).C
 
 	logrus.WithField("slot", slotNumber).Debug("requesting epoch information")
 	if err := vm.UpdateEpochInformation(slotNumber); err != nil {
 		return err
 	}
-	logrus.WithField("index", vm.latestEpochInformation.epochIndex).Debug("got epoch information")
+	logrus.WithField("index", vm.epochIndex).Debug("got epoch information")
 
-	stateSlot = vm.latestEpochInformation.epochIndex * vm.config.EpochLength
-	earliestSlot = int64(stateSlot) - int64(vm.config.EpochLength)
+	earliestSlot = vm.latestEpochInformation.earliestSlot
 
 	slotToAttest := slotNumber
 
-	slotCommittees := vm.attestationAssignments[int64(slotToAttest)-earliestSlot-1] // we actually want to attest MinAttestationInclusionDistance after the slot
+	slotCommittees := vm.latestEpochInformation.slots[int64(slotToAttest)-earliestSlot-1] // we actually want to attest MinAttestationInclusionDistance after the slot
 
 	blockHashResponse, err := vm.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{
 		SlotNumber: slotToAttest,
@@ -261,7 +228,7 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 				if validator, found := vm.validatorMap[vIndex]; found {
 					sourceEpoch := vm.latestEpochInformation.justifiedEpoch
 					sourceHash := vm.latestEpochInformation.justifiedHash
-					targetEpoch := vm.latestEpochInformation.epochIndex
+					targetEpoch := vm.epochIndex
 					targetHash := vm.latestEpochInformation.targetHash
 					crosslinks := vm.latestEpochInformation.latestCrosslinks
 
@@ -328,6 +295,8 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 
 	genesisTime := state.GenesisTime
 
+	vm.genesisTime = genesisTime
+
 	nextSlotTime := time.Unix(int64(nextEpochSlot*uint64(vm.config.SlotDuration)+genesisTime), 5e8)
 	slotNumber := nextEpochSlot
 
@@ -337,7 +306,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 	if err := vm.UpdateEpochInformation(slotNumber); err != nil {
 		return err
 	}
-	logrus.WithField("index", vm.latestEpochInformation.epochIndex).Debug("got epoch information")
+	logrus.WithField("index", vm.epochIndex).Debug("got epoch information")
 
 	for {
 		err := vm.NewSlot(slotNumber)

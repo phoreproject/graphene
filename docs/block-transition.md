@@ -45,3 +45,24 @@ slot_index = block.slot - 1 - state_slot + state_slot % epoch_length + epoch_len
 first_commitee = s.shard_committees_at_slots[slot_index][0].Committee
 proposer_index = first_committee[(slot-1) % len(first_committee)]
 ```
+
+The `RandaoReveal` property of the block must verify with the proposer's public key, the hash of the slot number, and the domain `DomainRandao`.
+
+The node should calculate the proposal root by calculating the hash of:
+
+```python
+block_without_signature = block.copy()
+block_without_signature.header.signature = bls.EmptySignature
+
+proposal = ProposalSignedData(
+	slot=block.Slot,
+    shard=beacon_shard_number,
+    block_hash=hash(block_without_signature)
+)
+```
+
+Then, the node should validate that the signature in the block validates with the proposer's public key, the hash of the `ProposalSignedData` and the domain `DomainProposal`.
+
+Update `state.randao_mix` by XORing it with the hash of the RANDAO signature:  `new_mix = old_mix ^ hash(block.randao_reveal)`.
+
+Ensure that `Attestation`, `CasperSlashing`, `ProposerSlashing`, `Deposit`, and `Exit` objects do not exceed the maximum allowed as specified in the config.

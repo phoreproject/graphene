@@ -2,6 +2,7 @@ package primitives_test
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 	"time"
 
@@ -546,5 +547,153 @@ func TestProposerIndex(t *testing.T) {
 	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
 	if err == nil {
 		t.Fatal("expected block with wrong validator to fail")
+	}
+}
+
+func TestBlockMaximums(t *testing.T) {
+	c := &config.RegtestConfig
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state, keystore, err := SetupState(c.ShardCount*c.TargetCommitteeSize*2+5, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slotToPropose := state.Slot + 1
+
+	stateSlot := state.EpochIndex * c.EpochLength
+	slotIndex := int64(slotToPropose-1) - int64(stateSlot) + int64(stateSlot%c.EpochLength) + int64(c.EpochLength)
+
+	firstCommittee := state.ShardAndCommitteeForSlots[slotIndex][0].Committee
+
+	proposerIndex := firstCommittee[int(slotToPropose-1)%len(firstCommittee)]
+
+	type BodyShouldValidate struct {
+		b         primitives.BlockBody
+		validates bool
+		reason    string
+	}
+
+	// the regtest config allows 1 of each transaction
+	testBlockBodies := []BodyShouldValidate{
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{{}},
+				Deposits:          []primitives.Deposit{{}},
+				Exits:             []primitives.Exit{{}},
+				ProposerSlashings: []primitives.ProposerSlashing{{}},
+				CasperSlashings:   []primitives.CasperSlashing{{}},
+			},
+			true,
+			"should validate with maximum number for all",
+		},
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{{}, {}},
+				Deposits:          []primitives.Deposit{{}},
+				Exits:             []primitives.Exit{{}},
+				ProposerSlashings: []primitives.ProposerSlashing{{}},
+				CasperSlashings:   []primitives.CasperSlashing{{}},
+			},
+			false,
+			"should not validate with too many attestations",
+		},
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{{}},
+				Deposits:          []primitives.Deposit{{}, {}},
+				Exits:             []primitives.Exit{{}},
+				ProposerSlashings: []primitives.ProposerSlashing{{}},
+				CasperSlashings:   []primitives.CasperSlashing{{}},
+			},
+			false,
+			"should not validate with too many deposits",
+		},
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{{}},
+				Deposits:          []primitives.Deposit{{}},
+				Exits:             []primitives.Exit{{}, {}},
+				ProposerSlashings: []primitives.ProposerSlashing{{}},
+				CasperSlashings:   []primitives.CasperSlashing{{}},
+			},
+			false,
+			"should not validate with too many exits",
+		},
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{{}},
+				Deposits:          []primitives.Deposit{{}},
+				Exits:             []primitives.Exit{{}},
+				ProposerSlashings: []primitives.ProposerSlashing{{}, {}},
+				CasperSlashings:   []primitives.CasperSlashing{{}},
+			},
+			false,
+			"should not validate with too many proposer slashings",
+		},
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{{}},
+				Deposits:          []primitives.Deposit{{}},
+				Exits:             []primitives.Exit{{}},
+				ProposerSlashings: []primitives.ProposerSlashing{{}},
+				CasperSlashings:   []primitives.CasperSlashing{{}, {}},
+			},
+			false,
+			"should not validate with too many CASPER slashings",
+		},
+		{
+			primitives.BlockBody{
+				Attestations:      []primitives.Attestation{},
+				Deposits:          []primitives.Deposit{},
+				Exits:             []primitives.Exit{},
+				ProposerSlashings: []primitives.ProposerSlashing{},
+				CasperSlashings:   []primitives.CasperSlashing{},
+			},
+			true,
+			"should validate with empty block",
+		},
+	}
+
+	for _, b := range testBlockBodies {
+		blockTest := &primitives.Block{
+			BlockHeader: primitives.BlockHeader{
+				SlotNumber:   slotToPropose,
+				ParentRoot:   chainhash.Hash{},
+				StateRoot:    chainhash.Hash{},
+				RandaoReveal: [48]byte{},
+				Signature:    [48]byte{},
+			},
+			BlockBody: b.b,
+		}
+
+		err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stateCopy := state.Copy()
+
+		err = stateCopy.ProcessSlot(chainhash.Hash{}, c)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		failedBecauseOfMax := false
+
+		err = stateCopy.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+
+		if err != nil {
+			failedBecauseOfMax = strings.Contains(err.Error(), "maximum")
+		}
+
+		if failedBecauseOfMax == b.validates {
+			if b.validates {
+				t.Fatalf("expected block to validate, but got error: %s", err)
+			} else {
+				t.Fatalf("expected block to fail with reason: %s", b.reason)
+			}
+		}
 	}
 }

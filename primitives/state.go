@@ -506,7 +506,7 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 
 		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
 
-		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, c)
+		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, c)
 		if err != nil {
 			return err
 		}
@@ -514,10 +514,6 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 
 		s.ValidatorBalances[whistleblowerIndex] += whistleblowerReward
 		s.ValidatorBalances[index] -= whistleblowerReward
-	}
-
-	if prevStatus == ExitedWithoutPenalty {
-		return nil
 	}
 
 	s.ValidatorRegistryExitCount++

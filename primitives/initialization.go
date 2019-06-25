@@ -80,7 +80,7 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		}
 	}
 
-	initialShuffling := GetNewShuffling(zeroHash, initialState.ValidatorRegistry, 0, c)
+	initialShuffling := getNewShuffling(zeroHash, initialState.ValidatorRegistry, 0, c)
 	initialState.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
 
 	return &initialState, nil

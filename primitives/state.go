@@ -1161,20 +1161,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 		}
 	}
 
-	// previousEpochJustifiedAttesterIndices are all participants of attestations in the previous
-	// epoch with a justified slot equal to the previous justified slot.
-	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
-	for _, a := range s.PreviousEpochAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c)
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range participants {
-			previousEpochJustifiedAttesterIndices[p] = struct{}{}
-		}
-	}
-
-	previousEpochJustifiedAttestingBalance := s.GetTotalBalanceMap(previousEpochJustifiedAttesterIndices, c)
+	previousEpochAttestingBalance := s.GetTotalBalanceMap(previousEpochAttesterIndices, c)
 
 	previousEpochBoundaryHash := chainhash.Hash{}
 	if s.Slot >= 2*c.EpochLength {
@@ -1496,8 +1483,8 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 			}
 
 			// reward or slash based on if they attested to the correct target
-			if _, found := previousEpochJustifiedAttesterIndices[index]; found {
-				reward := baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
+			if _, found := previousEpochAttesterIndices[index]; found {
+				reward := baseReward(index) * previousEpochAttestingBalance / totalBalance
 				totalRewarded += reward
 				s.ValidatorBalances[index] += reward
 				receipts = append(receipts, Receipt{

@@ -160,7 +160,6 @@ message State {
     repeated Crosslink LatestCrosslinks = 17;
     repeated Crosslink PreviousCrosslinks = 18;
     repeated bytes LatestBlockHashes = 19;
-    repeated uint64 LatestPenalizedExitBalances = 20;
     repeated PendingAttestation CurrentEpochAttestations = 21;
     repeated PendingAttestation PreviousEpochAttestations = 22;
     repeated bytes BatchedBlockRoots = 23;

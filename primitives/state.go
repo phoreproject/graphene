@@ -118,13 +118,12 @@ type State struct {
 	FinalizedEpoch         uint64
 
 	// RECENT STATE
-	LatestCrosslinks            []Crosslink
-	PreviousCrosslinks          []Crosslink
-	LatestBlockHashes           []chainhash.Hash
-	LatestPenalizedExitBalances []uint64
-	CurrentEpochAttestations    []PendingAttestation
-	PreviousEpochAttestations   []PendingAttestation
-	BatchedBlockRoots           []chainhash.Hash
+	LatestCrosslinks          []Crosslink
+	PreviousCrosslinks        []Crosslink
+	LatestBlockHashes         []chainhash.Hash
+	CurrentEpochAttestations  []PendingAttestation
+	PreviousEpochAttestations []PendingAttestation
+	BatchedBlockRoots         []chainhash.Hash
 }
 
 // Copy deep-copies the state.
@@ -160,8 +159,6 @@ func (s *State) Copy() State {
 
 	newLatestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
 	copy(newLatestBlockHashes, s.LatestBlockHashes)
-	newLatestPenalizedExitBalances := make([]uint64, len(s.LatestPenalizedExitBalances))
-	copy(newLatestPenalizedExitBalances, s.LatestPenalizedExitBalances)
 	newCurrentAttestations := make([]PendingAttestation, len(s.CurrentEpochAttestations))
 	for i := range s.CurrentEpochAttestations {
 		newCurrentAttestations[i] = s.CurrentEpochAttestations[i].Copy()
@@ -193,7 +190,6 @@ func (s *State) Copy() State {
 		LatestCrosslinks:                   newLatestCrosslinks,
 		PreviousCrosslinks:                 newPreviousCrosslinks,
 		LatestBlockHashes:                  newLatestBlockHashes,
-		LatestPenalizedExitBalances:        newLatestPenalizedExitBalances,
 		PreviousEpochAttestations:          newPreviousAttestations,
 		CurrentEpochAttestations:           newCurrentAttestations,
 		BatchedBlockRoots:                  newBatchedBlockRoots,
@@ -272,7 +268,6 @@ func (s *State) ToProto() *pb.State {
 		LatestCrosslinks:                   latestCrosslinks,
 		PreviousCrosslinks:                 previousCrosslinks,
 		LatestBlockHashes:                  latestBlockHashes,
-		LatestPenalizedExitBalances:        s.LatestPenalizedExitBalances,
 		CurrentEpochAttestations:           currentAttestations,
 		PreviousEpochAttestations:          previousAttestations,
 		BatchedBlockRoots:                  batchedBlockRoots,
@@ -397,7 +392,6 @@ func StateFromProto(s *pb.State) (*State, error) {
 	}
 
 	newState.ValidatorBalances = append([]uint64{}, s.ValidatorBalances...)
-	newState.LatestPenalizedExitBalances = append([]uint64{}, s.LatestPenalizedExitBalances...)
 
 	return newState, nil
 }
@@ -498,14 +492,6 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 	validator.LatestStatusChangeSlot = s.Slot
 
 	if status == ExitedWithPenalty {
-		if uint64(len(s.LatestPenalizedExitBalances)) <= s.Slot/c.CollectivePenaltyCalculationPeriod {
-			needed := s.Slot/c.CollectivePenaltyCalculationPeriod - uint64(len(s.LatestPenalizedExitBalances)) + 1
-
-			s.LatestPenalizedExitBalances = append(s.LatestPenalizedExitBalances, make([]uint64, needed)...)
-		}
-
-		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
-
 		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, c)
 		if err != nil {
 			return err
@@ -579,26 +565,6 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 			if err != nil {
 				return err
 			}
-		}
-	}
-
-	periodIndex := s.Slot / c.CollectivePenaltyCalculationPeriod
-	totalPenalties := s.LatestPenalizedExitBalances[periodIndex]
-	if periodIndex >= 1 {
-		totalPenalties += s.LatestPenalizedExitBalances[periodIndex-1]
-	}
-	if periodIndex >= 2 {
-		totalPenalties += s.LatestPenalizedExitBalances[periodIndex-2]
-	}
-
-	for idx, validator := range s.ValidatorRegistry {
-		index := uint32(idx)
-		if validator.Status != ExitedWithPenalty {
-			penaltyFactor := totalPenalties * 3
-			if totalBalance < penaltyFactor {
-				penaltyFactor = totalBalance
-			}
-			s.ValidatorBalances[index] -= s.GetEffectiveBalance(index, c) * penaltyFactor / totalBalance
 		}
 	}
 	return nil

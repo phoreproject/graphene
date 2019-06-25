@@ -56,13 +56,12 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		JustificationBitfield:  0,
 		FinalizedEpoch:         0,
 
-		LatestCrosslinks:            crosslinks,
-		PreviousCrosslinks:          crosslinks,
-		LatestBlockHashes:           recentBlockHashes,
-		LatestPenalizedExitBalances: []uint64{},
-		CurrentEpochAttestations:    []PendingAttestation{},
-		PreviousEpochAttestations:   []PendingAttestation{},
-		BatchedBlockRoots:           []chainhash.Hash{},
+		LatestCrosslinks:          crosslinks,
+		PreviousCrosslinks:        crosslinks,
+		LatestBlockHashes:         recentBlockHashes,
+		CurrentEpochAttestations:  []PendingAttestation{},
+		PreviousEpochAttestations: []PendingAttestation{},
+		BatchedBlockRoots:         []chainhash.Hash{},
 	}
 
 	for _, deposit := range initialValidators {

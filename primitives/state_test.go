@@ -81,7 +81,6 @@ func TestState_Copy(t *testing.T) {
 		LatestCrosslinks:                   []primitives.Crosslink{},
 		PreviousCrosslinks:                 []primitives.Crosslink{},
 		LatestBlockHashes:                  []chainhash.Hash{},
-		LatestPenalizedExitBalances:        []uint64{},
 		CurrentEpochAttestations:           []primitives.PendingAttestation{},
 		PreviousEpochAttestations:          []primitives.PendingAttestation{},
 		BatchedBlockRoots:                  []chainhash.Hash{},
@@ -178,11 +177,6 @@ func TestState_Copy(t *testing.T) {
 		t.Fatal("mutating latestBlockHashes mutates base")
 	}
 
-	copyState.LatestPenalizedExitBalances = []uint64{1}
-	if len(baseState.LatestPenalizedExitBalances) == 1 {
-		t.Fatal("mutating latestPenalizedExitBalances mutates base")
-	}
-
 	copyState.CurrentEpochAttestations = []primitives.PendingAttestation{{}}
 	if len(baseState.CurrentEpochAttestations) == 1 {
 		t.Fatal("mutating latestAttestations mutates base")
@@ -223,7 +217,6 @@ func TestState_ToFromProto(t *testing.T) {
 		LatestCrosslinks:                   []primitives.Crosslink{{Slot: 1}},
 		PreviousCrosslinks:                 []primitives.Crosslink{{Slot: 1}},
 		LatestBlockHashes:                  []chainhash.Hash{{1}},
-		LatestPenalizedExitBalances:        []uint64{1},
 		CurrentEpochAttestations:           []primitives.PendingAttestation{{InclusionDelay: 1}},
 		PreviousEpochAttestations:          []primitives.PendingAttestation{{InclusionDelay: 1}},
 		BatchedBlockRoots:                  []chainhash.Hash{{1}},

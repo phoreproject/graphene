@@ -69,20 +69,20 @@ func ForkDataFromProto(data *pb.ForkData) (*ForkData, error) {
 
 // State is the state of a beacon block
 type State struct {
-	// MISC ITEMS
 	// Slot is the current slot.
 	Slot uint64
 
+	// EpochIndex is the index of the last processed epoch.
 	EpochIndex uint64
 
 	// GenesisTime is the time of the genesis block.
 	GenesisTime uint64
 
-	// ForkData is the versioning data for hard forks.
+	// ForkData is the versioning data for forks.
 	ForkData ForkData
 
-	// VALIDATOR REGISTRY
-	// ValidatorRegistry is the registry mapping IDs to validators
+	// ValidatorRegistry is the registry mapping IDs to validators. This stores
+	// information about the validator's public key and statue.
 	ValidatorRegistry []Validator
 
 	// ValidatorBalances are the balances corresponding to each validator.
@@ -99,12 +99,8 @@ type State struct {
 	// registry changes.
 	ValidatorRegistryDeltaChainTip chainhash.Hash
 
-	// RANDOMNESS
 	// RandaoMix is the mix of randao reveals to provide entropy.
 	RandaoMix chainhash.Hash
-
-	// NextSeed is the next RANDAO seed.
-	NextSeed chainhash.Hash
 
 	// COMMITTEES
 	// ShardAndCommitteeForSlots is a list of committee members
@@ -138,10 +134,8 @@ func (s *State) Copy() State {
 	}
 	var newValidatorRegistryDeltaChainTip chainhash.Hash
 	var newRandaoMix chainhash.Hash
-	var newNextSeed chainhash.Hash
 	copy(newValidatorRegistryDeltaChainTip[:], s.ValidatorRegistryDeltaChainTip[:])
 	copy(newRandaoMix[:], s.RandaoMix[:])
-	copy(newNextSeed[:], s.NextSeed[:])
 
 	newShardAndCommitteeForSlots := make([][]ShardAndCommittee, len(s.ShardAndCommitteeForSlots))
 	for i, slot := range s.ShardAndCommitteeForSlots {
@@ -181,7 +175,6 @@ func (s *State) Copy() State {
 		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
 		ValidatorRegistryDeltaChainTip:     newValidatorRegistryDeltaChainTip,
 		RandaoMix:                          newRandaoMix,
-		NextSeed:                           newNextSeed,
 		ShardAndCommitteeForSlots:          newShardAndCommitteeForSlots,
 		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
 		JustifiedEpoch:                     s.JustifiedEpoch,
@@ -259,7 +252,6 @@ func (s *State) ToProto() *pb.State {
 		ValidatorRegistryDeltaChainTip:     s.ValidatorRegistryDeltaChainTip[:],
 		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
 		RandaoMix:                          s.RandaoMix[:],
-		NextSeed:                           s.NextSeed[:],
 		ShardCommittees:                    shardCommittees,
 		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
 		JustifiedEpoch:                     s.JustifiedEpoch,
@@ -382,11 +374,6 @@ func StateFromProto(s *pb.State) (*State, error) {
 	}
 
 	err = newState.RandaoMix.SetBytes(s.RandaoMix)
-	if err != nil {
-		return nil, err
-	}
-
-	err = newState.NextSeed.SetBytes(s.NextSeed)
 	if err != nil {
 		return nil, err
 	}

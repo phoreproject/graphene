@@ -72,7 +72,6 @@ func TestState_Copy(t *testing.T) {
 		ValidatorRegistryExitCount:         0,
 		ValidatorRegistryDeltaChainTip:     chainhash.Hash{},
 		RandaoMix:                          chainhash.Hash{},
-		NextSeed:                           chainhash.Hash{},
 		ShardAndCommitteeForSlots:          [][]primitives.ShardAndCommittee{},
 		PreviousJustifiedEpoch:             0,
 		JustifiedEpoch:                     0,
@@ -135,11 +134,6 @@ func TestState_Copy(t *testing.T) {
 	copyState.RandaoMix[0] = 1
 	if baseState.RandaoMix[0] == 1 {
 		t.Fatal("mutating RandaoMix mutates base")
-	}
-
-	copyState.NextSeed[0] = 1
-	if baseState.NextSeed[0] == 1 {
-		t.Fatal("mutating NextSeed mutates base")
 	}
 
 	copyState.ShardAndCommitteeForSlots = [][]primitives.ShardAndCommittee{{}}
@@ -208,7 +202,6 @@ func TestState_ToFromProto(t *testing.T) {
 		ValidatorRegistryExitCount:         1,
 		ValidatorRegistryDeltaChainTip:     chainhash.Hash{1},
 		RandaoMix:                          chainhash.Hash{1},
-		NextSeed:                           chainhash.Hash{1},
 		ShardAndCommitteeForSlots:          [][]primitives.ShardAndCommittee{{{Shard: 1, Committee: []uint32{1}}}},
 		PreviousJustifiedEpoch:             1,
 		JustifiedEpoch:                     1,

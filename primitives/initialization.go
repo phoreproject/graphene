@@ -48,7 +48,6 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		ValidatorRegistryDeltaChainTip:     chainhash.Hash{},
 
 		RandaoMix:                 chainhash.Hash{},
-		NextSeed:                  chainhash.Hash{},
 		ShardAndCommitteeForSlots: [][]ShardAndCommittee{},
 
 		PreviousJustifiedEpoch: 0,

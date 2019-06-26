@@ -110,3 +110,44 @@ func (av *AggregatedVote) Copy() AggregatedVote {
 	v.Participation = append([]uint8{}, av.Participation...)
 	return v
 }
+
+// ActiveProposal represents a proposal to implement new code.
+type ActiveProposal struct {
+	Data          VoteData
+	Participation []uint8
+	StartEpoch    uint64
+	Queued        bool
+}
+
+// ToProto converts the ActiveProposal into a protobuf representation.
+func (ap *ActiveProposal) ToProto() *pb.ActiveProposal {
+	return &pb.ActiveProposal{
+		Data:          ap.Data.ToProto(),
+		StartEpoch:    ap.StartEpoch,
+		Participation: ap.Participation[:],
+		Queued:        ap.Queued,
+	}
+}
+
+// Copy returns a copy of the active proposal.
+func (ap *ActiveProposal) Copy() ActiveProposal {
+	newAp := *ap
+	newAp.Data = ap.Data.Copy()
+	newAp.Participation = append([]uint8{}, ap.Participation...)
+	return newAp
+}
+
+// ActiveProposalFromProto unwraps a protobuf representation of active proposal.
+func ActiveProposalFromProto(ap *pb.ActiveProposal) (*ActiveProposal, error) {
+	data, err := VoteDataFromProto(ap.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ActiveProposal{
+		Data:          *data,
+		Participation: ap.Participation,
+		StartEpoch:    ap.StartEpoch,
+		Queued:        ap.Queued,
+	}, nil
+}

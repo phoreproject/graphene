@@ -159,7 +159,7 @@ message State {
 
     repeated Crosslink LatestCrosslinks = 17;
     repeated Crosslink PreviousCrosslinks = 18;
-    repeated ShardEntry ShardRegistry = 19;
+    repeated bytes ShardRegistry = 19;
 
     repeated bytes LatestBlockHashes = 20;
     repeated PendingAttestation CurrentEpochAttestations = 21;
@@ -200,8 +200,4 @@ message ActiveProposal {
     bytes Participation = 2;
     uint64 StartEpoch = 3;
     bool Queued = 4;
-}
-
-message ShardEntry {
-    bytes CodeHash = 1;
 }

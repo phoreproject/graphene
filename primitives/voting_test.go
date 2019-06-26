@@ -71,21 +71,21 @@ func TestAggregatedVote_Copy(t *testing.T) {
 		Participation: []uint8{0},
 	}
 
-	copyVoteData := baseAggregatedVote.Copy()
+	copyAggregatedVote := baseAggregatedVote.Copy()
 
-	copyVoteData.Data.Type = 1
+	copyAggregatedVote.Data.Type = 1
 	if baseAggregatedVote.Data.Type == 1 {
 		t.Fatal("mutating data mutates base")
 	}
 
-	copyVoteData.Signature[0] = 1
+	copyAggregatedVote.Signature[0] = 1
 	if baseAggregatedVote.Signature[0] == 1 {
-		t.Fatal("mutating shards mutates base")
+		t.Fatal("mutating signature mutates base")
 	}
 
-	copyVoteData.Participation[0] = 1
+	copyAggregatedVote.Participation[0] = 1
 	if baseAggregatedVote.Participation[0] == 1 {
-		t.Fatal("mutating actionHash mutates base")
+		t.Fatal("mutating participation mutates base")
 	}
 }
 
@@ -108,6 +108,66 @@ func TestAggregatedVote_ToFromProto(t *testing.T) {
 	}
 
 	if diff := deep.Equal(fromProto, baseAggregatedVote); diff != nil {
+		t.Fatal(diff)
+	}
+}
+
+func TestActiveProposal_Copy(t *testing.T) {
+	baseActiveProposal := &primitives.ActiveProposal{
+		Data: primitives.VoteData{
+			Type:       0,
+			Shards:     nil,
+			ActionHash: chainhash.Hash{},
+			Proposer:   0,
+		},
+		Participation: []uint8{0},
+		StartEpoch:    0,
+		Queued:        false,
+	}
+
+	copyActiveProposal := baseActiveProposal.Copy()
+
+	copyActiveProposal.Data.Type = 1
+	if baseActiveProposal.Data.Type == 1 {
+		t.Fatal("mutating data mutates base")
+	}
+
+	copyActiveProposal.Participation[0] = 1
+	if baseActiveProposal.Participation[0] == 1 {
+		t.Fatal("mutating participation mutates base")
+	}
+
+	copyActiveProposal.StartEpoch = 1
+	if baseActiveProposal.StartEpoch == 1 {
+		t.Fatal("mutating startepoch mutates base")
+	}
+
+	copyActiveProposal.Queued = true
+	if baseActiveProposal.Queued == true {
+		t.Fatal("mutating queued mutates base")
+	}
+}
+
+func TestActiveProposal_ToFromProto(t *testing.T) {
+	baseActiveProposal := &primitives.ActiveProposal{
+		Data: primitives.VoteData{
+			Type:       1,
+			Shards:     []byte{1},
+			ActionHash: chainhash.Hash{1},
+			Proposer:   1,
+		},
+		Participation: []uint8{1},
+		StartEpoch:    1,
+		Queued:        true,
+	}
+
+	activeProposalProto := baseActiveProposal.ToProto()
+	fromProto, err := primitives.ActiveProposalFromProto(activeProposalProto)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := deep.Equal(fromProto, baseActiveProposal); diff != nil {
 		t.Fatal(diff)
 	}
 }

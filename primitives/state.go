@@ -181,6 +181,10 @@ type State struct {
 	CurrentEpochAttestations  []PendingAttestation
 	PreviousEpochAttestations []PendingAttestation
 	BatchedBlockRoots         []chainhash.Hash
+
+	ShardRegistry []chainhash.Hash
+	Proposals     []ActiveProposal
+	PendingVotes  []AggregatedVote
 }
 
 // Copy deep-copies the state.
@@ -192,6 +196,18 @@ func (s *State) Copy() State {
 	newValidatorBalances := make([]uint64, len(s.ValidatorBalances))
 	for i := range s.ValidatorBalances {
 		newValidatorBalances[i] = s.ValidatorBalances[i]
+	}
+	newShardRegistry := make([]chainhash.Hash, len(s.ShardRegistry))
+	for i := range s.ShardRegistry {
+		copy(newShardRegistry[i][:], s.ShardRegistry[i][:])
+	}
+	newProposals := make([]ActiveProposal, len(s.Proposals))
+	for i := range s.Proposals {
+		newProposals[i] = s.Proposals[i].Copy()
+	}
+	newPendingVotes := make([]AggregatedVote, len(s.PendingVotes))
+	for i := range s.PendingVotes {
+		newPendingVotes[i] = s.PendingVotes[i].Copy()
 	}
 	var newValidatorRegistryDeltaChainTip chainhash.Hash
 	var newRandaoMix chainhash.Hash
@@ -247,6 +263,9 @@ func (s *State) Copy() State {
 		PreviousEpochAttestations:          newPreviousAttestations,
 		CurrentEpochAttestations:           newCurrentAttestations,
 		BatchedBlockRoots:                  newBatchedBlockRoots,
+		ShardRegistry:                      newShardRegistry,
+		PendingVotes:                       newPendingVotes,
+		Proposals:                          newProposals,
 	}
 
 	return newState
@@ -262,6 +281,9 @@ func (s *State) ToProto() *pb.State {
 	currentAttestations := make([]*pb.PendingAttestation, len(s.CurrentEpochAttestations))
 	previousAttestations := make([]*pb.PendingAttestation, len(s.PreviousEpochAttestations))
 	batchedBlockRoots := make([][]byte, len(s.BatchedBlockRoots))
+	proposals := make([]*pb.ActiveProposal, len(s.Proposals))
+	shardRegistry := make([][]byte, len(s.ShardRegistry))
+	pendingVotes := make([]*pb.AggregatedVote, len(s.PendingVotes))
 
 	for i := range validatorRegistry {
 		validatorRegistry[i] = s.ValidatorRegistry[i].ToProto()
@@ -298,6 +320,18 @@ func (s *State) ToProto() *pb.State {
 		previousAttestations[i] = s.PreviousEpochAttestations[i].ToProto()
 	}
 
+	for i := range proposals {
+		proposals[i] = s.Proposals[i].ToProto()
+	}
+
+	for i := range pendingVotes {
+		pendingVotes[i] = s.PendingVotes[i].ToProto()
+	}
+
+	for i := range shardRegistry {
+		shardRegistry[i] = s.ShardRegistry[i][:]
+	}
+
 	for i := range batchedBlockRoots {
 		batchedBlockRoots[i] = s.BatchedBlockRoots[i][:]
 	}
@@ -324,6 +358,9 @@ func (s *State) ToProto() *pb.State {
 		CurrentEpochAttestations:           currentAttestations,
 		PreviousEpochAttestations:          previousAttestations,
 		BatchedBlockRoots:                  batchedBlockRoots,
+		ShardRegistry:                      shardRegistry,
+		PendingVotes:                       pendingVotes,
+		Proposals:                          proposals,
 	}
 }
 
@@ -337,6 +374,9 @@ func StateFromProto(s *pb.State) (*State, error) {
 	currentAttestations := make([]PendingAttestation, len(s.CurrentEpochAttestations))
 	previousAttestations := make([]PendingAttestation, len(s.PreviousEpochAttestations))
 	batchedBlockRoots := make([]chainhash.Hash, len(s.BatchedBlockRoots))
+	pendingVotes := make([]AggregatedVote, len(s.PendingVotes))
+	proposals := make([]ActiveProposal, len(s.Proposals))
+	shardRegistry := make([]chainhash.Hash, len(s.ShardRegistry))
 
 	fd, err := ForkDataFromProto(s.ForkData)
 	if err != nil {
@@ -393,6 +433,22 @@ func StateFromProto(s *pb.State) (*State, error) {
 		previousAttestations[i] = *a
 	}
 
+	for i := range proposals {
+		a, err := ActiveProposalFromProto(s.Proposals[i])
+		if err != nil {
+			return nil, err
+		}
+		proposals[i] = *a
+	}
+
+	for i := range pendingVotes {
+		a, err := AggregatedVoteFromProto(s.PendingVotes[i])
+		if err != nil {
+			return nil, err
+		}
+		pendingVotes[i] = *a
+	}
+
 	for i := range currentAttestations {
 		a, err := PendingAttestationFromProto(s.CurrentEpochAttestations[i])
 		if err != nil {
@@ -403,6 +459,13 @@ func StateFromProto(s *pb.State) (*State, error) {
 
 	for i := range batchedBlockRoots {
 		err := batchedBlockRoots[i].SetBytes(s.BatchedBlockRoots[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range shardRegistry {
+		err := shardRegistry[i].SetBytes(s.ShardRegistry[i])
 		if err != nil {
 			return nil, err
 		}
@@ -427,6 +490,9 @@ func StateFromProto(s *pb.State) (*State, error) {
 		CurrentEpochAttestations:           currentAttestations,
 		PreviousEpochAttestations:          previousAttestations,
 		BatchedBlockRoots:                  batchedBlockRoots,
+		ShardRegistry:                      shardRegistry,
+		PendingVotes:                       pendingVotes,
+		Proposals:                          proposals,
 	}
 
 	err = newState.ValidatorRegistryDeltaChainTip.SetBytes(s.ValidatorRegistryDeltaChainTip)

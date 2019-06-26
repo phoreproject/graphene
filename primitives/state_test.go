@@ -83,6 +83,9 @@ func TestState_Copy(t *testing.T) {
 		CurrentEpochAttestations:           []primitives.PendingAttestation{},
 		PreviousEpochAttestations:          []primitives.PendingAttestation{},
 		BatchedBlockRoots:                  []chainhash.Hash{},
+		ShardRegistry:                      []chainhash.Hash{{}},
+		Proposals:                          []primitives.ActiveProposal{},
+		PendingVotes:                       []primitives.AggregatedVote{},
 	}
 
 	copyState := baseState.Copy()
@@ -185,6 +188,21 @@ func TestState_Copy(t *testing.T) {
 	if len(baseState.BatchedBlockRoots) == 1 {
 		t.Fatal("mutating batchedBlockRoots mutates base")
 	}
+
+	copyState.ShardRegistry = nil
+	if baseState.ShardRegistry == nil {
+		t.Fatal("mutating shardRegistry mutates base")
+	}
+
+	copyState.Proposals = []primitives.ActiveProposal{{}}
+	if len(baseState.Proposals) != 0 {
+		t.Fatal("mutating proposals mutates base")
+	}
+
+	copyState.PendingVotes = []primitives.AggregatedVote{{}}
+	if len(baseState.PendingVotes) != 0 {
+		t.Fatal("mutating proposals mutates base")
+	}
 }
 
 func TestState_ToFromProto(t *testing.T) {
@@ -213,6 +231,9 @@ func TestState_ToFromProto(t *testing.T) {
 		CurrentEpochAttestations:           []primitives.PendingAttestation{{InclusionDelay: 1}},
 		PreviousEpochAttestations:          []primitives.PendingAttestation{{InclusionDelay: 1}},
 		BatchedBlockRoots:                  []chainhash.Hash{{1}},
+		ShardRegistry:                      []chainhash.Hash{{1}},
+		Proposals:                          []primitives.ActiveProposal{{StartEpoch: 1}},
+		PendingVotes:                       []primitives.AggregatedVote{{Signature: [48]byte{1}}},
 	}
 
 	stateProto := baseState.ToProto()

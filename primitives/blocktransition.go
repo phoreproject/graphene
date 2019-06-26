@@ -278,6 +278,10 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		return errors.New("more than maximum deposits")
 	}
 
+	if len(block.BlockBody.Votes) > con.MaxVotes {
+		return errors.New("more than maximum votes")
+	}
+
 	for _, slashing := range block.BlockBody.ProposerSlashings {
 		err := s.applyProposerSlashing(slashing, con)
 		if err != nil {

@@ -29,7 +29,7 @@ type VoteData struct {
 func (vd *VoteData) ToProto() *pb.VoteData {
 	return &pb.VoteData{
 		Type:       uint32(vd.Type),
-		Shards:     vd.Shards,
+		Shards:     vd.Shards[:],
 		ActionHash: vd.ActionHash[:],
 		Proposer:   vd.Proposer,
 	}
@@ -61,8 +61,52 @@ func VoteDataFromProto(vd *pb.VoteData) (*VoteData, error) {
 // Copy returns a copy of the vote data.
 func (vd *VoteData) Copy() VoteData {
 	v := *vd
-
 	v.Shards = append([]uint8{}, vd.Shards...)
+	return v
+}
 
+// AggregatedVote represents voting data and an arbitrary number of votes from the active
+// validator set.
+type AggregatedVote struct {
+	Data          VoteData
+	Signature     [48]byte
+	Participation []byte
+}
+
+// ToProto converts the AggregatedVoted into a protobuf representation.
+func (av *AggregatedVote) ToProto() *pb.AggregatedVote {
+	return &pb.AggregatedVote{
+		Data:          av.Data.ToProto(),
+		Signature:     av.Signature[:],
+		Participation: av.Participation[:],
+	}
+}
+
+// AggregatedVoteFromProto unwraps a protobuf representation of vote data.
+func AggregatedVoteFromProto(vd *pb.AggregatedVote) (*AggregatedVote, error) {
+	data, err := VoteDataFromProto(vd.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(vd.Signature) != 48 {
+		return nil, errors.New("signature must be 48 bytes long")
+	}
+
+	var sigBytes [48]byte
+	copy(sigBytes[:], vd.Signature)
+
+	return &AggregatedVote{
+		Data:          *data,
+		Signature:     sigBytes,
+		Participation: vd.Participation,
+	}, nil
+}
+
+// Copy returns a copy of the vote data.
+func (av *AggregatedVote) Copy() AggregatedVote {
+	v := *av
+	v.Data = av.Data.Copy()
+	v.Participation = append([]uint8{}, av.Participation...)
 	return v
 }

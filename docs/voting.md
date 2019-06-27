@@ -8,6 +8,7 @@ This document will describe the voting process for the beacon chain. This govern
 2. [Voting Process](#voting-process)
 3. [Data Structures](#data-structures)
 4. [State Processing](#state-processing)
+5.
 
 ## Constants
 
@@ -98,12 +99,13 @@ First calculate `EpochsPerPeriod = VOTING_PERIOD * 24 * 3600 / slot_duration / e
 The following steps are run at the end of an epoch transition if `epoch_index % epochs_per_period == 0`.
 
 1. Go through the `PendingVote` objects in order.
-   1. If the vote is in `ActiveProposals`:
+   1. Ensure that `len(Participation) == len(s.ValidatorRegistry) + 7 // 8`.
+   2. If the vote is in `ActiveProposals`:
       1. If the vote is queued, ignore pending vote.
       2. Verify that the vote is valid by checking that the validators in the participation bitfield signed the `VoteData` with their public keys and domain `DomainGovernanceVote`.
       3. OR the active proposal participation with the participation bitfield from the vote.
-   2. If the vote is not in `ActiveProposals`:
-      1. If `vote.Data.Type == CANCEL`, ensure there is an `ActiveProposal` such that `hash(proposal.Data) == vote.Data.ActionHash`.
+   3. If the vote is not in `ActiveProposals`:
+      1. If `vote.Data.Type == CANCEL`, ensure there is an `ActiveProposal` such that `hash(proposal.Data) == vote.Data.ActionHash` and `len(vote.Data.Shards) == 0`.
       2. Subtract `PROPOSAL_COST` from the validator's balance.
       3. Verify that the vote is valid by checking that the validators in the participation bitfield signed the `VoteData` with their public keys and domain `DomainGovernanceVote`.
       4. Create a new `ActiveProposal` with the `VoteData` specified and `VoteParticipation` such that the bit corresponding to the proposer is 1. Set the `StartEpoch` to the current epoch.
@@ -124,3 +126,12 @@ The following steps are run at the end of an epoch transition if `epoch_index % 
       1. Check if `EpochIndex - proposal.StartEpoch / EpochsPerPeriod > GRACE_PERIOD`, then loop through each bit of `proposal.Data.Shards`:
          1. If bit `i` is a 1, set the `CodeHash` of `ShardRegistry[i]` to `proposal.Data.CodeHash`.
       2. Remove any proposals in ActiveProposals where `conflicting_proposal.Data.Type == CANCEL` and `conflicting_proposal.Data.ActionHash == hash(proposal.Data)`.
+
+## Code Custody
+
+One important question is: who has the actual code to be implemented while voting? The voting is based on hashes of the code so the code is not actually stored on-chain.
+
+The answer is simple:
+
+- while voting, the proposer must initially provide the code to the rest of the network and any voters will also need to keep custody
+- after the vote, all validators must hold the code and it's expected they will provide the code to the rest of the network

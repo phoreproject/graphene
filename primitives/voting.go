@@ -20,7 +20,7 @@ const (
 // and the proposer validator ID.
 type VoteData struct {
 	Type       uint8
-	Shards     []byte
+	Shards     []uint32
 	ActionHash chainhash.Hash
 	Proposer   uint32
 }
@@ -61,7 +61,7 @@ func VoteDataFromProto(vd *pb.VoteData) (*VoteData, error) {
 // Copy returns a copy of the vote data.
 func (vd *VoteData) Copy() VoteData {
 	v := *vd
-	v.Shards = append([]uint8{}, vd.Shards...)
+	v.Shards = append([]uint32{}, vd.Shards...)
 	return v
 }
 

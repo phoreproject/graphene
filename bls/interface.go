@@ -21,6 +21,9 @@ const (
 
 	// DomainRandao is for the randao signature.
 	DomainRandao
+
+	// DomainVote is a vote for a proposal.
+	DomainVote
 )
 
 // Signature used in the BLS signature scheme.

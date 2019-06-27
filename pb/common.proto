@@ -184,7 +184,7 @@ message AttestationRequest {
 
 message VoteData {
     uint32 Type = 1;
-    bytes Shards = 2;
+    repeated uint32 Shards = 2;
     bytes ActionHash = 3;
     uint32 Proposer = 4;
 }

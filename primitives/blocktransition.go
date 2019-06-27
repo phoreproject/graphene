@@ -1,6 +1,7 @@
 package primitives
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -159,6 +160,120 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockVi
 	return nil
 }
 
+func (s *State) validateParticipationSignature(voteHash chainhash.Hash, participation []uint8, signature [48]byte) error {
+	aggregatedPublicKey := bls.NewAggregatePublicKey()
+
+	if len(participation) != (len(s.ValidatorRegistry)+7)/8 {
+		return errors.New("vote participation array incorrect length")
+	}
+
+	for i := 0; i < len(s.ValidatorRegistry); i++ {
+		voted := uint8(participation[i/8])&(1<<uint(i%8)) != 0
+
+		if voted {
+			pk, err := s.ValidatorRegistry[i].GetPublicKey()
+			if err != nil {
+				return err
+			}
+
+			aggregatedPublicKey.AggregatePubKey(pk)
+		}
+	}
+
+	sig, err := bls.DeserializeSignature(signature)
+	if err != nil {
+		return err
+	}
+
+	valid, err := bls.VerifySig(aggregatedPublicKey, voteHash[:], sig, bls.DomainVote)
+
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		return errors.New("vote signature did not validate")
+	}
+
+	return nil
+}
+
+// applyVote validates a vote and adds it to pending votes.
+func (s *State) applyVote(vote AggregatedVote, config *config.Config) error {
+	voteHash, err := ssz.TreeHash(vote.Data)
+	if err != nil {
+		return err
+	}
+
+	for i, proposal := range s.Proposals {
+		proposalHash, err := ssz.TreeHash(proposal.Data)
+		if err != nil {
+			return err
+		}
+
+		// proposal is already active
+		if bytes.Equal(proposalHash[:], voteHash[:]) {
+			// ignore if already queued
+			if proposal.Queued {
+				return nil
+			}
+
+			err := s.validateParticipationSignature(voteHash, vote.Participation, vote.Signature)
+			if err != nil {
+				return err
+			}
+
+			// update the proposal
+			for j := range s.Proposals[i].Participation {
+				s.Proposals[i].Participation[j] |= vote.Participation[j]
+			}
+
+			return nil
+		}
+	}
+
+	proposerBitSet := vote.Participation[vote.Data.Proposer/8] & (1 << uint(vote.Data.Proposer%8))
+
+	if proposerBitSet == 0 {
+		return errors.New("could not process vote with proposer bit not set")
+	}
+
+	if vote.Data.Type == Cancel {
+		foundProposalToCancel := false
+
+		for _, proposal := range s.Proposals {
+			proposalHash, err := ssz.TreeHash(proposal.Data)
+			if err != nil {
+				return err
+			}
+
+			if bytes.Equal(vote.Data.ActionHash[:], proposalHash[:]) {
+				foundProposalToCancel = true
+			}
+		}
+
+		if !foundProposalToCancel {
+			return errors.New("could not find proposal to cancel")
+		}
+	}
+
+	err = s.validateParticipationSignature(voteHash, vote.Participation, vote.Signature)
+	if err != nil {
+		return err
+	}
+
+	s.ValidatorBalances[vote.Data.Proposer] -= config.ProposalCost
+
+	s.Proposals = append(s.Proposals, ActiveProposal{
+		Data:          vote.Data,
+		Participation: vote.Participation,
+		StartEpoch:    s.EpochIndex,
+		Queued:        false,
+	})
+
+	return nil
+}
+
 // ProcessBlock tries to apply a block to the state.
 func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
 	proposerIndex, err := s.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, con)
@@ -312,9 +427,12 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		}
 	}
 
-	//blockTransitionTime := time.Since(blockTransitionStart)
-
-	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
+	for _, v := range block.BlockBody.Votes {
+		err := s.applyVote(v, con)
+		if err != nil {
+			return err
+		}
+	}
 
 	// Check state root.
 	expectedStateRoot, err := view.GetLastStateRoot()

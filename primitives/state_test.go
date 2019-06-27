@@ -989,6 +989,365 @@ func TestProposerSlashingValidation(t *testing.T) {
 	}
 }
 
+func TestVoteValidation(t *testing.T) {
+	c := &config.RegtestConfig
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state, keystore, err := SetupState(c.ShardCount*c.TargetCommitteeSize*2+5, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// sign two conflicting blocks at the same height
+	slotToPropose := state.Slot + 1
+	proposerIndex, err := state.GetBeaconProposerIndex(slotToPropose-1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type BodyShouldValidate struct {
+		ps        primitives.AggregatedVote
+		validates bool
+		reason    string
+	}
+
+	block1 := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	key := keystore.GetKeyForValidator(proposerIndex)
+
+	err = SignBlock(block1, key, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposalVote := primitives.VoteData{
+		Type:       primitives.Propose,
+		Shards:     []uint32{1, 2},
+		ActionHash: chainhash.Hash{},
+		Proposer:   0,
+	}
+
+	h, _ := ssz.TreeHash(proposalVote)
+
+	signatureValidator1, err := bls.Sign(keystore.GetKeyForValidator(1), h[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signatureValidator0, err := bls.Sign(keystore.GetKeyForValidator(0), h[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	voteInvalidSignature := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     [48]byte{},
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	voteInvalidSignature.Participation[0] = 1 << 0
+
+	voteNoSignatureFromProposer := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureValidator1.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	voteNoSignatureFromProposer.Participation[0] = 1 << 1
+
+	voteWrongParticipationLength := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureValidator0.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8-1),
+	}
+	voteWrongParticipationLength.Participation[0] = 1 << 0
+
+	validProposal := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureValidator0.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	validProposal.Participation[0] = 1 << 0
+
+	type testProposal struct {
+		proposal   primitives.AggregatedVote
+		shouldPass bool
+		reason     string
+	}
+
+	// invalid signature - fail
+	// no signature from proposer on proposal - fail
+	// incorrect participation length - fail
+	// correct signature - pass
+	testProposals := []testProposal{
+		{
+			proposal:   voteInvalidSignature,
+			shouldPass: false,
+			reason:     "proposal with invalid signature should not validate",
+		},
+		{
+			proposal:   voteNoSignatureFromProposer,
+			shouldPass: false,
+			reason:     "proposal with no signature from the proposer should not validate",
+		},
+		{
+			proposal:   voteWrongParticipationLength,
+			shouldPass: false,
+			reason:     "proposal with wrong participation length should not validate",
+		},
+		{
+			proposal:   validProposal,
+			shouldPass: true,
+			reason:     "proposal with correct information should validate",
+		},
+	}
+
+	for _, b := range testProposals {
+		blockTest := &primitives.Block{
+			BlockHeader: primitives.BlockHeader{
+				SlotNumber:   slotToPropose,
+				ParentRoot:   chainhash.Hash{},
+				StateRoot:    chainhash.Hash{},
+				RandaoReveal: [48]byte{},
+				Signature:    [48]byte{},
+			},
+			BlockBody: primitives.BlockBody{
+				Attestations:      nil,
+				ProposerSlashings: nil,
+				CasperSlashings:   nil,
+				Deposits:          nil,
+				Exits:             nil,
+				Votes:             []primitives.AggregatedVote{b.proposal},
+			},
+		}
+
+		err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stateCopy := state.Copy()
+
+		err = stateCopy.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+
+		if (err == nil) != b.shouldPass {
+			if b.shouldPass {
+				t.Fatalf("expected block to validate, but got error: %s for case: %s", err, b.reason)
+			} else {
+				t.Fatalf("expected block to fail with reason: %s", b.reason)
+			}
+		}
+	}
+
+	// now, actually process the valid proposal
+	blockTest := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+			Votes:             []primitives.AggregatedVote{validProposal},
+		},
+	}
+
+	err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	balanceBefore := state.GetEffectiveBalance(0, c)
+
+	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	balanceAfter := state.GetEffectiveBalance(0, c)
+
+	slotToPropose++
+
+	proposerIndex, err = state.GetBeaconProposerIndex(slotToPropose-1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// cost should be deducted
+	// proposal should be added
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(state.Proposals) != 1 {
+		t.Fatal("expected proposal to be added after valid proposal")
+	}
+
+	if balanceBefore-balanceAfter != c.ProposalCost {
+		t.Fatal("expected proposal cost to be deducted from proposer's balance")
+	}
+
+	// no signature from proposer on subsequent vote - pass
+	// cancel proposal - pass
+	// cancel proposal with non-empty shards array - fail
+	// cancel proposal with invalid hash - fail
+	noSignatureFromProposerOnSubsequentVote := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureValidator1.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	noSignatureFromProposerOnSubsequentVote.Participation[0] = 1 << 1
+
+	cancelData := primitives.VoteData{
+		Type:       primitives.Cancel,
+		ActionHash: h,
+		Shards:     []uint32{},
+		Proposer:   1,
+	}
+
+	cancelDataHash, _ := ssz.TreeHash(cancelData)
+
+	cancelSignatureValidator1, err := bls.Sign(keystore.GetKeyForValidator(1), cancelDataHash[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cancelProposal := primitives.AggregatedVote{
+		Data:          cancelData,
+		Signature:     cancelSignatureValidator1.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	cancelProposal.Participation[0] = 1 << 1
+
+	cancelDataNonemptyShards := primitives.VoteData{
+		Type:       primitives.Cancel,
+		ActionHash: h,
+		Shards:     []uint32{1},
+		Proposer:   1,
+	}
+
+	cancelDataNonemptyShardsHash, _ := ssz.TreeHash(cancelData)
+
+	cancelSignatureNonEmptyShards, err := bls.Sign(keystore.GetKeyForValidator(1), cancelDataNonemptyShardsHash[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cancelProposalNonEmptyShards := primitives.AggregatedVote{
+		Data:          cancelDataNonemptyShards,
+		Signature:     cancelSignatureNonEmptyShards.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	cancelProposalNonEmptyShards.Participation[0] = 1 << 1
+
+	cancelDataInvalidHash := primitives.VoteData{
+		Type:       primitives.Cancel,
+		ActionHash: chainhash.Hash{},
+		Shards:     []uint32{},
+		Proposer:   1,
+	}
+
+	cancelDataInvalidHashHash, _ := ssz.TreeHash(cancelDataInvalidHash)
+
+	cancelDataInvalidHashSignature, err := bls.Sign(keystore.GetKeyForValidator(1), cancelDataInvalidHashHash[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cancelProposalInvalidHash := primitives.AggregatedVote{
+		Data:          cancelDataInvalidHash,
+		Signature:     cancelDataInvalidHashSignature.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	cancelProposalInvalidHash.Participation[0] = 1 << 1
+
+	testProposals = []testProposal{
+		{
+			proposal:   noSignatureFromProposerOnSubsequentVote,
+			shouldPass: true,
+			reason:     "proposal with no signature from the vote proposer should pass if there is already an active vote",
+		},
+		{
+			proposal:   cancelProposal,
+			shouldPass: true,
+			reason:     "normal cancel proposal should validate",
+		},
+		{
+			proposal:   cancelProposalNonEmptyShards,
+			shouldPass: false,
+			reason:     "cancel proposal with a non-empty shards array should not validate",
+		},
+		{
+			proposal:   cancelProposalInvalidHash,
+			shouldPass: false,
+			reason:     "cancel proposal with an invalid hash should not validate",
+		},
+	}
+
+	for _, b := range testProposals {
+		blockTest := &primitives.Block{
+			BlockHeader: primitives.BlockHeader{
+				SlotNumber:   slotToPropose,
+				ParentRoot:   chainhash.Hash{},
+				StateRoot:    chainhash.Hash{},
+				RandaoReveal: [48]byte{},
+				Signature:    [48]byte{},
+			},
+			BlockBody: primitives.BlockBody{
+				Attestations:      nil,
+				ProposerSlashings: nil,
+				CasperSlashings:   nil,
+				Deposits:          nil,
+				Exits:             nil,
+				Votes:             []primitives.AggregatedVote{b.proposal},
+			},
+		}
+
+		err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stateCopy := state.Copy()
+
+		err = stateCopy.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+
+		if (err == nil) != b.shouldPass {
+			if b.shouldPass {
+				t.Fatalf("expected block to validate, but got error: %s for case: %s", err, b.reason)
+			} else {
+				t.Fatalf("expected block to fail with reason: %s", b.reason)
+			}
+		}
+	}
+}
+
 func TestProposerSlashingPenalty(t *testing.T) {
 	c := &config.RegtestConfig
 
@@ -1004,12 +1363,6 @@ func TestProposerSlashingPenalty(t *testing.T) {
 	proposerIndex, err := state.GetBeaconProposerIndex(slotToPropose, c)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	type BodyShouldValidate struct {
-		ps        primitives.ProposerSlashing
-		validates bool
-		reason    string
 	}
 
 	block1 := &primitives.Block{

@@ -30,6 +30,7 @@ type Config struct {
 	MaxVotes                           int
 	MaxDeposit                         uint64
 	MinDeposit                         uint64
+	ProposalCost                       uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -64,6 +65,7 @@ var MainNetConfig = Config{
 	MaxVotes:                           16,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+	ProposalCost:                       1 * UnitInCoin,
 }
 
 // LocalnetConfig is the config used for testing the blockchain locally
@@ -95,6 +97,7 @@ var LocalnetConfig = Config{
 	MaxVotes:                           16,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+	ProposalCost:                       1 * UnitInCoin,
 }
 
 // RegtestConfig is the config used for unit tests
@@ -126,6 +129,7 @@ var RegtestConfig = Config{
 	MaxVotes:                           1,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+	ProposalCost:                       1 * UnitInCoin,
 }
 
 // NetworkIDs maps a network ID string to the corresponding config.

@@ -12,7 +12,7 @@ import (
 func TestVoteData_Copy(t *testing.T) {
 	baseVoteData := &primitives.VoteData{
 		Type:       0,
-		Shards:     []byte{0},
+		Shards:     []uint32{0},
 		ActionHash: chainhash.Hash{},
 		Proposer:   0,
 	}
@@ -43,7 +43,7 @@ func TestVoteData_Copy(t *testing.T) {
 func TestVoteData_ToFromProto(t *testing.T) {
 	baseVoteData := &primitives.VoteData{
 		Type:       1,
-		Shards:     []byte{1},
+		Shards:     []uint32{1},
 		ActionHash: chainhash.Hash{1},
 		Proposer:   1,
 	}
@@ -152,7 +152,7 @@ func TestActiveProposal_ToFromProto(t *testing.T) {
 	baseActiveProposal := &primitives.ActiveProposal{
 		Data: primitives.VoteData{
 			Type:       1,
-			Shards:     []byte{1},
+			Shards:     []uint32{1},
 			ActionHash: chainhash.Hash{1},
 			Proposer:   1,
 		},

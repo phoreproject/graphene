@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/phoreproject/prysm/shared/ssz"
+
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/sirupsen/logrus"
@@ -687,6 +689,91 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				}
 			}
 		}
+	}
+
+	// process proposals if needed
+	if s.EpochIndex%c.EpochsPerVotingPeriod == 0 {
+		toRemove := make(map[int]struct{})
+
+		for idx := 0; idx < len(s.Proposals); idx++ {
+			if _, found := toRemove[idx]; found {
+				continue
+			}
+
+			activeProposal := s.Proposals[idx]
+
+			if activeProposal.Queued {
+				epochsSinceStart := s.EpochIndex - activeProposal.StartEpoch
+
+				// if the vote passed after the grace period
+				if epochsSinceStart/c.EpochsPerVotingPeriod > c.GracePeriod {
+					for _, shard := range activeProposal.Data.Shards {
+						s.ShardRegistry[shard] = activeProposal.Data.ActionHash
+					}
+
+					proposalHash, _ := ssz.TreeHash(activeProposal.Data)
+
+					for i := range s.Proposals {
+						if s.Proposals[i].Data.Type == Cancel && bytes.Equal(s.Proposals[i].Data.ActionHash[:], proposalHash[:]) {
+							// queue any cancellations for removal
+
+							toRemove[i] = struct{}{}
+						}
+					}
+
+					continue
+				}
+			} else {
+				yesVotes := uint64(0)
+				total := uint64(len(s.ValidatorRegistry))
+
+				// if a validator leaves after voting and the validator registry shrinks, their
+				// vote is ignored
+				for i := uint64(0); i < total; i++ {
+					if activeProposal.Participation[i/8]&(1<<uint(i%8)) != 0 {
+						yesVotes++
+					}
+				}
+
+				// proposal passes -> queue it
+				if activeProposal.Data.Type == Propose && c.QueueThresholdDenominator*yesVotes >= c.QueueThresholdNumerator*total {
+					activeProposal.Queued = true
+					continue
+				}
+
+				// cancel vote passes -> remove active proposal
+				if activeProposal.Data.Type == Cancel && c.CancelThresholdDenominator*yesVotes >= c.CancelThresholdNumerator*total {
+					for i := range s.Proposals {
+						proposalHash, _ := ssz.TreeHash(s.Proposals[i].Data)
+
+						if s.Proposals[i].Queued == true && bytes.Equal(s.Proposals[i].Data.ActionHash[:], proposalHash[:]) {
+							// queue any cancellations for removal
+
+							toRemove[i] = struct{}{}
+						}
+					}
+					continue
+				}
+
+				epochsSinceStart := s.EpochIndex - activeProposal.StartEpoch
+
+				// vote fails -> remove it
+				if epochsSinceStart/c.EpochsPerVotingPeriod > c.VotingTimeout && c.FailThresholdDenominator*yesVotes < c.FailThresholdNumerator*total {
+					toRemove[idx] = struct{}{}
+				}
+			}
+		}
+
+		out := 0
+
+		for i, p := range s.Proposals {
+			if _, found := toRemove[i]; !found {
+				s.Proposals[out] = p
+				out++
+			}
+		}
+
+		s.Proposals = s.Proposals[:out]
 	}
 
 	if err := s.exitValidatorsUnderMinimum(c); err != nil {

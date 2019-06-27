@@ -8,19 +8,18 @@ This document will describe the voting process for the beacon chain. This govern
 2. [Voting Process](#voting-process)
 3. [Data Structures](#data-structures)
 4. [State Processing](#state-processing)
-5.
 
 ## Constants
 
-| Constant Name      | Value               |
-| ------------------ | ------------------- |
-| `VOTING_PERIOD`    | 14 (days)           |
-| `QUEUE_THRESHOLD`  | 0.75                |
-| `FAIL_THRESHOLD`   | 0.40                |
-| `GRACE_PERIOD`     | 2 * `VOTING_PERIOD` |
-| `CANCEL_THRESHOLD` | 0.5                 |
-| `VOTING_TIMEOUT`   | 3 * `VOTING_PERIOD` |
-| `PROPOSAL_COST`    | 1 PHR               |
+| Constant Name              | Value                                             |
+| -------------------------- | ------------------------------------------------- |
+| `EPOCHS_PER_VOTING_PERIOD` | 14 * 24 * 3600 / (`EPOCH_LENGTH * SLOT_DURATION`) |
+| `QUEUE_THRESHOLD`          | 0.75                                              |
+| `FAIL_THRESHOLD`           | 0.40                                              |
+| `GRACE_PERIOD`             | 2 * `VOTING_PERIOD`                               |
+| `CANCEL_THRESHOLD`         | 0.5                                               |
+| `VOTING_TIMEOUT`           | 3 * `VOTING_PERIOD`                               |
+| `PROPOSAL_COST`            | 1 PHR                                             |
 
 
 
@@ -84,28 +83,23 @@ type ActiveProposal struct {
 
 `ShardRegistry` is a list of `ShardEntry` objects such that the i-th item corresponds to the i-th shard:
 
-```go
+```3
 type ShardEntry struct {
     CodeHash chainhash.Hash
 }
 ```
 
-
-
 ## State Processing
 
-First calculate `EpochsPerPeriod = VOTING_PERIOD * 24 * 3600 / slot_duration / epoch_duration`.
-
-The following steps are run at the end of an epoch transition if `epoch_index % epochs_per_period == 0`.
+The following steps are run at the end of an epoch transition if `epoch_index % EPOCHS_PER_VOTING_PERIOD == 0`.
 
 1. Go through the `PendingVote` objects in order.
-   1. Ensure that `len(Participation) == len(s.ValidatorRegistry) + 7 // 8`.
-   2. If the vote is in `ActiveProposals`:
+   1. If the vote is in `ActiveProposals`:
       1. If the vote is queued, ignore pending vote.
       2. Verify that the vote is valid by checking that the validators in the participation bitfield signed the `VoteData` with their public keys and domain `DomainGovernanceVote`.
       3. OR the active proposal participation with the participation bitfield from the vote.
-   3. If the vote is not in `ActiveProposals`:
-      1. If `vote.Data.Type == CANCEL`, ensure there is an `ActiveProposal` such that `hash(proposal.Data) == vote.Data.ActionHash` and `len(vote.Data.Shards) == 0`.
+   2. If the vote is not in `ActiveProposals`:
+      1. If `vote.Data.Type == CANCEL`, ensure there is an `ActiveProposal` such that `hash(proposal.Data) == vote.Data.ActionHash`.
       2. Subtract `PROPOSAL_COST` from the validator's balance.
       3. Verify that the vote is valid by checking that the validators in the participation bitfield signed the `VoteData` with their public keys and domain `DomainGovernanceVote`.
       4. Create a new `ActiveProposal` with the `VoteData` specified and `VoteParticipation` such that the bit corresponding to the proposer is 1. Set the `StartEpoch` to the current epoch.
@@ -126,6 +120,8 @@ The following steps are run at the end of an epoch transition if `epoch_index % 
       1. Check if `EpochIndex - proposal.StartEpoch / EpochsPerPeriod > GRACE_PERIOD`, then loop through each bit of `proposal.Data.Shards`:
          1. If bit `i` is a 1, set the `CodeHash` of `ShardRegistry[i]` to `proposal.Data.CodeHash`.
       2. Remove any proposals in ActiveProposals where `conflicting_proposal.Data.Type == CANCEL` and `conflicting_proposal.Data.ActionHash == hash(proposal.Data)`.
+
+When a validator of index `i` exits the network (status becomes something other than `Active`), the `i`th bit of every pending proposal is set to 0.
 
 ## Code Custody
 

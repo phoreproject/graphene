@@ -31,6 +31,15 @@ type Config struct {
 	MaxDeposit                         uint64
 	MinDeposit                         uint64
 	ProposalCost                       uint64
+	EpochsPerVotingPeriod              uint64
+	QueueThresholdNumerator            uint64
+	QueueThresholdDenominator          uint64
+	CancelThresholdNumerator           uint64
+	CancelThresholdDenominator         uint64
+	FailThresholdNumerator             uint64
+	FailThresholdDenominator           uint64
+	GracePeriod                        uint64
+	VotingTimeout                      uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -66,6 +75,15 @@ var MainNetConfig = Config{
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
 	ProposalCost:                       1 * UnitInCoin,
+	EpochsPerVotingPeriod:              14 * 3600 * 24 / 7 / 32, // 14 days
+	QueueThresholdNumerator:            3,
+	QueueThresholdDenominator:          4,
+	CancelThresholdNumerator:           1,
+	CancelThresholdDenominator:         2,
+	FailThresholdNumerator:             2,
+	FailThresholdDenominator:           5,
+	GracePeriod:                        2,
+	VotingTimeout:                      3,
 }
 
 // LocalnetConfig is the config used for testing the blockchain locally
@@ -98,6 +116,15 @@ var LocalnetConfig = Config{
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
 	ProposalCost:                       1 * UnitInCoin,
+	EpochsPerVotingPeriod:              1,
+	QueueThresholdNumerator:            3,
+	QueueThresholdDenominator:          4,
+	CancelThresholdNumerator:           1,
+	CancelThresholdDenominator:         2,
+	FailThresholdNumerator:             2,
+	FailThresholdDenominator:           5,
+	GracePeriod:                        2,
+	VotingTimeout:                      3,
 }
 
 // RegtestConfig is the config used for unit tests
@@ -130,6 +157,15 @@ var RegtestConfig = Config{
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
 	ProposalCost:                       1 * UnitInCoin,
+	EpochsPerVotingPeriod:              1,
+	QueueThresholdNumerator:            3,
+	QueueThresholdDenominator:          4,
+	CancelThresholdNumerator:           1,
+	CancelThresholdDenominator:         2,
+	FailThresholdNumerator:             2,
+	FailThresholdDenominator:           5,
+	GracePeriod:                        2,
+	VotingTimeout:                      3,
 }
 
 // NetworkIDs maps a network ID string to the corresponding config.

@@ -623,6 +623,15 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 		return err
 	}
 	s.ValidatorRegistryDeltaChainTip = deltaChainTip
+
+	for i := range s.Proposals {
+		participation := s.Proposals[i].Participation
+
+		if participation[index/8]&(1<<uint(index%8)) != 0 {
+			// switch the participation bit off
+			s.Proposals[i].Participation[index/8] &= ^(1 << uint(index%8))
+		}
+	}
 	return nil
 }
 

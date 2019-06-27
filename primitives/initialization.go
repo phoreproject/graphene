@@ -61,6 +61,8 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		CurrentEpochAttestations:  []PendingAttestation{},
 		PreviousEpochAttestations: []PendingAttestation{},
 		BatchedBlockRoots:         []chainhash.Hash{},
+
+		ShardRegistry: make([]chainhash.Hash, c.ShardCount),
 	}
 
 	for _, deposit := range initialValidators {

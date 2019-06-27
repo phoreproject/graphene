@@ -21,7 +21,7 @@ func SetupState(initialValidators int, c *config.Config) (*primitives.State, val
 
 	var validators []primitives.InitialValidatorEntry
 
-	for i := 0; i <= initialValidators; i++ {
+	for i := 0; i < initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
 		pub := key.DerivePublicKey()
 		hashPub, err := ssz.HashTreeRoot(pub.Serialize())

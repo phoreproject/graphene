@@ -40,6 +40,7 @@ type Config struct {
 	FailThresholdDenominator           uint64
 	GracePeriod                        uint64
 	VotingTimeout                      uint64
+	VotingExpiration                   uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -83,7 +84,8 @@ var MainNetConfig = Config{
 	FailThresholdNumerator:             2,
 	FailThresholdDenominator:           5,
 	GracePeriod:                        2,
-	VotingTimeout:                      3,
+	VotingTimeout:                      2,
+	VotingExpiration:                   4,
 }
 
 // LocalnetConfig is the config used for testing the blockchain locally
@@ -124,7 +126,8 @@ var LocalnetConfig = Config{
 	FailThresholdNumerator:             2,
 	FailThresholdDenominator:           5,
 	GracePeriod:                        2,
-	VotingTimeout:                      3,
+	VotingTimeout:                      2,
+	VotingExpiration:                   4,
 }
 
 // RegtestConfig is the config used for unit tests
@@ -165,7 +168,8 @@ var RegtestConfig = Config{
 	FailThresholdNumerator:             2,
 	FailThresholdDenominator:           5,
 	GracePeriod:                        2,
-	VotingTimeout:                      3,
+	VotingTimeout:                      2,
+	VotingExpiration:                   4,
 }
 
 // NetworkIDs maps a network ID string to the corresponding config.

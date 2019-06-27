@@ -721,6 +721,8 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 						}
 					}
 
+					toRemove[idx] = struct{}{}
+
 					continue
 				}
 			} else {
@@ -737,7 +739,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 				// proposal passes -> queue it
 				if activeProposal.Data.Type == Propose && c.QueueThresholdDenominator*yesVotes >= c.QueueThresholdNumerator*total {
-					activeProposal.Queued = true
+					s.Proposals[idx].Queued = true
 					continue
 				}
 
@@ -746,12 +748,14 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 					for i := range s.Proposals {
 						proposalHash, _ := ssz.HashTreeRoot(s.Proposals[i].Data)
 
-						if s.Proposals[i].Queued == true && bytes.Equal(s.Proposals[i].Data.ActionHash[:], proposalHash[:]) {
+						if s.Proposals[i].Queued == true && bytes.Equal(activeProposal.Data.ActionHash[:], proposalHash[:]) {
 							// queue any cancellations for removal
 
 							toRemove[i] = struct{}{}
 						}
 					}
+
+					toRemove[idx] = struct{}{}
 					continue
 				}
 
@@ -759,6 +763,10 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 				// vote fails -> remove it
 				if epochsSinceStart/c.EpochsPerVotingPeriod > c.VotingTimeout && c.FailThresholdDenominator*yesVotes < c.FailThresholdNumerator*total {
+					toRemove[idx] = struct{}{}
+				}
+
+				if epochsSinceStart/c.EpochsPerVotingPeriod > c.VotingExpiration {
 					toRemove[idx] = struct{}{}
 				}
 			}

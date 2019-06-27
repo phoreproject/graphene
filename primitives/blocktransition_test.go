@@ -1326,4 +1326,117 @@ func TestVoteParticipationSliceGrowth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if state.Proposals[0].Participation[lastValidatorIndex/8]&(1<<uint(lastValidatorIndex%8)) == 0 {
+		t.Fatal("expected vote to be processed")
+	}
+}
+
+func TestVoteValidatorLeave(t *testing.T) {
+	c := &config.RegtestConfig
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state, keystore, err := SetupState(c.ShardCount*c.TargetCommitteeSize*2+5, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slotToPropose := state.Slot + 1
+	proposerIndex, err := state.GetBeaconProposerIndex(slotToPropose-1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block1 := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	key := keystore.GetKeyForValidator(proposerIndex)
+
+	err = SignBlock(block1, key, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposalVote := primitives.VoteData{
+		Type:       primitives.Propose,
+		Shards:     []uint32{1, 2},
+		ActionHash: chainhash.Hash{},
+		Proposer:   0,
+	}
+
+	h, _ := ssz.TreeHash(proposalVote)
+
+	signatureValidator0, err := bls.Sign(keystore.GetKeyForValidator(0), h[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validProposal := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureValidator0.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	validProposal.Participation[0] = 1 << 0
+
+	// now, actually process the valid proposal
+	blockTest := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+			Votes:             []primitives.AggregatedVote{validProposal},
+		},
+	}
+
+	err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if state.Proposals[0].Participation[0]&1 == 0 {
+		t.Fatal("expected vote to be processed")
+	}
+
+	err = state.ExitValidator(0, primitives.ExitedWithoutPenalty, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if state.Proposals[0].Participation[0]&1 != 0 {
+		t.Fatal("expected vote to be reset on validator exit")
+	}
 }

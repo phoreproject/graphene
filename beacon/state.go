@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/utils"
@@ -45,7 +45,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, errors.New("do not have parent block")
 	}
 
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -115,7 +115,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	blockStorageTime := time.Since(blockStorageStart)
 
-	stateRoot, err := ssz.TreeHash(newState)
+	stateRoot, err := ssz.HashTreeRoot(newState)
 	if err != nil {
 		return nil, nil, err
 	}

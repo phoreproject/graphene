@@ -22,7 +22,7 @@ import (
 
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/validator"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 var zeroHash = chainhash.Hash{}
@@ -66,7 +66,7 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 
 		pubSer := pub.Serialize()
 
-		h, err := ssz.TreeHash(pubSer)
+		h, err := ssz.HashTreeRoot(pubSer)
 		if err != nil {
 			panic(err)
 		}

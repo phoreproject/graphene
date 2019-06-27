@@ -11,9 +11,9 @@ import (
 	"time"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/jinzhu/gorm"
 	homedir "github.com/mitchellh/go-homedir"
@@ -269,7 +269,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		})
 	}
 
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		panic(err)
 	}

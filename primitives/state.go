@@ -10,8 +10,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
-
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.
@@ -538,7 +537,7 @@ func (s *State) GetTotalBalanceMap(activeValidators map[uint32]struct{}, c *conf
 
 // GetNewValidatorRegistryDeltaChainTip gets the new delta chain tip hash.
 func GetNewValidatorRegistryDeltaChainTip(currentValidatorRegistryDeltaChainTip chainhash.Hash, validatorIndex uint32, pubkey [96]byte, flag uint64) (chainhash.Hash, error) {
-	return ssz.TreeHash(ValidatorRegistryDeltaBlock{
+	return ssz.HashTreeRoot(ValidatorRegistryDeltaBlock{
 		LatestRegistryDeltaRoot: currentValidatorRegistryDeltaChainTip,
 		ValidatorIndex:          validatorIndex,
 		Pubkey:                  pubkey,
@@ -736,7 +735,7 @@ func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Con
 func (s *State) ValidateProofOfPossession(pubkey *bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
 	// fixme
 
-	h, err := ssz.TreeHash(pubkey.Serialize())
+	h, err := ssz.HashTreeRoot(pubkey.Serialize())
 	if err != nil {
 		return false, err
 	}
@@ -765,11 +764,11 @@ func (s *State) applyProposerSlashing(proposerSlashing ProposerSlashing, config 
 	if proposer.Status == ExitedWithPenalty {
 		return errors.New("proposer is already exited")
 	}
-	hashProposal1, err := ssz.TreeHash(proposerSlashing.ProposalData1)
+	hashProposal1, err := ssz.HashTreeRoot(proposerSlashing.ProposalData1)
 	if err != nil {
 		return err
 	}
-	hashProposal2, err := ssz.TreeHash(proposerSlashing.ProposalData2)
+	hashProposal2, err := ssz.HashTreeRoot(proposerSlashing.ProposalData2)
 	if err != nil {
 		return err
 	}
@@ -858,12 +857,12 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	ad0 := AttestationDataAndCustodyBit{voteData.Data, true}
 	ad1 := AttestationDataAndCustodyBit{voteData.Data, true}
 
-	ad0Hash, err := ssz.TreeHash(ad0)
+	ad0Hash, err := ssz.HashTreeRoot(ad0)
 	if err != nil {
 		return false
 	}
 
-	ad1Hash, err := ssz.TreeHash(ad1)
+	ad1Hash, err := ssz.HashTreeRoot(ad1)
 	if err != nil {
 		return false
 	}
@@ -1081,7 +1080,7 @@ func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) 
 	s.LatestBlockHashes[(s.Slot-1)%c.LatestBlockRootsLength] = previousBlockRoot
 
 	if s.Slot%c.LatestBlockRootsLength == 0 {
-		latestBlockHashesRoot, err := ssz.TreeHash(s.LatestBlockHashes)
+		latestBlockHashesRoot, err := ssz.HashTreeRoot(s.LatestBlockHashes)
 		if err != nil {
 			return err
 		}

@@ -9,7 +9,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 
@@ -114,7 +114,7 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 		}
 
 		// get the hash of the attestation data
-		hash, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+		hash, err := ssz.HashTreeRoot(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
 		if err != nil {
 			return nil, err
 		}

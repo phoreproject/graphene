@@ -9,7 +9,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ValidateAttestation checks if the attestation is valid.
@@ -72,7 +72,7 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 			return err
 		}
 
-		dataRoot, err := ssz.TreeHash(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+		dataRoot, err := ssz.HashTreeRoot(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
 		if err != nil {
 			return err
 		}
@@ -200,13 +200,13 @@ func (s *State) validateParticipationSignature(voteHash chainhash.Hash, particip
 
 // applyVote validates a vote and adds it to pending votes.
 func (s *State) applyVote(vote AggregatedVote, config *config.Config) error {
-	voteHash, err := ssz.TreeHash(vote.Data)
+	voteHash, err := ssz.HashTreeRoot(vote.Data)
 	if err != nil {
 		return err
 	}
 
 	for i, proposal := range s.Proposals {
-		proposalHash, err := ssz.TreeHash(proposal.Data)
+		proposalHash, err := ssz.HashTreeRoot(proposal.Data)
 		if err != nil {
 			return err
 		}
@@ -247,7 +247,7 @@ func (s *State) applyVote(vote AggregatedVote, config *config.Config) error {
 		foundProposalToCancel := false
 
 		for _, proposal := range s.Proposals {
-			proposalHash, err := ssz.TreeHash(proposal.Data)
+			proposalHash, err := ssz.HashTreeRoot(proposal.Data)
 			if err != nil {
 				return err
 			}
@@ -292,7 +292,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 
 	blockWithoutSignature := block.Copy()
 	blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
-	blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
+	blockWithoutSignatureRoot, err := ssz.HashTreeRoot(blockWithoutSignature)
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot, err := ssz.TreeHash(proposal)
+	proposalRoot, err := ssz.HashTreeRoot(proposal)
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		}
 	}
 
-	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)
+	randaoRevealSerialized, err := ssz.HashTreeRoot(block.BlockHeader.RandaoReveal)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 func getAttestation(information attestationAssignment) (*primitives.AttestationData, [32]byte, error) {
@@ -21,7 +21,7 @@ func getAttestation(information attestationAssignment) (*primitives.AttestationD
 	}
 
 	attestationAndPoCBit := primitives.AttestationDataAndCustodyBit{Data: a, PoCBit: false}
-	hashAttestation, err := ssz.TreeHash(attestationAndPoCBit)
+	hashAttestation, err := ssz.HashTreeRoot(attestationAndPoCBit)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}

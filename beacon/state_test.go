@@ -7,7 +7,7 @@ import (
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -128,7 +128,7 @@ func TestSlotTransition(t *testing.T) {
 		}
 
 		if newState.Slot%config.RegtestConfig.LatestBlockRootsLength == 0 {
-			h, err := ssz.TreeHash(newState.LatestBlockHashes)
+			h, err := ssz.HashTreeRoot(newState.LatestBlockHashes)
 			if err != nil {
 				t.Fatal(err)
 			}

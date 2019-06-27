@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/phoreproject/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
@@ -711,7 +711,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 						s.ShardRegistry[shard] = activeProposal.Data.ActionHash
 					}
 
-					proposalHash, _ := ssz.TreeHash(activeProposal.Data)
+					proposalHash, _ := ssz.HashTreeRoot(activeProposal.Data)
 
 					for i := range s.Proposals {
 						if s.Proposals[i].Data.Type == Cancel && bytes.Equal(s.Proposals[i].Data.ActionHash[:], proposalHash[:]) {
@@ -744,7 +744,7 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				// cancel vote passes -> remove active proposal
 				if activeProposal.Data.Type == Cancel && c.CancelThresholdDenominator*yesVotes >= c.CancelThresholdNumerator*total {
 					for i := range s.Proposals {
-						proposalHash, _ := ssz.TreeHash(s.Proposals[i].Data)
+						proposalHash, _ := ssz.HashTreeRoot(s.Proposals[i].Data)
 
 						if s.Proposals[i].Queued == true && bytes.Equal(s.Proposals[i].Data.ActionHash[:], proposalHash[:]) {
 							// queue any cancellations for removal

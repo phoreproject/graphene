@@ -3,7 +3,7 @@ package bls
 import (
 	"io"
 
-	"github.com/phoreproject/bls"
+	bls "github.com/phoreproject/bls/g2pubs"
 )
 
 const (
@@ -129,13 +129,13 @@ func (p PublicKey) Copy() PublicKey {
 // Sign a message using a secret key - in a beacon/validator client,
 // this key will come from and be unlocked from the account keystore.
 func Sign(sec *SecretKey, msg []byte, domain uint64) (*Signature, error) {
-	s := bls.Sign(msg, &sec.s, domain)
+	s := bls.Sign(msg, &sec.s)
 	return &Signature{s: *s}, nil
 }
 
 // VerifySig against a public key.
 func VerifySig(pub *PublicKey, msg []byte, sig *Signature, domain uint64) (bool, error) {
-	return bls.Verify(msg, &pub.p, &sig.s, domain), nil
+	return bls.Verify(msg, &pub.p, &sig.s), nil
 }
 
 // AggregateSigs puts multiple signatures into one using the underlying
@@ -160,7 +160,7 @@ func VerifyAggregate(pubkeys []*PublicKey, msgs [][]byte, signature *Signature, 
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregate(blsPubs, msgs, domain)
+	return signature.s.VerifyAggregate(blsPubs, msgs)
 }
 
 // VerifyAggregateCommon verifies a signature over a common message.
@@ -170,7 +170,7 @@ func VerifyAggregateCommon(pubkeys []*PublicKey, msg []byte, signature *Signatur
 		blsPubs[i] = &pubkeys[i].p
 	}
 
-	return signature.s.VerifyAggregateCommon(blsPubs, msg, domain)
+	return signature.s.VerifyAggregateCommon(blsPubs, msg)
 }
 
 // AggregatePubKeys aggregates some public keys into one.

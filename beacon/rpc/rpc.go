@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
@@ -75,7 +75,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-	h, err := ssz.TreeHash(b)
+	h, err := ssz.HashTreeRoot(b)
 	if err != nil {
 		return nil, err
 	}

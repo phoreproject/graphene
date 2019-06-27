@@ -11,7 +11,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/validator"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,7 +24,7 @@ func SetupState(initialValidators int, c *config.Config) (*primitives.State, val
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
 		pub := key.DerivePublicKey()
-		hashPub, err := ssz.TreeHash(pub.Serialize())
+		hashPub, err := ssz.HashTreeRoot(pub.Serialize())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -75,7 +75,7 @@ func SignBlock(block *primitives.Block, key *bls.SecretKey, c *config.Config) er
 	block.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
 	block.BlockHeader.Signature = bls.EmptySignature.Serialize()
 
-	blockWithoutSignatureRoot, err := ssz.TreeHash(block)
+	blockWithoutSignatureRoot, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func SignBlock(block *primitives.Block, key *bls.SecretKey, c *config.Config) er
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot, err := ssz.TreeHash(proposal)
+	proposalRoot, err := ssz.HashTreeRoot(proposal)
 	if err != nil {
 		return err
 	}
@@ -415,7 +415,7 @@ func TestProposerSlashingValidation(t *testing.T) {
 	block1.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
 	block1.BlockHeader.Signature = bls.EmptySignature.Serialize()
 
-	blockWithoutSignatureRoot, err := ssz.TreeHash(block1)
+	blockWithoutSignatureRoot, err := ssz.HashTreeRoot(block1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestProposerSlashingValidation(t *testing.T) {
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot1, err := ssz.TreeHash(proposal1)
+	proposalRoot1, err := ssz.HashTreeRoot(proposal1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +464,7 @@ func TestProposerSlashingValidation(t *testing.T) {
 	block2.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
 	block2.BlockHeader.Signature = bls.EmptySignature.Serialize()
 
-	blockWithoutSignatureRoot, err = ssz.TreeHash(block2)
+	blockWithoutSignatureRoot, err = ssz.HashTreeRoot(block2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,7 +475,7 @@ func TestProposerSlashingValidation(t *testing.T) {
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot2, err := ssz.TreeHash(proposal2)
+	proposalRoot2, err := ssz.HashTreeRoot(proposal2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +488,7 @@ func TestProposerSlashingValidation(t *testing.T) {
 	proposal2DifferentShard := proposal2.Copy()
 	proposal2DifferentShard.Shard++
 
-	proposal2DifferentShardHash, err := ssz.TreeHash(proposal2DifferentShard)
+	proposal2DifferentShardHash, err := ssz.HashTreeRoot(proposal2DifferentShard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,7 +501,7 @@ func TestProposerSlashingValidation(t *testing.T) {
 	proposal2DifferentSlot := proposal2.Copy()
 	proposal2DifferentSlot.Slot++
 
-	proposal2DifferentSlotHash, err := ssz.TreeHash(proposal2DifferentSlot)
+	proposal2DifferentSlotHash, err := ssz.HashTreeRoot(proposal2DifferentSlot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -678,7 +678,7 @@ func TestVoteValidation(t *testing.T) {
 		Proposer:   0,
 	}
 
-	h, _ := ssz.TreeHash(proposalVote)
+	h, _ := ssz.HashTreeRoot(proposalVote)
 
 	signatureValidator1, err := bls.Sign(keystore.GetKeyForValidator(1), h[:], bls.DomainVote)
 	if err != nil {
@@ -861,7 +861,7 @@ func TestVoteValidation(t *testing.T) {
 		Proposer:   1,
 	}
 
-	cancelDataHash, _ := ssz.TreeHash(cancelData)
+	cancelDataHash, _ := ssz.HashTreeRoot(cancelData)
 
 	cancelSignatureValidator1, err := bls.Sign(keystore.GetKeyForValidator(1), cancelDataHash[:], bls.DomainVote)
 	if err != nil {
@@ -882,7 +882,7 @@ func TestVoteValidation(t *testing.T) {
 		Proposer:   1,
 	}
 
-	cancelDataNonemptyShardsHash, _ := ssz.TreeHash(cancelData)
+	cancelDataNonemptyShardsHash, _ := ssz.HashTreeRoot(cancelData)
 
 	cancelSignatureNonEmptyShards, err := bls.Sign(keystore.GetKeyForValidator(1), cancelDataNonemptyShardsHash[:], bls.DomainVote)
 	if err != nil {
@@ -903,7 +903,7 @@ func TestVoteValidation(t *testing.T) {
 		Proposer:   1,
 	}
 
-	cancelDataInvalidHashHash, _ := ssz.TreeHash(cancelDataInvalidHash)
+	cancelDataInvalidHashHash, _ := ssz.HashTreeRoot(cancelDataInvalidHash)
 
 	cancelDataInvalidHashSignature, err := bls.Sign(keystore.GetKeyForValidator(1), cancelDataInvalidHashHash[:], bls.DomainVote)
 	if err != nil {
@@ -1026,7 +1026,7 @@ func TestProposerSlashingPenalty(t *testing.T) {
 	block1.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
 	block1.BlockHeader.Signature = bls.EmptySignature.Serialize()
 
-	blockWithoutSignatureRoot, err := ssz.TreeHash(block1)
+	blockWithoutSignatureRoot, err := ssz.HashTreeRoot(block1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1037,7 +1037,7 @@ func TestProposerSlashingPenalty(t *testing.T) {
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot1, err := ssz.TreeHash(proposal1)
+	proposalRoot1, err := ssz.HashTreeRoot(proposal1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1075,7 +1075,7 @@ func TestProposerSlashingPenalty(t *testing.T) {
 	block2.BlockHeader.RandaoReveal = slotBytesSignature.Serialize()
 	block2.BlockHeader.Signature = bls.EmptySignature.Serialize()
 
-	blockWithoutSignatureRoot, err = ssz.TreeHash(block2)
+	blockWithoutSignatureRoot, err = ssz.HashTreeRoot(block2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1086,7 +1086,7 @@ func TestProposerSlashingPenalty(t *testing.T) {
 		BlockHash: blockWithoutSignatureRoot,
 	}
 
-	proposalRoot2, err := ssz.TreeHash(proposal2)
+	proposalRoot2, err := ssz.HashTreeRoot(proposal2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1216,7 +1216,7 @@ func TestVoteParticipationSliceGrowth(t *testing.T) {
 		Proposer:   0,
 	}
 
-	h, _ := ssz.TreeHash(proposalVote)
+	h, _ := ssz.HashTreeRoot(proposalVote)
 
 	signatureValidator0, err := bls.Sign(keystore.GetKeyForValidator(0), h[:], bls.DomainVote)
 	if err != nil {
@@ -1384,7 +1384,7 @@ func TestVoteValidatorLeave(t *testing.T) {
 		Proposer:   0,
 	}
 
-	h, _ := ssz.TreeHash(proposalVote)
+	h, _ := ssz.HashTreeRoot(proposalVote)
 
 	signatureValidator0, err := bls.Sign(keystore.GetKeyForValidator(0), h[:], bls.DomainVote)
 	if err != nil {

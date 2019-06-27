@@ -58,9 +58,11 @@ func (test *ValidateTest) setup() error {
 
 	test.beacon = beaconapp.NewBeaconApp(*beaconConfig)
 
-	err = os.Remove("/tmp/beacon.sock")
-	if err != nil {
-		return err
+	if _, err := os.Stat("/tmp/beacon.sock"); !os.IsNotExist(err) {
+		err = os.Remove("/tmp/beacon.sock")
+		if err != nil {
+			return err
+		}
 	}
 
 	beaconConn, err := grpc.Dial("unix:///tmp/beacon.sock", grpc.WithInsecure())

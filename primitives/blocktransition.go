@@ -223,8 +223,13 @@ func (s *State) applyVote(vote AggregatedVote, config *config.Config) error {
 				return err
 			}
 
+			needed := len(vote.Participation) - len(s.Proposals[i].Participation)
+			if needed > 0 {
+				s.Proposals[i].Participation = append(s.Proposals[i].Participation, make([]uint8, needed)...)
+			}
+
 			// update the proposal
-			for j := range s.Proposals[i].Participation {
+			for j := range vote.Participation {
 				s.Proposals[i].Participation[j] |= vote.Participation[j]
 			}
 

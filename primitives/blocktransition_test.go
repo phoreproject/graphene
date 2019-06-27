@@ -636,7 +636,6 @@ func TestVoteValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// sign two conflicting blocks at the same height
 	slotToPropose := state.Slot + 1
 	proposerIndex, err := state.GetBeaconProposerIndex(slotToPropose-1, c)
 	if err != nil {
@@ -1162,5 +1161,169 @@ func TestProposerSlashingPenalty(t *testing.T) {
 
 	if whistleblowerMoreBalance != expectedSlash {
 		t.Fatalf("wrong whistleblower amount. (whistleblower got %d, should be %d)", whistleblowerMoreBalance, expectedSlash)
+	}
+}
+
+func TestVoteParticipationSliceGrowth(t *testing.T) {
+	c := &config.RegtestConfig
+
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	state, keystore, err := SetupState(c.ShardCount*c.TargetCommitteeSize*2+5, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slotToPropose := state.Slot + 1
+	proposerIndex, err := state.GetBeaconProposerIndex(slotToPropose-1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block1 := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+		},
+	}
+
+	key := keystore.GetKeyForValidator(proposerIndex)
+
+	err = SignBlock(block1, key, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proposalVote := primitives.VoteData{
+		Type:       primitives.Propose,
+		Shards:     []uint32{1, 2},
+		ActionHash: chainhash.Hash{},
+		Proposer:   0,
+	}
+
+	h, _ := ssz.TreeHash(proposalVote)
+
+	signatureValidator0, err := bls.Sign(keystore.GetKeyForValidator(0), h[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validProposal := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureValidator0.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	validProposal.Participation[0] = 1 << 0
+
+	// now, actually process the valid proposal
+	blockTest := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+			Votes:             []primitives.AggregatedVote{validProposal},
+		},
+	}
+
+	err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slotToPropose++
+
+	proposerIndex, err = state.GetBeaconProposerIndex(slotToPropose-1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	startValidatorIndex := len(state.ValidatorRegistry)
+
+	for i := 0; i < 20; i++ {
+		pubkey := keystore.GetPublicKeyForValidator(uint32(startValidatorIndex + i))
+		state.ValidatorRegistry = append(state.ValidatorRegistry, primitives.Validator{
+			Pubkey:                  pubkey.Serialize(),
+			WithdrawalCredentials:   chainhash.Hash{},
+			Status:                  primitives.Active,
+			LatestStatusChangeSlot:  0,
+			ExitCount:               0,
+			LastPoCChangeSlot:       0,
+			SecondLastPoCChangeSlot: 0,
+		})
+	}
+
+	// now that we entered a few validators, the participation array should get bigger
+
+	lastValidatorIndex := uint32(startValidatorIndex + 19)
+
+	signatureLastValidator, err := bls.Sign(keystore.GetKeyForValidator(lastValidatorIndex), h[:], bls.DomainVote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lastValidatorProposal := primitives.AggregatedVote{
+		Data:          proposalVote,
+		Signature:     signatureLastValidator.Serialize(),
+		Participation: make([]uint8, (len(state.ValidatorRegistry)+7)/8),
+	}
+	lastValidatorProposal.Participation[lastValidatorIndex/8] = 1 << uint(lastValidatorIndex%8)
+
+	blockTest = &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber:   slotToPropose,
+			ParentRoot:   chainhash.Hash{},
+			StateRoot:    chainhash.Hash{},
+			RandaoReveal: [48]byte{},
+			Signature:    [48]byte{},
+		},
+		BlockBody: primitives.BlockBody{
+			Attestations:      nil,
+			ProposerSlashings: nil,
+			CasperSlashings:   nil,
+			Deposits:          nil,
+			Exits:             nil,
+			Votes:             []primitives.AggregatedVote{lastValidatorProposal},
+		},
+	}
+
+	err = SignBlock(blockTest, keystore.GetKeyForValidator(proposerIndex), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = state.ProcessSlot(chainhash.Hash{}, c)
+
+	err = state.ProcessBlock(blockTest, c, FakeBlockView{}, true)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

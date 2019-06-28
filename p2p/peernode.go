@@ -264,10 +264,12 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 		Addrs: [][]byte{},
 	}
 
-	// For concurrent safety, we need to either copy node.host.GetPeerList()
-	// or lock it. Copying it is time and memory consuming, so let's just lock it.
+	originalPeerList := node.host.GetPeerList()
+	peerList := make([]*Peer, len(originalPeerList))
 	node.host.peerListLock.Lock()
-	for _, peer := range node.host.GetPeerList() {
+	copy(peerList, originalPeerList)
+	node.host.peerListLock.Unlock()
+	for _, peer := range peerList {
 		if peer.IsConnected() {
 			data, err := peer.GetPeerInfo().MarshalJSON()
 			if err == nil {
@@ -275,7 +277,6 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 			}
 		}
 	}
-	node.host.peerListLock.Unlock()
 
 	node.SendMessage(&addrMessage)
 
@@ -295,21 +296,22 @@ func (node *Peer) handleAddrMessage(message *pb.AddrMessage) error {
 }
 
 func (node *Peer) registerMessageHandler(messageName string, handler MessageHandler) {
-	node.handlerLock.RLock()
-	defer node.handlerLock.RUnlock()
+	node.handlerLock.Lock()
+	defer node.handlerLock.Unlock()
 
 	node.messageHandlers[messageName] = handler
 }
 
 func (node *Peer) handleMessage(message proto.Message) error {
-	node.handlerLock.RLock()
-	defer node.handlerLock.RUnlock()
 
 	node.LastMessageTime = time.Now()
 
 	name := proto.MessageName(message)
 
-	if handler, found := node.messageHandlers[name]; found {
+	node.handlerLock.RLock()
+	handler, found := node.messageHandlers[name]
+	node.handlerLock.RUnlock()
+	if found {
 		err := handler(node, message)
 		if err != nil {
 			logger.Errorf("error handling message: %s", err)

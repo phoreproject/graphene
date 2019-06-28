@@ -1,4 +1,4 @@
-package misc
+package swap
 
 // This file is for swapping coins from Phore to Synapse
 

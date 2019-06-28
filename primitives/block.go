@@ -107,6 +107,7 @@ type BlockBody struct {
 	CasperSlashings   []CasperSlashing
 	Deposits          []Deposit
 	Exits             []Exit
+	Votes             []AggregatedVote
 }
 
 // Copy returns a copy of the block body.
@@ -116,6 +117,7 @@ func (bb *BlockBody) Copy() BlockBody {
 	newCasperSlashings := make([]CasperSlashing, len(bb.CasperSlashings))
 	newDeposits := make([]Deposit, len(bb.Deposits))
 	newExits := make([]Exit, len(bb.Exits))
+	newVotes := make([]AggregatedVote, len(bb.Votes))
 
 	for i := range bb.Attestations {
 		newAttestations[i] = bb.Attestations[i].Copy()
@@ -137,12 +139,17 @@ func (bb *BlockBody) Copy() BlockBody {
 		newExits[i] = bb.Exits[i].Copy()
 	}
 
+	for i := range bb.Votes {
+		newVotes[i] = bb.Votes[i].Copy()
+	}
+
 	return BlockBody{
 		Attestations:      newAttestations,
 		ProposerSlashings: newProposerSlashings,
 		CasperSlashings:   newCasperSlashings,
 		Deposits:          newDeposits,
 		Exits:             newExits,
+		Votes:             newVotes,
 	}
 }
 
@@ -168,12 +175,17 @@ func (bb *BlockBody) ToProto() *pb.BlockBody {
 	for i := range ex {
 		ex[i] = bb.Exits[i].ToProto()
 	}
+	vs := make([]*pb.AggregatedVote, len(bb.Votes))
+	for i := range vs {
+		vs[i] = bb.Votes[i].ToProto()
+	}
 	return &pb.BlockBody{
 		Attestations:      atts,
 		ProposerSlashings: ps,
 		CasperSlashings:   cs,
 		Deposits:          ds,
 		Exits:             ex,
+		Votes:             vs,
 	}
 }
 
@@ -184,6 +196,7 @@ func BlockBodyFromProto(body *pb.BlockBody) (*BlockBody, error) {
 	proposerSlashings := make([]ProposerSlashing, len(body.ProposerSlashings))
 	deposits := make([]Deposit, len(body.Deposits))
 	exits := make([]Exit, len(body.Exits))
+	votes := make([]AggregatedVote, len(body.Votes))
 
 	for i := range atts {
 		a, err := AttestationFromProto(body.Attestations[i])
@@ -225,11 +238,20 @@ func BlockBodyFromProto(body *pb.BlockBody) (*BlockBody, error) {
 		exits[i] = *ex
 	}
 
+	for i := range votes {
+		v, err := AggregatedVoteFromProto(body.Votes[i])
+		if err != nil {
+			return nil, err
+		}
+		votes[i] = *v
+	}
+
 	return &BlockBody{
 		Attestations:      atts,
 		CasperSlashings:   casperSlashings,
 		ProposerSlashings: proposerSlashings,
 		Deposits:          deposits,
 		Exits:             exits,
+		Votes:             votes,
 	}, nil
 }

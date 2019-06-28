@@ -9,28 +9,33 @@ import (
 
 // AttestationData is the part of the attestation that is signed.
 type AttestationData struct {
-	// Slot number
 	Slot uint64
+
+	// FFG vote
+	BeaconBlockHash chainhash.Hash
+
+	SourceEpoch uint64
+	SourceHash  chainhash.Hash
+	TargetEpoch uint64
+	TargetHash  chainhash.Hash
+
 	// Shard number
 	Shard               uint64
-	BeaconBlockHash     chainhash.Hash
-	EpochBoundaryHash   chainhash.Hash
-	ShardBlockHash      chainhash.Hash
 	LatestCrosslinkHash chainhash.Hash
-	JustifiedSlot       uint64
-	JustifiedBlockHash  chainhash.Hash
+	ShardBlockHash      chainhash.Hash
 }
 
 // Equals checks if this attestation data is equal to another.
 func (a *AttestationData) Equals(other *AttestationData) bool {
-	return a.Slot == other.Slot &&
+	return a.BeaconBlockHash.IsEqual(&other.BeaconBlockHash) &&
+		a.SourceEpoch == other.SourceEpoch &&
+		a.SourceHash.IsEqual(&other.SourceHash) &&
+		a.TargetEpoch == other.TargetEpoch &&
+		a.TargetHash.IsEqual(&other.TargetHash) &&
 		a.Shard == other.Shard &&
-		a.BeaconBlockHash.IsEqual(&other.BeaconBlockHash) &&
-		a.EpochBoundaryHash.IsEqual(&other.EpochBoundaryHash) &&
-		a.ShardBlockHash.IsEqual(&other.ShardBlockHash) &&
 		a.LatestCrosslinkHash.IsEqual(&other.LatestCrosslinkHash) &&
-		a.JustifiedSlot == other.JustifiedSlot &&
-		a.JustifiedBlockHash.IsEqual(&other.JustifiedBlockHash)
+		a.ShardBlockHash.IsEqual(&other.ShardBlockHash) &&
+		a.Slot == other.Slot
 }
 
 // Copy returns a copy of the data.
@@ -41,44 +46,46 @@ func (a *AttestationData) Copy() AttestationData {
 // AttestationDataFromProto converts the protobuf representation to an attestationdata
 // item.
 func AttestationDataFromProto(att *pb.AttestationData) (*AttestationData, error) {
-	a := &AttestationData{}
-	a.Slot = att.Slot
-	a.Shard = att.Shard
-	err := a.ShardBlockHash.SetBytes(att.ShardBlockHash)
-	if err != nil {
+	a := &AttestationData{
+		SourceEpoch: att.SourceEpoch,
+		TargetEpoch: att.TargetEpoch,
+		Shard:       att.Shard,
+		Slot:        att.Slot,
+	}
+
+	if err := a.BeaconBlockHash.SetBytes(att.BeaconBlockHash); err != nil {
 		return nil, err
 	}
-	err = a.BeaconBlockHash.SetBytes(att.BeaconBlockHash)
-	if err != nil {
+	if err := a.SourceHash.SetBytes(att.SourceHash); err != nil {
 		return nil, err
 	}
-	err = a.EpochBoundaryHash.SetBytes(att.EpochBoundaryHash)
-	if err != nil {
+	if err := a.TargetHash.SetBytes(att.TargetHash); err != nil {
 		return nil, err
 	}
-	err = a.LatestCrosslinkHash.SetBytes(att.LatestCrosslinkHash)
-	if err != nil {
+	if err := a.LatestCrosslinkHash.SetBytes(att.LatestCrosslinkHash); err != nil {
 		return nil, err
 	}
-	err = a.JustifiedBlockHash.SetBytes(att.JustifiedBlockHash)
-	if err != nil {
+	if err := a.ShardBlockHash.SetBytes(att.ShardBlockHash); err != nil {
 		return nil, err
 	}
-	a.JustifiedSlot = att.JustifiedSlot
+
 	return a, nil
 }
 
 // ToProto converts the attestation to protobuf form.
 func (a AttestationData) ToProto() *pb.AttestationData {
 	return &pb.AttestationData{
-		Slot:                a.Slot,
+		Slot:            a.Slot,
+		BeaconBlockHash: a.BeaconBlockHash[:],
+
+		SourceEpoch: a.SourceEpoch,
+		SourceHash:  a.SourceHash[:],
+		TargetEpoch: a.TargetEpoch,
+		TargetHash:  a.TargetHash[:],
+
 		Shard:               a.Shard,
-		BeaconBlockHash:     a.BeaconBlockHash[:],
-		EpochBoundaryHash:   a.EpochBoundaryHash[:],
 		ShardBlockHash:      a.ShardBlockHash[:],
 		LatestCrosslinkHash: a.LatestCrosslinkHash[:],
-		JustifiedSlot:       a.JustifiedSlot,
-		JustifiedBlockHash:  a.JustifiedBlockHash[:],
 	}
 }
 

@@ -2,20 +2,15 @@ package primitives
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
-	"math"
 
 	"github.com/pkg/errors"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
-
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.
@@ -67,22 +62,87 @@ func ForkDataFromProto(data *pb.ForkData) (*ForkData, error) {
 	}, nil
 }
 
+// Crosslink goes in a collation to represent the last crystallized beacon block.
+type Crosslink struct {
+	// Slot is the slot within the current dynasty.
+	Slot uint64
+
+	// Shard chain block hash
+	ShardBlockHash chainhash.Hash
+}
+
+// ToProto gets the protobuf representation of the crosslink
+func (c *Crosslink) ToProto() *pb.Crosslink {
+	return &pb.Crosslink{
+		Slot:           c.Slot,
+		ShardBlockHash: c.ShardBlockHash[:],
+	}
+}
+
+// CrosslinkFromProto gets the crosslink for a protobuf representation
+func CrosslinkFromProto(crosslink *pb.Crosslink) (*Crosslink, error) {
+	c := &Crosslink{Slot: crosslink.Slot}
+	err := c.ShardBlockHash.SetBytes(crosslink.ShardBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// ShardAndCommittee keeps track of the validators assigned to a specific shard.
+type ShardAndCommittee struct {
+	// Shard number
+	Shard uint64
+
+	// Validator indices
+	Committee []uint32
+
+	// Total validator count (for proofs of custody)
+	TotalValidatorCount uint64
+}
+
+// Copy copies the ShardAndCommittee
+func (sc *ShardAndCommittee) Copy() ShardAndCommittee {
+	newSc := *sc
+	newSc.Committee = append([]uint32{}, sc.Committee...)
+	return newSc
+}
+
+// ToProto gets the protobuf representation of the shard and committee
+func (sc *ShardAndCommittee) ToProto() *pb.ShardCommittee {
+	return &pb.ShardCommittee{
+		Shard:               sc.Shard,
+		Committee:           sc.Committee,
+		TotalValidatorCount: sc.TotalValidatorCount,
+	}
+}
+
+// ShardAndCommitteeFromProto gets the shard and committee for the protobuf representation.
+func ShardAndCommitteeFromProto(committee *pb.ShardCommittee) (*ShardAndCommittee, error) {
+	sc := &ShardAndCommittee{
+		Shard:               committee.Shard,
+		TotalValidatorCount: committee.TotalValidatorCount,
+	}
+	sc.Committee = append([]uint32{}, committee.Committee...)
+	return sc, nil
+}
+
 // State is the state of a beacon block
 type State struct {
-	// MISC ITEMS
 	// Slot is the current slot.
 	Slot uint64
 
+	// EpochIndex is the index of the last processed epoch.
 	EpochIndex uint64
 
 	// GenesisTime is the time of the genesis block.
 	GenesisTime uint64
 
-	// ForkData is the versioning data for hard forks.
+	// ForkData is the versioning data for forks.
 	ForkData ForkData
 
-	// VALIDATOR REGISTRY
-	// ValidatorRegistry is the registry mapping IDs to validators
+	// ValidatorRegistry is the registry mapping IDs to validators. This stores
+	// information about the validator's public key and statue.
 	ValidatorRegistry []Validator
 
 	// ValidatorBalances are the balances corresponding to each validator.
@@ -90,7 +150,7 @@ type State struct {
 
 	// ValidatorRegistryLatestChangeSlot is the slot where the validator registry
 	// last changed.
-	ValidatorRegistryLatestChangeSlot uint64
+	ValidatorRegistryLatestChangeEpoch uint64
 
 	// ValidatorRegistryExitCount is the number of validators that are exited.
 	ValidatorRegistryExitCount uint64
@@ -99,12 +159,8 @@ type State struct {
 	// registry changes.
 	ValidatorRegistryDeltaChainTip chainhash.Hash
 
-	// RANDOMNESS
 	// RandaoMix is the mix of randao reveals to provide entropy.
 	RandaoMix chainhash.Hash
-
-	// NextSeed is the next RANDAO seed.
-	NextSeed chainhash.Hash
 
 	// COMMITTEES
 	// ShardAndCommitteeForSlots is a list of committee members
@@ -112,17 +168,22 @@ type State struct {
 	ShardAndCommitteeForSlots [][]ShardAndCommittee
 
 	// FINALITY
-	PreviousJustifiedSlot uint64
-	JustifiedSlot         uint64
-	JustificationBitfield uint64
-	FinalizedSlot         uint64
+	PreviousJustifiedEpoch uint64
+	JustifiedEpoch         uint64
+	JustificationBitfield  uint64
+	FinalizedEpoch         uint64
 
 	// RECENT STATE
-	LatestCrosslinks            []Crosslink
-	LatestBlockHashes           []chainhash.Hash
-	LatestPenalizedExitBalances []uint64
-	LatestAttestations          []PendingAttestation
-	BatchedBlockRoots           []chainhash.Hash
+	LatestCrosslinks          []Crosslink
+	PreviousCrosslinks        []Crosslink
+	LatestBlockHashes         []chainhash.Hash
+	CurrentEpochAttestations  []PendingAttestation
+	PreviousEpochAttestations []PendingAttestation
+	BatchedBlockRoots         []chainhash.Hash
+
+	ShardRegistry []chainhash.Hash
+	Proposals     []ActiveProposal
+	PendingVotes  []AggregatedVote
 }
 
 // Copy deep-copies the state.
@@ -135,12 +196,22 @@ func (s *State) Copy() State {
 	for i := range s.ValidatorBalances {
 		newValidatorBalances[i] = s.ValidatorBalances[i]
 	}
+	newShardRegistry := make([]chainhash.Hash, len(s.ShardRegistry))
+	for i := range s.ShardRegistry {
+		copy(newShardRegistry[i][:], s.ShardRegistry[i][:])
+	}
+	newProposals := make([]ActiveProposal, len(s.Proposals))
+	for i := range s.Proposals {
+		newProposals[i] = s.Proposals[i].Copy()
+	}
+	newPendingVotes := make([]AggregatedVote, len(s.PendingVotes))
+	for i := range s.PendingVotes {
+		newPendingVotes[i] = s.PendingVotes[i].Copy()
+	}
 	var newValidatorRegistryDeltaChainTip chainhash.Hash
 	var newRandaoMix chainhash.Hash
-	var newNextSeed chainhash.Hash
 	copy(newValidatorRegistryDeltaChainTip[:], s.ValidatorRegistryDeltaChainTip[:])
 	copy(newRandaoMix[:], s.RandaoMix[:])
-	copy(newNextSeed[:], s.NextSeed[:])
 
 	newShardAndCommitteeForSlots := make([][]ShardAndCommittee, len(s.ShardAndCommitteeForSlots))
 	for i, slot := range s.ShardAndCommitteeForSlots {
@@ -152,38 +223,48 @@ func (s *State) Copy() State {
 
 	newLatestCrosslinks := make([]Crosslink, len(s.LatestCrosslinks))
 	copy(newLatestCrosslinks, s.LatestCrosslinks)
+
+	newPreviousCrosslinks := make([]Crosslink, len(s.PreviousCrosslinks))
+	copy(newLatestCrosslinks, s.PreviousCrosslinks)
+
 	newLatestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
 	copy(newLatestBlockHashes, s.LatestBlockHashes)
-	newLatestPenalizedExitBalances := make([]uint64, len(s.LatestPenalizedExitBalances))
-	copy(newLatestPenalizedExitBalances, s.LatestPenalizedExitBalances)
-	newLatestAttestations := make([]PendingAttestation, len(s.LatestAttestations))
-	for i := range s.LatestAttestations {
-		newLatestAttestations[i] = s.LatestAttestations[i].Copy()
+	newCurrentAttestations := make([]PendingAttestation, len(s.CurrentEpochAttestations))
+	for i := range s.CurrentEpochAttestations {
+		newCurrentAttestations[i] = s.CurrentEpochAttestations[i].Copy()
+	}
+
+	newPreviousAttestations := make([]PendingAttestation, len(s.PreviousEpochAttestations))
+	for i := range s.PreviousEpochAttestations {
+		newPreviousAttestations[i] = s.PreviousEpochAttestations[i].Copy()
 	}
 	newBatchedBlockRoots := make([]chainhash.Hash, len(s.BatchedBlockRoots))
 	copy(newBatchedBlockRoots, s.BatchedBlockRoots)
 	newState := State{
-		Slot:                              s.Slot,
-		GenesisTime:                       s.GenesisTime,
-		ForkData:                          s.ForkData.Copy(),
-		EpochIndex:                        s.EpochIndex,
-		ValidatorRegistry:                 newValidatorRegistry,
-		ValidatorBalances:                 newValidatorBalances,
-		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
-		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
-		ValidatorRegistryDeltaChainTip:    newValidatorRegistryDeltaChainTip,
-		RandaoMix:                         newRandaoMix,
-		NextSeed:                          newNextSeed,
-		ShardAndCommitteeForSlots:         newShardAndCommitteeForSlots,
-		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
-		JustifiedSlot:                     s.JustifiedSlot,
-		JustificationBitfield:             s.JustificationBitfield,
-		FinalizedSlot:                     s.FinalizedSlot,
-		LatestCrosslinks:                  newLatestCrosslinks,
-		LatestBlockHashes:                 newLatestBlockHashes,
-		LatestPenalizedExitBalances:       newLatestPenalizedExitBalances,
-		LatestAttestations:                newLatestAttestations,
-		BatchedBlockRoots:                 newBatchedBlockRoots,
+		Slot:                               s.Slot,
+		GenesisTime:                        s.GenesisTime,
+		ForkData:                           s.ForkData.Copy(),
+		EpochIndex:                         s.EpochIndex,
+		ValidatorRegistry:                  newValidatorRegistry,
+		ValidatorBalances:                  newValidatorBalances,
+		ValidatorRegistryLatestChangeEpoch: s.ValidatorRegistryLatestChangeEpoch,
+		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
+		ValidatorRegistryDeltaChainTip:     newValidatorRegistryDeltaChainTip,
+		RandaoMix:                          newRandaoMix,
+		ShardAndCommitteeForSlots:          newShardAndCommitteeForSlots,
+		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
+		JustifiedEpoch:                     s.JustifiedEpoch,
+		JustificationBitfield:              s.JustificationBitfield,
+		FinalizedEpoch:                     s.FinalizedEpoch,
+		LatestCrosslinks:                   newLatestCrosslinks,
+		PreviousCrosslinks:                 newPreviousCrosslinks,
+		LatestBlockHashes:                  newLatestBlockHashes,
+		PreviousEpochAttestations:          newPreviousAttestations,
+		CurrentEpochAttestations:           newCurrentAttestations,
+		BatchedBlockRoots:                  newBatchedBlockRoots,
+		ShardRegistry:                      newShardRegistry,
+		PendingVotes:                       newPendingVotes,
+		Proposals:                          newProposals,
 	}
 
 	return newState
@@ -194,9 +275,14 @@ func (s *State) ToProto() *pb.State {
 	validatorRegistry := make([]*pb.Validator, len(s.ValidatorRegistry))
 	shardCommittees := make([]*pb.ShardCommitteesForSlot, len(s.ShardAndCommitteeForSlots))
 	latestCrosslinks := make([]*pb.Crosslink, len(s.LatestCrosslinks))
+	previousCrosslinks := make([]*pb.Crosslink, len(s.PreviousCrosslinks))
 	latestBlockHashes := make([][]byte, len(s.LatestBlockHashes))
-	latestAttestations := make([]*pb.PendingAttestation, len(s.LatestAttestations))
+	currentAttestations := make([]*pb.PendingAttestation, len(s.CurrentEpochAttestations))
+	previousAttestations := make([]*pb.PendingAttestation, len(s.PreviousEpochAttestations))
 	batchedBlockRoots := make([][]byte, len(s.BatchedBlockRoots))
+	proposals := make([]*pb.ActiveProposal, len(s.Proposals))
+	shardRegistry := make([][]byte, len(s.ShardRegistry))
+	pendingVotes := make([]*pb.AggregatedVote, len(s.PendingVotes))
 
 	for i := range validatorRegistry {
 		validatorRegistry[i] = s.ValidatorRegistry[i].ToProto()
@@ -217,12 +303,32 @@ func (s *State) ToProto() *pb.State {
 		latestCrosslinks[i] = s.LatestCrosslinks[i].ToProto()
 	}
 
+	for i := range previousCrosslinks {
+		previousCrosslinks[i] = s.PreviousCrosslinks[i].ToProto()
+	}
+
 	for i := range latestBlockHashes {
 		latestBlockHashes[i] = s.LatestBlockHashes[i][:]
 	}
 
-	for i := range latestAttestations {
-		latestAttestations[i] = s.LatestAttestations[i].ToProto()
+	for i := range currentAttestations {
+		currentAttestations[i] = s.CurrentEpochAttestations[i].ToProto()
+	}
+
+	for i := range previousAttestations {
+		previousAttestations[i] = s.PreviousEpochAttestations[i].ToProto()
+	}
+
+	for i := range proposals {
+		proposals[i] = s.Proposals[i].ToProto()
+	}
+
+	for i := range pendingVotes {
+		pendingVotes[i] = s.PendingVotes[i].ToProto()
+	}
+
+	for i := range shardRegistry {
+		shardRegistry[i] = s.ShardRegistry[i][:]
 	}
 
 	for i := range batchedBlockRoots {
@@ -230,27 +336,30 @@ func (s *State) ToProto() *pb.State {
 	}
 
 	return &pb.State{
-		Slot:                              s.Slot,
-		GenesisTime:                       s.GenesisTime,
-		EpochIndex:                        s.EpochIndex,
-		ForkData:                          s.ForkData.ToProto(),
-		ValidatorRegistry:                 validatorRegistry,
-		ValidatorBalances:                 s.ValidatorBalances,
-		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
-		ValidatorRegistryDeltaChainTip:    s.ValidatorRegistryDeltaChainTip[:],
-		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
-		RandaoMix:                         s.RandaoMix[:],
-		NextSeed:                          s.NextSeed[:],
-		ShardCommittees:                   shardCommittees,
-		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
-		JustifiedSlot:                     s.JustifiedSlot,
-		JustificationBitField:             s.JustificationBitfield,
-		FinalizedSlot:                     s.FinalizedSlot,
-		LatestCrosslinks:                  latestCrosslinks,
-		LatestBlockHashes:                 latestBlockHashes,
-		LatestPenalizedExitBalances:       s.LatestPenalizedExitBalances,
-		LatestAttestations:                latestAttestations,
-		BatchedBlockRoots:                 batchedBlockRoots,
+		Slot:                               s.Slot,
+		GenesisTime:                        s.GenesisTime,
+		EpochIndex:                         s.EpochIndex,
+		ForkData:                           s.ForkData.ToProto(),
+		ValidatorRegistry:                  validatorRegistry,
+		ValidatorBalances:                  s.ValidatorBalances,
+		ValidatorRegistryLatestChangeEpoch: s.ValidatorRegistryLatestChangeEpoch,
+		ValidatorRegistryDeltaChainTip:     s.ValidatorRegistryDeltaChainTip[:],
+		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
+		RandaoMix:                          s.RandaoMix[:],
+		ShardCommittees:                    shardCommittees,
+		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
+		JustifiedEpoch:                     s.JustifiedEpoch,
+		JustificationBitField:              s.JustificationBitfield,
+		FinalizedEpoch:                     s.FinalizedEpoch,
+		LatestCrosslinks:                   latestCrosslinks,
+		PreviousCrosslinks:                 previousCrosslinks,
+		LatestBlockHashes:                  latestBlockHashes,
+		CurrentEpochAttestations:           currentAttestations,
+		PreviousEpochAttestations:          previousAttestations,
+		BatchedBlockRoots:                  batchedBlockRoots,
+		ShardRegistry:                      shardRegistry,
+		PendingVotes:                       pendingVotes,
+		Proposals:                          proposals,
 	}
 }
 
@@ -259,9 +368,14 @@ func StateFromProto(s *pb.State) (*State, error) {
 	validatorRegistry := make([]Validator, len(s.ValidatorRegistry))
 	shardAndCommitteeForSlots := make([][]ShardAndCommittee, len(s.ShardCommittees))
 	latestCrosslinks := make([]Crosslink, len(s.LatestCrosslinks))
+	previousCrosslinks := make([]Crosslink, len(s.PreviousCrosslinks))
 	latestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
-	latestAttestations := make([]PendingAttestation, len(s.LatestAttestations))
+	currentAttestations := make([]PendingAttestation, len(s.CurrentEpochAttestations))
+	previousAttestations := make([]PendingAttestation, len(s.PreviousEpochAttestations))
 	batchedBlockRoots := make([]chainhash.Hash, len(s.BatchedBlockRoots))
+	pendingVotes := make([]AggregatedVote, len(s.PendingVotes))
+	proposals := make([]ActiveProposal, len(s.Proposals))
+	shardRegistry := make([]chainhash.Hash, len(s.ShardRegistry))
 
 	fd, err := ForkDataFromProto(s.ForkData)
 	if err != nil {
@@ -295,6 +409,14 @@ func StateFromProto(s *pb.State) (*State, error) {
 		latestCrosslinks[i] = *c
 	}
 
+	for i := range previousCrosslinks {
+		c, err := CrosslinkFromProto(s.PreviousCrosslinks[i])
+		if err != nil {
+			return nil, err
+		}
+		previousCrosslinks[i] = *c
+	}
+
 	for i := range latestBlockHashes {
 		err := latestBlockHashes[i].SetBytes(s.LatestBlockHashes[i])
 		if err != nil {
@@ -302,12 +424,36 @@ func StateFromProto(s *pb.State) (*State, error) {
 		}
 	}
 
-	for i := range latestAttestations {
-		a, err := PendingAttestationFromProto(s.LatestAttestations[i])
+	for i := range previousAttestations {
+		a, err := PendingAttestationFromProto(s.PreviousEpochAttestations[i])
 		if err != nil {
 			return nil, err
 		}
-		latestAttestations[i] = *a
+		previousAttestations[i] = *a
+	}
+
+	for i := range proposals {
+		a, err := ActiveProposalFromProto(s.Proposals[i])
+		if err != nil {
+			return nil, err
+		}
+		proposals[i] = *a
+	}
+
+	for i := range pendingVotes {
+		a, err := AggregatedVoteFromProto(s.PendingVotes[i])
+		if err != nil {
+			return nil, err
+		}
+		pendingVotes[i] = *a
+	}
+
+	for i := range currentAttestations {
+		a, err := PendingAttestationFromProto(s.CurrentEpochAttestations[i])
+		if err != nil {
+			return nil, err
+		}
+		currentAttestations[i] = *a
 	}
 
 	for i := range batchedBlockRoots {
@@ -317,23 +463,35 @@ func StateFromProto(s *pb.State) (*State, error) {
 		}
 	}
 
+	for i := range shardRegistry {
+		err := shardRegistry[i].SetBytes(s.ShardRegistry[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	newState := &State{
-		Slot:                              s.Slot,
-		GenesisTime:                       s.GenesisTime,
-		EpochIndex:                        s.EpochIndex,
-		ForkData:                          *fd,
-		ValidatorRegistry:                 validatorRegistry,
-		ValidatorRegistryLatestChangeSlot: s.ValidatorRegistryLatestChangeSlot,
-		ValidatorRegistryExitCount:        s.ValidatorRegistryExitCount,
-		ShardAndCommitteeForSlots:         shardAndCommitteeForSlots,
-		PreviousJustifiedSlot:             s.PreviousJustifiedSlot,
-		JustifiedSlot:                     s.JustifiedSlot,
-		JustificationBitfield:             s.JustificationBitField,
-		FinalizedSlot:                     s.FinalizedSlot,
-		LatestCrosslinks:                  latestCrosslinks,
-		LatestBlockHashes:                 latestBlockHashes,
-		LatestAttestations:                latestAttestations,
-		BatchedBlockRoots:                 batchedBlockRoots,
+		Slot:                               s.Slot,
+		GenesisTime:                        s.GenesisTime,
+		EpochIndex:                         s.EpochIndex,
+		ForkData:                           *fd,
+		ValidatorRegistry:                  validatorRegistry,
+		ValidatorRegistryLatestChangeEpoch: s.ValidatorRegistryLatestChangeEpoch,
+		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
+		ShardAndCommitteeForSlots:          shardAndCommitteeForSlots,
+		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
+		JustifiedEpoch:                     s.JustifiedEpoch,
+		JustificationBitfield:              s.JustificationBitField,
+		FinalizedEpoch:                     s.FinalizedEpoch,
+		LatestCrosslinks:                   latestCrosslinks,
+		PreviousCrosslinks:                 previousCrosslinks,
+		LatestBlockHashes:                  latestBlockHashes,
+		CurrentEpochAttestations:           currentAttestations,
+		PreviousEpochAttestations:          previousAttestations,
+		BatchedBlockRoots:                  batchedBlockRoots,
+		ShardRegistry:                      shardRegistry,
+		PendingVotes:                       pendingVotes,
+		Proposals:                          proposals,
 	}
 
 	err = newState.ValidatorRegistryDeltaChainTip.SetBytes(s.ValidatorRegistryDeltaChainTip)
@@ -346,13 +504,7 @@ func StateFromProto(s *pb.State) (*State, error) {
 		return nil, err
 	}
 
-	err = newState.NextSeed.SetBytes(s.NextSeed)
-	if err != nil {
-		return nil, err
-	}
-
 	newState.ValidatorBalances = append([]uint64{}, s.ValidatorBalances...)
-	newState.LatestPenalizedExitBalances = append([]uint64{}, s.LatestPenalizedExitBalances...)
 
 	return newState, nil
 }
@@ -385,7 +537,7 @@ func (s *State) GetTotalBalanceMap(activeValidators map[uint32]struct{}, c *conf
 
 // GetNewValidatorRegistryDeltaChainTip gets the new delta chain tip hash.
 func GetNewValidatorRegistryDeltaChainTip(currentValidatorRegistryDeltaChainTip chainhash.Hash, validatorIndex uint32, pubkey [96]byte, flag uint64) (chainhash.Hash, error) {
-	return ssz.TreeHash(ValidatorRegistryDeltaBlock{
+	return ssz.HashTreeRoot(ValidatorRegistryDeltaBlock{
 		LatestRegistryDeltaRoot: currentValidatorRegistryDeltaChainTip,
 		ValidatorIndex:          validatorIndex,
 		Pubkey:                  pubkey,
@@ -431,8 +583,8 @@ func (s *State) InitiateValidatorExit(index uint32) error {
 
 // GetBeaconProposerIndex gets the validator index of the block proposer at a certain
 // slot.
-func (s *State) GetBeaconProposerIndex(stateSlot uint64, slot uint64, c *config.Config) (uint32, error) {
-	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, c)
+func (s *State) GetBeaconProposerIndex(slot uint64, c *config.Config) (uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(slot, c)
 	if err != nil {
 		return 0, err
 	}
@@ -453,19 +605,14 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 	validator.LatestStatusChangeSlot = s.Slot
 
 	if status == ExitedWithPenalty {
-		s.LatestPenalizedExitBalances[s.Slot/c.CollectivePenaltyCalculationPeriod] += s.GetEffectiveBalance(index, c)
-
-		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot, s.Slot, c)
+		whistleblowerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, c)
 		if err != nil {
 			return err
 		}
 		whistleblowerReward := s.GetEffectiveBalance(index, c) / c.WhistleblowerRewardQuotient
+
 		s.ValidatorBalances[whistleblowerIndex] += whistleblowerReward
 		s.ValidatorBalances[index] -= whistleblowerReward
-	}
-
-	if prevStatus == ExitedWithoutPenalty {
-		return nil
 	}
 
 	s.ValidatorRegistryExitCount++
@@ -475,6 +622,15 @@ func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) err
 		return err
 	}
 	s.ValidatorRegistryDeltaChainTip = deltaChainTip
+
+	for i := range s.Proposals {
+		participation := s.Proposals[i].Participation
+
+		if participation[index/8]&(1<<uint(index%8)) != 0 {
+			// switch the participation bit off
+			s.Proposals[i].Participation[index/8] &= ^(1 << uint(index%8))
+		}
+	}
 	return nil
 }
 
@@ -533,26 +689,6 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 			}
 		}
 	}
-
-	periodIndex := s.Slot / c.CollectivePenaltyCalculationPeriod
-	totalPenalties := s.LatestPenalizedExitBalances[periodIndex]
-	if periodIndex >= 1 {
-		totalPenalties += s.LatestPenalizedExitBalances[periodIndex-1]
-	}
-	if periodIndex >= 2 {
-		totalPenalties += s.LatestPenalizedExitBalances[periodIndex-2]
-	}
-
-	for idx, validator := range s.ValidatorRegistry {
-		index := uint32(idx)
-		if validator.Status != ExitedWithPenalty {
-			penaltyFactor := totalPenalties * 3
-			if totalBalance < penaltyFactor {
-				penaltyFactor = totalBalance
-			}
-			s.ValidatorBalances[index] -= s.GetEffectiveBalance(index, c) * penaltyFactor / totalBalance
-		}
-	}
 	return nil
 }
 
@@ -569,7 +705,8 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 }
 
 // GetShardCommitteesAtSlot gets the committees assigned to a specific slot.
-func (s *State) GetShardCommitteesAtSlot(stateSlot uint64, slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
+func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
+	stateSlot := s.EpochIndex * c.EpochLength
 	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
 	if int64(slot)-earliestSlot < 0 || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
 		return nil, errors.WithStack(fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot))
@@ -586,8 +723,8 @@ func (s *State) GetAttesterCommitteeSize(slot uint64, con *config.Config) uint32
 
 // GetCommitteeIndices gets all of the validator indices involved with the committee
 // assigned to the shard and slot of the committee.
-func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
-	committees, err := s.GetShardCommitteesAtSlot(stateSlot, slot, con)
+func (s *State) GetCommitteeIndices(slot uint64, shardID uint64, con *config.Config) ([]uint32, error) {
+	committees, err := s.GetShardCommitteesAtSlot(slot, con)
 	if err != nil {
 		return nil, err
 	}
@@ -598,7 +735,7 @@ func (s *State) GetCommitteeIndices(stateSlot uint64, slot uint64, shardID uint6
 func (s *State) ValidateProofOfPossession(pubkey *bls.PublicKey, proofOfPossession bls.Signature, withdrawalCredentials chainhash.Hash) (bool, error) {
 	// fixme
 
-	h, err := ssz.TreeHash(pubkey.Serialize())
+	h, err := ssz.HashTreeRoot(pubkey.Serialize())
 	if err != nil {
 		return false, err
 	}
@@ -609,8 +746,8 @@ func (s *State) ValidateProofOfPossession(pubkey *bls.PublicKey, proofOfPossessi
 	return valid, nil
 }
 
-// ApplyProposerSlashing applies a proposer slashing if valid.
-func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config *config.Config) error {
+// applyProposerSlashing applies a proposer slashing if valid.
+func (s *State) applyProposerSlashing(proposerSlashing ProposerSlashing, config *config.Config) error {
 	if proposerSlashing.ProposerIndex >= uint32(len(s.ValidatorRegistry)) {
 		return errors.New("invalid proposer index")
 	}
@@ -627,11 +764,11 @@ func (s *State) ApplyProposerSlashing(proposerSlashing ProposerSlashing, config 
 	if proposer.Status == ExitedWithPenalty {
 		return errors.New("proposer is already exited")
 	}
-	hashProposal1, err := ssz.TreeHash(proposerSlashing.ProposalData1)
+	hashProposal1, err := ssz.HashTreeRoot(proposerSlashing.ProposalData1)
 	if err != nil {
 		return err
 	}
-	hashProposal2, err := ssz.TreeHash(proposerSlashing.ProposalData2)
+	hashProposal2, err := ssz.HashTreeRoot(proposerSlashing.ProposalData2)
 	if err != nil {
 		return err
 	}
@@ -672,17 +809,17 @@ func indices(vote SlashableVoteData) []uint32 {
 	return append(vote.AggregateSignaturePoC0Indices, vote.AggregateSignaturePoC1Indices...)
 }
 
-func isDoubleVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
-	targetEpoch1 := ad1.Slot / c.EpochLength
-	targetEpoch2 := ad2.Slot / c.EpochLength
+func isDoubleVote(ad1 AttestationData, ad2 AttestationData) bool {
+	targetEpoch1 := ad1.TargetEpoch
+	targetEpoch2 := ad2.TargetEpoch
 	return targetEpoch1 == targetEpoch2
 }
 
-func isSurroundVote(ad1 AttestationData, ad2 AttestationData, c *config.Config) bool {
-	targetEpoch1 := ad1.Slot / c.EpochLength
-	targetEpoch2 := ad2.Slot / c.EpochLength
-	sourceEpoch1 := ad1.JustifiedSlot / c.EpochLength
-	sourceEpoch2 := ad2.JustifiedSlot / c.EpochLength
+func isSurroundVote(ad1 AttestationData, ad2 AttestationData) bool {
+	targetEpoch1 := ad1.TargetEpoch
+	targetEpoch2 := ad2.TargetEpoch
+	sourceEpoch1 := ad1.SourceEpoch
+	sourceEpoch2 := ad2.SourceEpoch
 	return (sourceEpoch1 < sourceEpoch2) &&
 		(sourceEpoch2+1 == targetEpoch2) &&
 		(targetEpoch2 < targetEpoch1)
@@ -720,12 +857,12 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	ad0 := AttestationDataAndCustodyBit{voteData.Data, true}
 	ad1 := AttestationDataAndCustodyBit{voteData.Data, true}
 
-	ad0Hash, err := ssz.TreeHash(ad0)
+	ad0Hash, err := ssz.HashTreeRoot(ad0)
 	if err != nil {
 		return false
 	}
 
-	ad1Hash, err := ssz.TreeHash(ad1)
+	ad1Hash, err := ssz.HashTreeRoot(ad1)
 	if err != nil {
 		return false
 	}
@@ -744,8 +881,8 @@ func (s *State) verifySlashableVoteData(voteData SlashableVoteData, c *config.Co
 	}, aggregateSignature, GetDomain(s.ForkData, s.Slot, bls.DomainAttestation))
 }
 
-// ApplyCasperSlashing applies a casper slashing claim to the current state.
-func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
+// applyCasperSlashing applies a casper slashing claim to the current state.
+func (s *State) applyCasperSlashing(casperSlashing CasperSlashing, c *config.Config) error {
 	var intersection []uint32
 	indices1 := indices(casperSlashing.Votes1)
 	indices2 := indices(casperSlashing.Votes2)
@@ -765,8 +902,8 @@ func (s *State) ApplyCasperSlashing(casperSlashing CasperSlashing, c *config.Con
 		return errors.New("casper slashing votes are the same")
 	}
 
-	if !isDoubleVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) &&
-		!isSurroundVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data, c) {
+	if !isDoubleVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data) &&
+		!isSurroundVote(casperSlashing.Votes1.Data, casperSlashing.Votes2.Data) {
 		return errors.New("casper slashing is not double or surround vote")
 	}
 
@@ -831,8 +968,8 @@ func (s *State) ApplyExit(exit Exit, config *config.Config) error {
 }
 
 // GetAttestationParticipants gets the indices of participants.
-func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config, stateSlot uint64) ([]uint32, error) {
-	shardCommittees, err := s.GetShardCommitteesAtSlot(stateSlot, data.Slot, c)
+func (s *State) GetAttestationParticipants(data AttestationData, participationBitfield []byte, c *config.Config) ([]uint32, error) {
+	shardCommittees, err := s.GetShardCommitteesAtSlot(data.Slot-1, c)
 	if err != nil {
 		return nil, err
 	}
@@ -855,10 +992,12 @@ func (s *State) GetAttestationParticipants(data AttestationData, participationBi
 	var participants []uint32
 	for i, validatorIndex := range shardCommittee.Committee {
 		participationBit := participationBitfield[i/8] & (1 << (uint(i) % 8))
+
 		if participationBit != 0 {
 			participants = append(participants, validatorIndex)
 		}
 	}
+
 	return participants, nil
 }
 
@@ -935,36 +1074,20 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 
 // ProcessSlot processes a single slot which should happen before the block transition and the epoch transition.
 func (s *State) ProcessSlot(previousBlockRoot chainhash.Hash, c *config.Config) error {
-	//slotTransitionTime := time.Now()
-
 	// increase the slot number
 	s.Slot++
 
 	s.LatestBlockHashes[(s.Slot-1)%c.LatestBlockRootsLength] = previousBlockRoot
 
 	if s.Slot%c.LatestBlockRootsLength == 0 {
-		latestBlockHashesRoot, err := ssz.TreeHash(s.LatestBlockHashes)
+		latestBlockHashesRoot, err := ssz.HashTreeRoot(s.LatestBlockHashes)
 		if err != nil {
 			return err
 		}
 		s.BatchedBlockRoots = append(s.BatchedBlockRoots, latestBlockHashesRoot)
 	}
 
-	//slotTransitionDuration := time.Since(slotTransitionTime)
-
-	//logrus.WithField("slot", s.Slot).WithField("duration", slotTransitionDuration).Info("slot transition")
-
 	return nil
-}
-
-func intSqrt(n uint64) uint64 {
-	x := n
-	y := (x + 1) / 2
-	for y < x {
-		x = y
-		y = (x + n/x) / 2
-	}
-	return x
 }
 
 // BlockView is an interface the provides access to blocks.
@@ -975,1234 +1098,35 @@ type BlockView interface {
 	GetLastStateRoot() (chainhash.Hash, error)
 }
 
-// ShuffleValidators shuffles an array of ints given a seed.
-func ShuffleValidators(toShuffle []uint32, seed chainhash.Hash) []uint32 {
-	shuffled := toShuffle[:]
-	numValues := len(toShuffle)
-
-	randBytes := 3
-	randMax := uint32(math.Pow(2, float64(randBytes*8)) - 1)
-
-	source := seed
-	index := 0
-	for index < numValues-1 {
-		source = chainhash.HashH(source[:])
-		for position := 0; position < (32 - (32 % randBytes)); position += randBytes {
-			remaining := uint32(numValues - index)
-			if remaining == 1 {
-				break
-			}
-
-			sampleFromSource := binary.BigEndian.Uint32(append([]byte{'\x00'}, source[position:position+randBytes]...))
-
-			sampleMax := randMax - randMax%remaining
-
-			if sampleFromSource < sampleMax {
-				replacementPos := (sampleFromSource % remaining) + uint32(index)
-				shuffled[index], shuffled[replacementPos] = shuffled[replacementPos], shuffled[index]
-				index++
-			}
-		}
-	}
-	return shuffled
-}
-
-// Split splits an array into N different sections.
-func Split(l []uint32, splitCount uint32) [][]uint32 {
-	out := make([][]uint32, splitCount)
-	numItems := uint32(len(l))
-	for i := uint32(0); i < splitCount; i++ {
-		out[i] = l[(numItems * i / splitCount):(numItems * (i + 1) / splitCount)]
-	}
-	return out
-}
-
-func clamp(min int, max int, val int) int {
-	if val <= min {
-		return min
-	} else if val >= max {
-		return max
-	} else {
-		return val
-	}
-}
-
-// GetNewShuffling calculates the new shuffling of validators
-// to slots and shards.
-func GetNewShuffling(seed chainhash.Hash, validators []Validator, crosslinkingStart int, con *config.Config) [][]ShardAndCommittee {
-	activeValidators := GetActiveValidatorIndices(validators)
-	numActiveValidators := len(activeValidators)
-
-	// clamp between 1 and b.config.ShardCount / b.config.EpochLength
-	committeesPerSlot := clamp(1, con.ShardCount/int(con.EpochLength), numActiveValidators/int(con.EpochLength)/con.TargetCommitteeSize)
-
-	output := make([][]ShardAndCommittee, con.EpochLength)
-
-	shuffledValidatorIndices := ShuffleValidators(activeValidators, seed)
-
-	validatorsPerSlot := Split(shuffledValidatorIndices, uint32(con.EpochLength))
-
-	for slot, slotIndices := range validatorsPerSlot {
-		shardIndices := Split(slotIndices, uint32(committeesPerSlot))
-
-		shardIDStart := crosslinkingStart + slot*committeesPerSlot
-
-		shardCommittees := make([]ShardAndCommittee, len(shardIndices))
-		for shardPosition, indices := range shardIndices {
-			shardCommittees[shardPosition] = ShardAndCommittee{
-				Shard:     uint64((shardIDStart + shardPosition) % con.ShardCount),
-				Committee: indices,
-			}
-		}
-
-		output[slot] = shardCommittees
-	}
-	return output
-}
-
-// Receipt is a way of representing slashings or rewards.
-type Receipt struct {
-	Slot   uint64
-	Type   uint8
-	Amount int64
-	Index  uint32
-}
-
-// ReceiptTypeToMeaning converts a receipt type to a meaningful string.
-func ReceiptTypeToMeaning(t uint8) string {
-	switch t {
-	case AttestedToPreviousEpochJustifiedSlot:
-		return "attested to previous epoch justified slot"
-	case AttestedToPreviousEpochBoundaryHash:
-		return "attested to previous epoch justified boundary hash"
-	case AttestedToCorrectBlockHashInPreviousEpoch:
-		return "attested to correct block hash in previous epoch"
-	case AttestationInclusionDistanceReward:
-		return "attestation inclusion distance reward"
-	case DidNotAttestToCorrectBeaconBlock:
-		return "did not attest to correct beacon block"
-	case DidNotAttestToPreviousEpochBoundary:
-		return "did not attest to correct boundary block"
-	case DidNotAttestToPreviousJustifiedSlot:
-		return "did not attest to correct justified slot"
-	case InactivityPenalty:
-		return "inactivity"
-	case AttestationInclusionDistancePenalty:
-		return "attestation inclusion distance penalty"
-	case ProposerReward:
-		return "proposer reward"
-	case AttestationParticipationReward:
-		return "participated in attestation"
-	case AttestationNonparticipationPenalty:
-		return "did not participate in attestation"
-	}
-	return "unknown type"
-}
-
-const (
-	// AttestedToPreviousEpochJustifiedSlot is a reward when a validator attests to the previous epoch justified slot.
-	AttestedToPreviousEpochJustifiedSlot = iota
-
-	// AttestedToPreviousEpochBoundaryHash is a reward when a validator attests to the previous epoch boundary hash.
-	AttestedToPreviousEpochBoundaryHash
-
-	// AttestedToCorrectBlockHashInPreviousEpoch is a reward when a validator attests to the correct beacon block hash for their slot.
-	AttestedToCorrectBlockHashInPreviousEpoch
-
-	// AttestationInclusionDistanceReward is a reward for including attestations in beacon blocks.
-	AttestationInclusionDistanceReward
-
-	// DidNotAttestToCorrectBeaconBlock is a penalty for not attesting to the correct beacon block.
-	DidNotAttestToCorrectBeaconBlock
-
-	// DidNotAttestToPreviousEpochBoundary is a penalty for not attesting to the previous epoch boundary.
-	DidNotAttestToPreviousEpochBoundary
-
-	// DidNotAttestToPreviousJustifiedSlot is a penalty for not attesting to the previous justified slot.
-	DidNotAttestToPreviousJustifiedSlot
-
-	// InactivityPenalty is a penalty for being exited with penalty.
-	InactivityPenalty
-
-	// AttestationInclusionDistancePenalty is a penalty for not including attestations in beacon blocks.
-	AttestationInclusionDistancePenalty
-
-	// ProposerReward is a reward for the proposer of a beacon block.
-	ProposerReward
-
-	// AttestationParticipationReward is a reward for choosing the correct shard block hash.
-	AttestationParticipationReward
-
-	// AttestationNonparticipationPenalty is a penalty for not choosing the correct shard block hash.
-	AttestationNonparticipationPenalty
-)
-
-// ProcessEpochTransition processes an epoch transition and modifies state.
-func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Receipt, error) {
-	s.EpochIndex = s.Slot / c.EpochLength
-
-	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
-	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
-
-	// currentEpochAttestations is any attestation that happened in the last epoch
-	var currentEpochAttestations []PendingAttestation
-	for _, a := range s.LatestAttestations {
-		// slot is greater than last epoch slot and slot is less than current slot
-		if s.Slot-c.EpochLength <= a.Data.Slot && a.Data.Slot < s.Slot {
-			currentEpochAttestations = append(currentEpochAttestations, a)
-		}
-	}
-
-	// previousEpochAttestations is any attestation in the last epoch
-	var previousEpochAttestations []PendingAttestation
-	for _, a := range s.LatestAttestations {
-		if s.Slot-2*c.EpochLength <= a.Data.Slot && a.Data.Slot < s.Slot-c.EpochLength {
-			previousEpochAttestations = append(previousEpochAttestations, a)
-		}
-	}
-
-	// previousEpochAttesterIndices are all participants of attestations in the previous epoch
-	previousEpochAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range participants {
-			previousEpochAttesterIndices[p] = struct{}{}
-		}
-	}
-
-	// previousEpochJustifiedAttestations are any attestations in the previous epoch that have a
-	// justified slot equal to the previous justified slot.
-	var previousEpochJustifiedAttestations []PendingAttestation
-	for _, a := range previousEpochAttestations {
-		if a.Data.JustifiedSlot == s.PreviousJustifiedSlot {
-			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
-		}
-	}
-	for _, a := range currentEpochAttestations {
-		if a.Data.JustifiedSlot == s.PreviousJustifiedSlot {
-			previousEpochJustifiedAttestations = append(previousEpochJustifiedAttestations, a)
-		}
-	}
-
-	// previousEpochJustifiedAttesterIndices are all participants of attestations in the previous
-	// epoch with a justified slot equal to the previous justified slot.
-	previousEpochJustifiedAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochJustifiedAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range participants {
-			previousEpochJustifiedAttesterIndices[p] = struct{}{}
-		}
-	}
-
-	previousEpochJustifiedAttestingBalance := s.GetTotalBalanceMap(previousEpochJustifiedAttesterIndices, c)
-
-	epochBoundaryHashMinus2 := chainhash.Hash{}
-	if s.Slot >= 2*c.EpochLength {
-		ebhm2, err := view.GetHashBySlot(s.Slot - 2*c.EpochLength)
-		if err != nil {
-			ebhm2 = chainhash.Hash{}
-		}
-		epochBoundaryHashMinus2 = ebhm2
-	}
-
-	epochBoundaryHashMinus1 := chainhash.Hash{}
-	if s.Slot >= c.EpochLength {
-		ebhm1, err := view.GetHashBySlot(s.Slot - c.EpochLength)
-		if err != nil {
-			ebhm1 = chainhash.Hash{}
-		}
-		epochBoundaryHashMinus1 = ebhm1
-	}
-
-	// previousEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
-	// set to the epoch boundary two epochs ago
-	var previousEpochBoundaryAttestations []PendingAttestation
-	for _, a := range previousEpochJustifiedAttestations {
-		if epochBoundaryHashMinus2.IsEqual(&a.Data.EpochBoundaryHash) {
-			previousEpochBoundaryAttestations = append(previousEpochBoundaryAttestations, a)
-		}
-	}
-
-	// currentEpochBoundaryAttestations is any attestation in the previous epoch where the epoch boundary is
-	// set to the epoch boundary two epochs ago
-	var currentEpochBoundaryAttestations []PendingAttestation
-	for _, a := range currentEpochAttestations {
-		if epochBoundaryHashMinus1.IsEqual(&a.Data.EpochBoundaryHash) {
-			currentEpochBoundaryAttestations = append(currentEpochBoundaryAttestations, a)
-		}
-	}
-
-	previousEpochBoundaryAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochBoundaryAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range participants {
-			previousEpochBoundaryAttesterIndices[p] = struct{}{}
-		}
-	}
-
-	currentEpochBoundaryAttesterIndices := map[uint32]struct{}{}
-	for _, a := range currentEpochBoundaryAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range participants {
-			currentEpochBoundaryAttesterIndices[p] = struct{}{}
-		}
-	}
-
-	previousEpochBoundaryAttestingBalance := s.GetTotalBalanceMap(previousEpochBoundaryAttesterIndices, c)
-	currentEpochBoundaryAttestingBalance := s.GetTotalBalanceMap(currentEpochBoundaryAttesterIndices, c)
-
-	var previousEpochHeadAttestations []PendingAttestation
-	for _, a := range previousEpochAttestations {
-		blockRoot, err := view.GetHashBySlot(a.Data.Slot)
-		if err != nil {
-			break
-		}
-		if a.Data.BeaconBlockHash.IsEqual(&blockRoot) {
-			previousEpochHeadAttestations = append(previousEpochHeadAttestations, a)
-		}
-	}
-
-	previousEpochHeadAttesterIndices := map[uint32]struct{}{}
-	for _, a := range previousEpochHeadAttestations {
-		participants, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
-		if err != nil {
-			return nil, err
-		}
-		for _, p := range participants {
-			previousEpochHeadAttesterIndices[p] = struct{}{}
-		}
-	}
-
-	previousEpochHeadAttestingBalance := s.GetTotalBalanceMap(previousEpochHeadAttesterIndices, c)
-
-	oldPreviousJustifiedSlot := s.PreviousJustifiedSlot
-
-	s.PreviousJustifiedSlot = s.JustifiedSlot
-	s.JustificationBitfield = s.JustificationBitfield * 2
-
-	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {
-		s.JustificationBitfield |= (1 << 1) // mark the last epoch as justified
-		s.JustifiedSlot = s.Slot - 2*c.EpochLength
-	}
-	if 3*currentEpochBoundaryAttestingBalance >= 2*totalBalance {
-		s.JustificationBitfield |= (1 << 0) // mark the last epoch as justified
-		s.JustifiedSlot = s.Slot - c.EpochLength
-	}
-
-	if ((s.JustificationBitfield>>1)%8 == 7 && s.PreviousJustifiedSlot == s.Slot-c.EpochLength*3) || // 1110
-		((s.JustificationBitfield>>1)%4 == 3 && s.PreviousJustifiedSlot == s.Slot-c.EpochLength*2) { // 110 <- old previous justified would be
-		s.FinalizedSlot = oldPreviousJustifiedSlot
-	}
-
-	if ((s.JustificationBitfield>>0)%8 == 7 && s.JustifiedSlot == s.Slot-c.EpochLength*2) ||
-		((s.JustificationBitfield>>0)%4 == 3 && s.JustifiedSlot == s.Slot-c.EpochLength*1) {
-		s.FinalizedSlot = s.PreviousJustifiedSlot
-	}
-
-	// attestingValidatorIndices gets the participants that attested to a certain shardblockRoot for a certain shardCommittee
-	attestingValidatorIndices := func(shardComittee ShardAndCommittee, shardBlockRoot chainhash.Hash) ([]uint32, error) {
-		outMap := map[uint32]struct{}{}
-		for _, a := range currentEpochAttestations {
-			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
-				for i, s := range shardComittee.Committee {
-					bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
-					if bit != 0 {
-						outMap[s] = struct{}{}
-					}
-				}
-			}
-		}
-		for _, a := range previousEpochAttestations {
-			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
-				for i, s := range shardComittee.Committee {
-					bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
-					if bit != 0 {
-						outMap[s] = struct{}{}
-					}
-				}
-			}
-		}
-		out := make([]uint32, len(outMap))
-		i := 0
-		for id := range outMap {
-			out[i] = id
-			i++
-		}
-		return out, nil
-	}
-
-	// winningRoot finds the winning shard block Hash
-	winningRoot := func(shardCommittee ShardAndCommittee) (*chainhash.Hash, error) {
-		// find all possible hashes for the winning root
-		possibleHashes := map[chainhash.Hash]struct{}{}
-		for _, a := range currentEpochAttestations {
-			if a.Data.Shard != shardCommittee.Shard {
-				continue
-			}
-			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
-		}
-		for _, a := range previousEpochAttestations {
-			if a.Data.Shard != shardCommittee.Shard {
-				continue
-			}
-			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
-		}
-
-		if len(possibleHashes) == 0 {
-			return nil, nil
-		}
-
-		// find the top balance
-		topBalance := uint64(0)
-		topHash := chainhash.Hash{}
-
-		for b := range possibleHashes {
-			validatorIndices, err := attestingValidatorIndices(shardCommittee, b)
-			if err != nil {
-				return nil, err
-			}
-
-			sumBalance := s.GetTotalBalance(validatorIndices, c)
-
-			if sumBalance > totalBalance {
-				topHash = b
-				topBalance = sumBalance
-			}
-
-			if sumBalance == totalBalance {
-				// in case of a tie, favor the lower hash
-				if bytes.Compare(topHash[:], b[:]) > 0 {
-					topHash = b
-				}
-			}
-		}
-		if topBalance == 0 {
-			return nil, nil
-		}
-		return &topHash, nil
-	}
-
-	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
-
-	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
-		for _, shardCommittee := range shardCommitteeAtSlot {
-			bestRoot, err := winningRoot(shardCommittee)
-			if err != nil {
-				return nil, err
-			}
-			if bestRoot == nil {
-				continue
-			}
-			if slotWinners[i] == nil {
-				slotWinners[i] = make(map[uint64]chainhash.Hash)
-			}
-			slotWinners[i][shardCommittee.Shard] = *bestRoot
-			attestingCommittee, err := attestingValidatorIndices(shardCommittee, *bestRoot)
-			if err != nil {
-				return nil, err
-			}
-			totalAttestingBalance := s.GetTotalBalance(attestingCommittee, c)
-			totalBalance := s.GetTotalBalance(shardCommittee.Committee, c)
-
-			if 3*totalAttestingBalance >= 2*totalBalance {
-				s.LatestCrosslinks[shardCommittee.Shard] = Crosslink{
-					Slot:           s.Slot,
-					ShardBlockHash: *bestRoot,
-				}
-				logrus.WithFields(logrus.Fields{
-					"slot":             s.Slot,
-					"shardBlockHash":   bestRoot.String(),
-					"totalAttestation": totalAttestingBalance,
-					"totalBalance":     totalBalance,
-				}).Debug("crosslink created")
-			}
-		}
-	}
-
-	// baseRewardQuotient = NetworkRewardQuotient * sqrt(balances)
-	baseRewardQuotient := c.BaseRewardQuotient * intSqrt(totalBalance/config.UnitInCoin)
-
-	baseReward := func(index uint32) uint64 {
-		return s.GetEffectiveBalance(index, c) / baseRewardQuotient / 5
-	}
-
-	inactivityPenalty := func(index uint32, epochsSinceFinality uint64) uint64 {
-		return s.GetEffectiveBalance(index, c) * epochsSinceFinality / c.InactivityPenaltyQuotient
-	}
-
-	epochsSinceFinality := (s.Slot - s.FinalizedSlot) / c.EpochLength
-
-	// previousAttestationCache tracks which validator attested to which attestation
-	previousAttestationCache := map[uint32]*PendingAttestation{}
-	for _, a := range previousEpochAttestations {
-		participation, err := s.GetAttestationParticipants(a.Data, a.ParticipationBitfield, c, s.Slot-1)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, p := range participation {
-			previousAttestationCache[p] = &a
-		}
-	}
-
-	totalPenalized := uint64(0)
-	totalRewarded := uint64(0)
-
-	var receipts []Receipt
-
-	// any validator not in previous_epoch_head_attester_indices is slashed
-	// any validator not in previous_epoch_boundary_attester_indices is slashed
-	// any validator not in previous_epoch_justified_attester_indices is slashed
-
-	if s.Slot >= 2*c.EpochLength {
-		for idx, validator := range s.ValidatorRegistry {
-			index := uint32(idx)
-			if validator.Status != Active {
-				continue
-			}
-
-			// reward or slash based on if they attested to the correct head
-			if _, found := previousEpochHeadAttesterIndices[index]; found {
-				reward := baseReward(index) * previousEpochHeadAttestingBalance / totalBalance
-				totalRewarded += reward
-				s.ValidatorBalances[index] += reward
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   AttestedToCorrectBlockHashInPreviousEpoch,
-					Index:  index,
-					Amount: int64(reward),
-				})
-			} else {
-				penalty := baseReward(index)
-				totalPenalized += penalty
-				s.ValidatorBalances[index] -= penalty
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   DidNotAttestToCorrectBeaconBlock,
-					Index:  index,
-					Amount: -int64(penalty),
-				})
-			}
-
-			// reward or slash based on if they attested to the correct source
-			if _, found := previousEpochBoundaryAttesterIndices[index]; found {
-				reward := baseReward(index) * previousEpochBoundaryAttestingBalance / totalBalance
-				totalRewarded += reward
-				s.ValidatorBalances[index] += reward
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   AttestedToPreviousEpochBoundaryHash,
-					Index:  index,
-					Amount: int64(reward),
-				})
-			} else {
-				penalty := baseReward(index)
-				totalPenalized += baseReward(index)
-				s.ValidatorBalances[index] -= baseReward(index)
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   DidNotAttestToPreviousEpochBoundary,
-					Index:  index,
-					Amount: -int64(penalty),
-				})
-			}
-
-			// reward or slash based on if they attested to the correct target
-			if _, found := previousEpochJustifiedAttesterIndices[index]; found {
-				reward := baseReward(index) * previousEpochJustifiedAttestingBalance / totalBalance
-				totalRewarded += reward
-				s.ValidatorBalances[index] += reward
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   AttestedToPreviousEpochJustifiedSlot,
-					Index:  index,
-					Amount: int64(reward),
-				})
-			} else {
-				penalty := baseReward(index)
-				totalPenalized += penalty
-				s.ValidatorBalances[index] -= penalty
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   DidNotAttestToPreviousJustifiedSlot,
-					Index:  index,
-					Amount: -int64(penalty),
-				})
-			}
-		}
-	}
-
-	// after 4 epochs, start slashing all validators
-	if epochsSinceFinality >= 4 {
-		// any validator not in previous_epoch_head_attester_indices is slashed
-		for idx, validator := range s.ValidatorRegistry {
-			index := uint32(idx)
-			if validator.Status == Active {
-				penalty := baseReward(index) * 5
-				totalPenalized += penalty
-				s.ValidatorBalances[index] -= penalty
-				receipts = append(receipts, Receipt{
-					Slot:   s.Slot,
-					Type:   InactivityPenalty,
-					Index:  index,
-					Amount: -int64(penalty),
-				})
-
-				if _, found := previousEpochAttesterIndices[index]; !found {
-					penalty := inactivityPenalty(index, epochsSinceFinality)
-					totalPenalized += penalty
-					s.ValidatorBalances[index] -= penalty
-					receipts = append(receipts, Receipt{
-						Slot:   s.Slot,
-						Type:   InactivityPenalty,
-						Index:  index,
-						Amount: -int64(penalty),
-					})
-				}
-			}
-		}
-	}
-
-	// reward for including each attestation
-	for _, a := range previousEpochAttestations {
-		proposerIndex := a.ProposerIndex
-
-		reward := baseReward(proposerIndex) / c.IncluderRewardQuotient
-		totalRewarded += reward
-		s.ValidatorBalances[proposerIndex] += reward
-
-		receipts = append(receipts, Receipt{
-			Slot:   s.Slot,
-			Type:   ProposerReward,
-			Index:  proposerIndex,
-			Amount: int64(reward),
-		})
-	}
-
-	// reward for submitting attestation
-	for index := range previousAttestationCache {
-		inclusionDistance := previousAttestationCache[index].InclusionDelay
-
-		reward := baseReward(index) * c.MinAttestationInclusionDelay / inclusionDistance
-		totalRewarded += reward
-		s.ValidatorBalances[index] += reward
-
-		receipts = append(receipts, Receipt{
-			Slot:   s.Slot,
-			Type:   AttestationInclusionDistanceReward,
-			Index:  index,
-			Amount: int64(reward),
-		})
-	}
-
-	// these are penalties/rewards for voting against/for a winning crosslink
-	if s.Slot >= 2*c.EpochLength {
-		for slot, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots[:c.EpochLength] {
-			for _, shardCommittee := range shardCommitteeAtSlot {
-				winningRoot := slotWinners[slot][shardCommittee.Shard]
-				participationIndices, err := attestingValidatorIndices(shardCommittee, winningRoot)
-				if err != nil {
-					return nil, err
-				}
-
-				participationIndicesMap := map[uint32]struct{}{}
-				for _, p := range participationIndices {
-					participationIndicesMap[p] = struct{}{}
-				}
-
-				totalAttestingBalance := s.GetTotalBalance(participationIndices, c)
-				totalBalance := s.GetTotalBalance(shardCommittee.Committee, c)
-
-				for _, index := range shardCommittee.Committee {
-					if _, found := participationIndicesMap[index]; found {
-						reward := baseReward(index) * totalAttestingBalance / totalBalance
-						totalRewarded += reward
-						s.ValidatorBalances[index] += reward
-						receipts = append(receipts, Receipt{
-							Slot:   s.Slot,
-							Type:   AttestationParticipationReward,
-							Index:  index,
-							Amount: int64(reward),
-						})
-					} else {
-						penalty := baseReward(index)
-						totalPenalized += penalty
-						s.ValidatorBalances[index] -= penalty
-						receipts = append(receipts, Receipt{
-							Slot:   s.Slot,
-							Type:   AttestationNonparticipationPenalty,
-							Index:  index,
-							Amount: -int64(penalty),
-						})
-					}
-				}
-			}
-		}
-	}
-
-	if err := s.exitValidatorsUnderMinimum(c); err != nil {
-		return nil, err
-	}
-
-	shouldUpdateRegistry := s.shouldUpdateRegistry()
-
-	// update registry if:
-	// - a slot has been finalized after the last time the registry was changed
-	// - every shard
-	if shouldUpdateRegistry {
-		err := s.UpdateValidatorRegistry(c)
-		if err != nil {
-			return nil, err
-		}
-
-		s.ValidatorRegistryLatestChangeSlot = s.Slot
-		copy(s.ShardAndCommitteeForSlots[:c.EpochLength], s.ShardAndCommitteeForSlots[c.EpochLength:])
-		lastSlot := s.ShardAndCommitteeForSlots[len(s.ShardAndCommitteeForSlots)-1]
-		lastCommittee := lastSlot[len(lastSlot)-1]
-		nextStartShard := (lastCommittee.Shard + 1) % uint64(c.ShardCount)
-		newShuffling := GetNewShuffling(s.RandaoMix, s.ValidatorRegistry, int(nextStartShard), c)
-		copy(s.ShardAndCommitteeForSlots[c.EpochLength:], newShuffling)
-	} else {
-		copy(s.ShardAndCommitteeForSlots[:c.EpochLength], s.ShardAndCommitteeForSlots[c.EpochLength:])
-		epochsSinceLastRegistryChange := (s.Slot - s.ValidatorRegistryLatestChangeSlot) / c.EpochLength
-		startShard := s.ShardAndCommitteeForSlots[0][0].Shard
-
-		// epochsSinceLastRegistryChange is a power of 2
-		if epochsSinceLastRegistryChange&(epochsSinceLastRegistryChange-1) == 0 {
-			newShuffling := GetNewShuffling(s.RandaoMix, s.ValidatorRegistry, int(startShard), c)
-			copy(s.ShardAndCommitteeForSlots[c.EpochLength:], newShuffling)
-		}
-	}
-
-	newLatestAttestations := make([]PendingAttestation, 0)
-	for _, a := range s.LatestAttestations {
-		if a.Data.Slot >= s.Slot-2*c.EpochLength {
-			newLatestAttestations = append(newLatestAttestations, a)
-		}
-	}
-
-	s.LatestAttestations = newLatestAttestations
-
-	return receipts, nil
-}
-
-func (s *State) exitValidatorsUnderMinimum(c *config.Config) error {
-	for index, validator := range s.ValidatorRegistry {
-		if validator.Status == Active && s.ValidatorBalances[index] < c.EjectionBalance {
-			err := s.UpdateValidatorStatus(uint32(index), ExitedWithoutPenalty, c)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// ValidateAttestation checks if the attestation is valid.
-func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view BlockView, c *config.Config, stateSlot uint64) error {
-	expectedJustifiedSlot := s.JustifiedSlot
-	prevSlot := s.Slot - 1
-	if att.Data.Slot < prevSlot-(prevSlot%c.EpochLength) { // 8 -> 0, 9 -> 8
-		expectedJustifiedSlot = s.PreviousJustifiedSlot
-	}
-
-	if att.Data.JustifiedSlot != expectedJustifiedSlot {
-		return fmt.Errorf("justified slot did not match expected justified slot. (expected: %d, got: %d)", expectedJustifiedSlot, att.Data.JustifiedSlot)
-	}
-
-	node, err := view.GetHashBySlot(att.Data.JustifiedSlot)
-	if err != nil {
-		return err
-	}
-
-	if !att.Data.JustifiedBlockHash.IsEqual(&node) {
-		return errors.New("justified block Hash did not match")
-	}
-
-	if len(s.LatestCrosslinks) <= int(att.Data.Shard) {
-		return errors.New("invalid shard number")
-	}
-
-	latestCrosslinkRoot := s.LatestCrosslinks[att.Data.Shard].ShardBlockHash
-
-	if !att.Data.LatestCrosslinkHash.IsEqual(&latestCrosslinkRoot) && !att.Data.ShardBlockHash.IsEqual(&latestCrosslinkRoot) {
-		return errors.New("latest crosslink is invalid")
-	}
-
-	if verifySignature {
-		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c, stateSlot)
-		if err != nil {
-			return err
-		}
-
-		dataRoot, err := ssz.TreeHash(AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
-		if err != nil {
-			return err
-		}
-
-		groupPublicKey := bls.NewAggregatePublicKey()
-		for _, p := range participants {
-			pub, err := s.ValidatorRegistry[p].GetPublicKey()
-			if err != nil {
-				return err
-			}
-			groupPublicKey.AggregatePubKey(pub)
-		}
-
-		aggSig, err := bls.DeserializeSignature(att.AggregateSig)
-		if err != nil {
-			return err
-		}
-
-		valid, err := bls.VerifySig(groupPublicKey, dataRoot[:], aggSig, GetDomain(s.ForkData, att.Data.Slot, bls.DomainAttestation))
-		if err != nil {
-			return err
-		}
-
-		if !valid {
-			return errors.New("attestation signature is invalid")
-		}
-	}
-
-	node, err = view.GetHashBySlot(att.Data.Slot)
-	if err != nil {
-		return err
-	}
-
-	if !att.Data.BeaconBlockHash.IsEqual(&node) {
-		return fmt.Errorf("beacon block hash is invalid (expected: %s, got: %s)", node, att.Data.BeaconBlockHash)
-	}
-
-	if !att.Data.ShardBlockHash.IsEqual(&zeroHash) {
-		return errors.New("invalid block Hash")
-	}
-
-	return nil
-}
-
-// applyAttestation verifies and applies an attestation to the given state.
-func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool, proposerIndex uint32) error {
-	err := s.ValidateAttestation(att, verifySignature, view, c, s.Slot-1)
-	if err != nil {
-		return err
-	}
-
-	// these checks are dependent on when the attestation is included
-	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
-		return errors.New("attestation included too soon")
-	}
-
-	if att.Data.Slot+c.EpochLength < s.Slot {
-		return errors.New("attestation was not included within 1 epoch")
-	}
-
-	s.LatestAttestations = append(s.LatestAttestations, PendingAttestation{
-		Data:                  att.Data,
-		ParticipationBitfield: att.ParticipationBitfield,
-		CustodyBitfield:       att.CustodyBitfield,
-		InclusionDelay:        s.Slot - att.Data.Slot,
-		ProposerIndex:         proposerIndex,
-	})
-
-	return nil
-}
-
-// ProcessBlock tries to apply a block to the state.
-func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, verifySignature bool) error {
-
-	//blockTransitionStart := time.Now()
-
-	proposerIndex, err := s.GetBeaconProposerIndex(s.Slot-1, block.BlockHeader.SlotNumber-1, con)
-	if err != nil {
-		return err
-	}
-
-	if block.BlockHeader.SlotNumber != s.Slot {
-		return fmt.Errorf("block has incorrect slot number (expecting: %d, got: %d)", s.Slot, block.BlockHeader.SlotNumber)
-	}
-
-	blockWithoutSignature := block.Copy()
-	blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
-	blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
-	if err != nil {
-		return err
-	}
-
-	proposal := ProposalSignedData{
-		Slot:      s.Slot,
-		Shard:     con.BeaconShardNumber,
-		BlockHash: blockWithoutSignatureRoot,
-	}
-
-	proposalRoot, err := ssz.TreeHash(proposal)
-	if err != nil {
-		return err
-	}
-
-	proposerPub, err := s.ValidatorRegistry[proposerIndex].GetPublicKey()
-	if err != nil {
-		return err
-	}
-
-	proposerSig, err := bls.DeserializeSignature(block.BlockHeader.Signature)
-	if err != nil {
-		return err
-	}
-
-	// process block and randao verifications concurrently
-
-	if verifySignature {
-		verificationResult := make(chan error)
-
-		go func() {
-			valid, err := bls.VerifySig(proposerPub, proposalRoot[:], proposerSig, bls.DomainProposal)
-			if err != nil {
-				verificationResult <- err
-			}
-
-			if !valid {
-				verificationResult <- fmt.Errorf("block had invalid signature (expected signature from validator %d)", proposerIndex)
-			}
-
-			verificationResult <- nil
-		}()
-
-		var slotBytes [8]byte
-		binary.BigEndian.PutUint64(slotBytes[:], block.BlockHeader.SlotNumber)
-		slotBytesHash := chainhash.HashH(slotBytes[:])
-
-		randaoSig, err := bls.DeserializeSignature(block.BlockHeader.RandaoReveal)
-		if err != nil {
-			return err
-		}
-
-		go func() {
-			valid, err := bls.VerifySig(proposerPub, slotBytesHash[:], randaoSig, bls.DomainRandao)
-			if err != nil {
-				verificationResult <- err
-			}
-			if !valid {
-				verificationResult <- errors.New("block has invalid randao signature")
-			}
-
-			verificationResult <- nil
-		}()
-
-		result1 := <-verificationResult
-		result2 := <-verificationResult
-
-		if result1 != nil {
-			return result1
-		}
-
-		if result2 != nil {
-			return result2
-		}
-	}
-
-	randaoRevealSerialized, err := ssz.TreeHash(block.BlockHeader.RandaoReveal)
-	if err != nil {
-		return err
-	}
-
-	for i := range s.RandaoMix {
-		s.RandaoMix[i] ^= randaoRevealSerialized[i]
-	}
-
-	if len(block.BlockBody.ProposerSlashings) > con.MaxProposerSlashings {
-		return errors.New("more than maximum proposer slashings")
-	}
-
-	if len(block.BlockBody.CasperSlashings) > con.MaxCasperSlashings {
-		return errors.New("more than maximum casper slashings")
-	}
-
-	if len(block.BlockBody.Attestations) > con.MaxAttestations {
-		return errors.New("more than maximum attestations")
-	}
-
-	if len(block.BlockBody.Exits) > con.MaxExits {
-		return errors.New("more than maximum exits")
-	}
-
-	if len(block.BlockBody.Deposits) > con.MaxDeposits {
-		return errors.New("more than maximum deposits")
-	}
-
-	for _, slashing := range block.BlockBody.ProposerSlashings {
-		err := s.ApplyProposerSlashing(slashing, con)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, c := range block.BlockBody.CasperSlashings {
-		err := s.ApplyCasperSlashing(c, con)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, a := range block.BlockBody.Attestations {
-		err := s.applyAttestation(a, con, view, verifySignature, proposerIndex)
-		if err != nil {
-			return err
-		}
-	}
-
-	// process deposits here
-
-	for _, e := range block.BlockBody.Exits {
-		err := s.ApplyExit(e, con)
-		if err != nil {
-			return err
-		}
-	}
-
-	//blockTransitionTime := time.Since(blockTransitionStart)
-
-	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
-
-	// Check state root.
-	expectedStateRoot, err := view.GetLastStateRoot()
-	if err != nil {
-		return err
-	}
-	if !block.BlockHeader.StateRoot.IsEqual(&expectedStateRoot) {
-		return fmt.Errorf("state root doesn't match (expected: %s, got: %s)", expectedStateRoot, block.BlockHeader.StateRoot)
-	}
-
-	//blockTransitionTime := time.Since(blockTransitionStart)
-
-	//logrus.WithField("slot", s.Slot).WithField("block", block.BlockHeader.SlotNumber).WithField("duration", blockTransitionTime).Info("block transition")
-
-	return nil
-}
-
 // ProcessSlots uses the current head to process slots up to a certain slot, applying
 // slot transitions and epoch transitions, and returns the updated state. Note that this should
 // only process up to the current slot number so that the lastBlockHash remains constant.
-func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) error {
+func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]Receipt, error) {
+	var receipts []Receipt
+
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
-			//t := time.Now()
-
-			_, err := s.ProcessEpochTransition(c, view)
+			epochReceipts, err := s.ProcessEpochTransition(c, view)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			//logrus.WithField("time", time.Since(t)).Debug("done processing epoch transition")
+
+			receipts = append(receipts, epochReceipts...)
 		}
 
 		tip, err := view.Tip()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		err = s.ProcessSlot(tip, c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		view.SetTipSlot(s.Slot)
 	}
 
-	return nil
-}
-
-// shouldUpdateRegistry returns if the validator registry is ready to be shuffled.
-// The registry should only be updated if every shard has created a crosslink since the
-// last update and the beacon chain has been finalized since the last update.
-func (s *State) shouldUpdateRegistry() bool {
-	if s.FinalizedSlot <= s.ValidatorRegistryLatestChangeSlot {
-		return false
-	}
-
-	for _, shardAndCommittees := range s.ShardAndCommitteeForSlots {
-		for _, committee := range shardAndCommittees {
-			if s.LatestCrosslinks[committee.Shard].Slot <= s.ValidatorRegistryLatestChangeSlot {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-const (
-	// Active is a status for a validator that is active.
-	Active = iota
-	// ActivePendingExit is a status for a validator that is active but pending exit.
-	ActivePendingExit
-	// PendingActivation is a status for a newly added validator
-	PendingActivation
-	// ExitedWithoutPenalty is a validator that gracefully exited
-	ExitedWithoutPenalty
-	// ExitedWithPenalty is a validator that exited not-so-gracefully
-	ExitedWithPenalty
-)
-
-// Validator is a single validator session (logging in and out)
-type Validator struct {
-	// BLS public key
-	Pubkey [96]byte
-	// XXXPubkeyCached is the cached deserialized public key.
-	XXXPubkeyCached *bls.PublicKey
-	// Withdrawal credentials
-	WithdrawalCredentials chainhash.Hash
-	// Status code
-	Status uint64
-	// Slot when validator last changed status (or 0)
-	LatestStatusChangeSlot uint64
-	// Sequence number when validator exited (or 0)
-	ExitCount uint64
-	// LastPoCChangeSlot is the last time the PoC was changed
-	LastPoCChangeSlot uint64
-	// SecondLastPoCChangeSlot is the second to last time the PoC was changed
-	SecondLastPoCChangeSlot uint64
-}
-
-// GetPublicKey gets the cached validator pubkey.
-func (v *Validator) GetPublicKey() (*bls.PublicKey, error) {
-	if v.XXXPubkeyCached == nil {
-		pub, err := bls.DeserializePublicKey(v.Pubkey)
-		if err != nil {
-			return nil, err
-		}
-		v.XXXPubkeyCached = pub
-	}
-	return v.XXXPubkeyCached, nil
-}
-
-// Copy copies a validator instance.
-func (v *Validator) Copy() Validator {
-	return *v
-}
-
-// IsActive checks if the validator is active.
-func (v Validator) IsActive() bool {
-	return v.Status == Active || v.Status == ActivePendingExit
-}
-
-// ValidatorFromProto gets the validator for the protobuf representation
-func ValidatorFromProto(validator *pb.Validator) (*Validator, error) {
-	if len(validator.Pubkey) != 96 {
-		return nil, errors.New("validator pubkey should be 96 bytes")
-	}
-	v := &Validator{
-		Status:                  validator.Status,
-		LatestStatusChangeSlot:  validator.LatestStatusChangeSlot,
-		ExitCount:               validator.LatestStatusChangeSlot,
-		LastPoCChangeSlot:       validator.LastPoCChangeSlot,
-		SecondLastPoCChangeSlot: validator.SecondLastPoCChangeSlot,
-	}
-	err := v.WithdrawalCredentials.SetBytes(validator.WithdrawalCredentials)
-	if err != nil {
-		return nil, err
-	}
-	copy(v.Pubkey[:], validator.Pubkey)
-
-	return v, nil
-}
-
-// GetActiveValidatorIndices gets validator indices that are active.
-func GetActiveValidatorIndices(validators []Validator) []uint32 {
-	var active []uint32
-	for i, v := range validators {
-		if v.IsActive() {
-			active = append(active, uint32(i))
-		}
-	}
-	return active
-}
-
-// ToProto creates a ProtoBuf ValidatorResponse from a Validator
-func (v *Validator) ToProto() *pb.Validator {
-	return &pb.Validator{
-		Pubkey:                  v.Pubkey[:],
-		WithdrawalCredentials:   v.WithdrawalCredentials[:],
-		LastPoCChangeSlot:       v.LastPoCChangeSlot,
-		SecondLastPoCChangeSlot: v.SecondLastPoCChangeSlot,
-		Status:                  v.Status,
-		LatestStatusChangeSlot:  v.LatestStatusChangeSlot,
-		ExitCount:               v.ExitCount}
-}
-
-// Crosslink goes in a collation to represent the last crystallized beacon block.
-type Crosslink struct {
-	// Slot is the slot within the current dynasty.
-	Slot uint64
-
-	// Shard chain block hash
-	ShardBlockHash chainhash.Hash
-}
-
-// ToProto gets the protobuf representation of the crosslink
-func (c *Crosslink) ToProto() *pb.Crosslink {
-	return &pb.Crosslink{
-		Slot:           c.Slot,
-		ShardBlockHash: c.ShardBlockHash[:],
-	}
-}
-
-// CrosslinkFromProto gets the crosslink for a protobuf representation
-func CrosslinkFromProto(crosslink *pb.Crosslink) (*Crosslink, error) {
-	c := &Crosslink{Slot: crosslink.Slot}
-	err := c.ShardBlockHash.SetBytes(crosslink.ShardBlockHash)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-// ShardAndCommittee keeps track of the validators assigned to a specific shard.
-type ShardAndCommittee struct {
-	// Shard number
-	Shard uint64
-
-	// Validator indices
-	Committee []uint32
-
-	// Total validator count (for proofs of custody)
-	TotalValidatorCount uint64
-}
-
-// Copy copies the ShardAndCommittee
-func (sc *ShardAndCommittee) Copy() ShardAndCommittee {
-	newSc := *sc
-	newSc.Committee = append([]uint32{}, sc.Committee...)
-	return newSc
-}
-
-// ToProto gets the protobuf representation of the shard and committee
-func (sc *ShardAndCommittee) ToProto() *pb.ShardCommittee {
-	return &pb.ShardCommittee{
-		Shard:               sc.Shard,
-		Committee:           sc.Committee,
-		TotalValidatorCount: sc.TotalValidatorCount,
-	}
-}
-
-// ShardAndCommitteeFromProto gets the shard and committee for the protobuf representation.
-func ShardAndCommitteeFromProto(committee *pb.ShardCommittee) (*ShardAndCommittee, error) {
-	sc := &ShardAndCommittee{
-		Shard:               committee.Shard,
-		TotalValidatorCount: committee.TotalValidatorCount,
-	}
-	sc.Committee = append([]uint32{}, committee.Committee...)
-	return sc, nil
+	return receipts, nil
 }

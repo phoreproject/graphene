@@ -11,9 +11,9 @@ import (
 	"time"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
-	"github.com/phoreproject/prysm/shared/ssz"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/jinzhu/gorm"
 	homedir "github.com/mitchellh/go-homedir"
@@ -237,7 +237,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		var assignments []Assignment
 
 		for i := epochStart; i < epochStart+ex.config.NetworkConfig.EpochLength; i++ {
-			assignmentForSlot, err := state.GetShardCommitteesAtSlot(state.Slot, i, ex.config.NetworkConfig)
+			assignmentForSlot, err := state.GetShardCommitteesAtSlot(i, ex.config.NetworkConfig)
 			if err != nil {
 				panic(err)
 			}
@@ -269,12 +269,12 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		})
 	}
 
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		panic(err)
 	}
 
-	proposerIdx, err := state.GetBeaconProposerIndex(state.Slot, block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
+	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
 	if err != nil {
 		panic(err)
 	}
@@ -298,7 +298,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	// Update attestations
 	for _, att := range block.BlockBody.Attestations {
-		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig, state.Slot-1)
+		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.NetworkConfig)
 		if err != nil {
 			panic(err)
 		}
@@ -314,17 +314,16 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 			participantHashes[i] = validatorHash
 		}
 
+		// TODO: fixme
+
 		attestation := &Attestation{
 			ParticipantHashes:   combineHashes(participantHashes),
 			Signature:           att.AggregateSig[:],
 			Slot:                att.Data.Slot,
 			Shard:               att.Data.Shard,
 			BeaconBlockHash:     att.Data.BeaconBlockHash[:],
-			EpochBoundaryHash:   att.Data.EpochBoundaryHash[:],
 			ShardBlockHash:      att.Data.ShardBlockHash[:],
 			LatestCrosslinkHash: att.Data.LatestCrosslinkHash[:],
-			JustifiedBlockHash:  att.Data.JustifiedBlockHash[:],
-			JustifiedSlot:       att.Data.JustifiedSlot,
 			BlockID:             blockDB.ID,
 		}
 

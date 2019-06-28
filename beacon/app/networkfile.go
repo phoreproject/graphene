@@ -10,8 +10,7 @@ import (
 	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
-
-	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 // InitialValidatorInformation is the encoded information from the JSON file of an
@@ -44,7 +43,7 @@ type ChainConfig struct {
 func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 	c := NewConfig()
 
-	c.InitialValidatorList = make([]beacon.InitialValidatorEntry, chainConfig.InitialValidators.NumValidators)
+	c.InitialValidatorList = make([]primitives.InitialValidatorEntry, chainConfig.InitialValidators.NumValidators)
 	for i := range c.InitialValidatorList {
 		validator := chainConfig.InitialValidators.Validators[i]
 
@@ -69,7 +68,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 		var withdrawalCredentials [32]byte
 		copy(withdrawalCredentials[:], withdrawalCredentialsBytes)
 
-		c.InitialValidatorList[i] = beacon.InitialValidatorEntry{
+		c.InitialValidatorList[i] = primitives.InitialValidatorEntry{
 			PubKey:                pubKey,
 			ProofOfPossession:     signature,
 			WithdrawalCredentials: withdrawalCredentials,

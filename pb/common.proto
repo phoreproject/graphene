@@ -30,17 +30,18 @@ message CasperSlashing {
 
 message AttestationData {
     uint64 Slot = 1;
-    uint64 Shard = 2;
-    bytes BeaconBlockHash = 3;
+    bytes BeaconBlockHash = 2;
 
     // This is the destination root
-    bytes EpochBoundaryHash = 4;
-    bytes ShardBlockHash = 5;
-    bytes LatestCrosslinkHash = 6;
+    uint64 TargetEpoch = 3;
+    bytes TargetHash = 4;
+    uint64 SourceEpoch = 5;
+    bytes SourceHash = 6;
 
-    // These are the source root and slot
-    uint64 JustifiedSlot = 7;
-    bytes JustifiedBlockHash = 8;
+    // Crosslink vote
+    bytes ShardBlockHash = 7;
+    uint64 Shard = 8;
+    bytes LatestCrosslinkHash = 9;
 }
 
 message AttestationDataAndCustodyBit {
@@ -90,6 +91,7 @@ message BlockBody {
     repeated CasperSlashing CasperSlashings = 3;
     repeated Deposit Deposits = 4;
     repeated Exit Exits = 5;
+    repeated AggregatedVote Votes = 6;
 }
 
 message ForkData {
@@ -143,24 +145,29 @@ message State {
 
     repeated Validator ValidatorRegistry = 5;
     repeated uint64 ValidatorBalances = 6;
-    uint64 ValidatorRegistryLatestChangeSlot = 7;
+    uint64 ValidatorRegistryLatestChangeEpoch = 7;
     uint64 ValidatorRegistryExitCount = 8;
     bytes ValidatorRegistryDeltaChainTip = 9;
 
     bytes RandaoMix = 10;
-    bytes NextSeed = 11;
     repeated ShardCommitteesForSlot ShardCommittees = 12;
 
-    uint64 PreviousJustifiedSlot = 13;
-    uint64 JustifiedSlot = 14;
+    uint64 PreviousJustifiedEpoch = 13;
+    uint64 JustifiedEpoch = 14;
     uint64 JustificationBitField = 15;
-    uint64 FinalizedSlot = 16;
+    uint64 FinalizedEpoch = 16;
 
     repeated Crosslink LatestCrosslinks = 17;
-    repeated bytes LatestBlockHashes = 18;
-    repeated uint64 LatestPenalizedExitBalances = 19;
-    repeated PendingAttestation LatestAttestations = 20;
-    repeated bytes BatchedBlockRoots = 21;
+    repeated Crosslink PreviousCrosslinks = 18;
+    repeated bytes ShardRegistry = 19;
+
+    repeated bytes LatestBlockHashes = 20;
+    repeated PendingAttestation CurrentEpochAttestations = 21;
+    repeated PendingAttestation PreviousEpochAttestations = 22;
+    repeated bytes BatchedBlockRoots = 23;
+
+    repeated ActiveProposal Proposals = 24;
+    repeated AggregatedVote PendingVotes = 25;
 }
 
 message ValidatorRegistryDeltaBlock {
@@ -173,4 +180,24 @@ message ValidatorRegistryDeltaBlock {
 message AttestationRequest {
     // possibly sign this message to prevent DoS
     bytes ParticipationBitfield = 1;
+}
+
+message VoteData {
+    uint32 Type = 1;
+    repeated uint32 Shards = 2;
+    bytes ActionHash = 3;
+    uint32 Proposer = 4;
+}
+
+message AggregatedVote {
+    VoteData Data = 1;
+    bytes Signature = 2;
+    bytes Participation = 3;
+}
+
+message ActiveProposal {
+    VoteData Data = 1;
+    bytes Participation = 2;
+    uint64 StartEpoch = 3;
+    bool Queued = 4;
 }

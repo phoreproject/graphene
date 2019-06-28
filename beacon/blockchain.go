@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -12,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/utils"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 )
@@ -37,16 +37,6 @@ type Blockchain struct {
 	Notifees []BlockchainNotifee
 }
 
-// GetEpochBoundaryHash gets the Hash of the parent block at the epoch boundary.
-func (b *Blockchain) GetEpochBoundaryHash(slot uint64) (chainhash.Hash, error) {
-	epochBoundaryHeight := slot - (slot % b.config.EpochLength)
-	bl, err := b.View.Chain.GetBlockBySlot(epochBoundaryHeight)
-	if err != nil {
-		return chainhash.Hash{}, err
-	}
-	return bl.Hash, nil
-}
-
 func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, error) {
 	att, err := b.DB.GetLatestAttestation(validator)
 	if err != nil {
@@ -56,7 +46,7 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 	if err != nil {
 		return nil, err
 	}
-	h, err := ssz.TreeHash(bl)
+	h, err := ssz.HashTreeRoot(bl)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +60,7 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 
 // NewBlockchainWithInitialValidators creates a new blockchain with the specified
 // initial validators.
-func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
+func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, validators []primitives.InitialValidatorEntry, skipValidation bool, genesisTime uint64) (*Blockchain, error) {
 	b := &Blockchain{
 		DB:     db,
 		config: config,
@@ -84,12 +74,12 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 
 	b.stateManager = sm
 
-	initialState, err := InitializeState(config, validators, genesisTime, skipValidation)
+	initialState, err := primitives.InitializeState(config, validators, genesisTime, skipValidation)
 	if err != nil {
 		return nil, err
 	}
 
-	stateRoot, err := ssz.TreeHash(initialState)
+	stateRoot, err := ssz.HashTreeRoot(initialState)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +101,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		},
 	}
 
-	blockHash, err := ssz.TreeHash(block0)
+	blockHash, err := ssz.HashTreeRoot(block0)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +142,7 @@ func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 
 	view := NewChainView(tip)
 
-	tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
+	_, tipState, err := b.stateManager.GetStateForHashAtSlot(tip.Hash, upTo, &view, b.config)
 	if err != nil {
 		return nil, err
 	}
@@ -165,16 +155,6 @@ func (b *Blockchain) GetUpdatedState(upTo uint64) (*primitives.State, error) {
 // GetNextSlotTime returns the timestamp of the next slot.
 func (b *Blockchain) GetNextSlotTime() time.Time {
 	return time.Unix(int64((b.View.Chain.Tip().Slot+1)*uint64(b.config.SlotDuration)+b.stateManager.GetGenesisTime()), 0)
-}
-
-// InitialValidatorEntry is the validator entry to be added
-// at the beginning of a blockchain.
-type InitialValidatorEntry struct {
-	PubKey                [96]byte
-	ProofOfPossession     [48]byte
-	WithdrawalShard       uint32
-	WithdrawalCredentials chainhash.Hash
-	DepositSize           uint64
 }
 
 // Height returns the height of the chain.

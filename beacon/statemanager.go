@@ -7,51 +7,65 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/bls"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 type stateDerivedFromBlock struct {
-	slotsAfterBlock []*primitives.State // slotsAfterBlock[n].Slot = blockSlot + n
-	firstSlot       uint64
-	lock            *sync.Mutex
+	firstSlot      uint64
+	firstSlotState *primitives.State
+
+	lastSlot         uint64
+	lastSlotState    *primitives.State
+	lastSlotReceipts []primitives.Receipt
+
+	lock *sync.Mutex
 }
 
 func newStateDerivedFromBlock(stateAfterProcessingBlock *primitives.State) *stateDerivedFromBlock {
 	return &stateDerivedFromBlock{
-		slotsAfterBlock: []*primitives.State{stateAfterProcessingBlock},
-		firstSlot:       stateAfterProcessingBlock.Slot,
-		lock:            new(sync.Mutex),
+		firstSlotState: stateAfterProcessingBlock,
+		firstSlot:      stateAfterProcessingBlock.Slot,
+		lastSlotState:  stateAfterProcessingBlock,
+		lastSlot:       stateAfterProcessingBlock.Slot,
+		lock:           new(sync.Mutex),
 	}
 }
 
-func (s *stateDerivedFromBlock) deriveState(slot uint64, view primitives.BlockView, c *config.Config) (*primitives.State, error) {
+func (s *stateDerivedFromBlock) deriveState(slot uint64, view primitives.BlockView, c *config.Config) ([]primitives.Receipt, *primitives.State, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	slotIndex := slot - s.firstSlot
-
-	if slotIndex < uint64(len(s.slotsAfterBlock)) {
-		// in case we didn't generate this state (already cached)
-		view.SetTipSlot(slot)
-
-		return s.slotsAfterBlock[slotIndex], nil
+	if slot == s.lastSlot {
+		return s.lastSlotReceipts, s.lastSlotState, nil
 	}
-	for generatingSlot := len(s.slotsAfterBlock); uint64(generatingSlot) <= slotIndex; generatingSlot++ {
-		bestState := s.slotsAfterBlock[len(s.slotsAfterBlock)-1].Copy()
 
-		err := bestState.ProcessSlots(s.firstSlot+uint64(generatingSlot), view, c)
+	if slot < s.lastSlot {
+		derivedState := s.firstSlotState.Copy()
+
+		receipts, err := derivedState.ProcessSlots(slot, view, c)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		s.slotsAfterBlock = append(s.slotsAfterBlock, &bestState)
+		view.SetTipSlot(slot)
+
+		return receipts, &derivedState, nil
 	}
 
-	return s.slotsAfterBlock[slotIndex], nil
+	view.SetTipSlot(s.lastSlot)
+
+	receipts, err := s.lastSlotState.ProcessSlots(slot, view, c)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s.lastSlot = slot
+	s.lastSlotReceipts = append(s.lastSlotReceipts, receipts...)
+
+	return s.lastSlotReceipts, s.lastSlotState, nil
 }
 
 // StateManager handles all state transitions, storing of states for different forks,
@@ -98,90 +112,20 @@ func (sm *StateManager) GetStateForHash(blockHash chainhash.Hash) (*primitives.S
 	}
 	derivedState.lock.Lock()
 	defer derivedState.lock.Unlock()
-	return derivedState.slotsAfterBlock[0], true
+	return derivedState.firstSlotState, true
 }
 
 // GetStateForHashAtSlot gets the state derived from a certain block Hash at a given
 // slot.
-func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uint64, view primitives.BlockView, c *config.Config) (*primitives.State, error) {
+func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uint64, view primitives.BlockView, c *config.Config) ([]primitives.Receipt, *primitives.State, error) {
 	sm.stateMapLock.RLock()
 	derivedState, found := sm.stateMap[blockHash]
 	sm.stateMapLock.RUnlock()
 	if !found {
-		return nil, fmt.Errorf("could not find state for block %s", blockHash)
+		return nil, nil, fmt.Errorf("could not find state for block %s", blockHash)
 	}
 
 	return derivedState.deriveState(slot, view, c)
-}
-
-// InitializeState initializes state to the genesis state according to the config.
-func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry, genesisTime uint64, skipValidation bool) (*primitives.State, error) {
-	crosslinks := make([]primitives.Crosslink, c.ShardCount)
-
-	for i := 0; i < c.ShardCount; i++ {
-		crosslinks[i] = primitives.Crosslink{
-			Slot:           c.InitialSlotNumber,
-			ShardBlockHash: zeroHash,
-		}
-	}
-
-	recentBlockHashes := make([]chainhash.Hash, c.LatestBlockRootsLength)
-	for i := uint64(0); i < c.LatestBlockRootsLength; i++ {
-		recentBlockHashes[i] = zeroHash
-	}
-
-	initialState := primitives.State{
-		Slot:        0,
-		EpochIndex:  0,
-		GenesisTime: genesisTime,
-		ForkData: primitives.ForkData{
-			PreForkVersion:  c.InitialForkVersion,
-			PostForkVersion: c.InitialForkVersion,
-			ForkSlotNumber:  c.InitialSlotNumber,
-		},
-		ValidatorRegistry:                 []primitives.Validator{},
-		ValidatorBalances:                 []uint64{},
-		ValidatorRegistryLatestChangeSlot: c.InitialSlotNumber,
-		ValidatorRegistryExitCount:        0,
-		ValidatorRegistryDeltaChainTip:    chainhash.Hash{},
-
-		RandaoMix:                 chainhash.Hash{},
-		NextSeed:                  chainhash.Hash{},
-		ShardAndCommitteeForSlots: [][]primitives.ShardAndCommittee{},
-
-		PreviousJustifiedSlot: c.InitialSlotNumber,
-		JustifiedSlot:         c.InitialSlotNumber,
-		JustificationBitfield: 0,
-		FinalizedSlot:         c.InitialSlotNumber,
-
-		LatestCrosslinks:            crosslinks,
-		LatestBlockHashes:           recentBlockHashes,
-		LatestPenalizedExitBalances: []uint64{},
-		LatestAttestations:          []primitives.PendingAttestation{},
-		BatchedBlockRoots:           []chainhash.Hash{},
-	}
-
-	for _, deposit := range initialValidators {
-		pub, err := bls.DeserializePublicKey(deposit.PubKey)
-		if err != nil {
-			return nil, err
-		}
-		validatorIndex, err := initialState.ProcessDeposit(pub, deposit.DepositSize, deposit.ProofOfPossession, deposit.WithdrawalCredentials, skipValidation, c)
-		if err != nil {
-			return nil, err
-		}
-		if initialState.GetEffectiveBalance(validatorIndex, c) == c.MaxDeposit {
-			err := initialState.UpdateValidatorStatus(validatorIndex, primitives.Active, c)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	initialShuffling := primitives.GetNewShuffling(zeroHash, initialState.ValidatorRegistry, 0, c)
-	initialState.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
-
-	return &initialState, nil
 }
 
 // SetBlockState sets the state for a certain block. This SHOULD ONLY
@@ -204,7 +148,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, nil, err
 	}
 
-	lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
+	receipts, lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -216,16 +160,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, nil, err
 	}
 
-	var receipts []primitives.Receipt
-
-	if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
-		receipts, err = newState.ProcessEpochTransition(sm.config, &view)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return nil, nil, err
 	}

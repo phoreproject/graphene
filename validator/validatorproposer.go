@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/utils"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -16,20 +14,10 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
-	// wait for slot to happen to submit
-	timer := time.NewTimer(time.Unix(int64(information.proposeAt), 0).Sub(utils.Now()))
-
-	select {
-	case <-timer.C:
-		break
-	case <-ctx.Done():
-		return nil
-	}
-
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
 	if err != nil {
 		return err
@@ -87,7 +75,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		BlockBody: *blockBody,
 	}
 
-	blockHash, err := ssz.TreeHash(newBlock)
+	blockHash, err := ssz.HashTreeRoot(newBlock)
 	if err != nil {
 		return err
 	}
@@ -100,7 +88,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		BlockHash: blockHash,
 	}
 
-	psdHash, err := ssz.TreeHash(psd)
+	psdHash, err := ssz.HashTreeRoot(psd)
 	if err != nil {
 		return err
 	}
@@ -110,7 +98,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		return err
 	}
 	newBlock.BlockHeader.Signature = sig.Serialize()
-	hashWithSignature, err := ssz.TreeHash(newBlock)
+	hashWithSignature, err := ssz.HashTreeRoot(newBlock)
 	if err != nil {
 		return err
 	}

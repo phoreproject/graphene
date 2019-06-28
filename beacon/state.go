@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/utils"
@@ -45,7 +45,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, errors.New("do not have parent block")
 	}
 
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,8 +73,8 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, errors.New("could not find state for parent block")
 	}
 
-	initialJustifiedSlot := initialState.JustifiedSlot
-	initialFinalizedSlot := initialState.FinalizedSlot
+	initialJustifiedEpoch := initialState.JustifiedEpoch
+	initialFinalizedEpoch := initialState.FinalizedEpoch
 
 	receipts, newState, err := b.AddBlockToStateMap(block, verifySignature)
 	if err != nil {
@@ -115,7 +115,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	blockStorageTime := time.Since(blockStorageStart)
 
-	stateRoot, err := ssz.TreeHash(newState)
+	stateRoot, err := ssz.HashTreeRoot(newState)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,7 +154,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	attestationUpdateStart := time.Now()
 
 	for _, a := range block.BlockBody.Attestations {
-		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config, newState.Slot-1)
+		participants, err := newState.GetAttestationParticipants(a.Data, a.ParticipationBitfield, b.config)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -188,7 +188,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	finalizedStateUpdateStart := time.Now()
 
-	finalizedNode := node.GetAncestorAtSlot(newState.FinalizedSlot)
+	finalizedNode := node.GetAncestorAtSlot(newState.FinalizedEpoch * b.config.EpochLength)
 	if finalizedNode == nil {
 		return nil, nil, errors.New("could not find finalized node in block index")
 	}
@@ -197,10 +197,10 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, errors.New("could not find finalized block Hash in state map")
 	}
 
-	if initialFinalizedSlot != newState.FinalizedSlot {
+	if initialFinalizedEpoch != newState.FinalizedEpoch {
 		logger.WithFields(logger.Fields{
-			"finalizedSlot": newState.FinalizedSlot,
-		}).Info("finalized slot")
+			"finalizedEpoch": newState.FinalizedEpoch,
+		}).Info("finalized epoch")
 
 		err := b.DB.SetFinalizedState(*finalizedState)
 		if err != nil {
@@ -216,7 +216,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, err
 	}
 
-	justifiedNode := node.GetAncestorAtSlot(newState.JustifiedSlot)
+	justifiedNode := node.GetAncestorAtSlot(newState.JustifiedEpoch * b.config.EpochLength)
 	if justifiedNode == nil {
 		return nil, nil, errors.New("could not find justified node in block index")
 	}
@@ -228,11 +228,11 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	justifiedNodeAndState := blockNodeAndState{justifiedNode, *justifiedState}
 	b.View.justifiedHead = justifiedNodeAndState
 
-	if initialJustifiedSlot != newState.JustifiedSlot {
+	if initialJustifiedEpoch != newState.JustifiedEpoch {
 		logger.WithFields(logger.Fields{
-			"justifiedSlot":         newState.JustifiedSlot,
-			"previousJustifiedSlot": newState.PreviousJustifiedSlot,
-			"justificationBitfield": newState.JustificationBitfield,
+			"justifiedEpoch":         newState.JustifiedEpoch,
+			"previousJustifiedEpoch": newState.PreviousJustifiedEpoch,
+			"justificationBitfield":  fmt.Sprintf("0b%b", newState.JustificationBitfield),
 		}).Info("justified slot")
 
 		err := b.DB.SetJustifiedState(*justifiedState)

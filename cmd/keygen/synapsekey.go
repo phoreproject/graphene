@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	"github.com/phoreproject/synapse/primitives"
+
 	"flag"
 	"fmt"
 	"io"
@@ -18,11 +20,9 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 
-	"github.com/phoreproject/synapse/beacon"
-
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/validator"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 var zeroHash = chainhash.Hash{}
@@ -66,7 +66,7 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 
 		pubSer := pub.Serialize()
 
-		h, err := ssz.TreeHash(pubSer)
+		h, err := ssz.HashTreeRoot(pubSer)
 		if err != nil {
 			panic(err)
 		}
@@ -153,7 +153,7 @@ func main() {
 			panic(err)
 		}
 	} else if *combine {
-		validatorList := make(map[uint32]beacon.InitialValidatorEntry)
+		validatorList := make(map[uint32]primitives.InitialValidatorEntry)
 
 		for _, fileToCombine := range filesToCombine {
 			// we should load the keys from the validator keystore
@@ -190,7 +190,7 @@ func main() {
 					var withdrawalCredentials [32]byte
 					copy(withdrawalCredentials[:], withdrawalCredentialsBytes)
 
-					validatorList[validator.ID] = beacon.InitialValidatorEntry{
+					validatorList[validator.ID] = primitives.InitialValidatorEntry{
 						PubKey:                pubKey,
 						ProofOfPossession:     signature,
 						WithdrawalCredentials: withdrawalCredentials,
@@ -227,7 +227,7 @@ func main() {
 
 				validatorID := binary.BigEndian.Uint32(validatorIDBytes[:])
 
-				var iv beacon.InitialValidatorEntry
+				var iv primitives.InitialValidatorEntry
 				err = binary.Read(f, binary.BigEndian, &iv)
 				if err != nil {
 					panic(err)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/validator"
 
@@ -26,12 +26,12 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTime time.Time) (*beacon.Blockchain, validator.Keystore, error) {
 	keystore := validator.NewFakeKeyStore()
 
-	var validators []beacon.InitialValidatorEntry
+	var validators []primitives.InitialValidatorEntry
 
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
 		pub := key.DerivePublicKey()
-		hashPub, err := ssz.TreeHash(pub.Serialize())
+		hashPub, err := ssz.HashTreeRoot(pub.Serialize())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -39,7 +39,7 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 		if err != nil {
 			return nil, nil, err
 		}
-		validators = append(validators, beacon.InitialValidatorEntry{
+		validators = append(validators, primitives.InitialValidatorEntry{
 			PubKey:                pub.Serialize(),
 			ProofOfPossession:     proofOfPossession.Serialize(),
 			WithdrawalShard:       1,
@@ -60,10 +60,7 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []primitives.Attestation, proposerSlashings []primitives.ProposerSlashing, casperSlashings []primitives.CasperSlashing, deposits []primitives.Deposit, exits []primitives.Exit, k validator.Keystore, proposerIndex uint32) (*primitives.Block, error) {
 	parentRoot := b.View.Chain.Tip().Hash
 
-	stateRoot, err := ssz.TreeHash(b.GetState())
-	if err != nil {
-		return nil, err
-	}
+	stateRoot := b.View.Chain.Tip().StateRoot
 
 	slotNumber := b.View.Chain.Tip().Slot + 1
 
@@ -93,7 +90,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		},
 	}
 
-	blockHash, err := ssz.TreeHash(block1)
+	blockHash, err := ssz.HashTreeRoot(block1)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +101,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		BlockHash: blockHash,
 	}
 
-	psdHash, err := ssz.TreeHash(psd)
+	psdHash, err := ssz.HashTreeRoot(psd)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +128,13 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 
 	lastSlot := b.View.Chain.Tip().Slot
 
-	assignments, err := s.GetShardCommitteesAtSlot(s.Slot-1, lastSlot, b.GetConfig())
+	if lastSlot == 0 {
+		return []primitives.Attestation{}, nil
+	}
+
+	config := b.GetConfig()
+
+	assignments, err := s.GetShardCommitteesAtSlot(lastSlot-1, config)
 	if err != nil {
 		return nil, err
 	}
@@ -139,19 +142,29 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochBoundaryHash, err := b.GetEpochBoundaryHash(lastSlot)
+		epochIndex := lastSlot / config.EpochLength
+
+		targetHash, err := b.View.Chain.GetBlockBySlot(epochIndex * config.EpochLength)
 		if err != nil {
 			return nil, err
 		}
 
-		prevSlot := s.Slot - 1
+		justifiedEpoch := s.JustifiedEpoch
+		crosslinks := s.LatestCrosslinks
+		if lastSlot%config.EpochLength == 0 {
+			justifiedEpoch = s.PreviousJustifiedEpoch
 
-		justifiedSlot := s.JustifiedSlot
-		if lastSlot < prevSlot-(prevSlot%b.GetConfig().EpochLength) {
-			justifiedSlot = s.PreviousJustifiedSlot
+			targetHash, err = b.View.Chain.GetBlockBySlot(epochIndex*config.EpochLength - config.EpochLength)
+			if err != nil {
+				return nil, err
+			}
+
+			epochIndex--
+
+			crosslinks = s.PreviousCrosslinks
 		}
 
-		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedSlot)
+		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * config.EpochLength)
 		if err != nil {
 			return nil, err
 		}
@@ -160,16 +173,17 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			Slot:                lastSlot,
 			Shard:               assignment.Shard,
 			BeaconBlockHash:     b.View.Chain.Tip().Hash,
-			EpochBoundaryHash:   epochBoundaryHash,
+			SourceEpoch:         justifiedEpoch,
+			SourceHash:          justifiedNode.Hash,
 			ShardBlockHash:      chainhash.Hash{},
-			LatestCrosslinkHash: s.LatestCrosslinks[assignment.Shard].ShardBlockHash,
-			JustifiedBlockHash:  justifiedNode.Hash,
-			JustifiedSlot:       justifiedSlot,
+			LatestCrosslinkHash: crosslinks[assignment.Shard].ShardBlockHash,
+			TargetEpoch:         epochIndex,
+			TargetHash:          targetHash.Hash,
 		}
 
 		dataAndCustodyBit := primitives.AttestationDataAndCustodyBit{Data: dataToSign, PoCBit: false}
 
-		dataRoot, err := ssz.TreeHash(dataAndCustodyBit)
+		dataRoot, err := ssz.HashTreeRoot(dataAndCustodyBit)
 		if err != nil {
 			return nil, err
 		}

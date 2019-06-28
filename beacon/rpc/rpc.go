@@ -47,8 +47,13 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 }
 
 // GetMempool gets the mempool for a block.
-func (s *server) GetMempool(context.Context, *empty.Empty) (*pb.BlockBody, error) {
-	atts, err := s.mempool.GetAttestationsToInclude(s.chain.GetCurrentSlot(), s.chain.GetConfig())
+func (s *server) GetMempool(ctx context.Context, req *pb.MempoolRequest) (*pb.BlockBody, error) {
+	lastBlockHash, err := chainhash.NewHash(req.LastBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	atts, err := s.mempool.GetAttestationsToInclude(s.chain.GetCurrentSlot(), *lastBlockHash, s.chain.GetConfig())
 	if err != nil {
 		return nil, err
 	}

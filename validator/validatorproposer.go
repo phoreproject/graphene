@@ -18,16 +18,6 @@ import (
 )
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
-	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
-	if err != nil {
-		return err
-	}
-
-	v.logger.WithFields(logrus.Fields{
-		"mempoolSize": len(mempool.Attestations) + len(mempool.Deposits) + len(mempool.CasperSlashings) + len(mempool.ProposerSlashings),
-		"slot":        information.slot,
-	}).Debug("creating block")
-
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})
 	if err != nil {
 		return err
@@ -58,6 +48,18 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 	if err != nil {
 		return err
 	}
+
+	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &pb.MempoolRequest{
+		LastBlockHash: parentRootBytes.Hash,
+	})
+	if err != nil {
+		return err
+	}
+
+	v.logger.WithFields(logrus.Fields{
+		"mempoolSize": len(mempool.Attestations) + len(mempool.Deposits) + len(mempool.CasperSlashings) + len(mempool.ProposerSlashings),
+		"slot":        information.slot,
+	}).Debug("creating block")
 
 	blockBody, err := primitives.BlockBodyFromProto(mempool)
 	if err != nil {

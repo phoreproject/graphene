@@ -97,7 +97,7 @@ func (a byCount) Less(i, j int) bool {
 }
 
 // GetAttestationsToInclude gets attestations to include in a block.
-func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]primitives.Attestation, error) {
+func (m *Mempool) GetAttestationsToInclude(slot uint64, lastBlockHash chainhash.Hash, c *config.Config) ([]primitives.Attestation, error) {
 	// include any attestations
 	aggregatedAttestationMap := make(map[chainhash.Hash]*attestationWithRealSigAndCount)
 
@@ -152,11 +152,22 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 	}
 	am.attestationsLock.Unlock()
 
-	state := am.blockchain.GetState()
+	state, found := m.blockchain.stateManager.GetStateForHash(lastBlockHash)
+	if !found {
+		panic("don't have state for tip")
+	}
 
-	state = state.Copy()
+	blockView, err := m.blockchain.GetSubView(lastBlockHash)
+	if err != nil {
+		return nil, err
+	}
 
-	state.LatestBlockHashes[(slot-1)%c.LatestBlockRootsLength] = m.blockchain.View.Chain.Tip().Hash
+	stateCopy := state.Copy()
+
+	_, err = stateCopy.ProcessSlots(slot+1, &blockView, c)
+	if err != nil {
+		return nil, err
+	}
 
 	attestations := make([]attestationWithRealSigAndCount, 0, len(aggregatedAttestationMap))
 	i := 0
@@ -167,7 +178,11 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 			continue
 		}
 
-		err := state.ValidateAttestation(primitives.Attestation{
+		if att.data.Slot+c.EpochLength <= slot {
+			continue
+		}
+
+		err := stateCopy.ValidateAttestation(primitives.Attestation{
 			AggregateSig:          att.aggregateSignature.Serialize(),
 			ParticipationBitfield: att.participationBitfield,
 			Data:                  att.data,
@@ -208,7 +223,7 @@ func (am *attestationMempool) removeOldAttestations(slot uint64, c *config.Confi
 	defer am.attestationsLock.Unlock()
 	newAttestations := make([]primitives.Attestation, 0)
 	for _, a := range am.attestations {
-		if a.Data.Slot+c.EpochLength < slot {
+		if a.Data.Slot+c.EpochLength <= slot {
 			continue
 		}
 

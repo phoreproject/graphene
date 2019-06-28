@@ -189,7 +189,7 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 		numAttestationsToInclude = c.MaxAttestations
 	}
 
-	attestationsToInclude := make([]primitives.Attestation, len(attestations))
+	attestationsToInclude := make([]primitives.Attestation, numAttestationsToInclude)
 	for i := 0; i < numAttestationsToInclude; i++ {
 		attestationsToInclude[i] = primitives.Attestation{
 			AggregateSig:          attestations[i].aggregateSignature.Serialize(),

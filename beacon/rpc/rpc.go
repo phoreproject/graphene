@@ -159,12 +159,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	if state.EpochIndex < in.EpochIndex {
 		state = state.Copy()
 
-		view, err := s.chain.GetSubView(s.chain.View.Chain.Tip().Hash)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = state.ProcessEpochTransition(s.chain.GetConfig(), &view)
+		_, err := state.ProcessEpochTransition(s.chain.GetConfig())
 		if err != nil {
 			return nil, err
 		}

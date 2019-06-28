@@ -66,12 +66,7 @@ func TestCrystallizedStateTransition(t *testing.T) {
 		if s.EpochIndex != i/b.GetConfig().EpochLength {
 			s = s.Copy()
 
-			view, err := b.GetSubView(b.View.Chain.Tip().Hash)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			_, err = s.ProcessEpochTransition(b.GetConfig(), &view)
+			_, err = s.ProcessEpochTransition(b.GetConfig())
 			if err != nil {
 				t.Fatal(err)
 			}

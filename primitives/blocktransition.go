@@ -13,18 +13,18 @@ import (
 )
 
 // ValidateAttestation checks if the attestation is valid.
-func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view BlockView, c *config.Config) error {
+func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *config.Config) error {
 	if att.Data.TargetEpoch == s.EpochIndex {
 		if att.Data.SourceEpoch != s.JustifiedEpoch {
 			return fmt.Errorf("expected source epoch to equal the justified epoch if the target epoch is the current epoch (expected: %d, got %d)", s.EpochIndex, att.Data.TargetEpoch)
 		}
 
-		justifiedHash, err := view.GetHashBySlot(s.JustifiedEpoch * c.EpochLength)
+		justifiedHash, err := s.GetRecentBlockHash(s.JustifiedEpoch*c.EpochLength, c)
 		if err != nil {
 			return err
 		}
 
-		if !att.Data.SourceHash.IsEqual(&justifiedHash) {
+		if !att.Data.SourceHash.IsEqual(justifiedHash) {
 			return fmt.Errorf("expected source hash to equal the current epoch hash if the target epoch is the current epoch (expected: %s, got %s)", justifiedHash, att.Data.TargetHash)
 		}
 
@@ -38,12 +38,12 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 			return fmt.Errorf("expected source epoch to equal the previous justified epoch if the target epoch is the previous epoch (expected: %d, got %d)", s.EpochIndex-1, att.Data.TargetEpoch)
 		}
 
-		previousJustifiedHash, err := view.GetHashBySlot(s.PreviousJustifiedEpoch * c.EpochLength)
+		previousJustifiedHash, err := s.GetRecentBlockHash(s.PreviousJustifiedEpoch*c.EpochLength, c)
 		if err != nil {
 			return err
 		}
 
-		if !att.Data.SourceHash.IsEqual(&previousJustifiedHash) {
+		if !att.Data.SourceHash.IsEqual(previousJustifiedHash) {
 			return fmt.Errorf("expected source hash to equal the previous justified hash if the target epoch is the previous epoch (expected: %s, got %s)", previousJustifiedHash, att.Data.TargetHash)
 		}
 
@@ -101,12 +101,12 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 		}
 	}
 
-	node, err := view.GetHashBySlot(att.Data.Slot)
+	node, err := s.GetRecentBlockHash(att.Data.Slot, c)
 	if err != nil {
 		return err
 	}
 
-	if !att.Data.BeaconBlockHash.IsEqual(&node) {
+	if !att.Data.BeaconBlockHash.IsEqual(node) {
 		return fmt.Errorf("beacon block hash is invalid (expected: %s, got: %s)", node, att.Data.BeaconBlockHash)
 	}
 
@@ -118,8 +118,8 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, view 
 }
 
 // applyAttestation verifies and applies an attestation to the given state.
-func (s *State) applyAttestation(att Attestation, c *config.Config, view BlockView, verifySignature bool, proposerIndex uint32) error {
-	err := s.ValidateAttestation(att, verifySignature, view, c)
+func (s *State) applyAttestation(att Attestation, c *config.Config, verifySignature bool, proposerIndex uint32) error {
+	err := s.ValidateAttestation(att, verifySignature, c)
 	if err != nil {
 		return err
 	}
@@ -417,7 +417,7 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 	}
 
 	for _, a := range block.BlockBody.Attestations {
-		err := s.applyAttestation(a, con, view, verifySignature, proposerIndex)
+		err := s.applyAttestation(a, con, verifySignature, proposerIndex)
 		if err != nil {
 			return err
 		}

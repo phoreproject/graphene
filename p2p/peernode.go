@@ -9,6 +9,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/mux"
+
 	inet "github.com/libp2p/go-libp2p-net"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	logger "github.com/sirupsen/logrus"
@@ -132,7 +134,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 
 		err := node.handleMessage(message)
 		if err != nil {
-			if err != io.EOF && err.Error() != "stream reset" {
+			if err != io.EOF {
 				logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 			}
 			node.cancel()
@@ -140,7 +142,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 
 		err = node.host.handleMessage(node, message)
 		if err != nil {
-			if err != io.EOF && err.Error() != "stream reset" {
+			if err != io.EOF && err != mux.ErrReset {
 				logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 			}
 			node.cancel()
@@ -149,7 +151,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 		return nil
 	})
 	if err != nil {
-		if err != io.EOF && err.Error() != "stream reset" {
+		if err != io.EOF && err != mux.ErrReset {
 			logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 		}
 	}

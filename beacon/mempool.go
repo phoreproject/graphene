@@ -152,17 +152,11 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 	}
 	am.attestationsLock.Unlock()
 
-	tipHash := am.blockchain.View.Chain.Tip().Hash
-
-	tipView, err := am.blockchain.GetSubView(tipHash)
-	if err != nil {
-		return nil, err
-	}
-
 	state := am.blockchain.GetState()
 
-	// assume the tip slot is the slot before
-	tipView.SetTipSlot(slot - 1)
+	state = state.Copy()
+
+	state.LatestBlockHashes[(slot-1)%c.LatestBlockRootsLength] = m.blockchain.View.Chain.Tip().Hash
 
 	attestations := make([]attestationWithRealSigAndCount, 0, len(aggregatedAttestationMap))
 	i := 0
@@ -173,12 +167,12 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 			continue
 		}
 
-		err = state.ValidateAttestation(primitives.Attestation{
+		err := state.ValidateAttestation(primitives.Attestation{
 			AggregateSig:          att.aggregateSignature.Serialize(),
 			ParticipationBitfield: att.participationBitfield,
 			Data:                  att.data,
 			CustodyBitfield:       att.custodyBitfield,
-		}, false, &tipView, c)
+		}, false, c)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -190,13 +184,18 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, c *config.Config) ([]pri
 
 	sort.Sort(byCount(attestations))
 
+	numAttestationsToInclude := len(attestations)
+	if numAttestationsToInclude > c.MaxAttestations {
+		numAttestationsToInclude = c.MaxAttestations
+	}
+
 	attestationsToInclude := make([]primitives.Attestation, len(attestations))
-	for i, att := range attestations {
+	for i := 0; i < numAttestationsToInclude; i++ {
 		attestationsToInclude[i] = primitives.Attestation{
-			AggregateSig:          att.aggregateSignature.Serialize(),
-			ParticipationBitfield: att.participationBitfield,
-			Data:                  att.data,
-			CustodyBitfield:       att.custodyBitfield,
+			AggregateSig:          attestations[i].aggregateSignature.Serialize(),
+			ParticipationBitfield: attestations[i].participationBitfield,
+			Data:                  attestations[i].data,
+			CustodyBitfield:       attestations[i].custodyBitfield,
 		}
 	}
 

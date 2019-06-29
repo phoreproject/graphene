@@ -48,7 +48,6 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		ValidatorRegistryDeltaChainTip:     chainhash.Hash{},
 
 		RandaoMix:                 chainhash.Hash{},
-		NextSeed:                  chainhash.Hash{},
 		ShardAndCommitteeForSlots: [][]ShardAndCommittee{},
 
 		PreviousJustifiedEpoch: 0,
@@ -56,13 +55,14 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		JustificationBitfield:  0,
 		FinalizedEpoch:         0,
 
-		LatestCrosslinks:            crosslinks,
-		PreviousCrosslinks:          crosslinks,
-		LatestBlockHashes:           recentBlockHashes,
-		LatestPenalizedExitBalances: []uint64{},
-		CurrentEpochAttestations:    []PendingAttestation{},
-		PreviousEpochAttestations:   []PendingAttestation{},
-		BatchedBlockRoots:           []chainhash.Hash{},
+		LatestCrosslinks:          crosslinks,
+		PreviousCrosslinks:        crosslinks,
+		LatestBlockHashes:         recentBlockHashes,
+		CurrentEpochAttestations:  []PendingAttestation{},
+		PreviousEpochAttestations: []PendingAttestation{},
+		BatchedBlockRoots:         []chainhash.Hash{},
+
+		ShardRegistry: make([]chainhash.Hash, c.ShardCount),
 	}
 
 	for _, deposit := range initialValidators {
@@ -82,7 +82,7 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		}
 	}
 
-	initialShuffling := GetNewShuffling(zeroHash, initialState.ValidatorRegistry, 0, c)
+	initialShuffling := getNewShuffling(zeroHash, initialState.ValidatorRegistry, 0, c)
 	initialState.ShardAndCommitteeForSlots = append(initialShuffling, initialShuffling...)
 
 	return &initialState, nil

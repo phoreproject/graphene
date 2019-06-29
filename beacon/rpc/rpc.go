@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
@@ -75,7 +75,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-	h, err := ssz.TreeHash(b)
+	h, err := ssz.HashTreeRoot(b)
 	if err != nil {
 		return nil, err
 	}
@@ -159,12 +159,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	if state.EpochIndex < in.EpochIndex {
 		state = state.Copy()
 
-		view, err := s.chain.GetSubView(s.chain.View.Chain.Tip().Hash)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = state.ProcessEpochTransition(s.chain.GetConfig(), &view)
+		_, err := state.ProcessEpochTransition(s.chain.GetConfig())
 		if err != nil {
 			return nil, err
 		}

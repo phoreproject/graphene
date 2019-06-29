@@ -76,25 +76,27 @@ func NewBlockchainView() *BlockchainView {
 }
 
 // SetFinalizedHead sets the finalized head of the blockchain.
-func (bv *BlockchainView) SetFinalizedHead(finalizedHash chainhash.Hash, finalizedState primitives.State) {
+func (bv *BlockchainView) SetFinalizedHead(finalizedHash chainhash.Hash, finalizedState primitives.State) bool {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	finalizedNode := bv.Index.GetBlockNodeByHash(finalizedHash)
 	if finalizedNode == nil {
-		return
+		return false
 	}
 	bv.finalizedHead = blockNodeAndState{finalizedNode, finalizedState}
+	return true
 }
 
 // SetJustifiedHead sets the justified head of the blockchain.
-func (bv *BlockchainView) SetJustifiedHead(justifiedHash chainhash.Hash, justifiedState primitives.State) {
+func (bv *BlockchainView) SetJustifiedHead(justifiedHash chainhash.Hash, justifiedState primitives.State) bool {
 	bv.lock.Lock()
 	defer bv.lock.Unlock()
 	justifiedNode := bv.Index.GetBlockNodeByHash(justifiedHash)
 	if justifiedNode == nil {
-		return
+		return false
 	}
 	bv.justifiedHead = blockNodeAndState{justifiedNode, justifiedState}
+	return true
 }
 
 // GetJustifiedHead gets the justified head of the blockchain.

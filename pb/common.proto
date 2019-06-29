@@ -91,6 +91,7 @@ message BlockBody {
     repeated CasperSlashing CasperSlashings = 3;
     repeated Deposit Deposits = 4;
     repeated Exit Exits = 5;
+    repeated AggregatedVote Votes = 6;
 }
 
 message ForkData {
@@ -149,7 +150,6 @@ message State {
     bytes ValidatorRegistryDeltaChainTip = 9;
 
     bytes RandaoMix = 10;
-    bytes NextSeed = 11;
     repeated ShardCommitteesForSlot ShardCommittees = 12;
 
     uint64 PreviousJustifiedEpoch = 13;
@@ -159,11 +159,15 @@ message State {
 
     repeated Crosslink LatestCrosslinks = 17;
     repeated Crosslink PreviousCrosslinks = 18;
-    repeated bytes LatestBlockHashes = 19;
-    repeated uint64 LatestPenalizedExitBalances = 20;
+    repeated bytes ShardRegistry = 19;
+
+    repeated bytes LatestBlockHashes = 20;
     repeated PendingAttestation CurrentEpochAttestations = 21;
     repeated PendingAttestation PreviousEpochAttestations = 22;
     repeated bytes BatchedBlockRoots = 23;
+
+    repeated ActiveProposal Proposals = 24;
+    repeated AggregatedVote PendingVotes = 25;
 }
 
 message ValidatorRegistryDeltaBlock {
@@ -176,4 +180,24 @@ message ValidatorRegistryDeltaBlock {
 message AttestationRequest {
     // possibly sign this message to prevent DoS
     bytes ParticipationBitfield = 1;
+}
+
+message VoteData {
+    uint32 Type = 1;
+    repeated uint32 Shards = 2;
+    bytes ActionHash = 3;
+    uint32 Proposer = 4;
+}
+
+message AggregatedVote {
+    VoteData Data = 1;
+    bytes Signature = 2;
+    bytes Participation = 3;
+}
+
+message ActiveProposal {
+    VoteData Data = 1;
+    bytes Participation = 2;
+    uint64 StartEpoch = 3;
+    bool Queued = 4;
 }

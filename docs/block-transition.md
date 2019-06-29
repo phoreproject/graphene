@@ -99,3 +99,9 @@ For each proposer slashing in a block, verify that:
 - `proposal_data_1.shard == proposal_data_2.shard`
 - `proposal_data_1.hash != proposal_data_2.hash`
 - Both signatures should validate given the proposer's public key and the hashes of the two `proposal_data` items.
+
+If all of the conditions are satisfied, the validator is exited with a penalty.
+
+### Validator Exits
+
+If the validator is slashed, so the validator is transitioning to the `ExitedWithPenalty` status, the offending validator is slashed `balance / WhistleblowerRewardQuotient` and the block proposer receives the amount.

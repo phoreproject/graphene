@@ -10,7 +10,7 @@ import (
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 type stateDerivedFromBlock struct {
@@ -160,14 +160,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, nil, err
 	}
 
-	//if newState.Slot/sm.config.EpochLength > newState.EpochIndex && newState.Slot%sm.config.EpochLength == 0 {
-	//	receipts, err = newState.ProcessEpochTransition(sm.config, &view)
-	//	if err != nil {
-	//		return nil, nil, err
-	//	}
-	//}
-
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return nil, nil, err
 	}

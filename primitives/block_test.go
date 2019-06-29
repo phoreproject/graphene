@@ -23,6 +23,7 @@ func TestBlock_Copy(t *testing.T) {
 			CasperSlashings:   []primitives.CasperSlashing{},
 			Deposits:          []primitives.Deposit{},
 			Exits:             []primitives.Exit{},
+			Votes:             []primitives.AggregatedVote{},
 		},
 	}
 
@@ -54,6 +55,7 @@ func TestBlock_ToFromProto(t *testing.T) {
 			CasperSlashings:   []primitives.CasperSlashing{},
 			Deposits:          []primitives.Deposit{},
 			Exits:             []primitives.Exit{},
+			Votes:             []primitives.AggregatedVote{},
 		},
 	}
 
@@ -127,11 +129,12 @@ func TestBlockHeader_ToFromProto(t *testing.T) {
 
 func TestBlockBody_Copy(t *testing.T) {
 	baseBlockBody := &primitives.BlockBody{
-		Attestations:      []primitives.Attestation{},
-		ProposerSlashings: []primitives.ProposerSlashing{},
-		CasperSlashings:   []primitives.CasperSlashing{},
-		Deposits:          []primitives.Deposit{},
-		Exits:             []primitives.Exit{},
+		Attestations:      []primitives.Attestation{{}},
+		ProposerSlashings: []primitives.ProposerSlashing{{}},
+		CasperSlashings:   []primitives.CasperSlashing{{}},
+		Deposits:          []primitives.Deposit{{}},
+		Exits:             []primitives.Exit{{}},
+		Votes:             []primitives.AggregatedVote{{}},
 	}
 
 	copyBlockBody := baseBlockBody.Copy()
@@ -158,6 +161,11 @@ func TestBlockBody_Copy(t *testing.T) {
 
 	copyBlockBody.Exits = nil
 	if baseBlockBody.Exits == nil {
+		t.Fatal("mutating exits mutates base")
+	}
+
+	copyBlockBody.Votes = nil
+	if baseBlockBody.Votes == nil {
 		t.Fatal("mutating exits mutates base")
 	}
 }
@@ -190,6 +198,11 @@ func TestBlockBody_ToFromProto(t *testing.T) {
 		Exits: []primitives.Exit{
 			{
 				Slot: 1,
+			},
+		},
+		Votes: []primitives.AggregatedVote{
+			{
+				Signature: [48]byte{1},
 			},
 		},
 	}

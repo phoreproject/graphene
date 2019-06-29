@@ -27,8 +27,20 @@ type Config struct {
 	MaxAttestations                    int
 	MaxDeposits                        int
 	MaxExits                           int
+	MaxVotes                           int
 	MaxDeposit                         uint64
 	MinDeposit                         uint64
+	ProposalCost                       uint64
+	EpochsPerVotingPeriod              uint64
+	QueueThresholdNumerator            uint64
+	QueueThresholdDenominator          uint64
+	CancelThresholdNumerator           uint64
+	CancelThresholdDenominator         uint64
+	FailThresholdNumerator             uint64
+	FailThresholdDenominator           uint64
+	GracePeriod                        uint64
+	VotingTimeout                      uint64
+	VotingExpiration                   uint64
 }
 
 // UnitInCoin is the number of base units in 1 coin.
@@ -60,8 +72,20 @@ var MainNetConfig = Config{
 	MaxAttestations:                    128,
 	MaxDeposits:                        16,
 	MaxExits:                           16,
+	MaxVotes:                           16,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+	ProposalCost:                       1 * UnitInCoin,
+	EpochsPerVotingPeriod:              14 * 3600 * 24 / 7 / 32, // 14 days
+	QueueThresholdNumerator:            3,
+	QueueThresholdDenominator:          4,
+	CancelThresholdNumerator:           1,
+	CancelThresholdDenominator:         2,
+	FailThresholdNumerator:             2,
+	FailThresholdDenominator:           5,
+	GracePeriod:                        2,
+	VotingTimeout:                      2,
+	VotingExpiration:                   4,
 }
 
 // LocalnetConfig is the config used for testing the blockchain locally
@@ -90,8 +114,20 @@ var LocalnetConfig = Config{
 	MaxAttestations:                    128,
 	MaxDeposits:                        16,
 	MaxExits:                           16,
+	MaxVotes:                           16,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+	ProposalCost:                       1 * UnitInCoin,
+	EpochsPerVotingPeriod:              1,
+	QueueThresholdNumerator:            3,
+	QueueThresholdDenominator:          4,
+	CancelThresholdNumerator:           1,
+	CancelThresholdDenominator:         2,
+	FailThresholdNumerator:             2,
+	FailThresholdDenominator:           5,
+	GracePeriod:                        2,
+	VotingTimeout:                      2,
+	VotingExpiration:                   4,
 }
 
 // RegtestConfig is the config used for unit tests
@@ -120,8 +156,20 @@ var RegtestConfig = Config{
 	MaxAttestations:                    1,
 	MaxDeposits:                        1,
 	MaxExits:                           1,
+	MaxVotes:                           1,
 	MaxDeposit:                         64 * UnitInCoin,
 	MinDeposit:                         2 * UnitInCoin,
+	ProposalCost:                       1 * UnitInCoin,
+	EpochsPerVotingPeriod:              1,
+	QueueThresholdNumerator:            3,
+	QueueThresholdDenominator:          4,
+	CancelThresholdNumerator:           1,
+	CancelThresholdDenominator:         2,
+	FailThresholdNumerator:             2,
+	FailThresholdDenominator:           5,
+	GracePeriod:                        2,
+	VotingTimeout:                      2,
+	VotingExpiration:                   4,
 }
 
 // NetworkIDs maps a network ID string to the corresponding config.

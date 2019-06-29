@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -12,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/utils"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 )
@@ -46,7 +46,7 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 	if err != nil {
 		return nil, err
 	}
-	h, err := ssz.TreeHash(bl)
+	h, err := ssz.HashTreeRoot(bl)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		return nil, err
 	}
 
-	stateRoot, err := ssz.TreeHash(initialState)
+	stateRoot, err := ssz.HashTreeRoot(initialState)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 		},
 	}
 
-	blockHash, err := ssz.TreeHash(block0)
+	blockHash, err := ssz.HashTreeRoot(block0)
 	if err != nil {
 		return nil, err
 	}

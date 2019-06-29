@@ -12,7 +12,7 @@ import (
 	crypto "github.com/libp2p/go-libp2p-crypto"
 
 	"github.com/phoreproject/synapse/pb"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/proto"
 
@@ -32,10 +32,7 @@ type BadgerDB struct {
 
 // NewBadgerDB initializes the badger database with the supplied directories.
 func NewBadgerDB(databaseDir string) *BadgerDB {
-	opts := badger.LSMOnlyOptions
-	opts.Dir = databaseDir
-	opts.ValueDir = databaseDir
-
+	opts := badger.DefaultOptions(databaseDir)
 	opts.ValueLogFileSize = 8 << 20
 
 	if runtime.GOOS == "windows" {
@@ -97,7 +94,7 @@ func (b *BadgerDB) GetBlockForHash(h chainhash.Hash, transaction ...interface{})
 
 // SetBlock sets a block for a certain block hash.
 func (b *BadgerDB) SetBlock(block primitives.Block, transaction ...interface{}) error {
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return err
 	}

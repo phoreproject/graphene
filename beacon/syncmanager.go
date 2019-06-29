@@ -15,7 +15,7 @@ import (
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -171,7 +171,7 @@ func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config,
 	}).Info("received blocks from peer")
 
 	for _, block := range blocks {
-		blockHash, err := ssz.TreeHash(block)
+		blockHash, err := ssz.HashTreeRoot(block)
 		if err != nil {
 			return nil, err
 		}
@@ -311,7 +311,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 			//
 			blockWithoutSignature := b.Copy()
 			blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
-			blockWithoutSignatureRoot, err := ssz.TreeHash(blockWithoutSignature)
+			blockWithoutSignatureRoot, err := ssz.HashTreeRoot(blockWithoutSignature)
 			if err != nil {
 				return err
 			}
@@ -322,7 +322,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 				BlockHash: blockWithoutSignatureRoot,
 			}
 
-			proposalRoot, err := ssz.TreeHash(proposal)
+			proposalRoot, err := ssz.HashTreeRoot(proposal)
 			if err != nil {
 				return err
 			}
@@ -341,7 +341,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 					return err
 				}
 
-				dataRoot, err := ssz.TreeHash(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+				dataRoot, err := ssz.HashTreeRoot(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
 				if err != nil {
 					return err
 				}
@@ -392,7 +392,7 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		}
 	}
 
-	lastBlockHash, err := ssz.TreeHash(blockMessage.Blocks[len(blockMessage.Blocks)-1])
+	lastBlockHash, err := ssz.HashTreeRoot(blockMessage.Blocks[len(blockMessage.Blocks)-1])
 	if err != nil {
 		return err
 	}
@@ -418,7 +418,7 @@ func (s *SyncManager) RegisterPostProcessHook(hook func(*primitives.Block, *prim
 }
 
 func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.Peer, verifySignature bool) error {
-	blockHash, err := ssz.TreeHash(block)
+	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return err
 	}

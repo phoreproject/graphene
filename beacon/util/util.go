@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/validator"
 
@@ -31,7 +31,7 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 	for i := 0; i <= initialValidators; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
 		pub := key.DerivePublicKey()
-		hashPub, err := ssz.TreeHash(pub.Serialize())
+		hashPub, err := ssz.HashTreeRoot(pub.Serialize())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -90,7 +90,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		},
 	}
 
-	blockHash, err := ssz.TreeHash(block1)
+	blockHash, err := ssz.HashTreeRoot(block1)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 		BlockHash: blockHash,
 	}
 
-	psdHash, err := ssz.TreeHash(psd)
+	psdHash, err := ssz.HashTreeRoot(psd)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 
 		dataAndCustodyBit := primitives.AttestationDataAndCustodyBit{Data: dataToSign, PoCBit: false}
 
-		dataRoot, err := ssz.TreeHash(dataAndCustodyBit)
+		dataRoot, err := ssz.HashTreeRoot(dataAndCustodyBit)
 		if err != nil {
 			return nil, err
 		}

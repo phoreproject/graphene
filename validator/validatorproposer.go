@@ -14,7 +14,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
@@ -75,7 +75,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		BlockBody: *blockBody,
 	}
 
-	blockHash, err := ssz.TreeHash(newBlock)
+	blockHash, err := ssz.HashTreeRoot(newBlock)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		BlockHash: blockHash,
 	}
 
-	psdHash, err := ssz.TreeHash(psd)
+	psdHash, err := ssz.HashTreeRoot(psd)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		return err
 	}
 	newBlock.BlockHeader.Signature = sig.Serialize()
-	hashWithSignature, err := ssz.TreeHash(newBlock)
+	hashWithSignature, err := ssz.HashTreeRoot(newBlock)
 	if err != nil {
 		return err
 	}

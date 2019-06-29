@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	crypto "github.com/libp2p/go-libp2p-crypto"
-	"github.com/prysmaticlabs/prysm/shared/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -42,7 +42,7 @@ func (db *InMemoryDB) GetBlockForHash(h chainhash.Hash, transaction ...interface
 // SetBlock adds the block to storage
 func (db *InMemoryDB) SetBlock(b primitives.Block, transaction ...interface{}) error {
 	db.lock.Lock()
-	blockHash, err := ssz.TreeHash(b)
+	blockHash, err := ssz.HashTreeRoot(b)
 	if err != nil {
 		return err
 	}

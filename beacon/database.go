@@ -1,6 +1,9 @@
 package beacon
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -15,12 +18,18 @@ func blockNodeToHash(b *BlockNode) chainhash.Hash {
 }
 
 func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
+	children := make([]chainhash.Hash, len(b.Children))
+	for i := range children {
+		children[i] = blockNodeToHash(b.Children[i])
+	}
+
 	return db.BlockNodeDisk{
 		Hash:      b.Hash,
 		Height:    b.Height,
 		Slot:      b.Slot,
 		StateRoot: b.StateRoot,
 		Parent:    blockNodeToHash(b.Parent),
+		Children:  children,
 	}
 }
 
@@ -107,14 +116,19 @@ func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
 		return err
 	}
 
-	b.View.SetFinalizedHead(*finalizedHead, *finalizedHeadState)
-	b.View.SetJustifiedHead(*justifiedHead, *justifiedHeadState)
+	if !b.View.SetFinalizedHead(*finalizedHead, *finalizedHeadState) {
+		return errors.New("could not find finalized head in index")
+	}
+	if !b.View.SetJustifiedHead(*justifiedHead, *justifiedHeadState) {
+		fmt.Println(*justifiedHead)
+		return errors.New("could not find justified head in index")
+	}
 
 	return nil
 }
 
 func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) error {
-	finalizedHash, err := b.DB.GetFinalizedHead()
+	justfiedHead, err := b.DB.GetJustifiedHead()
 	if err != nil {
 		return err
 	}
@@ -130,12 +144,14 @@ func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) 
 			return err
 		}
 
+		fmt.Println(nodeDisk.Hash, justfiedHead)
+
 		_, err = b.View.Index.LoadBlockNode(nodeDisk)
 		if err != nil {
 			return err
 		}
 
-		if nodeToFind.IsEqual(finalizedHash) {
+		if nodeToFind.IsEqual(justfiedHead) {
 			// don't process any children of the finalized node (that happens when we load state)
 			continue
 		}

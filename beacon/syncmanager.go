@@ -2,9 +2,9 @@ package beacon
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	ssz "github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -12,7 +12,6 @@ import (
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -595,17 +594,11 @@ func (s SyncManager) onMessageMempool(peer *p2p.Peer, message proto.Message) err
 
 	mempoolMessage := message.(*pb.MempoolMessage)
 
-	fmt.Println("mempoool", len(mempoolMessage.Attestations))
-
-	attestations := make([]primitives.Attestation, len(mempoolMessage.Attestations))
-
-	for i := range attestations {
-		a, err := primitives.AttestationFromProto(mempoolMessage.Attestations[i])
+	for _, attProto := range mempoolMessage.Attestations {
+		a, err := primitives.AttestationFromProto(attProto)
 		if err != nil {
 			return err
 		}
-
-		fmt.Println(attestations[i].ParticipationBitfield)
 
 		err = s.mempool.ProcessNewAttestation(*a)
 		if err != nil {

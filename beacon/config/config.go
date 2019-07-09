@@ -132,7 +132,7 @@ var LocalnetConfig = Config{
 
 // RegtestConfig is the config used for unit tests
 var RegtestConfig = Config{
-	ShardCount:                         4,
+	ShardCount:                         64,
 	TargetCommitteeSize:                4,
 	EjectionBalance:                    16,
 	MaxBalanceChurnQuotient:            32,
@@ -143,7 +143,7 @@ var RegtestConfig = Config{
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
 	SlotDuration:                       2,
-	EpochLength:                        4,
+	EpochLength:                        64,
 	MinAttestationInclusionDelay:       1,
 	CollectivePenaltyCalculationPeriod: 1048576,
 	ZeroBalanceValidatorTTL:            4194304,

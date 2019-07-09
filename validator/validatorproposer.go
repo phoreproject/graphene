@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	ssz "github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -14,7 +15,6 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
 )
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
@@ -39,7 +39,9 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		return err
 	}
 
-	parentRootBytes, err := v.blockchainRPC.GetLastBlockHash(context.Background(), &empty.Empty{})
+	parentRootBytes, err := v.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{
+		SlotNumber: information.slot,
+	})
 	if err != nil {
 		return err
 	}

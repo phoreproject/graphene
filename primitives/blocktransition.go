@@ -9,7 +9,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/prysmaticlabs/go-ssz"
+	ssz "github.com/prysmaticlabs/go-ssz"
 )
 
 // ValidateAttestation checks if the attestation is valid.
@@ -97,7 +97,7 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *co
 		}
 
 		if !valid {
-			return errors.New("attestation signature is invalid")
+			return fmt.Errorf("attestation signature is invalid. expected committee with members: %v for slot %d shard %d", participants, att.Data.Slot, att.Data.Shard)
 		}
 	}
 

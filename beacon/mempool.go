@@ -6,12 +6,12 @@ import (
 	"sync"
 
 	"github.com/phoreproject/synapse/pb"
+	ssz "github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 
@@ -154,13 +154,13 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, lastBlockHash chainhash.
 				continue
 			}
 
-			if _, found := aggregatedAttestationMap[hash]; !found {
+			if aggAtt, found := aggregatedAttestationMap[hash]; !found {
 				err := stateCopy.ValidateAttestation(primitives.Attestation{
 					AggregateSig:          att.AggregateSig,
 					ParticipationBitfield: att.ParticipationBitfield,
 					Data:                  att.Data,
 					CustodyBitfield:       att.CustodyBitfield,
-				}, false, c)
+				}, true, c)
 				if err != nil {
 					continue
 				}
@@ -173,13 +173,28 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, lastBlockHash chainhash.
 
 				// if this isn't already included, include it
 				aggregatedAttestationMap[hash] = &attestationWithRealSigAndCount{
-					data:                  att.Data,
-					participationBitfield: att.ParticipationBitfield,
+					data:                  att.Data.Copy(),
 					aggregateSignature:    sig,
-					custodyBitfield:       make([]uint8, len(att.ParticipationBitfield)),
+					participationBitfield: make([]uint8, len(att.ParticipationBitfield)),
+					custodyBitfield:       make([]uint8, len(att.CustodyBitfield)),
 					count:                 1,
 				}
+
+				copy(aggregatedAttestationMap[hash].participationBitfield, att.ParticipationBitfield)
+				copy(aggregatedAttestationMap[hash].custodyBitfield, att.CustodyBitfield)
 			} else {
+				intersects := false
+
+				for i, b := range aggAtt.participationBitfield {
+					if b&att.ParticipationBitfield[i] != 0 {
+						intersects = true
+					}
+				}
+
+				if intersects {
+					continue
+				}
+
 				sig, err := bls.DeserializeSignature(att.AggregateSig)
 				if err != nil {
 					return nil, err

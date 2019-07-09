@@ -293,6 +293,10 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 
 	logrus.WithField("slot", currentSlot).WithField("epochSlot", nextEpochSlot).Debug("waiting for next epoch")
 
+	if nextEpochSlot < currentSlot {
+		nextEpochSlot = currentSlot
+	}
+
 	genesisTime := state.GenesisTime
 
 	vm.genesisTime = genesisTime

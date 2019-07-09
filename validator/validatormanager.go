@@ -192,7 +192,7 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 		}
 	}
 
-	halfSlot := time.Unix(int64(slotNumber*uint64(vm.config.SlotDuration)+vm.genesisTime), 0)
+	halfSlot := time.Unix(int64(slotNumber*uint64(vm.config.SlotDuration)+vm.genesisTime+uint64((vm.config.SlotDuration+1)/2)), 5e8)
 
 	<-time.NewTimer(halfSlot.Sub(utils.Now())).C
 

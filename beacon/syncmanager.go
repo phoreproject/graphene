@@ -2,15 +2,12 @@ package beacon
 
 import (
 	"bytes"
-	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"github.com/phoreproject/synapse/beacon/config"
 
 	"github.com/golang/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
@@ -34,15 +31,17 @@ type SyncManager struct {
 	hostNode        *p2p.HostNode
 	syncStarted     bool
 	blockchain      *Blockchain
+	mempool         *Mempool
 	postProcessHook func(*primitives.Block, *primitives.State, []primitives.Receipt)
 }
 
 // NewSyncManager creates a new sync manager
-func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain) SyncManager {
+func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain, mempool *Mempool) SyncManager {
 	return SyncManager{
 		hostNode:    hostNode,
 		syncStarted: false,
 		blockchain:  blockchain,
+		mempool:     mempool,
 	}
 }
 
@@ -238,159 +237,168 @@ func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error
 		blocks[i] = b
 	}
 
-	epochBlockChunks, err := splitIncomingBlocksIntoChunks(blocks, s.blockchain.config, s.blockchain.View.Index)
-	if err != nil {
-		return err
-	}
-
-	for _, chunk := range epochBlockChunks {
-		epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
-		if !found {
-			return fmt.Errorf("could not find parent block at slot %d with parent root %s", chunk[0].BlockHeader.SlotNumber, chunk[0].BlockHeader.ParentRoot)
-		}
-
-		tipNode := s.blockchain.View.Index.GetBlockNodeByHash(chunk[0].BlockHeader.ParentRoot)
-
-		epochStateCopy := epochState.Copy()
-
-		view := NewChainView(tipNode)
-
-		_, err := epochStateCopy.ProcessSlots(chunk[0].BlockHeader.SlotNumber, &view, s.blockchain.config)
+	for _, b := range blocks {
+		err := s.handleReceivedBlock(b, peer, true)
 		if err != nil {
 			return err
 		}
-
-		// proposer public keys
-		var pubkeys []*bls.PublicKey
-
-		// attestation committee public keys
-		var attestationAggregatedPubkeys []*bls.PublicKey
-
-		aggregateSig := bls.NewAggregateSignature()
-		aggregateRandaoSig := bls.NewAggregateSignature()
-		aggregateAttestationSig := bls.NewAggregateSignature()
-
-		blockHashes := make([][]byte, 0)
-		randaoHashes := make([][]byte, 0)
-		attestationHashes := make([][]byte, 0)
-
-		// go through each of the blocks in the past epoch or so
-		for _, b := range chunk {
-			_, err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber-1, &view, s.blockchain.config)
-			if err != nil {
-				return err
-			}
-
-			proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(b.BlockHeader.SlotNumber-1, s.blockchain.config)
-			if err != nil {
-				return err
-			}
-
-			proposerPub, err := epochStateCopy.ValidatorRegistry[proposerIndex].GetPublicKey()
-			if err != nil {
-				return err
-			}
-
-			// keep track of all proposer pubkeys for this epoch
-			pubkeys = append(pubkeys, proposerPub)
-
-			blockSig, err := bls.DeserializeSignature(b.BlockHeader.Signature)
-			if err != nil {
-				return err
-			}
-
-			randaoSig, err := bls.DeserializeSignature(b.BlockHeader.RandaoReveal)
-			if err != nil {
-				return err
-			}
-
-			// aggregate both the block sig and the randao sig
-			aggregateSig.AggregateSig(blockSig)
-			aggregateRandaoSig.AggregateSig(randaoSig)
-
-			//
-			blockWithoutSignature := b.Copy()
-			blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
-			blockWithoutSignatureRoot, err := ssz.HashTreeRoot(blockWithoutSignature)
-			if err != nil {
-				return err
-			}
-
-			proposal := primitives.ProposalSignedData{
-				Slot:      b.BlockHeader.SlotNumber,
-				Shard:     s.blockchain.config.BeaconShardNumber,
-				BlockHash: blockWithoutSignatureRoot,
-			}
-
-			proposalRoot, err := ssz.HashTreeRoot(proposal)
-			if err != nil {
-				return err
-			}
-
-			blockHashes = append(blockHashes, proposalRoot[:])
-
-			var slotBytes [8]byte
-			binary.BigEndian.PutUint64(slotBytes[:], b.BlockHeader.SlotNumber)
-			slotBytesHash := chainhash.HashH(slotBytes[:])
-
-			randaoHashes = append(randaoHashes, slotBytesHash[:])
-
-			for _, att := range b.BlockBody.Attestations {
-				participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
-				if err != nil {
-					return err
-				}
-
-				dataRoot, err := ssz.HashTreeRoot(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
-				if err != nil {
-					return err
-				}
-
-				groupPublicKey := bls.NewAggregatePublicKey()
-				for _, p := range participants {
-					pub, err := epochStateCopy.ValidatorRegistry[p].GetPublicKey()
-					if err != nil {
-						return err
-					}
-					groupPublicKey.AggregatePubKey(pub)
-				}
-
-				aggSig, err := bls.DeserializeSignature(att.AggregateSig)
-				if err != nil {
-					return err
-				}
-
-				aggregateAttestationSig.AggregateSig(aggSig)
-
-				attestationHashes = append(attestationHashes, dataRoot[:])
-				attestationAggregatedPubkeys = append(attestationAggregatedPubkeys, groupPublicKey)
-			}
-		}
-
-		valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
-		if !valid {
-			return errors.New("blocks did not validate")
-		}
-
-		valid = bls.VerifyAggregate(pubkeys, randaoHashes, aggregateRandaoSig, bls.DomainRandao)
-		if !valid {
-			return errors.New("block randaos did not validate")
-		}
-
-		if len(attestationAggregatedPubkeys) > 0 {
-			valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
-			if !valid {
-				return errors.New("block attestations did not validate")
-			}
-		}
-
-		for _, b := range chunk {
-			err = s.handleReceivedBlock(b, peer, false)
-			if err != nil {
-				return err
-			}
-		}
 	}
+
+	//epochBlockChunks, err := splitIncomingBlocksIntoChunks(blocks, s.blockchain.config, s.blockchain.View.Index)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//for _, chunk := range epochBlockChunks {
+	//	epochState, found := s.blockchain.stateManager.GetStateForHash(chunk[0].BlockHeader.ParentRoot)
+	//	if !found {
+	//		return fmt.Errorf("could not find parent block at slot %d with parent root %s", chunk[0].BlockHeader.SlotNumber, chunk[0].BlockHeader.ParentRoot)
+	//	}
+	//
+	//	tipNode := s.blockchain.View.Index.GetBlockNodeByHash(chunk[0].BlockHeader.ParentRoot)
+	//
+	//	epochStateCopy := epochState.Copy()
+	//
+	//	view := NewChainView(tipNode)
+	//
+	//	_, err := epochStateCopy.ProcessSlots(chunk[0].BlockHeader.SlotNumber, &view, s.blockchain.config)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	// proposer public keys
+	//	var pubkeys []*bls.PublicKey
+	//
+	//	// attestation committee public keys
+	//	var attestationAggregatedPubkeys []*bls.PublicKey
+	//
+	//	aggregateSig := bls.NewAggregateSignature()
+	//	aggregateRandaoSig := bls.NewAggregateSignature()
+	//	aggregateAttestationSig := bls.NewAggregateSignature()
+	//
+	//	blockHashes := make([][]byte, 0)
+	//	randaoHashes := make([][]byte, 0)
+	//	attestationHashes := make([][]byte, 0)
+	//
+	//	// go through each of the blocks in the past epoch or so
+	//	for _, b := range chunk {
+	//		_, err := epochStateCopy.ProcessSlots(b.BlockHeader.SlotNumber-1, &view, s.blockchain.config)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		proposerIndex, err := epochStateCopy.GetBeaconProposerIndex(b.BlockHeader.SlotNumber-1, s.blockchain.config)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		proposerPub, err := epochStateCopy.ValidatorRegistry[proposerIndex].GetPublicKey()
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		// keep track of all proposer pubkeys for this epoch
+	//		pubkeys = append(pubkeys, proposerPub)
+	//
+	//		blockSig, err := bls.DeserializeSignature(b.BlockHeader.Signature)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		randaoSig, err := bls.DeserializeSignature(b.BlockHeader.RandaoReveal)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		// aggregate both the block sig and the randao sig
+	//		aggregateSig.AggregateSig(blockSig)
+	//		aggregateRandaoSig.AggregateSig(randaoSig)
+	//
+	//		//
+	//		blockWithoutSignature := b.Copy()
+	//		blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
+	//		blockWithoutSignatureRoot, err := ssz.HashTreeRoot(blockWithoutSignature)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		proposal := primitives.ProposalSignedData{
+	//			Slot:      b.BlockHeader.SlotNumber,
+	//			Shard:     s.blockchain.config.BeaconShardNumber,
+	//			BlockHash: blockWithoutSignatureRoot,
+	//		}
+	//
+	//		proposalRoot, err := ssz.HashTreeRoot(proposal)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		blockHashes = append(blockHashes, proposalRoot[:])
+	//
+	//		var slotBytes [8]byte
+	//		binary.BigEndian.PutUint64(slotBytes[:], b.BlockHeader.SlotNumber)
+	//		slotBytesHash := chainhash.HashH(slotBytes[:])
+	//
+	//		randaoHashes = append(randaoHashes, slotBytesHash[:])
+	//
+	//		for _, att := range b.BlockBody.Attestations {
+	//			participants, err := epochStateCopy.GetAttestationParticipants(att.Data, att.ParticipationBitfield, s.blockchain.config)
+	//			if err != nil {
+	//				return err
+	//			}
+	//
+	//			dataRoot, err := ssz.HashTreeRoot(primitives.AttestationDataAndCustodyBit{Data: att.Data, PoCBit: false})
+	//			if err != nil {
+	//				return err
+	//			}
+	//
+	//			groupPublicKey := bls.NewAggregatePublicKey()
+	//			for _, p := range participants {
+	//				pub, err := epochStateCopy.ValidatorRegistry[p].GetPublicKey()
+	//				if err != nil {
+	//					return err
+	//				}
+	//				groupPublicKey.AggregatePubKey(pub)
+	//			}
+	//
+	//			aggSig, err := bls.DeserializeSignature(att.AggregateSig)
+	//			if err != nil {
+	//				return err
+	//			}
+	//
+	//			aggregateAttestationSig.AggregateSig(aggSig)
+	//
+	//			attestationHashes = append(attestationHashes, dataRoot[:])
+	//			attestationAggregatedPubkeys = append(attestationAggregatedPubkeys, groupPublicKey)
+	//		}
+	//	}
+	//
+	//	valid := bls.VerifyAggregate(pubkeys, blockHashes, aggregateSig, bls.DomainProposal)
+	//	if !valid {
+	//		return errors.New("blocks did not validate")
+	//	}
+	//
+	//	valid = bls.VerifyAggregate(pubkeys, randaoHashes, aggregateRandaoSig, bls.DomainRandao)
+	//	if !valid {
+	//		return errors.New("block randaos did not validate")
+	//	}
+	//
+	//	if len(attestationAggregatedPubkeys) > 0 {
+	//		valid = bls.VerifyAggregate(attestationAggregatedPubkeys, attestationHashes, aggregateAttestationSig, bls.DomainAttestation)
+	//		if !valid {
+	//			fmt.Printf("chunk: ")
+	//			for _, b := range chunk {
+	//				fmt.Printf("%d ", b.BlockHeader.SlotNumber)
+	//			}
+	//			fmt.Printf("\n")
+	//			return errors.New("block attestations did not validate")
+	//		}
+	//	}
+	//
+	//	for _, b := range chunk {
+	//
+	//	}
+	//}
 
 	lastBlockHash, err := ssz.HashTreeRoot(blockMessage.Blocks[len(blockMessage.Blocks)-1])
 	if err != nil {
@@ -497,11 +505,53 @@ func (s SyncManager) ListenForBlocks() error {
 	return nil
 }
 
+// ListenForAttestations listens for new attestations over the pub-sub network.
+func (s SyncManager) ListenForAttestations() error {
+	_, err := s.hostNode.SubscribeMessage("attestation", func(data []byte, from peer.ID) {
+		peerFrom := s.hostNode.GetPeerByID(from)
+
+		if peerFrom == nil {
+			return
+		}
+
+		attestationProto := new(pb.Attestation)
+
+		err := proto.Unmarshal(data, attestationProto)
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+
+		attestation, err := primitives.AttestationFromProto(attestationProto)
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+
+		if s.mempool != nil {
+			err = s.mempool.ProcessNewAttestation(*attestation)
+			if err != nil {
+				logger.Error(err)
+				return
+			}
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Start starts the sync manager by registering message handlers
 func (s SyncManager) Start() {
 	s.hostNode.RegisterMessageHandler("pb.GetBlockMessage", s.onMessageGetBlock)
 
 	s.hostNode.RegisterMessageHandler("pb.BlockMessage", s.onMessageBlock)
+
+	s.hostNode.RegisterMessageHandler("pb.MempoolMessage", s.onMessageMempool)
+
+	s.hostNode.RegisterMessageHandler("pb.GetMempoolMessage", s.onMessageGetMempool)
 }
 
 // TryInitialSync tries to select a peer to sync with and
@@ -529,5 +579,63 @@ func (s SyncManager) TryInitialSync() {
 		}
 
 		bestPeer.SendMessage(getBlockMessage)
+
+		if s.mempool != nil {
+			attestationsMessage := s.mempool.AttestationMempool.GetMempoolSummary()
+
+			bestPeer.SendMessage(attestationsMessage)
+		}
 	}
+}
+
+func (s SyncManager) onMessageMempool(peer *p2p.Peer, message proto.Message) error {
+	if s.mempool == nil {
+		return nil
+	}
+
+	mempoolMessage := message.(*pb.MempoolMessage)
+
+	fmt.Println("mempoool", len(mempoolMessage.Attestations))
+
+	attestations := make([]primitives.Attestation, len(mempoolMessage.Attestations))
+
+	for i := range attestations {
+		a, err := primitives.AttestationFromProto(mempoolMessage.Attestations[i])
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(attestations[i].ParticipationBitfield)
+
+		err = s.mempool.ProcessNewAttestation(*a)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s SyncManager) onMessageGetMempool(peer *p2p.Peer, message proto.Message) error {
+	if s.mempool == nil {
+		return nil
+	}
+
+	getMempoolMessage := message.(*pb.GetMempoolMessage)
+
+	attestationsPeerDoesNotHave, err := s.mempool.AttestationMempool.GetMempoolDifference(getMempoolMessage)
+	if err != nil {
+		return err
+	}
+
+	attestationsProto := make([]*pb.Attestation, len(attestationsPeerDoesNotHave))
+	for i := range attestationsProto {
+		attestationsProto[i] = attestationsPeerDoesNotHave[i].ToProto()
+	}
+
+	peer.SendMessage(&pb.MempoolMessage{
+		Attestations: attestationsProto,
+	})
+
+	return nil
 }

@@ -370,7 +370,7 @@ func (ex *Explorer) StartExplorer() error {
 		return err
 	}
 
-	ex.syncManager = beacon.NewSyncManager(ex.hostNode, ex.blockchain)
+	ex.syncManager = beacon.NewSyncManager(ex.hostNode, ex.blockchain, nil)
 
 	ex.syncManager.RegisterPostProcessHook(ex.postProcessHook)
 

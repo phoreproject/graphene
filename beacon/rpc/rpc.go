@@ -43,6 +43,16 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 		return nil, err
 	}
 
+	data, err := proto.Marshal(att)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.p2p.Broadcast("attestation", data)
+	if err != nil {
+		return nil, err
+	}
+
 	return &empty.Empty{}, nil
 }
 

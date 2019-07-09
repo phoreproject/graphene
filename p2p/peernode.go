@@ -126,7 +126,7 @@ func (node *Peer) sendMessages(writer *bufio.Writer) {
 }
 
 func (node *Peer) processMessages(reader *bufio.Reader) {
-	err := processMessages(reader, func(message proto.Message) error {
+	err := processMessages(node.ctx, reader, func(message proto.Message) error {
 		logger.WithFields(logger.Fields{
 			"peer":    node.ID,
 			"message": proto.MessageName(message),
@@ -134,7 +134,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 
 		err := node.handleMessage(message)
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF && err != mux.ErrReset {
 				logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 			}
 			node.cancel()
@@ -154,6 +154,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 		if err != io.EOF && err != mux.ErrReset {
 			logger.Errorf("error processing message from peer %s: %s", node.ID, err)
 		}
+		node.cancel()
 	}
 }
 

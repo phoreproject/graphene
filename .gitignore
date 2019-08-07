@@ -11,6 +11,7 @@ synapseexplorer
 integration_tests
 integration
 *.exe
+*.pyc
 /.vscode
 
 .idea

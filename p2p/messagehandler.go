@@ -3,6 +3,7 @@ package p2p
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -97,7 +98,7 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 }
 
 // processMessages continuously reads from stream and handles any protobuf messages.
-func processMessages(stream *bufio.Reader, handler func(message proto.Message) error) error {
+func processMessages(ctx context.Context, stream *bufio.Reader, handler func(message proto.Message) error) error {
 	const stateReadHeader = 1
 	const stateReadMessage = 2
 
@@ -105,6 +106,13 @@ func processMessages(stream *bufio.Reader, handler func(message proto.Message) e
 	state := stateReadHeader
 	var messageBuffer []byte
 	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			break
+		}
+
 		switch state {
 		case stateReadHeader:
 			if _, err := io.ReadFull(stream, headerBuffer); err == nil {

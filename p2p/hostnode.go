@@ -7,11 +7,14 @@ import (
 	"sync"
 	"time"
 
+	protocol2 "github.com/libp2p/go-libp2p-core/protocol"
+
+	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
+
 	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/golang/protobuf/proto"
-	libp2p "github.com/libp2p/go-libp2p"
-	connmgr "github.com/libp2p/go-libp2p-connmgr"
+	"github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -20,7 +23,8 @@ import (
 	ps "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multiaddr"
+	connmgr "github.com/phoreproject/go-phore-connmgr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
@@ -78,13 +82,18 @@ var protocolID = protocol.ID("/grpc/phore/0.0.1")
 // NewHostNode creates a host node
 func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, privateKey crypto.PrivKey, options DiscoveryOptions, timeoutInterval time.Duration, maxPeers int, heartbeatInterval time.Duration, chainProvider ChainProvider) (*HostNode, error) {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	ps := pstoremem.NewPeerstore()
+
 	h, err := libp2p.New(
 		ctx,
 		libp2p.ListenAddrs(listenAddress),
 		libp2p.Identity(privateKey),
 		libp2p.EnableRelay(),
-		libp2p.ConnectionManager(connmgr.NewConnManager(1, maxPeers, time.Second*5)),
+		libp2p.Peerstore(ps),
+		libp2p.ConnectionManager(connmgr.NewConnManager(maxPeers, maxPeers, time.Second*5, ps, map[protocol2.ID]int{})),
 	)
+
 	if err != nil {
 		cancel()
 		return nil, err

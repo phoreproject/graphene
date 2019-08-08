@@ -126,7 +126,7 @@ func (app *BeaconApp) Run() error {
 		return err
 	}
 
-	app.syncManager = beacon.NewSyncManager(app.hostNode, app.blockchain)
+	app.syncManager = beacon.NewSyncManager(app.hostNode, app.blockchain, app.mempool)
 
 	app.syncManager.Start()
 
@@ -304,6 +304,13 @@ func (app *BeaconApp) runMainLoop() error {
 			err := app.syncManager.ListenForBlocks()
 			if err != nil {
 				logger.Errorf("error listening for blocks: %s", err)
+			}
+		}()
+
+		go func() {
+			err := app.syncManager.ListenForAttestations()
+			if err != nil {
+				logger.Errorf("error listening for attestations: %s", err)
 			}
 		}()
 	}()

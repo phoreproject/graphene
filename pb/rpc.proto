@@ -28,9 +28,13 @@ service BlockchainRPC {
 
     rpc SubmitAttestation(Attestation) returns (google.protobuf.Empty);
 
-    rpc GetMempool(google.protobuf.Empty) returns (BlockBody);
+    rpc GetMempool(MempoolRequest) returns (BlockBody);
 
     rpc GetValidatorInformation(GetValidatorRequest) returns (Validator);
+}
+
+message MempoolRequest {
+    bytes LastBlockHash = 1;
 }
 
 message GetValidatorRequest {

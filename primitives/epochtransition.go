@@ -3,6 +3,7 @@ package primitives
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math"
 
 	"github.com/prysmaticlabs/go-ssz"
@@ -216,10 +217,19 @@ func (s *State) exitValidatorsUnderMinimum(c *config.Config) error {
 	return nil
 }
 
+// GetRecentBlockHash gets block hashes from the LatestBlockHashes array.
+func (s *State) GetRecentBlockHash(slotToGet uint64, c *config.Config) (*chainhash.Hash, error) {
+	if s.Slot-slotToGet >= c.LatestBlockRootsLength {
+		return nil, errors.New("can't fetch block hash from more than LatestBlockRootsLength")
+	}
+
+	return &s.LatestBlockHashes[slotToGet%c.LatestBlockRootsLength], nil
+}
+
 // ProcessEpochTransition processes an epoch transition and modifies state. This shouldn't usually
 // be used as ProcessSlots is generally a better way to update state, but sometimes it's required to
 // validate/generate attestations for the next epoch.
-func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Receipt, error) {
+func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
 
@@ -242,20 +252,20 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	previousEpochBoundaryHash := chainhash.Hash{}
 	if s.Slot >= 2*c.EpochLength {
-		ebhm2, err := view.GetHashBySlot(s.Slot - 2*c.EpochLength)
+		ebhm2, err := s.GetRecentBlockHash(s.Slot-2*c.EpochLength, c)
 		if err != nil {
-			ebhm2 = chainhash.Hash{}
+			ebhm2 = &chainhash.Hash{}
 		}
-		previousEpochBoundaryHash = ebhm2
+		previousEpochBoundaryHash = *ebhm2
 	}
 
 	currentEpochBoundaryHash := chainhash.Hash{}
 	if s.Slot >= c.EpochLength {
-		ebhm1, err := view.GetHashBySlot(s.Slot - c.EpochLength)
+		ebhm1, err := s.GetRecentBlockHash(s.Slot-c.EpochLength, c)
 		if err != nil {
-			ebhm1 = chainhash.Hash{}
+			ebhm1 = &chainhash.Hash{}
 		}
-		currentEpochBoundaryHash = ebhm1
+		currentEpochBoundaryHash = *ebhm1
 	}
 
 	// attestationsMatchingPreviousTarget is any attestation where the source is the previous epoch and the
@@ -304,11 +314,11 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 
 	var previousEpochAttestationsMatchingBeaconBlock []PendingAttestation
 	for _, a := range s.PreviousEpochAttestations {
-		blockRoot, err := view.GetHashBySlot(a.Data.Slot)
+		blockRoot, err := s.GetRecentBlockHash(a.Data.Slot, c)
 		if err != nil {
 			break
 		}
-		if a.Data.BeaconBlockHash.IsEqual(&blockRoot) {
+		if a.Data.BeaconBlockHash.IsEqual(blockRoot) {
 			previousEpochAttestationsMatchingBeaconBlock = append(previousEpochAttestationsMatchingBeaconBlock, a)
 		}
 	}
@@ -740,6 +750,17 @@ func (s *State) ProcessEpochTransition(c *config.Config, view BlockView) ([]Rece
 				// proposal passes -> queue it
 				if activeProposal.Data.Type == Propose && c.QueueThresholdDenominator*yesVotes >= c.QueueThresholdNumerator*total {
 					s.Proposals[idx].Queued = true
+
+					for i := range s.Proposals {
+						proposalHash, _ := ssz.HashTreeRoot(s.Proposals[i].Data)
+
+						if bytes.Equal(activeProposal.Data.ActionHash[:], proposalHash[:]) {
+							// queue any cancellations for removal
+
+							toRemove[i] = struct{}{}
+						}
+					}
+
 					continue
 				}
 

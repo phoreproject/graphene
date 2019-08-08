@@ -1107,7 +1107,7 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]R
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
-			epochReceipts, err := s.ProcessEpochTransition(c, view)
+			epochReceipts, err := s.ProcessEpochTransition(c)
 			if err != nil {
 				return nil, err
 			}

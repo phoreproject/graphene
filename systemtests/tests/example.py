@@ -1,12 +1,14 @@
-#below two lines are required by every tests to import sibling package
+#below lines are required by every tests to import sibling package
 import sys
 sys.path.append('..')
+sys.path.append('../pb')
 
 from framework import tester
 from framework import logger
 from framework import beaconnode
 from framework import validatornode
 from framework import util
+from framework import rpc
 
 class Example :
     def __init__(self) :
@@ -19,9 +21,16 @@ class Example :
     def _do_run(self) :
         self._tester.create_nodes(1, node_class = beaconnode.BeaconNode)
         util.sleep_for_seconds(3)
-        self._tester.create_nodes(1, node_class = validatornode.ValidatorNode)
+        #self._tester.create_nodes(1, node_class = validatornode.ValidatorNode)
         self._tester.start_all_nodes()
         #self._tester.get_node(0).execute('setgenerate', True, 10)
+        util.sleep_for_seconds(1)
+
+        rpc_client = rpc.create_beacon_rpc()
+        print('=========')
+        print(rpc_client.GetSlotNumber(rpc.get_empty()))
+        print('=========')
+
         util.sleep_for_seconds(20)
         self._tester.stop_all_nodes()
 

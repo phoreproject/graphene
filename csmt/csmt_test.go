@@ -1,341 +1,248 @@
 package csmt
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/phoreproject/synapse/chainhash"
 )
 
-func newHashFromStr(s string) *Hash {
-	result, _ := chainhash.NewHashFromStr(s)
-	return result
+func ch(s string) chainhash.Hash {
+	return chainhash.HashH([]byte(s))
 }
 
-func nodeHashFunction(left *Hash, right *Hash) Hash {
-	return chainhash.HashH(append(left[:], right[:]...))
-}
+func TestTree_RandomSet(t *testing.T) {
+	keys := make([]chainhash.Hash, 500)
+	val := ch("testval")
+	tree := NewTree()
 
-func createCSMT() *CSMT {
-	return &CSMT{
-		root:             nil,
-		nodeHashFunction: nodeHashFunction,
-	}
-}
-
-func TestCSMTMembershipProof(t *testing.T) {
-	csmt := createCSMT()
-
-	var h *Hash
-
-	h = newHashFromStr("fe")
-	err := csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
+	for i := range keys {
+		keys[i] = ch(fmt.Sprintf("%d", i))
 	}
 
-	h = newHashFromStr("ff")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("01")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("02")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("7f")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("03")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("04")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("05")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("06")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
-	}
-
-	h = newHashFromStr("08")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !csmt.GetProof(h).IsMembershipProof() {
-		t.Errorf("Key should exist in CSMT")
-	}
-	if !csmt.GetProof(h).(MembershipProof).VerifyHashInTree(h, csmt) {
-		t.Errorf("Key doesn't verify in CSMT")
+	for i := 0; i < 500; i++ {
+		tree.Set(keys[i], val)
 	}
 }
 
-func TestCSMTNonMembershipProof(t *testing.T) {
-	csmt := createCSMT()
+func TestTree_SetZero(t *testing.T) {
+	val := emptyHash
 
-	err := csmt.Insert(newHashFromStr("fe"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = csmt.Insert(newHashFromStr("09"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = csmt.Insert(newHashFromStr("01"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = csmt.Insert(newHashFromStr("f6"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = csmt.Insert(newHashFromStr("08"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := NewTree()
 
-	if csmt.GetProof(newHashFromStr("70")).IsMembershipProof() {
-		t.Errorf("Key should not exist in CSMT")
-	}
-	if csmt.GetProof(newHashFromStr("71")).IsMembershipProof() {
-		t.Errorf("Key should not exist in CSMT")
-	}
-	if csmt.GetProof(newHashFromStr("85")).IsMembershipProof() {
-		t.Errorf("Key should not exist in CSMT")
+	tree.Set(ch("1"), val)
+	tree.Set(ch("2"), val)
+	tree.Set(ch("3"), val)
+	tree.Set(ch("4"), val)
+	tree.Set(ch("5"), val)
+	th := tree.Hash()
+
+	if !th.IsEqual(&emptyTrees[255]) {
+		t.Fatalf("expected tree to match %s but got %s", emptyTrees[255], th)
 	}
 }
 
-func TestCSMTDuplicatedHash(t *testing.T) {
-	csmt := createCSMT()
+func BenchmarkTree_Set(b *testing.B) {
+	keys := make([]chainhash.Hash, b.N)
+	val := ch("testval")
+	t := NewTree()
 
-	var h *Hash
-
-	h = newHashFromStr("fe")
-	err := csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if csmt.Insert(h, nil) == nil {
-		t.Errorf("There should be error of duplicated keys")
+	for i := range keys {
+		keys[i] = ch(fmt.Sprintf("%d", i))
 	}
 
-	h = newHashFromStr("77")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if csmt.Insert(h, nil) == nil {
-		t.Errorf("There should be error of duplicated keys")
-	}
+	b.ResetTimer()
 
-	h = newHashFromStr("56")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if csmt.Insert(h, nil) == nil {
-		t.Errorf("There should be error of duplicated keys")
-	}
-
-	h = newHashFromStr("ff")
-	err = csmt.Insert(h, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if csmt.Insert(h, nil) == nil {
-		t.Errorf("There should be error of duplicated keys")
+	for i := 0; i < b.N; i++ {
+		t.Set(keys[i], val)
 	}
 }
 
-func TestDistance(t *testing.T) {
-	var dist int
-
-	dist = distance(newHashFromStr("ff"), newHashFromStr("00"))
-	if dist != 256 {
-		t.Errorf("distance: got %d, expected %d", dist, 256)
+func Test_calculateSubtreeHashWithOneLeaf(t *testing.T) {
+	type args struct {
+		key     chainhash.Hash
+		value   chainhash.Hash
+		atLevel uint8
 	}
-
-	dist = distance(newHashFromStr("7f"), newHashFromStr("00"))
-	if dist != 255 {
-		t.Errorf("distance: got %d, expected %d", dist, 255)
+	tests := []struct {
+		name string
+		args args
+		want chainhash.Hash
+	}{
+		{
+			name: "test lowest node",
+			args: args{
+				key:     ch("test"),
+				value:   emptyHash,
+				atLevel: 0,
+			},
+			want: emptyHash,
+		},
+		{
+			name: "test empty subtree root",
+			args: args{
+				key:     ch("test"),
+				value:   emptyHash,
+				atLevel: 255,
+			},
+			want: emptyTrees[255],
+		},
 	}
-
-	dist = distance(newHashFromStr("ffff"), newHashFromStr("00ff"))
-	if dist != 248 {
-		t.Errorf("distance: got %d, expected %d", dist, 248)
-	}
-
-	dist = distance(newHashFromStr("7fff"), newHashFromStr("00ff"))
-	if dist != 247 {
-		t.Errorf("distance: got %d, expected %d", dist, 247)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := calculateSubtreeHashWithOneLeaf(&tt.args.key, &tt.args.value, tt.args.atLevel); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("calculateSubtreeHashWithOneLeaf() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestCSMTRemoveKey(t *testing.T) {
-	insertKeys := []string{
-		"03",
-		"06",
-		"02",
-		"04",
-		"01",
-		"05",
-	}
-	removeKeys := []string{
-		"04",
-		"03",
-		"01",
-		"02",
-		"05",
-		"06",
+func TestRandomGenerateUpdateWitness(t *testing.T) {
+	keys := make([]chainhash.Hash, 500)
+	val := ch("testval")
+	tree := NewTree()
+
+	for i := range keys {
+		keys[i] = ch(fmt.Sprintf("%d", i))
 	}
 
-	csmt := createCSMT()
-
-	for _, key := range insertKeys {
-		h := newHashFromStr(key)
-		csmt.Insert(h, nil)
-		if !csmt.GetProof(h).IsMembershipProof() {
-			t.Errorf("Key should exist in the tree")
-		}
+	for i := 0; i < 500; i++ {
+		tree.Set(keys[i], val)
 	}
 
-	for _, key := range removeKeys {
-		h := newHashFromStr(key)
+	treehash := tree.Hash()
 
-		if !csmt.GetProof(h).IsMembershipProof() {
-			t.Errorf("Key should exist in the tree")
-		}
-
-		err := csmt.Remove(h)
+	for i := 0; i < 500; i++ {
+		w := GenerateUpdateWitness(&tree, keys[i], val)
+		root, err := CalculateRoot(keys[i], val, w.WitnessBitfield, w.Witnesses, w.LastLevel)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if csmt.GetProof(h).IsMembershipProof() {
-			t.Errorf("Key should not exist in the tree")
-		}
-
-		// remove non-existing key
-		if csmt.Remove(h) == nil {
-			t.Errorf("Double remove should return error")
+		if !root.IsEqual(&treehash) {
+			t.Fatalf("expected witness root to equal tree hash (expected: %s, got: %s)", treehash, root)
 		}
 	}
 }
 
-func TestCSMTGetValue(t *testing.T) {
-	insertKeys := []string{
-		"03",
-		"06",
-		"02",
-		"04",
-		"01",
-		"05",
+func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
+	tree := NewTree()
+
+	w := GenerateUpdateWitness(&tree, ch("asdf"), ch("1"))
+
+	newRoot, err := w.Apply(tree.Hash())
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	insertValues := []int{
-		3,
-		6,
-		2,
-		4,
-		1,
-		5,
-	}
+	tree.Set(ch("asdf"), ch("1"))
 
-	csmt := createCSMT()
-
-	for i, key := range insertKeys {
-		h := newHashFromStr(key)
-		csmt.Insert(h, insertValues[i])
-		if !csmt.GetProof(h).IsMembershipProof() {
-			t.Errorf("Key should exist in the tree")
-		}
+	th := tree.Hash()
+	if !th.IsEqual(newRoot) {
+		t.Fatalf("expected calculated state root (%s) to match tree state root (%s)", newRoot, th)
 	}
-	for i, key := range insertKeys {
-		h := newHashFromStr(key)
-		v, err := csmt.GetValue(h)
+}
+
+func TestGenerateUpdateWitnessUpdate(t *testing.T) {
+	tree := NewTree()
+
+	tree.Set(ch("asdf"), ch("2"))
+	tree.Set(ch("asdf1"), ch("2"))
+	tree.Set(ch("asdf2"), ch("2"))
+	tree.Set(ch("asdf3"), ch("2"))
+	tree.Set(ch("asdf4"), ch("2"))
+
+	for i := 0; i < 1000; i++ {
+		setVal := fmt.Sprintf("%d", i)
+
+		w := GenerateUpdateWitness(&tree, ch("asdf"), ch(setVal))
+
+		newRoot, err := w.Apply(tree.Hash())
 		if err != nil {
 			t.Fatal(err)
 		}
-		if v.(int) != insertValues[i] {
-			t.Errorf("Wrong value")
+
+		tree.Set(ch("asdf"), ch(setVal))
+
+		th := tree.Hash()
+		if !th.IsEqual(newRoot) {
+			t.Fatalf("expected calculated state root (%s) to match tree state root (%s)", newRoot, th)
 		}
+	}
+}
+
+func BenchmarkGenerateUpdateWitness(b *testing.B) {
+	keys := make([]chainhash.Hash, b.N)
+	val := ch("testval")
+	t := NewTree()
+
+	for i := range keys {
+		keys[i] = ch(fmt.Sprintf("%d", i))
+	}
+
+	for i := 0; i < b.N; i++ {
+		t.Set(keys[i], val)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		GenerateUpdateWitness(&t, keys[i], val)
+	}
+}
+
+func TestChainedUpdates(t *testing.T) {
+	tree := NewTree()
+	initialRoot := tree.Hash()
+	witnesses := make([]*UpdateWitness, 0)
+
+	// start by generating a bunch of witnesses
+	for i := 0; i < 1000; i++ {
+		key := ch(fmt.Sprintf("key%d", i))
+		val := ch(fmt.Sprintf("val%d", i))
+
+		witnesses = append(witnesses, tree.SetWithWitness(key, val))
+	}
+
+	// then update half of them
+	for i := 0; i < 500; i++ {
+		key := ch(fmt.Sprintf("key%d", i))
+		val := ch(fmt.Sprintf("val1%d", i))
+
+		witnesses = append(witnesses, tree.SetWithWitness(key, val))
+	}
+
+	currentRoot := initialRoot
+	for i := range witnesses {
+		newRoot, err := witnesses[i].Apply(currentRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		currentRoot = *newRoot
+	}
+
+	th := tree.Hash()
+	if !th.IsEqual(&currentRoot) {
+		t.Fatal("expected hash after applying updates to match")
+	}
+}
+
+func TestEmptyBranchWitness(t *testing.T) {
+	tree := NewTree()
+	preroot := tree.Hash()
+
+	w0 := tree.SetWithWitness(ch("test"), ch("asdf"))
+
+	w1 := tree.SetWithWitness(ch("asdfghi"), ch("asdf"))
+
+	newRoot, err := w0.Apply(preroot)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newRoot, err = w1.Apply(*newRoot)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 }

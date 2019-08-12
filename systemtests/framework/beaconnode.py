@@ -8,15 +8,11 @@ class BeaconNode(Node) :
         self._process = None
 
     def do_start(self) :
-        self._process = Process.run(
+        self._process = Process().run(
             self.get_context().get_beacon_executable(),
             '-chainconfig',
             '../../regtest.json'
         )
-        for i in range(5) :
-            util.sleep_for_milliseconds(500)
-            print(i)
-            print(self._process.read_stdout())
         return True
     
     def do_stop(self) :

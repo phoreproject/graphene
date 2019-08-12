@@ -1,20 +1,25 @@
 import subprocess
 
 class Process :
-    @staticmethod
-    def run(*args) :
-        p = Process()
-        p._do_run(*args)
-        return p
-
-    def __init__(self) :
+    def __init__(
+            self,
+            capture_stdout = True
+        ) :
+        self._capture_stdout = capture_stdout
         self._process = None
 
+    def run(self, *args) :
+        self._do_run(*args)
+        return self
+
     def _do_run(self, *args) :
+        stdout = None
+        if self._capture_stdout :
+            stdout = subprocess.PIPE
         self._process = subprocess.Popen(
             args,
             stdin = subprocess.PIPE,
-            stdout = subprocess.PIPE,
+            stdout = stdout,
             stderr = subprocess.STDOUT,
             universal_newlines = True,
             bufsize = 0
@@ -30,5 +35,8 @@ class Process :
     
     # !!!Will block if nothing to read
     def read_stdout(self) :
-        return self._process.stdout.readline()
+        if self._process.stdout :
+            return self._process.stdout.readline()
+        else :
+            return ''
 

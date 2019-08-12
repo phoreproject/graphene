@@ -18,10 +18,11 @@ class Example :
         
     def _do_run(self) :
         self._tester.create_nodes(1, node_class = beaconnode.BeaconNode)
-        #self._tester.create_nodes(1, node_class = validatornode.ValidatorNode)
+        util.sleep_for_seconds(3)
+        self._tester.create_nodes(1, node_class = validatornode.ValidatorNode)
         self._tester.start_all_nodes()
-        self._tester.get_node(0).execute('setgenerate', True, 10)
-        util.sleep_for_seconds(2)
+        #self._tester.get_node(0).execute('setgenerate', True, 10)
+        util.sleep_for_seconds(20)
         self._tester.stop_all_nodes()
 
 Example().run()

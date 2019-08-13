@@ -1,12 +1,16 @@
 package app
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/phoreproject/synapse/shard/rpc"
+	"github.com/sirupsen/logrus"
+)
 
 const shardExecutionVersion = "0.0.1"
 
 // ShardApp runs the shard microservice which handles state execution and fork choice on shards.
 type ShardApp struct {
 	Config ShardConfig
+	RPC    rpc.ShardRPCServer
 }
 
 // NewShardApp creates a new shard app given a config.

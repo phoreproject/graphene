@@ -201,3 +201,23 @@ message ActiveProposal {
     uint64 StartEpoch = 3;
     bool Queued = 4;
 }
+
+message ShardBlock {
+    ShardBlockHeader Header = 1;
+    ShardBlockBody Body = 2;
+}
+
+message ShardBlockHeader {
+    uint64 PreviousBlockHash = 1;
+    bytes Signature = 2;
+    bytes StateRoot = 3;
+    bytes TransactionRoot = 4;
+}
+
+message ShardBlockBody {
+    repeated ShardTransaction Transactions = 1;
+}
+
+message ShardTransaction {
+    bytes TransactionData = 1;
+}

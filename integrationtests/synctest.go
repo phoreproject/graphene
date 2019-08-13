@@ -54,7 +54,7 @@ func (test *ValidateTest) setup() error {
 	beaconConfig.GenesisTime = uint64(utils.Now().Unix())
 	beaconConfig.Resync = true
 	beaconConfig.DataDirectory = test.dataDir
-	beaconConfig.NetworkConfig = &config.LocalnetConfig
+	beaconConfig.NetworkConfig = &config.RegtestConfig
 
 	test.beacon = beaconapp.NewBeaconApp(*beaconConfig)
 
@@ -81,7 +81,7 @@ func (test *ValidateTest) setup() error {
 		BlockchainConn:   beaconConn,
 		ValidatorIndices: validatorIndices,
 		RootKey:          "testnet",
-		NetworkConfig:    &config.LocalnetConfig,
+		NetworkConfig:    &config.RegtestConfig,
 	}
 
 	test.validator = validatorapp.NewValidatorApp(validatorConfig)

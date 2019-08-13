@@ -313,6 +313,7 @@ func TestCrosslink_ToFromProto(t *testing.T) {
 	baseCrosslink := &primitives.Crosslink{
 		Slot:           1,
 		ShardBlockHash: chainhash.Hash{1},
+		ShardStateHash: chainhash.Hash{1},
 	}
 
 	crosslinkProto := baseCrosslink.ToProto()

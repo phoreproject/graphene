@@ -6,15 +6,15 @@ import "google/protobuf/empty.proto";
 import "common.proto";
 
 service ShardRPC {
-    rpc SubscribeToShard (ShardSubscription) returns (google.protobuf.Empty);
+    rpc SubscribeToShard (ShardSubscribeRequest) returns (google.protobuf.Empty);
 
-    rpc UnsubscribeFromShard (ShardSubscription) returns (google.protobuf.Empty);
+    rpc UnsubscribeFromShard (ShardUnsubscribeRequest) returns (google.protobuf.Empty);
 
     rpc GetBlockHashAtSlot (SlotRequest) returns (BlockHashResponse);
 
-    rpc GenerateBlockTemplate (SlotRequest) returns (ShardBlock);
+    rpc GenerateBlockTemplate (BlockGenerationRequest) returns (ShardBlock);
 
-    rpc SubmitBlock (ShardBlock) returns (google.protobuf.Empty);
+    rpc SubmitBlock (ShardBlockSubmission) returns (google.protobuf.Empty);
 }
 
 message BlockHashResponse {
@@ -26,6 +26,23 @@ message SlotRequest {
     uint64 Slot = 2;
 }
 
-message ShardSubscription {
+message BlockGenerationRequest {
+    uint64 Shard = 1;
+    uint64 Slot = 2;
+    bytes FinalizedBeaconHash = 3;
+}
+
+message ShardBlockSubmission {
+    ShardBlock Block = 1;
+    uint64 Shard = 2;
+}
+
+message ShardSubscribeRequest {
+    uint64 ShardID = 1;
+    uint64 CrosslinkSlot = 2;
+    bytes BlockHash = 3;
+}
+
+message ShardUnsubscribeRequest {
     uint64 ShardID = 1;
 }

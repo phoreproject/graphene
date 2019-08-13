@@ -69,6 +69,9 @@ type Crosslink struct {
 
 	// Shard chain block hash
 	ShardBlockHash chainhash.Hash
+
+	// Shard chain state hash
+	ShardStateHash chainhash.Hash
 }
 
 // ToProto gets the protobuf representation of the crosslink
@@ -76,6 +79,7 @@ func (c *Crosslink) ToProto() *pb.Crosslink {
 	return &pb.Crosslink{
 		Slot:           c.Slot,
 		ShardBlockHash: c.ShardBlockHash[:],
+		ShardStateHash: c.ShardStateHash[:],
 	}
 }
 
@@ -83,6 +87,10 @@ func (c *Crosslink) ToProto() *pb.Crosslink {
 func CrosslinkFromProto(crosslink *pb.Crosslink) (*Crosslink, error) {
 	c := &Crosslink{Slot: crosslink.Slot}
 	err := c.ShardBlockHash.SetBytes(crosslink.ShardBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	err = c.ShardStateHash.SetBytes(crosslink.ShardStateHash)
 	if err != nil {
 		return nil, err
 	}

@@ -127,6 +127,7 @@ message PersistentCommitteesForSlot {
 message Crosslink {
     uint64 Slot = 1;
     bytes ShardBlockHash = 2;
+    bytes ShardStateHash = 3;
 }
 
 message PendingAttestation {

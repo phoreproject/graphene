@@ -1,6 +1,8 @@
 package chain
 
-import "github.com/phoreproject/synapse/chainhash"
+import (
+	"github.com/phoreproject/synapse/chainhash"
+)
 
 // ShardChainInitializationParameters are the initialization parameters from the crosslink.
 type ShardChainInitializationParameters struct {

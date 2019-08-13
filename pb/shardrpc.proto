@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package pb;
+
+import "google/protobuf/empty.proto";
+import "common.proto";
+
+service ShardRPC {
+    rpc SubscribeToShard (ShardSubscription) returns (google.protobuf.Empty);
+
+    rpc UnsubscribeFromShard (ShardSubscription) returns (google.protobuf.Empty);
+
+    rpc GetBlockHashAtSlot (SlotRequest) returns (BlockHashResponse);
+
+    rpc GenerateBlockTemplate (SlotRequest) returns (ShardBlock);
+
+    rpc SubmitBlock (ShardBlock) returns (google.protobuf.Empty);
+}
+
+message BlockHashResponse {
+    bytes BlockHash = 1;
+}
+
+message SlotRequest {
+    uint64 Slot = 1;
+}
+
+message ShardSubscription {
+    uint64 ShardID = 1;
+}

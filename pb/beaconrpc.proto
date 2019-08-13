@@ -83,23 +83,12 @@ message DisconnectResponse {
     bool Success = 1;
 }
 
-enum Role {
-    ATTESTER = 0;
-    PROPOSER = 1;
-}
-
 message GetCommitteesForSlotRequest {
     uint64 Slot = 1;
 }
 
 message GetSlotAndShardAssignmentRequest {
     uint32 ValidatorID = 1;
-}
-
-message SlotAndShardAssignment {
-    uint32 ShardID = 1;
-    uint64 Slot = 2;
-    Role Role = 3;
 }
 
 message SubmitBlockRequest {

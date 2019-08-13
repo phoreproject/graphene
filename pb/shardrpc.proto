@@ -22,7 +22,8 @@ message BlockHashResponse {
 }
 
 message SlotRequest {
-    uint64 Slot = 1;
+    uint64 Shard = 1;
+    uint64 Slot = 2;
 }
 
 message ShardSubscription {

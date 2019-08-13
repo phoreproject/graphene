@@ -35,7 +35,7 @@ func (m *BlockHashResponse) Reset()         { *m = BlockHashResponse{} }
 func (m *BlockHashResponse) String() string { return proto.CompactTextString(m) }
 func (*BlockHashResponse) ProtoMessage()    {}
 func (*BlockHashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_3234c0cd1ce058d6, []int{0}
+	return fileDescriptor_shardrpc_45b42d723087a913, []int{0}
 }
 func (m *BlockHashResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockHashResponse.Unmarshal(m, b)
@@ -74,7 +74,7 @@ func (m *SlotRequest) Reset()         { *m = SlotRequest{} }
 func (m *SlotRequest) String() string { return proto.CompactTextString(m) }
 func (*SlotRequest) ProtoMessage()    {}
 func (*SlotRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_3234c0cd1ce058d6, []int{1}
+	return fileDescriptor_shardrpc_45b42d723087a913, []int{1}
 }
 func (m *SlotRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SlotRequest.Unmarshal(m, b)
@@ -108,38 +108,192 @@ func (m *SlotRequest) GetSlot() uint64 {
 	return 0
 }
 
-type ShardSubscription struct {
+type BlockGenerationRequest struct {
+	Shard                uint64   `protobuf:"varint,1,opt,name=Shard,proto3" json:"Shard,omitempty"`
+	Slot                 uint64   `protobuf:"varint,2,opt,name=Slot,proto3" json:"Slot,omitempty"`
+	FinalizedBeaconHash  []byte   `protobuf:"bytes,3,opt,name=FinalizedBeaconHash,proto3" json:"FinalizedBeaconHash,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BlockGenerationRequest) Reset()         { *m = BlockGenerationRequest{} }
+func (m *BlockGenerationRequest) String() string { return proto.CompactTextString(m) }
+func (*BlockGenerationRequest) ProtoMessage()    {}
+func (*BlockGenerationRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_45b42d723087a913, []int{2}
+}
+func (m *BlockGenerationRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BlockGenerationRequest.Unmarshal(m, b)
+}
+func (m *BlockGenerationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BlockGenerationRequest.Marshal(b, m, deterministic)
+}
+func (dst *BlockGenerationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockGenerationRequest.Merge(dst, src)
+}
+func (m *BlockGenerationRequest) XXX_Size() int {
+	return xxx_messageInfo_BlockGenerationRequest.Size(m)
+}
+func (m *BlockGenerationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlockGenerationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlockGenerationRequest proto.InternalMessageInfo
+
+func (m *BlockGenerationRequest) GetShard() uint64 {
+	if m != nil {
+		return m.Shard
+	}
+	return 0
+}
+
+func (m *BlockGenerationRequest) GetSlot() uint64 {
+	if m != nil {
+		return m.Slot
+	}
+	return 0
+}
+
+func (m *BlockGenerationRequest) GetFinalizedBeaconHash() []byte {
+	if m != nil {
+		return m.FinalizedBeaconHash
+	}
+	return nil
+}
+
+type ShardBlockSubmission struct {
+	Block                *ShardBlock `protobuf:"bytes,1,opt,name=Block,proto3" json:"Block,omitempty"`
+	Shard                uint64      `protobuf:"varint,2,opt,name=Shard,proto3" json:"Shard,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *ShardBlockSubmission) Reset()         { *m = ShardBlockSubmission{} }
+func (m *ShardBlockSubmission) String() string { return proto.CompactTextString(m) }
+func (*ShardBlockSubmission) ProtoMessage()    {}
+func (*ShardBlockSubmission) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_45b42d723087a913, []int{3}
+}
+func (m *ShardBlockSubmission) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShardBlockSubmission.Unmarshal(m, b)
+}
+func (m *ShardBlockSubmission) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShardBlockSubmission.Marshal(b, m, deterministic)
+}
+func (dst *ShardBlockSubmission) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardBlockSubmission.Merge(dst, src)
+}
+func (m *ShardBlockSubmission) XXX_Size() int {
+	return xxx_messageInfo_ShardBlockSubmission.Size(m)
+}
+func (m *ShardBlockSubmission) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardBlockSubmission.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShardBlockSubmission proto.InternalMessageInfo
+
+func (m *ShardBlockSubmission) GetBlock() *ShardBlock {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+func (m *ShardBlockSubmission) GetShard() uint64 {
+	if m != nil {
+		return m.Shard
+	}
+	return 0
+}
+
+type ShardSubscribeRequest struct {
+	ShardID              uint64   `protobuf:"varint,1,opt,name=ShardID,proto3" json:"ShardID,omitempty"`
+	CrosslinkSlot        uint64   `protobuf:"varint,2,opt,name=CrosslinkSlot,proto3" json:"CrosslinkSlot,omitempty"`
+	BlockHash            []byte   `protobuf:"bytes,3,opt,name=BlockHash,proto3" json:"BlockHash,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ShardSubscribeRequest) Reset()         { *m = ShardSubscribeRequest{} }
+func (m *ShardSubscribeRequest) String() string { return proto.CompactTextString(m) }
+func (*ShardSubscribeRequest) ProtoMessage()    {}
+func (*ShardSubscribeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_45b42d723087a913, []int{4}
+}
+func (m *ShardSubscribeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShardSubscribeRequest.Unmarshal(m, b)
+}
+func (m *ShardSubscribeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShardSubscribeRequest.Marshal(b, m, deterministic)
+}
+func (dst *ShardSubscribeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardSubscribeRequest.Merge(dst, src)
+}
+func (m *ShardSubscribeRequest) XXX_Size() int {
+	return xxx_messageInfo_ShardSubscribeRequest.Size(m)
+}
+func (m *ShardSubscribeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardSubscribeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShardSubscribeRequest proto.InternalMessageInfo
+
+func (m *ShardSubscribeRequest) GetShardID() uint64 {
+	if m != nil {
+		return m.ShardID
+	}
+	return 0
+}
+
+func (m *ShardSubscribeRequest) GetCrosslinkSlot() uint64 {
+	if m != nil {
+		return m.CrosslinkSlot
+	}
+	return 0
+}
+
+func (m *ShardSubscribeRequest) GetBlockHash() []byte {
+	if m != nil {
+		return m.BlockHash
+	}
+	return nil
+}
+
+type ShardUnsubscribeRequest struct {
 	ShardID              uint64   `protobuf:"varint,1,opt,name=ShardID,proto3" json:"ShardID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ShardSubscription) Reset()         { *m = ShardSubscription{} }
-func (m *ShardSubscription) String() string { return proto.CompactTextString(m) }
-func (*ShardSubscription) ProtoMessage()    {}
-func (*ShardSubscription) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_3234c0cd1ce058d6, []int{2}
+func (m *ShardUnsubscribeRequest) Reset()         { *m = ShardUnsubscribeRequest{} }
+func (m *ShardUnsubscribeRequest) String() string { return proto.CompactTextString(m) }
+func (*ShardUnsubscribeRequest) ProtoMessage()    {}
+func (*ShardUnsubscribeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_45b42d723087a913, []int{5}
 }
-func (m *ShardSubscription) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ShardSubscription.Unmarshal(m, b)
+func (m *ShardUnsubscribeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShardUnsubscribeRequest.Unmarshal(m, b)
 }
-func (m *ShardSubscription) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ShardSubscription.Marshal(b, m, deterministic)
+func (m *ShardUnsubscribeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShardUnsubscribeRequest.Marshal(b, m, deterministic)
 }
-func (dst *ShardSubscription) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardSubscription.Merge(dst, src)
+func (dst *ShardUnsubscribeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardUnsubscribeRequest.Merge(dst, src)
 }
-func (m *ShardSubscription) XXX_Size() int {
-	return xxx_messageInfo_ShardSubscription.Size(m)
+func (m *ShardUnsubscribeRequest) XXX_Size() int {
+	return xxx_messageInfo_ShardUnsubscribeRequest.Size(m)
 }
-func (m *ShardSubscription) XXX_DiscardUnknown() {
-	xxx_messageInfo_ShardSubscription.DiscardUnknown(m)
+func (m *ShardUnsubscribeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardUnsubscribeRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ShardSubscription proto.InternalMessageInfo
+var xxx_messageInfo_ShardUnsubscribeRequest proto.InternalMessageInfo
 
-func (m *ShardSubscription) GetShardID() uint64 {
+func (m *ShardUnsubscribeRequest) GetShardID() uint64 {
 	if m != nil {
 		return m.ShardID
 	}
@@ -149,7 +303,10 @@ func (m *ShardSubscription) GetShardID() uint64 {
 func init() {
 	proto.RegisterType((*BlockHashResponse)(nil), "pb.BlockHashResponse")
 	proto.RegisterType((*SlotRequest)(nil), "pb.SlotRequest")
-	proto.RegisterType((*ShardSubscription)(nil), "pb.ShardSubscription")
+	proto.RegisterType((*BlockGenerationRequest)(nil), "pb.BlockGenerationRequest")
+	proto.RegisterType((*ShardBlockSubmission)(nil), "pb.ShardBlockSubmission")
+	proto.RegisterType((*ShardSubscribeRequest)(nil), "pb.ShardSubscribeRequest")
+	proto.RegisterType((*ShardUnsubscribeRequest)(nil), "pb.ShardUnsubscribeRequest")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -164,11 +321,11 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ShardRPCClient interface {
-	SubscribeToShard(ctx context.Context, in *ShardSubscription, opts ...grpc.CallOption) (*empty.Empty, error)
-	UnsubscribeFromShard(ctx context.Context, in *ShardSubscription, opts ...grpc.CallOption) (*empty.Empty, error)
+	SubscribeToShard(ctx context.Context, in *ShardSubscribeRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	UnsubscribeFromShard(ctx context.Context, in *ShardUnsubscribeRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	GetBlockHashAtSlot(ctx context.Context, in *SlotRequest, opts ...grpc.CallOption) (*BlockHashResponse, error)
-	GenerateBlockTemplate(ctx context.Context, in *SlotRequest, opts ...grpc.CallOption) (*ShardBlock, error)
-	SubmitBlock(ctx context.Context, in *ShardBlock, opts ...grpc.CallOption) (*empty.Empty, error)
+	GenerateBlockTemplate(ctx context.Context, in *BlockGenerationRequest, opts ...grpc.CallOption) (*ShardBlock, error)
+	SubmitBlock(ctx context.Context, in *ShardBlockSubmission, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type shardRPCClient struct {
@@ -179,7 +336,7 @@ func NewShardRPCClient(cc *grpc.ClientConn) ShardRPCClient {
 	return &shardRPCClient{cc}
 }
 
-func (c *shardRPCClient) SubscribeToShard(ctx context.Context, in *ShardSubscription, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *shardRPCClient) SubscribeToShard(ctx context.Context, in *ShardSubscribeRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pb.ShardRPC/SubscribeToShard", in, out, opts...)
 	if err != nil {
@@ -188,7 +345,7 @@ func (c *shardRPCClient) SubscribeToShard(ctx context.Context, in *ShardSubscrip
 	return out, nil
 }
 
-func (c *shardRPCClient) UnsubscribeFromShard(ctx context.Context, in *ShardSubscription, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *shardRPCClient) UnsubscribeFromShard(ctx context.Context, in *ShardUnsubscribeRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pb.ShardRPC/UnsubscribeFromShard", in, out, opts...)
 	if err != nil {
@@ -206,7 +363,7 @@ func (c *shardRPCClient) GetBlockHashAtSlot(ctx context.Context, in *SlotRequest
 	return out, nil
 }
 
-func (c *shardRPCClient) GenerateBlockTemplate(ctx context.Context, in *SlotRequest, opts ...grpc.CallOption) (*ShardBlock, error) {
+func (c *shardRPCClient) GenerateBlockTemplate(ctx context.Context, in *BlockGenerationRequest, opts ...grpc.CallOption) (*ShardBlock, error) {
 	out := new(ShardBlock)
 	err := c.cc.Invoke(ctx, "/pb.ShardRPC/GenerateBlockTemplate", in, out, opts...)
 	if err != nil {
@@ -215,7 +372,7 @@ func (c *shardRPCClient) GenerateBlockTemplate(ctx context.Context, in *SlotRequ
 	return out, nil
 }
 
-func (c *shardRPCClient) SubmitBlock(ctx context.Context, in *ShardBlock, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *shardRPCClient) SubmitBlock(ctx context.Context, in *ShardBlockSubmission, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pb.ShardRPC/SubmitBlock", in, out, opts...)
 	if err != nil {
@@ -226,11 +383,11 @@ func (c *shardRPCClient) SubmitBlock(ctx context.Context, in *ShardBlock, opts .
 
 // ShardRPCServer is the server API for ShardRPC service.
 type ShardRPCServer interface {
-	SubscribeToShard(context.Context, *ShardSubscription) (*empty.Empty, error)
-	UnsubscribeFromShard(context.Context, *ShardSubscription) (*empty.Empty, error)
+	SubscribeToShard(context.Context, *ShardSubscribeRequest) (*empty.Empty, error)
+	UnsubscribeFromShard(context.Context, *ShardUnsubscribeRequest) (*empty.Empty, error)
 	GetBlockHashAtSlot(context.Context, *SlotRequest) (*BlockHashResponse, error)
-	GenerateBlockTemplate(context.Context, *SlotRequest) (*ShardBlock, error)
-	SubmitBlock(context.Context, *ShardBlock) (*empty.Empty, error)
+	GenerateBlockTemplate(context.Context, *BlockGenerationRequest) (*ShardBlock, error)
+	SubmitBlock(context.Context, *ShardBlockSubmission) (*empty.Empty, error)
 }
 
 func RegisterShardRPCServer(s *grpc.Server, srv ShardRPCServer) {
@@ -238,7 +395,7 @@ func RegisterShardRPCServer(s *grpc.Server, srv ShardRPCServer) {
 }
 
 func _ShardRPC_SubscribeToShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShardSubscription)
+	in := new(ShardSubscribeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -250,13 +407,13 @@ func _ShardRPC_SubscribeToShard_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: "/pb.ShardRPC/SubscribeToShard",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ShardRPCServer).SubscribeToShard(ctx, req.(*ShardSubscription))
+		return srv.(ShardRPCServer).SubscribeToShard(ctx, req.(*ShardSubscribeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ShardRPC_UnsubscribeFromShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShardSubscription)
+	in := new(ShardUnsubscribeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -268,7 +425,7 @@ func _ShardRPC_UnsubscribeFromShard_Handler(srv interface{}, ctx context.Context
 		FullMethod: "/pb.ShardRPC/UnsubscribeFromShard",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ShardRPCServer).UnsubscribeFromShard(ctx, req.(*ShardSubscription))
+		return srv.(ShardRPCServer).UnsubscribeFromShard(ctx, req.(*ShardUnsubscribeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -292,7 +449,7 @@ func _ShardRPC_GetBlockHashAtSlot_Handler(srv interface{}, ctx context.Context, 
 }
 
 func _ShardRPC_GenerateBlockTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SlotRequest)
+	in := new(BlockGenerationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -304,13 +461,13 @@ func _ShardRPC_GenerateBlockTemplate_Handler(srv interface{}, ctx context.Contex
 		FullMethod: "/pb.ShardRPC/GenerateBlockTemplate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ShardRPCServer).GenerateBlockTemplate(ctx, req.(*SlotRequest))
+		return srv.(ShardRPCServer).GenerateBlockTemplate(ctx, req.(*BlockGenerationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ShardRPC_SubmitBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShardBlock)
+	in := new(ShardBlockSubmission)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -322,7 +479,7 @@ func _ShardRPC_SubmitBlock_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: "/pb.ShardRPC/SubmitBlock",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ShardRPCServer).SubmitBlock(ctx, req.(*ShardBlock))
+		return srv.(ShardRPCServer).SubmitBlock(ctx, req.(*ShardBlockSubmission))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -356,27 +513,34 @@ var _ShardRPC_serviceDesc = grpc.ServiceDesc{
 	Metadata: "shardrpc.proto",
 }
 
-func init() { proto.RegisterFile("shardrpc.proto", fileDescriptor_shardrpc_3234c0cd1ce058d6) }
+func init() { proto.RegisterFile("shardrpc.proto", fileDescriptor_shardrpc_45b42d723087a913) }
 
-var fileDescriptor_shardrpc_3234c0cd1ce058d6 = []byte{
-	// 302 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x90, 0xcf, 0x4e, 0xc2, 0x40,
-	0x10, 0xc6, 0x03, 0xc1, 0x7f, 0x03, 0x41, 0x99, 0x80, 0x21, 0xd5, 0x83, 0xe1, 0xe4, 0xc5, 0x12,
-	0x35, 0x46, 0x0f, 0x5e, 0x50, 0x11, 0xbd, 0x99, 0x16, 0x1f, 0xa0, 0x5b, 0x47, 0x20, 0xb6, 0x9d,
-	0xb5, 0xbb, 0x3d, 0xf8, 0x7c, 0xbe, 0x98, 0xe9, 0x2c, 0x7f, 0x12, 0x1b, 0x2f, 0xde, 0x76, 0xbe,
-	0xf9, 0xf6, 0x37, 0xf3, 0x0d, 0xb4, 0xcd, 0x3c, 0xca, 0xdf, 0x72, 0x1d, 0xfb, 0x3a, 0x67, 0xcb,
-	0x58, 0xd7, 0xca, 0x3b, 0x9a, 0x31, 0xcf, 0x12, 0x1a, 0x8a, 0xa2, 0x8a, 0xf7, 0x21, 0xa5, 0xda,
-	0x7e, 0x39, 0x83, 0xd7, 0x8a, 0x39, 0x4d, 0x39, 0x73, 0xd5, 0xe0, 0x1c, 0x3a, 0x77, 0x09, 0xc7,
-	0x1f, 0x4f, 0x91, 0x99, 0x07, 0x64, 0x34, 0x67, 0x86, 0xf0, 0x18, 0xf6, 0xd6, 0x62, 0xbf, 0x76,
-	0x52, 0x3b, 0x6d, 0x05, 0x1b, 0x61, 0x70, 0x0d, 0xcd, 0x30, 0x61, 0x1b, 0xd0, 0x67, 0x41, 0xc6,
-	0x62, 0x17, 0xb6, 0xc2, 0x72, 0x05, 0x31, 0x36, 0x02, 0x57, 0x20, 0x42, 0xa3, 0x34, 0xf5, 0xeb,
-	0x22, 0xca, 0x7b, 0x70, 0x06, 0x1d, 0x69, 0x86, 0x85, 0x32, 0x71, 0xbe, 0xd0, 0x76, 0xc1, 0x19,
-	0xf6, 0x61, 0x47, 0xc4, 0xe7, 0x87, 0x25, 0x60, 0x55, 0x5e, 0x7c, 0xd7, 0x61, 0x57, 0xde, 0xc1,
-	0xcb, 0x3d, 0x8e, 0xe0, 0x60, 0xf9, 0x4d, 0xd1, 0x94, 0xdd, 0x8c, 0x9e, 0xaf, 0x95, 0x5f, 0x21,
-	0x7a, 0x87, 0xbe, 0x8b, 0xef, 0xaf, 0xe2, 0xfb, 0xe3, 0x32, 0x3e, 0x8e, 0xa1, 0xfb, 0x9a, 0x99,
-	0x15, 0xe4, 0x31, 0xe7, 0xf4, 0x5f, 0x98, 0x5b, 0xc0, 0x09, 0xd9, 0xf5, 0x39, 0x46, 0xb6, 0xcc,
-	0x86, 0xfb, 0x02, 0xd9, 0x9c, 0xc5, 0x13, 0x6a, 0xf5, 0xb4, 0x37, 0xd0, 0x9b, 0x50, 0x46, 0x79,
-	0x64, 0x49, 0x9a, 0x53, 0x4a, 0x75, 0x12, 0x59, 0xaa, 0x02, 0xda, 0xeb, 0xb5, 0xc4, 0x88, 0x57,
-	0xd0, 0x0c, 0x0b, 0x95, 0x2e, 0xdc, 0x68, 0xfc, 0xd5, 0xfe, 0x6b, 0x5d, 0xb5, 0x2d, 0xf5, 0xe5,
-	0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x6c, 0x22, 0x9c, 0x23, 0x28, 0x02, 0x00, 0x00,
+var fileDescriptor_shardrpc_45b42d723087a913 = []byte{
+	// 410 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0x4d, 0x6f, 0xda, 0x40,
+	0x10, 0x15, 0x06, 0xfa, 0x31, 0x50, 0xda, 0x6e, 0x81, 0xba, 0xa6, 0x87, 0xca, 0xe2, 0xd0, 0x93,
+	0x49, 0xe0, 0x90, 0x4b, 0xa4, 0x28, 0x10, 0x20, 0x51, 0x2e, 0x91, 0x4d, 0x7e, 0x80, 0x6d, 0x36,
+	0x60, 0x61, 0xef, 0x3a, 0xde, 0xf5, 0x21, 0xf9, 0xb9, 0xf9, 0x25, 0x91, 0x67, 0xc1, 0xe6, 0x23,
+	0x48, 0xc9, 0x6d, 0xe7, 0xcd, 0xe8, 0xcd, 0x7b, 0xb3, 0x0f, 0x1a, 0x62, 0xe9, 0x26, 0xf3, 0x24,
+	0xf6, 0xad, 0x38, 0xe1, 0x92, 0x13, 0x2d, 0xf6, 0x8c, 0xce, 0x82, 0xf3, 0x45, 0x48, 0x7b, 0x88,
+	0x78, 0xe9, 0x43, 0x8f, 0x46, 0xb1, 0x7c, 0x52, 0x03, 0x46, 0xdd, 0xe7, 0x51, 0xc4, 0x99, 0xaa,
+	0xcc, 0x53, 0xf8, 0x39, 0x0c, 0xb9, 0xbf, 0xba, 0x76, 0xc5, 0xd2, 0xa6, 0x22, 0xe6, 0x4c, 0x50,
+	0xf2, 0x17, 0xbe, 0xe6, 0xa0, 0x5e, 0xfa, 0x57, 0xfa, 0x5f, 0xb7, 0x0b, 0xc0, 0x3c, 0x83, 0x9a,
+	0x13, 0x72, 0x69, 0xd3, 0xc7, 0x94, 0x0a, 0x49, 0x9a, 0x50, 0x75, 0x32, 0x09, 0x38, 0x58, 0xb1,
+	0x55, 0x41, 0x08, 0x54, 0xb2, 0x21, 0x5d, 0x43, 0x10, 0xdf, 0xa6, 0x84, 0x36, 0xb2, 0x4c, 0x29,
+	0xa3, 0x89, 0x2b, 0x03, 0xce, 0x3e, 0xcc, 0x41, 0x4e, 0xe0, 0xd7, 0x24, 0x60, 0x6e, 0x18, 0x3c,
+	0xd3, 0xf9, 0x90, 0xba, 0x3e, 0x67, 0x28, 0xb2, 0x8c, 0x22, 0xdf, 0x6a, 0x99, 0x36, 0x34, 0x91,
+	0x0e, 0x57, 0x3b, 0xa9, 0x17, 0x05, 0x42, 0x04, 0x9c, 0x91, 0x2e, 0x54, 0x11, 0xc2, 0x9d, 0xb5,
+	0x7e, 0xc3, 0x8a, 0x3d, 0xab, 0x18, 0xb4, 0x55, 0xb3, 0x50, 0xa6, 0x6d, 0x29, 0x33, 0x53, 0x68,
+	0xe1, 0xc3, 0x49, 0x3d, 0xe1, 0x27, 0x81, 0x47, 0x37, 0x46, 0x74, 0xf8, 0x8c, 0x8d, 0x9b, 0xab,
+	0xb5, 0x95, 0x4d, 0x49, 0xba, 0xf0, 0x6d, 0x94, 0x70, 0x21, 0xc2, 0x80, 0xad, 0xb6, 0x5c, 0xed,
+	0x82, 0xbb, 0x97, 0x2f, 0xef, 0x5f, 0x7e, 0x00, 0xbf, 0x91, 0xee, 0x9e, 0x89, 0x77, 0x2f, 0xee,
+	0xbf, 0x68, 0xf0, 0x05, 0xdf, 0xf6, 0xdd, 0x88, 0x8c, 0xe1, 0x47, 0xae, 0x79, 0xc6, 0xd5, 0x99,
+	0xff, 0xe4, 0xce, 0xf7, 0xed, 0x18, 0x6d, 0x4b, 0x25, 0xc9, 0xda, 0x24, 0xc9, 0x1a, 0x67, 0x49,
+	0x22, 0xb7, 0xd0, 0xdc, 0xd2, 0x30, 0x49, 0x78, 0xa4, 0xa8, 0x3a, 0x39, 0xd5, 0xa1, 0xc4, 0xa3,
+	0x64, 0xe7, 0x40, 0xa6, 0x54, 0xe6, 0x2e, 0x2f, 0x25, 0x5e, 0xe2, 0x3b, 0x52, 0x15, 0x39, 0x33,
+	0x5a, 0x19, 0x70, 0x98, 0xd5, 0x11, 0xb4, 0xd6, 0x79, 0xa2, 0xd8, 0x9c, 0xd1, 0x28, 0x0e, 0x5d,
+	0x49, 0x89, 0x91, 0xcf, 0x1f, 0xe4, 0xcd, 0xd8, 0xfb, 0x6c, 0x72, 0x01, 0x35, 0x4c, 0x86, 0x52,
+	0x41, 0xf4, 0xdd, 0x76, 0x11, 0x9a, 0x63, 0x1e, 0xbc, 0x4f, 0x58, 0x0f, 0x5e, 0x03, 0x00, 0x00,
+	0xff, 0xff, 0x19, 0x7c, 0xa6, 0x49, 0x8e, 0x03, 0x00, 0x00,
 }

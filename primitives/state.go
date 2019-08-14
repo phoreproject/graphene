@@ -600,6 +600,24 @@ func (s *State) GetBeaconProposerIndex(slot uint64, c *config.Config) (uint32, e
 	return firstCommittee[int(slot)%len(firstCommittee)], nil
 }
 
+// GetShardProposerIndex gets the proposer index for a certain shard at a certain slot.
+func (s *State) GetShardProposerIndex(slot uint64, shard uint64, c *config.Config) (uint32, error) {
+	// find the committee pertaining to that shard
+	var shardCommittee []uint32
+	for _, slotCommittees := range s.ShardAndCommitteeForSlots {
+		for _, committee := range slotCommittees {
+			if committee.Shard == shard {
+				shardCommittee = committee.Committee
+			}
+		}
+	}
+	if shardCommittee == nil {
+		return 0, fmt.Errorf("no shard committee for shard %d", shard)
+	}
+	// offset by 1 so it's not the same as the beacon proposer
+	return shardCommittee[int(slot+1)%len(shardCommittee)], nil
+}
+
 // ExitValidator handles state changes when a validator exits.
 func (s *State) ExitValidator(index uint32, status uint64, c *config.Config) error {
 	validator := s.ValidatorRegistry[index]

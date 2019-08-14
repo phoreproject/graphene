@@ -24,6 +24,9 @@ const (
 
 	// DomainVote is a vote for a proposal.
 	DomainVote
+
+	// DomainShardProposal is a shard block proposal.
+	DomainShardProposal
 )
 
 // Signature used in the BLS signature scheme.

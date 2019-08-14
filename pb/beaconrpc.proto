@@ -24,6 +24,8 @@ service BlockchainRPC {
 
     rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
 
+    rpc GetShardProposerForSlot(GetShardProposerRequest) returns (ShardProposerResponse);
+
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
 
     rpc SubmitAttestation(Attestation) returns (google.protobuf.Empty);
@@ -31,6 +33,16 @@ service BlockchainRPC {
     rpc GetMempool(MempoolRequest) returns (BlockBody);
 
     rpc GetValidatorInformation(GetValidatorRequest) returns (Validator);
+}
+
+message GetShardProposerRequest {
+    uint64 ShardID = 1;
+    uint64 Slot = 2;
+}
+
+message ShardProposerResponse {
+    uint32 Proposer = 1;
+    bytes ProposerPublicKey = 2;
 }
 
 message MempoolRequest {

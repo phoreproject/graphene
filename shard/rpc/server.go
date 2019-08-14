@@ -107,9 +107,29 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 }
 
 // SubmitBlock submits a block to the shard chain.
-func (ShardRPCServer) SubmitBlock(context.Context, *pb.ShardBlockSubmission) (*empty.Empty, error) {
-	//logrus.Infof("submitting shard block for shard %d with block hash %s",
-	//	req.Shard, blockHash, block.Header.PreviousBlockHash)
+func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubmission) (*empty.Empty, error) {
+	block, err := primitives.ShardBlockFromProto(req.Block)
+	if err != nil {
+		return nil, err
+	}
+
+	blockHash, err := ssz.HashTreeRoot(block)
+	if err != nil {
+		return nil, err
+	}
+
+	logrus.Infof("submitting shard block for shard %d with block hash %s",
+		req.Shard, blockHash, block.Header.PreviousBlockHash)
+
+	manager, err := s.sm.GetManager(req.Shard)
+	if err != nil {
+		return nil, err
+	}
+
+	err = manager.SubmitBlock(*block)
+	if err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }

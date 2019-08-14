@@ -2,20 +2,23 @@ package chain
 
 import (
 	"fmt"
+	"github.com/phoreproject/synapse/pb"
 	"sync"
 )
 
 // ShardMux handles the various different blockchains associated with different shards.
 type ShardMux struct {
-	lock     *sync.RWMutex
-	managers map[uint64]*ShardManager
+	lock         *sync.RWMutex
+	managers     map[uint64]*ShardManager
+	beaconClient pb.BlockchainRPCClient
 }
 
 // NewShardMux creates a new shard multiplexer.
-func NewShardMux() *ShardMux {
+func NewShardMux(beaconClient pb.BlockchainRPCClient) *ShardMux {
 	return &ShardMux{
-		managers: make(map[uint64]*ShardManager),
-		lock:     new(sync.RWMutex),
+		managers:     make(map[uint64]*ShardManager),
+		lock:         new(sync.RWMutex),
+		beaconClient: beaconClient,
 	}
 }
 
@@ -23,7 +26,7 @@ func NewShardMux() *ShardMux {
 func (sm *ShardMux) StartManaging(shardID uint64, init ShardChainInitializationParameters) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
-	sm.managers[shardID] = NewShardManager(shardID, init)
+	sm.managers[shardID] = NewShardManager(shardID, init, sm.beaconClient)
 }
 
 // StopManaging stops managing a certain shard.

@@ -32,6 +32,24 @@ type server struct {
 	mempool *beacon.Mempool
 }
 
+var _ pb.BlockchainRPCServer = &server{}
+
+// GetShardProposerForSlot gets the shard proposer ID and public key for a certain slot on a certain shard.
+func (s *server) GetShardProposerForSlot(ctx context.Context, req *pb.GetShardProposerRequest) (*pb.ShardProposerResponse, error) {
+	state := s.chain.GetState()
+	proposer, err := state.GetShardProposerIndex(req.Slot, req.ShardID, s.chain.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	proposerPubKey := state.ValidatorRegistry[proposer].Pubkey
+
+	return &pb.ShardProposerResponse{
+		Proposer:          proposer,
+		ProposerPublicKey: proposerPubKey[:],
+	}, nil
+}
+
 // SubmitAttestation submits an attestation to the mempool.
 func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*empty.Empty, error) {
 	a, err := primitives.AttestationFromProto(att)

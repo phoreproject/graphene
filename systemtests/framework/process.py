@@ -1,11 +1,21 @@
 import subprocess
 
 class Process :
+    output_stdout = 1
+    output_pipe = 2
+
     def __init__(
             self,
-            capture_stdout = True
+            stdout = None
         ) :
-        self._capture_stdout = capture_stdout
+        if stdout == None :
+            stdout = Process.output_pipe
+        self._stdout_file = None
+        if isinstance(stdout, str) :
+            self._stdout_file = open(stdout, 'a')
+            self._stdout = self._stdout_file
+        elif stdout == Process.output_pipe :
+            self._stdout = subprocess.PIPE
         self._process = None
 
     def run(self, *args) :
@@ -13,13 +23,10 @@ class Process :
         return self
 
     def _do_run(self, *args) :
-        stdout = None
-        if self._capture_stdout :
-            stdout = subprocess.PIPE
         self._process = subprocess.Popen(
             args,
             stdin = subprocess.PIPE,
-            stdout = stdout,
+            stdout = self._stdout,
             stderr = subprocess.STDOUT,
             universal_newlines = True,
             bufsize = 0
@@ -32,6 +39,8 @@ class Process :
         if self._process != None :
             self._process.kill()
         self._process = None
+        if self._stdout_file != None :
+            self._stdout_file.close()
     
     # !!!Will block if nothing to read
     def read_stdout(self) :

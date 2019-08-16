@@ -15,7 +15,6 @@ class Tester :
         self._context = context
         if self._context == None :
             self._context = Context()
-        print(self._context.get_beacon_executable())
         
         self._node_list = []
         self._node_name_map = {}
@@ -28,8 +27,16 @@ class Tester :
         logger.info('Test root directory: %s' % (self._directory))
         
     def cleanup(self) :
+        self.stop_all_nodes()
+
         if self._context.should_delete_data_on_exit() :
-            shutil.rmtree(self._directory)
+            # Retry 5 seconds to remove the directory. It may fail because some process is still using the folder
+            for i in range(5) :
+                try :
+                    shutil.rmtree(self._directory)
+                    break
+                except :
+                    util.sleep_for_seconds(1)
             
     def run(self, runner) :
         self.setup()
@@ -50,7 +57,7 @@ class Tester :
             self,
             count,
             node_class,
-            node_config = None,
+            node_config_list = None,
             node_names = None # if node_names is None, each node has name as its index (0, 1, 2, etc)
         ) :
         result_list = []
@@ -61,9 +68,12 @@ class Tester :
             else :
                 name = str(node_names[i])
             
-            path = os.path.join(self._directory, name)
+            path = os.path.join(self._directory, 'node_' + name)
             node = node_class()
-            node.initialize(self._context, name, path, node_config)
+            node_config = None
+            if node_config_list != None and len(node_config_list) > i :
+                node_config = node_config_list[i]
+            node.initialize(self._context, len(self._node_list), name, path, node_config)
             self._node_list.append(node)
             
             assert name not in self._node_name_map

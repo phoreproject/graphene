@@ -12,7 +12,8 @@ def _create_logger(fileName = None) :
     _logger = logging.getLogger('synapse')
 
     _logHandler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('%(name)s %(asctime)s [%(process)d] %(levelname)s: %(message)s')
+    #formatter = logging.Formatter('%(name)s %(asctime)s [%(process)d] %(levelname)s: %(message)s')
+    formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', "%H:%M:%S")
     formatter.converter = time.gmtime  # UTC time
     _logHandler.setFormatter(formatter)
     _logger.addHandler(_logHandler)

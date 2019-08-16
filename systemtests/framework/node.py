@@ -11,11 +11,13 @@ class Node :
     def initialize(
             self,
             context,
+            index,
             name, # name can be the index of the node, such as 0, 1, 2
             directory, # the folder where node data is stored in, same as -datadir in Bitcoin
             config = None
         ) :
         self._context = context
+        self._index = index
         self._name = str(name)
         self._directory = directory
         self._config = config
@@ -31,6 +33,9 @@ class Node :
     def get_directory(self) :
         return self._directory
         
+    def get_index(self) :
+        return self._index
+
     def get_name(self) :
         return self._name
 

@@ -356,6 +356,7 @@ func (node *HostNode) attemptToEvictConnection() {
 		}
 	}
 
+	logger.Info("Evict peer")
 	group := mapNetGroupNodes[maxGroup]
 	err := node.DisconnectPeer(group[0].peer)
 	if err != nil {
@@ -486,6 +487,8 @@ func (node *HostNode) removePeer(peer *Peer) {
 
 // DisconnectPeer disconnects a peer
 func (node *HostNode) DisconnectPeer(peer *Peer) error {
+	logger.Info("Disconnect peer from host node")
+	
 	peer.Disconnect()
 	node.removePeer(peer)
 	return nil

@@ -21,6 +21,7 @@ class BeaconNode(Node) :
 
         self._stdout_file_name = os.path.join(self.get_directory(), 'beacon.stdout.log')
         
+        node_config = self.get_config()
         self._process = Process(stdout = self._stdout_file_name).run(
             self.get_context().get_beacon_executable(),
             '-datadir',
@@ -28,7 +29,11 @@ class BeaconNode(Node) :
             '-rpclisten',
             self.get_rpc_address(),
             '-chainconfig',
-            self._config_file_name
+            self._config_file_name,
+            '-listen',
+            util.get_dict_value(node_config, 'listen', '/ip4/0.0.0.0/tcp/11781'),
+            '-connect',
+            util.get_dict_value(node_config, 'connect', ''),
         )
         return True
     

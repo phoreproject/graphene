@@ -63,4 +63,10 @@ def merge_dicts(a, b) :
     if b == None :
         b = {}
     return {**a, **b}
+    
+def clone_dict(a) :
+    return merge_dicts(a, None)
 
+def make_local_address(port) :
+    return '/ip4/127.0.0.1/tcp/%d' % (port)
+    

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"io"
 	"sync"
@@ -205,6 +206,8 @@ func (node *Peer) Disconnect() {
 
 // Reject sends reject message and disconnect from the peer
 func (node *Peer) Reject(message string) error {
+	logger.Info("Reject peer")
+
 	node.SendMessage(&pb.RejectMessage{
 		Message: message,
 	})
@@ -228,7 +231,7 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 
 	genesisHash := node.host.chainProvider.GenesisHash()
 	if !bytes.Equal(genesisHash[:], message.GenesisHash[:]) {
-		logger.WithField("peerID", node.ID).Debug("connected to peer with wrong genesis hash. disconnecting...")
+		logger.WithField("peerID", node.ID).WithField("myGenesis", genesisHash.String()).WithField("receivedGenesis", hex.EncodeToString(message.GenesisHash)).Info("connected to peer with wrong genesis hash. disconnecting...")
 		node.Disconnect()
 		return nil
 	}

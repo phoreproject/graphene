@@ -341,6 +341,8 @@ func (app BeaconApp) exit() {
 		panic(err)
 	}
 
+	logger.Info("Disconnect peers when exiting")
+
 	for _, p := range app.hostNode.GetPeerList() {
 		p.Disconnect()
 	}

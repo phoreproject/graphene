@@ -5,6 +5,7 @@ import sys
 import time
 import codecs
 import json
+import random
 
 def write_file(fileName, message) :
     file = codecs.open(fileName, "w", "utf-8")
@@ -69,4 +70,6 @@ def clone_dict(a) :
 
 def make_local_address(port) :
     return '/ip4/127.0.0.1/tcp/%d' % (port)
-    
+
+def make_random_hash() :
+    return bytes(random.getrandbits(8) for _ in range(32))

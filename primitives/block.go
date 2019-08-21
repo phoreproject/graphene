@@ -31,6 +31,11 @@ func (b *Block) ToProto() *pb.Block {
 
 // BlockFromProto returns a block from the protobuf representation.
 func BlockFromProto(bl *pb.Block) (*Block, error) {
+	// block can be nil if invalid message is sent.
+	if bl == nil {
+		return nil, errors.New("block can't be nil")
+	}
+
 	header, err := BlockHeaderFromProto(bl.Header)
 	if err != nil {
 		return nil, err
@@ -74,6 +79,10 @@ func (bh *BlockHeader) ToProto() *pb.BlockHeader {
 
 // BlockHeaderFromProto converts a protobuf representation of a block header to a block header.
 func BlockHeaderFromProto(header *pb.BlockHeader) (*BlockHeader, error) {
+	if header == nil {
+		return nil, errors.New("block header can't be nil")
+	}
+
 	if len(header.RandaoReveal) > 48 {
 		return nil, errors.New("randaoReveal should be 48 bytes long")
 	}
@@ -191,6 +200,10 @@ func (bb *BlockBody) ToProto() *pb.BlockBody {
 
 // BlockBodyFromProto converts a protobuf representation of a block body to a block body.
 func BlockBodyFromProto(body *pb.BlockBody) (*BlockBody, error) {
+	if body == nil {
+		return nil, errors.New("block body can't be nil")
+	}
+
 	atts := make([]Attestation, len(body.Attestations))
 	casperSlashings := make([]CasperSlashing, len(body.CasperSlashings))
 	proposerSlashings := make([]ProposerSlashing, len(body.ProposerSlashings))

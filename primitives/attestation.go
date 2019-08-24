@@ -122,6 +122,10 @@ func (a *Attestation) Copy() Attestation {
 
 // AttestationFromProto gets a new attestation from a protobuf attestation message.
 func AttestationFromProto(att *pb.Attestation) (*Attestation, error) {
+	// att can be nil if invalid message is sent.
+	if att == nil || att.Data == nil {
+		return nil, errors.New("attestation can't be nil")
+	}
 	data, err := AttestationDataFromProto(att.Data)
 	if err != nil {
 		return nil, err

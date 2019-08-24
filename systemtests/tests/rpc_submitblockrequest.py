@@ -15,14 +15,14 @@ from framework import asserts
 from pb import rpc_pb2
 from pb import common_pb2
 
-class InvalidSubmitBlockRequest :
+class RpcSubmitBlockRequest :
     def __init__(self) :
         logger.set_verbose(True)
         
     def run(self) :
         ctx = context.Context(
-            directory = '/temp/synapse',
-            delete_data_on_exit = False
+            #directory = '/temp/synapse',
+            #delete_data_on_exit = False
         )
         self._tester = tester.Tester(ctx)
         self._tester.run(self._do_run)
@@ -126,7 +126,7 @@ class InvalidSubmitBlockRequest :
         try :
             response = rpc_client.SubmitBlock(request)
             asserts.assert_not_here()
-        # Need to catch AssertionError if there is asser in the try block
+        # Need to catch AssertionError if there is assert in the try block
         except AssertionError :
             raise
         except Exception as e :
@@ -135,4 +135,4 @@ class InvalidSubmitBlockRequest :
             pass
 
         
-InvalidSubmitBlockRequest().run()
+RpcSubmitBlockRequest().run()

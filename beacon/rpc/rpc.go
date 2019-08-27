@@ -3,6 +3,7 @@
 package rpc
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -58,6 +59,10 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 
 // GetMempool gets the mempool for a block.
 func (s *server) GetMempool(ctx context.Context, req *pb.MempoolRequest) (*pb.BlockBody, error) {
+	if req == nil {
+		return nil, errors.New("MempoolRequest can't be nil")
+	}
+
 	lastBlockHash, err := chainhash.NewHash(req.LastBlockHash)
 	if err != nil {
 		return nil, err

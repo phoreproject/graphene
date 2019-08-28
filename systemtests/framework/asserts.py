@@ -41,3 +41,12 @@ def assert_not_here(message = None, exception = True) :
     else :
         logger.error(msg)
 
+def assert_bug(message = None, exception = True) :
+    msg = 'Assert failure: this is a unsolved bug. '
+    if message != None :
+        msg += message
+    if exception :
+        raise AssertionError(msg)
+    else :
+        logger.error(msg)
+

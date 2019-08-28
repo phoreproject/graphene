@@ -21,8 +21,8 @@ class RpcSubmitAttestation :
         
     def run(self) :
         ctx = context.Context(
-            directory = '/temp/synapse',
-            delete_data_on_exit = False
+            #directory = '/temp/synapse',
+            #delete_data_on_exit = False
         )
         self._tester = tester.Tester(ctx)
         self._tester.run(self._do_run)

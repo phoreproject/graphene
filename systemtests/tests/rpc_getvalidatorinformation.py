@@ -15,7 +15,7 @@ from framework import asserts
 from pb import rpc_pb2
 from pb import common_pb2
 
-class RpcGetMempool :
+class RpcGetValidatorInformation :
     def __init__(self) :
         logger.set_verbose(True)
         
@@ -41,15 +41,25 @@ class RpcGetMempool :
         util.sleep_for_seconds(5)
 
         rpc_client = rpc.create_beacon_rpc(beacon_node_list[0].get_rpc_address())
-        self.test_invalid_request(rpc_client)
+        self.test_invalid_id(rpc_client)
+        self.test_wrong_request_type(rpc_client)
         
-    def test_invalid_request(self, rpc_client) :
+    def test_invalid_id(self, rpc_client) :
+        request = rpc_pb2.GetValidatorRequest()
+        request.ID = 1000000
+        try :
+            response = rpc_client.GetValidatorInformation(request)
+        except Exception as e :
+            asserts.assert_exception_contain_text(e, "could not find validator with ID")
+
+    def test_wrong_request_type(self, rpc_client) :
+        logger.error('The RPC should return error here instead of accepting the request successfully.')
+
         request = rpc_pb2.MempoolRequest()
         request.LastBlockHash = util.make_random_hash()
         try :
-            response = rpc_client.GetMempool(request)
+            response = rpc_client.GetValidatorInformation(request)
         except Exception as e :
-            asserts.assert_exception_contain_text(e, "don't have state for block hash")
+            asserts.assert_exception_contain_text(e, "could not find validator with ID")
 
-
-RpcGetMempool().run()
+RpcGetValidatorInformation().run()

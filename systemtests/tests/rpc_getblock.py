@@ -15,7 +15,7 @@ from framework import asserts
 from pb import rpc_pb2
 from pb import common_pb2
 
-class RpcGetMempool :
+class RpcGetBlock :
     def __init__(self) :
         logger.set_verbose(True)
         
@@ -41,15 +41,22 @@ class RpcGetMempool :
         util.sleep_for_seconds(5)
 
         rpc_client = rpc.create_beacon_rpc(beacon_node_list[0].get_rpc_address())
-        self.test_invalid_request(rpc_client)
+        self.test_nil_hash(rpc_client)
+        self.test_invalid_hash(rpc_client)
         
-    def test_invalid_request(self, rpc_client) :
-        request = rpc_pb2.MempoolRequest()
-        request.LastBlockHash = util.make_random_hash()
+    def test_nil_hash(self, rpc_client) :
+        request = rpc_pb2.GetBlockRequest()
         try :
-            response = rpc_client.GetMempool(request)
+            response = rpc_client.GetBlock(request)
         except Exception as e :
-            asserts.assert_exception_contain_text(e, "don't have state for block hash")
+            asserts.assert_exception_contain_text(e, "invalid hash length")
 
+    def test_invalid_hash(self, rpc_client) :
+        request = rpc_pb2.GetBlockRequest()
+        request.Hash = util.make_random_hash()
+        try :
+            response = rpc_client.GetBlock(request)
+        except Exception as e :
+            asserts.assert_exception_contain_text(e, "Key not found")
 
-RpcGetMempool().run()
+RpcGetBlock().run()

@@ -15,7 +15,7 @@ from framework import asserts
 from pb import rpc_pb2
 from pb import common_pb2
 
-class RpcGetMempool :
+class RpcGetEpochInformation :
     def __init__(self) :
         logger.set_verbose(True)
         
@@ -41,15 +41,29 @@ class RpcGetMempool :
         util.sleep_for_seconds(5)
 
         rpc_client = rpc.create_beacon_rpc(beacon_node_list[0].get_rpc_address())
-        self.test_invalid_request(rpc_client)
+        #self.test_invalid_request(rpc_client)
+        #self.test_invalid_request_bug(rpc_client)
         
     def test_invalid_request(self, rpc_client) :
-        request = rpc_pb2.MempoolRequest()
-        request.LastBlockHash = util.make_random_hash()
+        asserts.assert_bug('GetEpochInformation should return error?')
+
+        request = rpc_pb2.EpochInformationRequest()
+        request.EpochIndex = 10
         try :
-            response = rpc_client.GetMempool(request)
+            response = rpc_client.GetEpochInformation(request)
+            asserts.assert_not_here()
+        except Exception as e :
+            asserts.assert_exception_contain_text(e, "don't have state for block hash")
+
+    def test_invalid_request_bug(self, rpc_client) :
+        asserts.assert_bug('Setting EpochIndex to 10000000 causes the program uses all RAM and crashes the OS.')
+
+        request = rpc_pb2.EpochInformationRequest()
+        request.EpochIndex = 10000000
+        try :
+            response = rpc_client.GetEpochInformation(request)
         except Exception as e :
             asserts.assert_exception_contain_text(e, "don't have state for block hash")
 
 
-RpcGetMempool().run()
+RpcGetEpochInformation().run()

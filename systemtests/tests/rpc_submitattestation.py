@@ -52,6 +52,8 @@ class RpcSubmitAttestation :
             asserts.assert_exception_contain_text(e, "attestation can't be nil")
 
     def test_invalid_data(self, rpc_client) :
+        logger.error('The RPC should return error here instead of accepting the request successfully.')
+        
         data = common_pb2.AttestationData()
         data.Slot = 1
         data.BeaconBlockHash = util.make_random_hash()
@@ -67,8 +69,6 @@ class RpcSubmitAttestation :
         request.Data.CopyFrom(data)
         try :
             response = rpc_client.SubmitAttestation(request)
-            # this assert is not working yet
-            #asserts.assert_not_here()
         except AssertionError :
             raise
         except Exception as e :

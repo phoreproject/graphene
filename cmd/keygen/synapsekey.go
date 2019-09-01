@@ -168,34 +168,34 @@ func main() {
 
 			err = decoder.Decode(&ivList)
 			if err == nil {
-				for _, validator := range ivList.Validators {
-					pubKeyBytes, err := hex.DecodeString(validator.PubKey)
+				for _, v := range ivList.Validators {
+					pubKeyBytes, err := hex.DecodeString(v.PubKey)
 					if err != nil {
 						panic(err)
 					}
 					var pubKey [96]byte
 					copy(pubKey[:], pubKeyBytes)
 
-					sigBytes, err := hex.DecodeString(validator.ProofOfPossession)
+					sigBytes, err := hex.DecodeString(v.ProofOfPossession)
 					if err != nil {
 						panic(err)
 					}
 					var signature [48]byte
 					copy(signature[:], sigBytes)
 
-					withdrawalCredentialsBytes, err := hex.DecodeString(validator.WithdrawalCredentials)
+					withdrawalCredentialsBytes, err := hex.DecodeString(v.WithdrawalCredentials)
 					if err != nil {
 						panic(err)
 					}
 					var withdrawalCredentials [32]byte
 					copy(withdrawalCredentials[:], withdrawalCredentialsBytes)
 
-					validatorList[validator.ID] = primitives.InitialValidatorEntry{
+					validatorList[v.ID] = primitives.InitialValidatorEntry{
 						PubKey:                pubKey,
 						ProofOfPossession:     signature,
 						WithdrawalCredentials: withdrawalCredentials,
-						WithdrawalShard:       validator.WithdrawalShard,
-						DepositSize:           validator.DepositSize,
+						WithdrawalShard:       v.WithdrawalShard,
+						DepositSize:           v.DepositSize,
 					}
 				}
 

@@ -18,6 +18,7 @@ func main() {
 
 	logrus.Info("Starting validator manager")
 	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
+	shardHost := flag.String("shardhost", ":11783", "the address to connect to the shard node")
 	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
 	networkID := flag.String("networkid", "testnet", "networkID to use when starting network")
 	rootkey := flag.String("rootkey", "testnet", "root key to run validators")
@@ -34,6 +35,11 @@ func main() {
 		panic(err)
 	}
 
+	shardConn, err := grpc.Dial(*shardHost, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+
 	networkConfig, found := config.NetworkIDs[*networkID]
 	if !found {
 		panic(fmt.Errorf("could not find network config %s", *networkID))
@@ -41,6 +47,7 @@ func main() {
 
 	c := app.ValidatorConfig{
 		BlockchainConn: blockchainConn,
+		ShardConn:      shardConn,
 		RootKey:        *rootkey,
 		NetworkConfig:  &networkConfig,
 	}

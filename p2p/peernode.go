@@ -57,7 +57,7 @@ type Peer struct {
 func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection inet.Stream, heartbeatInterval time.Duration) *Peer {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	peer := &Peer{
+	p := &Peer{
 		ID:              id,
 		host:            host,
 		timeoutInterval: timeoutInterval,
@@ -82,29 +82,29 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 		},
 	}
 
-	go peer.handleConnection(connection)
+	go p.handleConnection(connection)
 
-	peer.registerMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
+	p.registerMessageHandler("pb.VersionMessage", func(peer *Peer, message proto.Message) error {
 		return peer.HandleVersionMessage(message.(*pb.VersionMessage))
 	})
 
-	peer.registerMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
+	p.registerMessageHandler("pb.PingMessage", func(peer *Peer, message proto.Message) error {
 		return peer.handlePingMessage(message.(*pb.PingMessage))
 	})
 
-	peer.registerMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
+	p.registerMessageHandler("pb.PongMessage", func(peer *Peer, message proto.Message) error {
 		return peer.handlePongMessage(message.(*pb.PongMessage))
 	})
 
-	peer.registerMessageHandler("pb.GetAddrMessage", func(peer *Peer, message proto.Message) error {
+	p.registerMessageHandler("pb.GetAddrMessage", func(peer *Peer, message proto.Message) error {
 		return peer.handleGetAddrMessage(message.(*pb.GetAddrMessage))
 	})
 
-	peer.registerMessageHandler("pb.AddrMessage", func(peer *Peer, message proto.Message) error {
+	p.registerMessageHandler("pb.AddrMessage", func(peer *Peer, message proto.Message) error {
 		return peer.handleAddrMessage(message.(*pb.AddrMessage))
 	})
 
-	return peer
+	return p
 }
 
 func (node *Peer) sendMessages(writer *bufio.Writer) {
@@ -261,9 +261,9 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 	addrMessage := pb.AddrMessage{
 		Addrs: [][]byte{},
 	}
-	for _, peer := range node.host.GetPeerList() {
-		if peer.IsConnected() {
-			data, err := peer.GetPeerInfo().MarshalJSON()
+	for _, p := range node.host.GetPeerList() {
+		if p.IsConnected() {
+			data, err := p.GetPeerInfo().MarshalJSON()
 			if err == nil {
 				addrMessage.Addrs = append(addrMessage.Addrs, data)
 			}

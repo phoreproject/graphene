@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/synapse/shard/chain"
 	"github.com/phoreproject/synapse/shard/rpc"
 	"github.com/sirupsen/logrus"
 )
@@ -19,7 +21,18 @@ func NewShardApp(c ShardConfig) *ShardApp {
 }
 
 // Run runs the shard app.
-func (s *ShardApp) Run() {
+func (s *ShardApp) Run() error {
 	logrus.Info("starting shard version", shardExecutionVersion)
 
+	logrus.Info("initializing shard manager")
+
+	client := pb.NewBlockchainRPCClient(s.Config.BeaconConn)
+
+	mux := chain.NewShardMux(client)
+
+	logrus.Infof("starting RPC server on %s with protocol %s", s.Config.RPCAddress, s.Config.RPCProtocol)
+
+	err := rpc.Serve(s.Config.RPCProtocol, s.Config.RPCAddress, mux)
+
+	return err
 }

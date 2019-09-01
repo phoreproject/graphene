@@ -20,7 +20,6 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	ps "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
@@ -236,7 +235,7 @@ func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
 		return nil, err
 	}
 
-	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, ps.PermanentAddrTTL)
+	node.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, peerstore.PermanentAddrTTL)
 
 	stream, err := node.host.NewStream(context.Background(), peerInfo.ID, protocolID)
 
@@ -260,14 +259,17 @@ type nodeSorter struct {
 	comparator func(nodeEvictionCandidate, nodeEvictionCandidate) bool
 }
 
+// Len is the length of candidate nodes
 func (a nodeSorter) Len() int {
 	return len(a.candidates)
 }
 
+// Less compares two candidate nodes
 func (a nodeSorter) Less(i, j int) bool {
 	return a.comparator(a.candidates[i], a.candidates[j])
 }
 
+// Swap swaps two candidate nodes.
 func (a nodeSorter) Swap(i, j int) {
 	a.candidates[i], a.candidates[j] = a.candidates[j], a.candidates[i]
 }

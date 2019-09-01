@@ -2,8 +2,6 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
-
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -120,7 +118,6 @@ func (b *Blockchain) populateJustifiedAndFinalizedNodes() error {
 		return errors.New("could not find finalized head in index")
 	}
 	if !b.View.SetJustifiedHead(*justifiedHead, *justifiedHeadState) {
-		fmt.Println(*justifiedHead)
 		return errors.New("could not find justified head in index")
 	}
 
@@ -143,8 +140,6 @@ func (b *Blockchain) populateBlockIndexFromDatabase(genesisHash chainhash.Hash) 
 		if err != nil {
 			return err
 		}
-
-		fmt.Println(nodeDisk.Hash, justfiedHead)
 
 		_, err = b.View.Index.LoadBlockNode(nodeDisk)
 		if err != nil {

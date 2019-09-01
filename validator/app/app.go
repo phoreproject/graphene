@@ -36,6 +36,8 @@ func NewValidatorApp(config ValidatorConfig) *ValidatorApp {
 func (v *ValidatorApp) Run() error {
 	blockchainRPC := pb.NewBlockchainRPCClient(v.config.BlockchainConn)
 
+	shardRPC := pb.NewShardRPCClient(v.config.ShardConn)
+
 	keystore := validator.NewRootKeyStore(v.config.RootKey)
 
 	log.Info("Checking validator public keys...")
@@ -46,21 +48,21 @@ func (v *ValidatorApp) Run() error {
 			return err
 		}
 
-		validator, err := primitives.ValidatorFromProto(validatorProto)
+		v, err := primitives.ValidatorFromProto(validatorProto)
 		if err != nil {
 			return err
 		}
 
 		expectedPublicKey := keystore.GetPublicKeyForValidator(val).Serialize()
 
-		if !bytes.Equal(expectedPublicKey[:], validator.Pubkey[:]) {
+		if !bytes.Equal(expectedPublicKey[:], v.Pubkey[:]) {
 			return fmt.Errorf("validator %d public key did not match current validator set", val)
 		}
 	}
 
 	log.Info("Validators successfully verified!")
 
-	vm, err := validator.NewManager(v.ctx, blockchainRPC, v.config.ValidatorIndices, keystore, v.config.NetworkConfig)
+	vm, err := validator.NewManager(v.ctx, blockchainRPC, shardRPC, v.config.ValidatorIndices, keystore, v.config.NetworkConfig)
 	if err != nil {
 		return err
 	}

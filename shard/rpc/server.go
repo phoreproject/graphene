@@ -9,6 +9,9 @@ import (
 	"github.com/phoreproject/synapse/shard/chain"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"net"
 )
 
 // ShardRPCServer handles incoming commands for the shard module.
@@ -65,6 +68,11 @@ func (s *ShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *pb.SlotReq
 // GenerateBlockTemplate generates a block template using transactions and witnesses for a certain shard at a certain
 // slot.
 func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.BlockGenerationRequest) (*pb.ShardBlock, error) {
+	logrus.WithFields(logrus.Fields{
+		"shard": req.Shard,
+		"slot":  req.Slot,
+	}).Debug("generating block template for signing")
+
 	finalizedBeaconHash, err := chainhash.NewHash(req.FinalizedBeaconHash)
 	if err != nil {
 		return nil, err
@@ -100,7 +108,7 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		return nil, err
 	}
 
-	logrus.Infof("generated shard block skeleton for shard %d with block hash %s and previous block hash %s",
+	logrus.Infof("generated shard block skeleton for shard %d with block hash %x and previous block hash %s",
 		req.Shard, blockHash, block.Header.PreviousBlockHash)
 
 	return block.ToProto(), nil
@@ -118,8 +126,8 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 		return nil, err
 	}
 
-	logrus.Infof("submitting shard block for shard %d with block hash %s",
-		req.Shard, blockHash, block.Header.PreviousBlockHash)
+	logrus.Infof("submitting shard block for shard %d with block hash %x",
+		req.Shard, blockHash)
 
 	manager, err := s.sm.GetManager(req.Shard)
 	if err != nil {
@@ -131,7 +139,21 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 		return nil, err
 	}
 
-	return nil, nil
+	return &empty.Empty{}, nil
 }
 
 var _ pb.ShardRPCServer = &ShardRPCServer{}
+
+// Serve serves the RPC server
+func Serve(proto string, listenAddr string, mux *chain.ShardMux) error {
+	lis, err := net.Listen(proto, listenAddr)
+	if err != nil {
+		return err
+	}
+	s := grpc.NewServer()
+	pb.RegisterShardRPCServer(s, &ShardRPCServer{mux})
+	// Register reflection service on gRPC server.
+	reflection.Register(s)
+	err = s.Serve(lis)
+	return err
+}

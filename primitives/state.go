@@ -3,6 +3,7 @@ package primitives
 import (
 	"bytes"
 	"fmt"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/pkg/errors"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
-	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.
@@ -170,6 +170,9 @@ type State struct {
 	// RandaoMix is the mix of randao reveals to provide entropy.
 	RandaoMix chainhash.Hash
 
+	// NextRandaoMix is the mix of randao reveals that is currently being generated.
+	NextRandaoMix chainhash.Hash
+
 	// COMMITTEES
 	// ShardAndCommitteeForSlots is a list of committee members
 	// and their assigned shard, per slot
@@ -218,8 +221,10 @@ func (s *State) Copy() State {
 	}
 	var newValidatorRegistryDeltaChainTip chainhash.Hash
 	var newRandaoMix chainhash.Hash
+	var newNextRandaoMix chainhash.Hash
 	copy(newValidatorRegistryDeltaChainTip[:], s.ValidatorRegistryDeltaChainTip[:])
 	copy(newRandaoMix[:], s.RandaoMix[:])
+	copy(newNextRandaoMix[:], s.NextRandaoMix[:])
 
 	newShardAndCommitteeForSlots := make([][]ShardAndCommittee, len(s.ShardAndCommitteeForSlots))
 	for i, slot := range s.ShardAndCommitteeForSlots {
@@ -259,6 +264,7 @@ func (s *State) Copy() State {
 		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
 		ValidatorRegistryDeltaChainTip:     newValidatorRegistryDeltaChainTip,
 		RandaoMix:                          newRandaoMix,
+		NextRandaoMix:                      newNextRandaoMix,
 		ShardAndCommitteeForSlots:          newShardAndCommitteeForSlots,
 		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
 		JustifiedEpoch:                     s.JustifiedEpoch,
@@ -354,6 +360,7 @@ func (s *State) ToProto() *pb.State {
 		ValidatorRegistryDeltaChainTip:     s.ValidatorRegistryDeltaChainTip[:],
 		ValidatorRegistryExitCount:         s.ValidatorRegistryExitCount,
 		RandaoMix:                          s.RandaoMix[:],
+		NextRandaoMix:                      s.NextRandaoMix[:],
 		ShardCommittees:                    shardCommittees,
 		PreviousJustifiedEpoch:             s.PreviousJustifiedEpoch,
 		JustifiedEpoch:                     s.JustifiedEpoch,
@@ -512,6 +519,11 @@ func StateFromProto(s *pb.State) (*State, error) {
 		return nil, err
 	}
 
+	err = newState.NextRandaoMix.SetBytes(s.NextRandaoMix)
+	if err != nil {
+		return nil, err
+	}
+
 	newState.ValidatorBalances = append([]uint64{}, s.ValidatorBalances...)
 
 	return newState, nil
@@ -598,6 +610,15 @@ func (s *State) GetBeaconProposerIndex(slot uint64, c *config.Config) (uint32, e
 	}
 	firstCommittee := committees[0].Committee
 	return firstCommittee[int(slot)%len(firstCommittee)], nil
+}
+
+// GetAssignmentsAssumingShuffle gets the assignments for the next epoch assuming the validators
+// are shuffled.
+func (s *State) GetAssignmentsAssumingShuffle(c *config.Config) [][]ShardAndCommittee {
+	startShard := s.ShardAndCommitteeForSlots[0][0].Shard
+
+	// epochsSinceLastRegistryChange is a power of 2
+	return getNewShuffling(s.RandaoMix, s.ValidatorRegistry, int(startShard), c)
 }
 
 // GetShardProposerIndex gets the proposer index for a certain shard at a certain slot.

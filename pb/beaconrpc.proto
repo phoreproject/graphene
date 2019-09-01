@@ -89,6 +89,7 @@ message EpochInformation {
     uint64 PreviousJustifiedEpoch = 8;
     bytes PreviousJustifiedHash = 9;
     repeated Crosslink PreviousCrosslinks = 10;
+    repeated ShardCommitteesForSlot ShardCommitteesForNextEpoch = 11;
 }
 
 message DisconnectResponse {

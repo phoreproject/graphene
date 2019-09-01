@@ -56,7 +56,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 
 	return &ShardManager{
 		ShardID:                  shardID,
-		Chain:                    NewShardChain(init.RootSlot),
+		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
@@ -90,7 +90,7 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 	}
 
 	blockWithNoSignature := block.Copy()
-	blockWithNoSignature.Header.Signature = [48]byte{}
+	blockWithNoSignature.Header.Signature = bls.EmptySignature.Serialize()
 
 	blockHashNoSignature, err := ssz.HashTreeRoot(blockWithNoSignature)
 	if err != nil {

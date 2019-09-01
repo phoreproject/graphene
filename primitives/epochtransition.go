@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"math"
-
+	"fmt"
 	"github.com/prysmaticlabs/go-ssz"
+	"math"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
@@ -452,6 +452,9 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			fmt.Println(bestRoot)
+
 			if bestRoot == nil {
 				continue
 			}
@@ -840,6 +843,8 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 			copy(s.ShardAndCommitteeForSlots[c.EpochLength:], newShuffling)
 		}
 	}
+
+	copy(s.RandaoMix[:], s.NextRandaoMix[:])
 
 	s.PreviousEpochAttestations = s.CurrentEpochAttestations
 

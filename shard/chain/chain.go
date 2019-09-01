@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/go-ssz"
 	"sync"
 )
 
@@ -15,11 +17,24 @@ type ShardChain struct {
 }
 
 // NewShardChain creates a new shard chain.
-func NewShardChain(rootSlot uint64) *ShardChain {
+func NewShardChain(rootSlot uint64, genesisBlock *primitives.ShardBlock) *ShardChain {
+	genesisHash, err := ssz.HashTreeRoot(genesisBlock)
+	if err != nil {
+		panic(err)
+	}
+
 	return &ShardChain{
 		lock:     new(sync.Mutex),
 		RootSlot: rootSlot,
-		chain:    []*ShardBlockNode{},
+		chain: []*ShardBlockNode{
+			{
+				Parent:    nil,
+				BlockHash: genesisHash,
+				StateRoot: chainhash.Hash{},
+				Slot:      0,
+				Height:    0,
+			},
+		},
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 type Validator struct {
 	keystore           Keystore
 	blockchainRPC      pb.BlockchainRPCClient
+	shardRPC           pb.ShardRPCClient
 	id                 uint32
 	logger             *logrus.Entry
 	config             *config.Config
@@ -25,10 +26,11 @@ type Validator struct {
 }
 
 // NewValidator gets a validator
-func NewValidator(ctx context.Context, keystore Keystore, blockchainRPC pb.BlockchainRPCClient, id uint32, c *config.Config, f *primitives.ForkData) (*Validator, error) {
+func NewValidator(ctx context.Context, keystore Keystore, blockchainRPC pb.BlockchainRPCClient, shardRPC pb.ShardRPCClient, id uint32, c *config.Config, f *primitives.ForkData) (*Validator, error) {
 	v := &Validator{
 		keystore:           keystore,
 		blockchainRPC:      blockchainRPC,
+		shardRPC:           shardRPC,
 		id:                 id,
 		config:             c,
 		forkData:           f,

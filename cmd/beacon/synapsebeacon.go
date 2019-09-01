@@ -2,7 +2,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
@@ -20,6 +24,7 @@ func main() {
 	chainconfig := flag.String("chainconfig", "testnet.json", "chain config file")
 	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
 	datadir := flag.String("datadir", "", "location to store blockchain data")
+	genesisTime := flag.String("genesistime", "", "time to use if not specified by config")
 
 	// P2P
 	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
@@ -66,7 +71,37 @@ func main() {
 
 	appConfig.Resync = *resync
 	if appConfig.GenesisTime == 0 {
-		appConfig.GenesisTime = uint64(utils.Now().Unix())
+		if *genesisTime == "" {
+			appConfig.GenesisTime = uint64(utils.Now().Unix())
+		} else {
+			genesisTimeString := *genesisTime
+			if strings.HasPrefix(genesisTimeString, "+") {
+				offsetString := genesisTimeString[1:]
+
+				offset, err := strconv.Atoi(offsetString)
+				if err != nil {
+					panic(fmt.Errorf("invalid offset (should be number): %s", offsetString))
+				}
+
+				appConfig.GenesisTime = uint64(utils.Now().Add(time.Duration(offset) * time.Second).Unix())
+			} else if strings.HasPrefix(genesisTimeString, "-") {
+				offsetString := genesisTimeString[1:]
+
+				offset, err := strconv.Atoi(offsetString)
+				if err != nil {
+					panic(fmt.Errorf("invalid offset (should be number): %s", offsetString))
+				}
+
+				appConfig.GenesisTime = uint64(utils.Now().Add(time.Duration(-offset) * time.Second).Unix())
+			} else {
+				offset, err := strconv.Atoi(genesisTimeString)
+				if err != nil {
+					panic(fmt.Errorf("invalid genesis time (should be number): %s", genesisTimeString))
+				}
+
+				appConfig.GenesisTime = uint64(offset)
+			}
+		}
 	}
 
 	changed, newLimit, err := utils.ManageFdLimit()

@@ -1,13 +1,13 @@
-package shard
+package main
 
 import (
 	"flag"
-	"os"
+	"fmt"
+	"google.golang.org/grpc"
 
-	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
 
-	"github.com/phoreproject/synapse/beacon/app"
+	"github.com/phoreproject/synapse/shard/app"
 
 	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
@@ -16,14 +16,10 @@ import (
 const clientVersion = "0.2.6"
 
 func main() {
-	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
-	chainconfig := flag.String("chainconfig", "testnet.json", "chain config file")
-	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
-	datadir := flag.String("datadir", "", "location to store blockchain data")
-
-	// P2P
-	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
-	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
+	rpcConnect := flag.String("rpclisten", "127.0.0.1:11783", "host and port for RPC server to listen on")
+	//chainconfig := flag.String("chainconfig", "testnet.json", "chain config file")
+	//datadir := flag.String("datadir", "", "location to store blockchain data")
+	beaconHost := flag.String("beaconhost", "127.0.0.1:11782", "host and port of beacon RPC server")
 
 	// Logging
 	level := flag.String("level", "info", "log level")
@@ -39,36 +35,6 @@ func main() {
 
 	logger.WithField("version", clientVersion).Info("initializing shard manager")
 
-	initialPeers, err := p2p.ParseInitialConnections(*initialConnections)
-	if err != nil {
-		panic(err)
-	}
-
-	f, err := os.Open(*chainconfig)
-	if err != nil {
-		panic(err)
-	}
-
-	appConfig, err := app.ReadChainFileToConfig(f)
-	if err != nil {
-		panic(err)
-	}
-
-	err = f.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	appConfig.ListeningAddress = *listen
-	appConfig.RPCAddress = *rpcConnect
-	appConfig.DiscoveryOptions.PeerAddresses = append(appConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
-	appConfig.DataDirectory = *datadir
-
-	appConfig.Resync = *resync
-	if appConfig.GenesisTime == 0 {
-		appConfig.GenesisTime = uint64(utils.Now().Unix())
-	}
-
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {
 		panic(err)
@@ -77,8 +43,21 @@ func main() {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	a := app.NewBeaconApp(*appConfig)
-	err = a.Run()
+	cc, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
+	if err != nil {
+		err = fmt.Errorf("could not connect to beacon host at %s with error: %s", *beaconHost, err)
+		panic(err)
+	}
+
+	sc := app.ShardConfig{
+		BeaconConn:  cc,
+		RPCProtocol: "tcp",
+		RPCAddress:  *rpcConnect,
+	}
+
+	sa := app.NewShardApp(sc)
+
+	err = sa.Run()
 	if err != nil {
 		panic(err)
 	}

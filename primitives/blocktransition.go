@@ -5,11 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
-	ssz "github.com/prysmaticlabs/go-ssz"
 )
 
 // ValidateAttestation checks if the attestation is valid.
@@ -374,8 +374,8 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		return err
 	}
 
-	for i := range s.RandaoMix {
-		s.RandaoMix[i] ^= randaoRevealSerialized[i]
+	for i := range s.NextRandaoMix {
+		s.NextRandaoMix[i] ^= randaoRevealSerialized[i]
 	}
 
 	if len(block.BlockBody.ProposerSlashings) > con.MaxProposerSlashings {

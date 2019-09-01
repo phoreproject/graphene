@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	ssz "github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -16,6 +16,50 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 )
+
+func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot uint64, finalizedHash chainhash.Hash) error {
+	template, err := v.shardRPC.GenerateBlockTemplate(ctx, &pb.BlockGenerationRequest{
+		Shard:               shardID,
+		Slot:                slot,
+		FinalizedBeaconHash: finalizedHash[:], // TODO: fix this later (this is actually called using justified hash)
+	})
+	if err != nil {
+		return err
+	}
+
+	blockTemplate, err := primitives.ShardBlockFromProto(template)
+	if err != nil {
+		return err
+	}
+
+	blockTemplate.Header.Signature = bls.EmptySignature.Serialize()
+
+	blockHashWithoutSignature, err := ssz.HashTreeRoot(blockTemplate)
+	if err != nil {
+		return err
+	}
+
+	key := v.keystore.GetKeyForValidator(v.id)
+
+	signature, err := bls.Sign(key, blockHashWithoutSignature[:], bls.DomainShardProposal)
+	if err != nil {
+		return err
+	}
+
+	sigBytes := signature.Serialize()
+
+	blockTemplate.Header.Signature = sigBytes
+
+	_, err = v.shardRPC.SubmitBlock(ctx, &pb.ShardBlockSubmission{
+		Block: blockTemplate.ToProto(),
+		Shard: shardID,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})

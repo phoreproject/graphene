@@ -8,8 +8,6 @@ import "common.proto";
 service ShardRPC {
     rpc SubscribeToShard (ShardSubscribeRequest) returns (google.protobuf.Empty);
 
-    rpc UnsubscribeFromShard (ShardUnsubscribeRequest) returns (google.protobuf.Empty);
-
     rpc GetBlockHashAtSlot (SlotRequest) returns (BlockHashResponse);
 
     rpc GenerateBlockTemplate (BlockGenerationRequest) returns (ShardBlock);
@@ -41,6 +39,7 @@ message ShardSubscribeRequest {
     uint64 ShardID = 1;
     uint64 CrosslinkSlot = 2;
     bytes BlockHash = 3;
+    uint64 UntilSlot = 4;
 }
 
 message ShardUnsubscribeRequest {

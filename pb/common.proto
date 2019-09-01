@@ -151,6 +151,7 @@ message State {
     bytes ValidatorRegistryDeltaChainTip = 9;
 
     bytes RandaoMix = 10;
+    bytes NextRandaoMix = 11;
     repeated ShardCommitteesForSlot ShardCommittees = 12;
 
     uint64 PreviousJustifiedEpoch = 13;

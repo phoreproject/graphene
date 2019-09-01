@@ -11,6 +11,7 @@ import (
 // ValidatorConfig is the config passed into the validator app.
 type ValidatorConfig struct {
 	BlockchainConn   *grpc.ClientConn
+	ShardConn        *grpc.ClientConn
 	NetworkConfig    *config.Config
 	ValidatorIndices []uint32
 	RootKey          string

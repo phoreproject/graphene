@@ -4,14 +4,13 @@ package rpc
 
 import (
 	"fmt"
+	"github.com/prysmaticlabs/go-ssz"
 	"net"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
 
 	"github.com/golang/protobuf/proto"
-
-	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
@@ -230,6 +229,19 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 
 	earliestSlot := int64(state.Slot) - int64(state.Slot%config.EpochLength) - int64(config.EpochLength)
 
+	newShuffling := state.GetAssignmentsAssumingShuffle(config)
+
+	slotsAssumingShuffle := make([]*pb.ShardCommitteesForSlot, len(newShuffling))
+	for s := range slotsAssumingShuffle {
+		shardAndCommittees := make([]*pb.ShardCommittee, len(newShuffling[s]))
+		for i := range shardAndCommittees {
+			shardAndCommittees[i] = newShuffling[s][i].ToProto()
+		}
+		slotsAssumingShuffle[s] = &pb.ShardCommitteesForSlot{
+			Committees: shardAndCommittees,
+		}
+	}
+
 	slots := make([]*pb.ShardCommitteesForSlot, len(state.ShardAndCommitteeForSlots))
 	for s := range slots {
 		shardAndCommittees := make([]*pb.ShardCommittee, len(state.ShardAndCommitteeForSlots[s]))
@@ -244,16 +256,17 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	return &pb.EpochInformationResponse{
 		HasEpochInformation: true,
 		Information: &pb.EpochInformation{
-			ShardCommitteesForSlots: slots,
-			Slot:                    earliestSlot,
-			TargetHash:              epochBoundaryRoot.Hash[:],
-			JustifiedEpoch:          state.JustifiedEpoch,
-			LatestCrosslinks:        latestCrosslinks,
-			PreviousCrosslinks:      previousCrosslinks,
-			JustifiedHash:           justifiedNode.Hash[:],
-			PreviousTargetHash:      previousEpochBoundaryRoot.Hash[:],
-			PreviousJustifiedEpoch:  state.PreviousJustifiedEpoch,
-			PreviousJustifiedHash:   previousJustifiedNode.Hash[:],
+			ShardCommitteesForSlots:     slots,
+			ShardCommitteesForNextEpoch: slotsAssumingShuffle,
+			Slot:                        earliestSlot,
+			TargetHash:                  epochBoundaryRoot.Hash[:],
+			JustifiedEpoch:              state.JustifiedEpoch,
+			LatestCrosslinks:            latestCrosslinks,
+			PreviousCrosslinks:          previousCrosslinks,
+			JustifiedHash:               justifiedNode.Hash[:],
+			PreviousTargetHash:          previousEpochBoundaryRoot.Hash[:],
+			PreviousJustifiedEpoch:      state.PreviousJustifiedEpoch,
+			PreviousJustifiedHash:       previousJustifiedNode.Hash[:],
 		},
 	}, nil
 }

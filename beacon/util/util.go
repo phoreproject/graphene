@@ -132,9 +132,9 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 		return []primitives.Attestation{}, nil
 	}
 
-	config := b.GetConfig()
+	c := b.GetConfig()
 
-	assignments, err := s.GetShardCommitteesAtSlot(lastSlot-1, config)
+	assignments, err := s.GetShardCommitteesAtSlot(lastSlot-1, c)
 	if err != nil {
 		return nil, err
 	}
@@ -142,19 +142,19 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 	attestations := make([]primitives.Attestation, len(assignments))
 
 	for i, assignment := range assignments {
-		epochIndex := lastSlot / config.EpochLength
+		epochIndex := lastSlot / c.EpochLength
 
-		targetHash, err := b.View.Chain.GetBlockBySlot(epochIndex * config.EpochLength)
+		targetHash, err := b.View.Chain.GetBlockBySlot(epochIndex * c.EpochLength)
 		if err != nil {
 			return nil, err
 		}
 
 		justifiedEpoch := s.JustifiedEpoch
 		crosslinks := s.LatestCrosslinks
-		if lastSlot%config.EpochLength == 0 {
+		if lastSlot%c.EpochLength == 0 {
 			justifiedEpoch = s.PreviousJustifiedEpoch
 
-			targetHash, err = b.View.Chain.GetBlockBySlot(epochIndex*config.EpochLength - config.EpochLength)
+			targetHash, err = b.View.Chain.GetBlockBySlot(epochIndex*c.EpochLength - c.EpochLength)
 			if err != nil {
 				return nil, err
 			}
@@ -164,7 +164,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			crosslinks = s.PreviousCrosslinks
 		}
 
-		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * config.EpochLength)
+		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * c.EpochLength)
 		if err != nil {
 			return nil, err
 		}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/prysmaticlabs/go-ssz"
 	"math"
 
@@ -226,6 +225,89 @@ func (s *State) GetRecentBlockHash(slotToGet uint64, c *config.Config) (*chainha
 	return &s.LatestBlockHashes[slotToGet%c.LatestBlockRootsLength], nil
 }
 
+// findWinningRoot finds the shard block hash with the most balance voting for it.
+func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, error) {
+	// find all possible hashes for the winning root
+	possibleHashes := map[chainhash.Hash]struct{}{}
+	for _, a := range s.CurrentEpochAttestations {
+		if a.Data.Shard != shardCommittee.Shard {
+			continue
+		}
+		possibleHashes[a.Data.ShardBlockHash] = struct{}{}
+	}
+	for _, a := range s.PreviousEpochAttestations {
+		if a.Data.Shard != shardCommittee.Shard {
+			continue
+		}
+		possibleHashes[a.Data.ShardBlockHash] = struct{}{}
+	}
+
+	if len(possibleHashes) == 0 {
+		return nil, nil
+	}
+
+	// find the top balance
+	topBalance := uint64(0)
+	topHash := chainhash.Hash{}
+
+	for b := range possibleHashes {
+		validatorIndices, err := s.getAttestingValidatorIndices(shardCommittee, b)
+		if err != nil {
+			return nil, err
+		}
+
+		sumBalance := s.GetTotalBalance(validatorIndices, c)
+
+		if sumBalance > topBalance {
+			topHash = b
+			topBalance = sumBalance
+		}
+
+		if sumBalance == topBalance {
+			// in case of a tie, favor the lower hash
+			if bytes.Compare(topHash[:], b[:]) > 0 {
+				topHash = b
+			}
+		}
+	}
+	if topBalance == 0 {
+		return nil, nil
+	}
+	return &topHash, nil
+}
+
+// getAttestingValidatorIndices gets the attesters in a certain committee who attested to a certain shard block hash.
+func (s *State) getAttestingValidatorIndices(shardComittee ShardAndCommittee, shardBlockRoot chainhash.Hash) ([]uint32, error) {
+	outMap := map[uint32]struct{}{}
+	for _, a := range s.CurrentEpochAttestations {
+		if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
+			for i, s := range shardComittee.Committee {
+				bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
+				if bit != 0 {
+					outMap[s] = struct{}{}
+				}
+			}
+		}
+	}
+	for _, a := range s.PreviousEpochAttestations {
+		if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
+			for i, s := range shardComittee.Committee {
+				bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
+				if bit != 0 {
+					outMap[s] = struct{}{}
+				}
+			}
+		}
+	}
+	out := make([]uint32, len(outMap))
+	i := 0
+	for id := range outMap {
+		out[i] = id
+		i++
+	}
+	return out, nil
+}
+
 // ProcessEpochTransition processes an epoch transition and modifies state. This shouldn't usually
 // be used as ProcessSlots is generally a better way to update state, but sometimes it's required to
 // validate/generate attestations for the next epoch.
@@ -361,99 +443,14 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 		s.FinalizedEpoch = s.PreviousJustifiedEpoch
 	}
 
-	// attestingValidatorIndices gets the participants that attested to a certain shardblockRoot for a certain shardCommittee
-	attestingValidatorIndices := func(shardComittee ShardAndCommittee, shardBlockRoot chainhash.Hash) ([]uint32, error) {
-		outMap := map[uint32]struct{}{}
-		for _, a := range s.CurrentEpochAttestations {
-			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
-				for i, s := range shardComittee.Committee {
-					bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
-					if bit != 0 {
-						outMap[s] = struct{}{}
-					}
-				}
-			}
-		}
-		for _, a := range s.PreviousEpochAttestations {
-			if a.Data.Shard == shardComittee.Shard && a.Data.ShardBlockHash.IsEqual(&shardBlockRoot) {
-				for i, s := range shardComittee.Committee {
-					bit := a.ParticipationBitfield[i/8] & (1 << uint(i%8))
-					if bit != 0 {
-						outMap[s] = struct{}{}
-					}
-				}
-			}
-		}
-		out := make([]uint32, len(outMap))
-		i := 0
-		for id := range outMap {
-			out[i] = id
-			i++
-		}
-		return out, nil
-	}
-
-	// winningRoot finds the winning shard block Hash
-	winningRoot := func(shardCommittee ShardAndCommittee) (*chainhash.Hash, error) {
-		// find all possible hashes for the winning root
-		possibleHashes := map[chainhash.Hash]struct{}{}
-		for _, a := range s.CurrentEpochAttestations {
-			if a.Data.Shard != shardCommittee.Shard {
-				continue
-			}
-			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
-		}
-		for _, a := range s.PreviousEpochAttestations {
-			if a.Data.Shard != shardCommittee.Shard {
-				continue
-			}
-			possibleHashes[a.Data.ShardBlockHash] = struct{}{}
-		}
-
-		if len(possibleHashes) == 0 {
-			return nil, nil
-		}
-
-		// find the top balance
-		topBalance := uint64(0)
-		topHash := chainhash.Hash{}
-
-		for b := range possibleHashes {
-			validatorIndices, err := attestingValidatorIndices(shardCommittee, b)
-			if err != nil {
-				return nil, err
-			}
-
-			sumBalance := s.GetTotalBalance(validatorIndices, c)
-
-			if sumBalance > totalBalance {
-				topHash = b
-				topBalance = sumBalance
-			}
-
-			if sumBalance == totalBalance {
-				// in case of a tie, favor the lower hash
-				if bytes.Compare(topHash[:], b[:]) > 0 {
-					topHash = b
-				}
-			}
-		}
-		if topBalance == 0 {
-			return nil, nil
-		}
-		return &topHash, nil
-	}
-
 	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
-			bestRoot, err := winningRoot(shardCommittee)
+			bestRoot, err := s.findWinningRoot(shardCommittee, c)
 			if err != nil {
 				return nil, err
 			}
-
-			fmt.Println(bestRoot)
 
 			if bestRoot == nil {
 				continue
@@ -462,7 +459,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 				slotWinners[i] = make(map[uint64]chainhash.Hash)
 			}
 			slotWinners[i][shardCommittee.Shard] = *bestRoot
-			attestingCommittee, err := attestingValidatorIndices(shardCommittee, *bestRoot)
+			attestingCommittee, err := s.getAttestingValidatorIndices(shardCommittee, *bestRoot)
 			if err != nil {
 				return nil, err
 			}
@@ -664,7 +661,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 		for slot, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots[:c.EpochLength] {
 			for _, shardCommittee := range shardCommitteeAtSlot {
 				winningRoot := slotWinners[slot][shardCommittee.Shard]
-				participationIndices, err := attestingValidatorIndices(shardCommittee, winningRoot)
+				participationIndices, err := s.getAttestingValidatorIndices(shardCommittee, winningRoot)
 				if err != nil {
 					return nil, err
 				}

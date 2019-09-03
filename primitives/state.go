@@ -238,7 +238,7 @@ func (s *State) Copy() State {
 	copy(newLatestCrosslinks, s.LatestCrosslinks)
 
 	newPreviousCrosslinks := make([]Crosslink, len(s.PreviousCrosslinks))
-	copy(newLatestCrosslinks, s.PreviousCrosslinks)
+	copy(newPreviousCrosslinks, s.PreviousCrosslinks)
 
 	newLatestBlockHashes := make([]chainhash.Hash, len(s.LatestBlockHashes))
 	copy(newLatestBlockHashes, s.LatestBlockHashes)

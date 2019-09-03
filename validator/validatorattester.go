@@ -3,11 +3,12 @@ package validator
 import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 )
 
-func getAttestation(information attestationAssignment) (*primitives.AttestationData, [32]byte, error) {
+func getAttestation(information attestationAssignment, blockHash chainhash.Hash) (*primitives.AttestationData, [32]byte, error) {
 	a := primitives.AttestationData{
 		Slot:                information.slot,
 		BeaconBlockHash:     information.beaconBlockHash,
@@ -16,7 +17,7 @@ func getAttestation(information attestationAssignment) (*primitives.AttestationD
 		TargetHash:          information.targetHash,
 		TargetEpoch:         information.targetEpoch,
 		Shard:               information.shard,
-		ShardBlockHash:      chainhash.Hash{}, // only attest to 0 hashes in phase 0
+		ShardBlockHash:      blockHash,
 		LatestCrosslinkHash: information.latestCrosslinks[information.shard].ShardBlockHash,
 	}
 
@@ -56,8 +57,32 @@ func (v *Validator) attestBlock(information attestationAssignment) (*primitives.
 	// 	"validator": v.id,
 	// }).Debug("attesting to shard")
 
+	lastEpochSlot := information.slot - (information.slot % v.config.EpochLength)
+
+	var shardBlockHash *chainhash.Hash
+
+	if lastEpochSlot >= v.config.EpochLength {
+		shardBlockSlot := lastEpochSlot - v.config.EpochLength
+
+		shardBlockHashResponse, err := v.shardRPC.GetBlockHashAtSlot(v.ctx, &pb.SlotRequest{
+			Shard: information.shard,
+			Slot:  shardBlockSlot,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		shardBlockHash, err = chainhash.NewHash(shardBlockHashResponse.BlockHash)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		shardBlockHash = &chainhash.Hash{}
+	}
+
 	// create attestation
-	attData, hash, err := getAttestation(information)
+	attData, hash, err := getAttestation(information, *shardBlockHash)
 	if err != nil {
 		return nil, err
 	}

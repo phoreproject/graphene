@@ -213,7 +213,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	}
 
 	previousCrosslinks := make([]*pb.Crosslink, len(state.PreviousCrosslinks))
-	for i := range latestCrosslinks {
+	for i := range previousCrosslinks {
 		previousCrosslinks[i] = state.PreviousCrosslinks[i].ToProto()
 	}
 

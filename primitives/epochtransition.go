@@ -421,7 +421,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 	oldPreviousJustifiedEpoch := s.PreviousJustifiedEpoch
 
 	s.PreviousJustifiedEpoch = s.JustifiedEpoch
-	s.PreviousCrosslinks = s.LatestCrosslinks[:]
+	copy(s.PreviousCrosslinks[:], s.LatestCrosslinks[:])
 	s.JustificationBitfield = s.JustificationBitfield * 2
 
 	if 3*previousEpochBoundaryAttestingBalance >= 2*totalBalance {

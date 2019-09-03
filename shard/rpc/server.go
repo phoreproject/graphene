@@ -53,7 +53,7 @@ func (s *ShardRPCServer) UnsubscribeFromShard(ctx context.Context, req *pb.Shard
 // GetBlockHashAtSlot gets the block hash at a specific slot on a specific shard.
 func (s *ShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *pb.SlotRequest) (*pb.BlockHashResponse, error) {
 	if req.Slot == 0 {
-		genesisBlock := chain.GetGenesisBlockForShard(req.Shard)
+		genesisBlock := primitives.GetGenesisBlockForShard(req.Shard)
 
 		genesisHash, err := ssz.HashTreeRoot(genesisBlock)
 		if err != nil {

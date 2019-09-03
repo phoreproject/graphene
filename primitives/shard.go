@@ -2,6 +2,8 @@ package primitives
 
 import (
 	"errors"
+	"fmt"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
@@ -183,5 +185,29 @@ func (sb *ShardBlock) Copy() ShardBlock {
 	return ShardBlock{
 		Header: sb.Header.Copy(),
 		Body:   sb.Body.Copy(),
+	}
+}
+
+// GetGenesisBlockForShard gets the genesis block for a certain shard.
+func GetGenesisBlockForShard(shardID uint64) ShardBlock {
+	var transactions []ShardTransaction
+
+	transactionRoot, err := ssz.HashTreeRoot(transactions)
+	if err != nil {
+		panic(err)
+	}
+
+	return ShardBlock{
+		Header: ShardBlockHeader{
+			PreviousBlockHash:   chainhash.HashH([]byte(fmt.Sprintf("%d", shardID))),
+			Slot:                0,
+			Signature:           [48]byte{},
+			StateRoot:           chainhash.Hash{}, // TODO: should be empty state, not 0 hash
+			TransactionRoot:     transactionRoot,
+			FinalizedBeaconHash: chainhash.Hash{},
+		},
+		Body: ShardBlockBody{
+			Transactions: nil,
+		},
 	}
 }

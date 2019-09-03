@@ -9,7 +9,6 @@ import (
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/sirupsen/logrus"
 )
 
 func intSqrt(n uint64) uint64 {
@@ -471,12 +470,12 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 					Slot:           s.Slot,
 					ShardBlockHash: *bestRoot,
 				}
-				logrus.WithFields(logrus.Fields{
-					"slot":             s.Slot,
-					"shardBlockHash":   bestRoot.String(),
-					"totalAttestation": totalAttestingBalance,
-					"totalBalance":     totalBalance,
-				}).Debug("crosslink created")
+				//logrus.WithFields(logrus.Fields{
+				//	"slot":             s.Slot,
+				//	"shardBlockHash":   bestRoot.String(),
+				//	"totalAttestation": totalAttestingBalance,
+				//	"totalBalance":     totalBalance,
+				//}).Debug("crosslink created")
 			}
 		}
 	}

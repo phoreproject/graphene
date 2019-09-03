@@ -163,6 +163,7 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, lastBlockHash chainhash.
 					CustodyBitfield:       att.CustodyBitfield,
 				}, true, c)
 				if err != nil {
+					logrus.Error(err)
 					continue
 				}
 

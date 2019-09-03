@@ -4,6 +4,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // InitialValidatorEntry is the validator entry to be added
@@ -21,9 +22,16 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 	crosslinks := make([]Crosslink, c.ShardCount)
 
 	for i := 0; i < c.ShardCount; i++ {
+		shardGenesisBlock := GetGenesisBlockForShard(uint64(i))
+
+		shardGenesisHash, err := ssz.HashTreeRoot(shardGenesisBlock)
+		if err != nil {
+			return nil, err
+		}
+
 		crosslinks[i] = Crosslink{
 			Slot:           c.InitialSlotNumber,
-			ShardBlockHash: zeroHash,
+			ShardBlockHash: shardGenesisHash,
 		}
 	}
 

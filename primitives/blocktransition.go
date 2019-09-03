@@ -60,12 +60,6 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *co
 		return errors.New("invalid shard number")
 	}
 
-	latestCrosslinkRoot := s.LatestCrosslinks[att.Data.Shard].ShardBlockHash
-
-	if !att.Data.LatestCrosslinkHash.IsEqual(&latestCrosslinkRoot) && !att.Data.ShardBlockHash.IsEqual(&latestCrosslinkRoot) {
-		return errors.New("latest crosslink is invalid")
-	}
-
 	if verifySignature {
 		participants, err := s.GetAttestationParticipants(att.Data, att.ParticipationBitfield, c)
 		if err != nil {

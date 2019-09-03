@@ -32,34 +32,10 @@ type ShardManager struct {
 	Config                   config.Config
 }
 
-// GetGenesisBlockForShard gets the genesis block for a certain shard.
-func GetGenesisBlockForShard(shardID uint64) primitives.ShardBlock {
-	var transactions []primitives.ShardTransaction
-
-	transactionRoot, err := ssz.HashTreeRoot(transactions)
-	if err != nil {
-		panic(err)
-	}
-
-	return primitives.ShardBlock{
-		Header: primitives.ShardBlockHeader{
-			PreviousBlockHash:   chainhash.HashH([]byte(fmt.Sprintf("%d", shardID))),
-			Slot:                0,
-			Signature:           [48]byte{},
-			StateRoot:           chainhash.Hash{}, // TODO: should be empty state, not 0 hash
-			TransactionRoot:     transactionRoot,
-			FinalizedBeaconHash: chainhash.Hash{},
-		},
-		Body: primitives.ShardBlockBody{
-			Transactions: nil,
-		},
-	}
-}
-
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
 func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient) *ShardManager {
 
-	genesisBlock := GetGenesisBlockForShard(shardID)
+	genesisBlock := primitives.GetGenesisBlockForShard(shardID)
 
 	return &ShardManager{
 		ShardID:                  shardID,

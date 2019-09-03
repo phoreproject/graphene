@@ -51,12 +51,6 @@ func (v *Validator) signAttestation(hashAttestation [32]byte, data primitives.At
 }
 
 func (v *Validator) attestBlock(information attestationAssignment) (*primitives.Attestation, error) {
-	// logrus.WithFields(logrus.Fields{
-	// 	"slot":      information.slot,
-	// 	"shard":     information.shard,
-	// 	"validator": v.id,
-	// }).Debug("attesting to shard")
-
 	lastEpochSlot := information.slot - (information.slot % v.config.EpochLength)
 
 	var shardBlockHash *chainhash.Hash
@@ -78,7 +72,13 @@ func (v *Validator) attestBlock(information attestationAssignment) (*primitives.
 			return nil, err
 		}
 	} else {
-		shardBlockHash = &chainhash.Hash{}
+		shardBlock := primitives.GetGenesisBlockForShard(information.shard)
+		genesisHash, err := ssz.HashTreeRoot(shardBlock)
+		if err != nil {
+			return nil, err
+		}
+
+		shardBlockHash = (*chainhash.Hash)(&genesisHash)
 	}
 
 	// create attestation

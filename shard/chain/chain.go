@@ -38,26 +38,41 @@ func NewShardChain(rootSlot uint64, genesisBlock *primitives.ShardBlock) *ShardC
 	}
 }
 
-// GetBlockHashAtSlot gets the block hash of a certain slot.
-func (c *ShardChain) GetBlockHashAtSlot(slot uint64) (*chainhash.Hash, error) {
+// GetNodeBySlot gets the block node at a certain slot.
+func (c *ShardChain) GetNodeBySlot(slot uint64) (*ShardBlockNode, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if slot < c.RootSlot || slot > uint64(len(c.chain))+c.RootSlot {
-		return nil, fmt.Errorf("do not have slot %d", slot)
+
+	if slot < c.RootSlot {
+		return nil, fmt.Errorf("do not have slot %d, earliest slot is: %d", slot, c.RootSlot)
 	}
 
-	return &c.chain[slot-c.RootSlot].BlockHash, nil
+	tip, err := c.tip()
+	if err != nil {
+		return nil, err
+	}
+
+	if slot > tip.Slot {
+		return nil, fmt.Errorf("do not have slot %d, tip slot is: %d", slot, tip.Slot)
+	}
+
+	return tip.GetAncestorAtSlot(slot), nil
 }
 
-// Tip gets the block hash of the tip of the blockchain.
-func (c *ShardChain) Tip() (*chainhash.Hash, error) {
+// Tip gets the block node of the tip of the blockchain.
+func (c *ShardChain) Tip() (*ShardBlockNode, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	return c.tip()
+}
+
+// tip gets the block node of the tip. Should be called with the lock held.
+func (c *ShardChain) tip() (*ShardBlockNode, error) {
 	if len(c.chain) == 0 {
 		return nil, errors.New("empty blockchain")
 	}
 
-	return &c.chain[len(c.chain)-1].BlockHash, nil
+	return c.chain[len(c.chain)-1], nil
 }
 
 // SetTip sets the tip of the chain.

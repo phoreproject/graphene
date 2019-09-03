@@ -110,10 +110,6 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *co
 		return fmt.Errorf("beacon block hash is invalid (expected: %s, got: %s)", node, att.Data.BeaconBlockHash)
 	}
 
-	if !att.Data.ShardBlockHash.IsEqual(&zeroHash) {
-		return errors.New("invalid block Hash")
-	}
-
 	return nil
 }
 

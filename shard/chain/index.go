@@ -17,6 +17,21 @@ type ShardBlockNode struct {
 	Height    uint64
 }
 
+// GetAncestorAtSlot gets the first block node that occurred at or before a certain slot.
+func (node *ShardBlockNode) GetAncestorAtSlot(slot uint64) *ShardBlockNode {
+	if node.Slot < slot {
+		return nil
+	}
+
+	current := node
+
+	for current != nil && slot < current.Slot {
+		current = current.Parent
+	}
+
+	return current
+}
+
 // ShardBlockIndex keeps a map of block hash to block.
 type ShardBlockIndex struct {
 	Lock  *sync.RWMutex

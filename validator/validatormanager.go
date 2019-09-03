@@ -130,7 +130,7 @@ type Manager struct {
 	validatorMap           map[uint32]*Validator
 	keystore               Keystore
 	latestEpochInformation epochInformation
-	epochIndex             uint64
+	epochIndex             int64
 	currentSlot            uint64
 	config                 *config.Config
 	synced                 bool
@@ -168,6 +168,7 @@ func NewManager(ctx context.Context, blockchainRPC pb.BlockchainRPCClient, shard
 		keystore:      keystore,
 		config:        c,
 		currentSlot:   0,
+		epochIndex:    -1,
 		synced:        false,
 	}
 	logrus.Debug("initializing attestation listener")
@@ -191,7 +192,7 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 		return err
 	}
 
-	if vm.epochIndex != slotNumber/vm.config.EpochLength {
+	if vm.epochIndex != int64(slotNumber/vm.config.EpochLength) {
 		// go through each committee in the current epoch
 		for _, slotCommittees := range ei.slots[vm.config.EpochLength:] {
 			for _, committee := range slotCommittees {
@@ -252,7 +253,7 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 
 	vm.latestEpochInformation = *ei
 	vm.synced = true
-	vm.epochIndex = slotNumber / vm.config.EpochLength
+	vm.epochIndex = int64(slotNumber / vm.config.EpochLength)
 
 	return nil
 }
@@ -345,7 +346,7 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 						latestCrosslinks: crosslinks,
 						sourceEpoch:      sourceEpoch,
 						sourceHash:       sourceHash,
-						targetEpoch:      targetEpoch,
+						targetEpoch:      uint64(targetEpoch),
 						targetHash:       targetHash,
 					})
 					if err != nil {

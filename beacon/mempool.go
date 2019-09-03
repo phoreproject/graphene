@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/phoreproject/synapse/pb"
-	ssz "github.com/prysmaticlabs/go-ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -154,6 +154,7 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, lastBlockHash chainhash.
 				continue
 			}
 
+			// if there are no other attestations we've already started aggregating
 			if aggAtt, found := aggregatedAttestationMap[hash]; !found {
 				err := stateCopy.ValidateAttestation(primitives.Attestation{
 					AggregateSig:          att.AggregateSig,
@@ -183,6 +184,7 @@ func (m *Mempool) GetAttestationsToInclude(slot uint64, lastBlockHash chainhash.
 				copy(aggregatedAttestationMap[hash].participationBitfield, att.ParticipationBitfield)
 				copy(aggregatedAttestationMap[hash].custodyBitfield, att.CustodyBitfield)
 			} else {
+				// if there is already an aggregate signature going, add this one if it doesn't intersect
 				intersects := false
 
 				for i, b := range aggAtt.participationBitfield {

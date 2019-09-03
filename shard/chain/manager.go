@@ -11,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
+	"github.com/sirupsen/logrus"
 )
 
 // ShardChainInitializationParameters are the initialization parameters from the crosslink.
@@ -31,8 +32,8 @@ type ShardManager struct {
 	Config                   config.Config
 }
 
-// NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
-func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient) *ShardManager {
+// GetGenesisBlockForShard gets the genesis block for a certain shard.
+func GetGenesisBlockForShard(shardID uint64) primitives.ShardBlock {
 	var transactions []primitives.ShardTransaction
 
 	transactionRoot, err := ssz.HashTreeRoot(transactions)
@@ -40,9 +41,9 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		panic(err)
 	}
 
-	genesisBlock := primitives.ShardBlock{
+	return primitives.ShardBlock{
 		Header: primitives.ShardBlockHeader{
-			PreviousBlockHash:   chainhash.Hash{},
+			PreviousBlockHash:   chainhash.HashH([]byte(fmt.Sprintf("%d", shardID))),
 			Slot:                0,
 			Signature:           [48]byte{},
 			StateRoot:           chainhash.Hash{}, // TODO: should be empty state, not 0 hash
@@ -53,6 +54,12 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 			Transactions: nil,
 		},
 	}
+}
+
+// NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
+func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient) *ShardManager {
+
+	genesisBlock := GetGenesisBlockForShard(shardID)
 
 	return &ShardManager{
 		ShardID:                  shardID,
@@ -125,18 +132,18 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 	}
 
 	// TODO: improve fork choice here
-	tipHash, err := sm.Chain.Tip()
-	if err != nil {
-		return err
-	}
-
-	tipNode, err := sm.Index.GetNodeByHash(tipHash)
+	tipNode, err := sm.Chain.Tip()
 	if err != nil {
 		return err
 	}
 
 	if node.Height > tipNode.Height || (node.Height == tipNode.Height && node.Slot > tipNode.Slot) {
 		sm.Chain.SetTip(node)
+		logrus.WithFields(logrus.Fields{
+			"height": node.Height,
+			"slot":   node.Slot,
+			"shard":  sm.ShardID,
+		}).Debug("set new tip")
 	}
 
 	return nil

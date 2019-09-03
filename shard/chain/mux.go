@@ -22,6 +22,14 @@ func NewShardMux(beaconClient pb.BlockchainRPCClient) *ShardMux {
 	}
 }
 
+// IsManaging checks if the shard mux is managing a certain shard.
+func (sm *ShardMux) IsManaging(shardID uint64) bool {
+	sm.lock.RLock()
+	defer sm.lock.RUnlock()
+	_, found := sm.managers[shardID]
+	return found
+}
+
 // StartManaging starts managing a certain shard.
 func (sm *ShardMux) StartManaging(shardID uint64, init ShardChainInitializationParameters) {
 	sm.lock.Lock()

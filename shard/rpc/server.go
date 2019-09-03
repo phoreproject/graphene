@@ -30,10 +30,12 @@ func (s *ShardRPCServer) SubscribeToShard(ctx context.Context, req *pb.ShardSubs
 	logrus.Infof("subscribing to shard %d with crosslink at %d and latest block hash %s", req.ShardID,
 		req.CrosslinkSlot, blockHash)
 
-	s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
-		RootBlockHash: *blockHash,
-		RootSlot:      req.CrosslinkSlot,
-	})
+	if !s.sm.IsManaging(req.ShardID) {
+		s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
+			RootBlockHash: *blockHash,
+			RootSlot:      req.CrosslinkSlot,
+		})
+	}
 
 	return &empty.Empty{}, nil
 }
@@ -50,18 +52,31 @@ func (s *ShardRPCServer) UnsubscribeFromShard(ctx context.Context, req *pb.Shard
 
 // GetBlockHashAtSlot gets the block hash at a specific slot on a specific shard.
 func (s *ShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *pb.SlotRequest) (*pb.BlockHashResponse, error) {
+	if req.Slot == 0 {
+		genesisBlock := chain.GetGenesisBlockForShard(req.Shard)
+
+		genesisHash, err := ssz.HashTreeRoot(genesisBlock)
+		if err != nil {
+			return nil, err
+		}
+
+		return &pb.BlockHashResponse{
+			BlockHash: genesisHash[:],
+		}, nil
+	}
+
 	manager, err := s.sm.GetManager(req.Shard)
 	if err != nil {
 		return nil, err
 	}
 
-	blockHash, err := manager.Chain.GetBlockHashAtSlot(req.Slot)
+	blockNode, err := manager.Chain.GetNodeBySlot(req.Slot)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.BlockHashResponse{
-		BlockHash: blockHash[:],
+		BlockHash: blockNode.BlockHash[:],
 	}, nil
 }
 
@@ -83,7 +98,7 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		return nil, err
 	}
 
-	tipHash, err := manager.Chain.Tip()
+	tipNode, err := manager.Chain.Tip()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +106,7 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 	// for now, block is empty, but we'll fill this in eventually
 	block := &primitives.ShardBlock{
 		Header: primitives.ShardBlockHeader{
-			PreviousBlockHash:   *tipHash,
+			PreviousBlockHash:   tipNode.BlockHash,
 			Slot:                req.Slot,
 			Signature:           [48]byte{},
 			StateRoot:           chainhash.Hash{},

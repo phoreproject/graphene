@@ -14,6 +14,9 @@ class BeaconNode(Node) :
         
     def get_rpc_address(self) :
         return '127.0.0.1:%d' % (self.get_rpc_port())
+
+    def get_listen_address(self) :
+        return util.get_dict_value(self.get_config(), 'listen', '/ip4/0.0.0.0/tcp/11781')
         
     def do_start(self) :
         self._config_file_name = os.path.join(self.get_directory(), 'testconfig.json')
@@ -31,7 +34,7 @@ class BeaconNode(Node) :
             '-chainconfig',
             self._config_file_name,
             '-listen',
-            util.get_dict_value(node_config, 'listen', '/ip4/0.0.0.0/tcp/11781'),
+            self.get_listen_address(),
             '-connect',
             util.get_dict_value(node_config, 'connect', ''),
         )

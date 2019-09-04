@@ -83,6 +83,9 @@ type BeaconApp struct {
 
 // NewBeaconApp creates a new instance of BeaconApp
 func NewBeaconApp(config Config) *BeaconApp {
+	// Check SwapToP2pMultiaddrs comment to see why it's called here
+	ma.SwapToP2pMultiaddrs()
+
 	app := &BeaconApp{
 		config:   config,
 		exitChan: make(chan struct{}),

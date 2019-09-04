@@ -488,7 +488,7 @@ func (node *HostNode) removePeer(peer *Peer) {
 // DisconnectPeer disconnects a peer
 func (node *HostNode) DisconnectPeer(peer *Peer) error {
 	logger.Info("Disconnect peer from host node")
-	
+
 	peer.Disconnect()
 	node.removePeer(peer)
 	return nil

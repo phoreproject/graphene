@@ -75,6 +75,64 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 	return uw
 }
 
+// GenerateVerificationWitness generates a witness that allows verification of a key in the tree.
+func GenerateVerificationWitness(tree *Tree, key chainhash.Hash) VerificationWitness {
+	hk := chainhash.HashH(key[:])
+
+	val := tree.Get(key)
+
+	vw := VerificationWitness{
+		Key:   key,
+		Value: *val,
+	}
+
+	if tree.root == nil {
+		vw.Witnesses = make([]chainhash.Hash, 0)
+		vw.WitnessBitfield = chainhash.Hash{}
+		vw.LastLevel = 255
+		return vw
+	}
+
+	w := make([]chainhash.Hash, 0)
+
+	current := tree.root
+
+	// if current == nil, we know the subtree is empty, so we can break
+
+	level := uint8(255)
+
+	for current != nil && !current.One {
+		right := isRight(hk, level)
+
+		if right {
+			if current.Left != nil {
+				w = append(w, current.Left.Value)
+				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
+			}
+			current = current.Right
+		} else if !right {
+			if current.Right != nil {
+				w = append(w, current.Right.Value)
+				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
+			}
+			current = current.Left
+		}
+
+		level--
+	}
+
+	vw.LastLevel = level
+
+	for i := len(w)/2 - 1; i >= 0; i-- {
+		opp := len(w) - 1 - i
+		w[i], w[opp] = w[opp], w[i]
+	}
+
+	vw.Witnesses = w
+
+	return vw
+}
+
 // CalculateRoot calculates the root of the tree with the given witness information.
 func CalculateRoot(key chainhash.Hash, value chainhash.Hash, witnessBitfield chainhash.Hash, witnesses []chainhash.Hash, lastLevel uint8) (*chainhash.Hash, error) {
 	hk := chainhash.HashH(key[:])
@@ -118,10 +176,25 @@ func (uw *UpdateWitness) Apply(oldStateRoot chainhash.Hash) (*chainhash.Hash, er
 	return CalculateRoot(uw.Key, uw.NewValue, uw.WitnessBitfield, uw.Witnesses, uw.LastLevel)
 }
 
+// Check ensures the state root matches.
+func (vw *VerificationWitness) Check(oldStateRoot chainhash.Hash) bool {
+	preRoot, err := CalculateRoot(vw.Key, vw.Value, vw.WitnessBitfield, vw.Witnesses, vw.LastLevel)
+	if err != nil {
+		return false
+	}
+
+	if !preRoot.IsEqual(&oldStateRoot) {
+		return false
+	}
+
+	return true
+}
+
 // VerificationWitness allows an executor to verify a specific node in the tree.
 type VerificationWitness struct {
 	Key             chainhash.Hash
 	Value           chainhash.Hash
 	WitnessBitfield chainhash.Hash
 	Witnesses       []chainhash.Hash
+	LastLevel       uint8
 }

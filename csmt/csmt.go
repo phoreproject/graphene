@@ -72,6 +72,14 @@ func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateW
 	return &uw
 }
 
+// Prove proves a key in the tree.
+func (t *Tree) Prove(key chainhash.Hash) *VerificationWitness {
+	oldVal := t.Get(key)
+	t.Set(key, *oldVal)
+	vw := GenerateVerificationWitness(t, key)
+	return &vw
+}
+
 func isRight(key chainhash.Hash, level uint8) bool {
 	return key[level/8]&(1<<uint(level%8)) != 0
 }

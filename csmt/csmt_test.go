@@ -199,17 +199,41 @@ func TestChainedUpdates(t *testing.T) {
 	// start by generating a bunch of witnesses
 	for i := 0; i < 1000; i++ {
 		key := ch(fmt.Sprintf("key%d", i))
+
+		// test empty key
+		testProof2 := tree.Prove(key)
+		if testProof2.Check(tree.Hash()) == false {
+			t.Fatal("expected verification witness to verify")
+		}
+
 		val := ch(fmt.Sprintf("val%d", i))
 
 		witnesses = append(witnesses, tree.SetWithWitness(key, val))
+
+		testProof := tree.Prove(key)
+		if testProof.Check(tree.Hash()) == false {
+			t.Fatal("expected verification witness to verify")
+		}
 	}
 
 	// then update half of them
 	for i := 0; i < 500; i++ {
 		key := ch(fmt.Sprintf("key%d", i))
+
+		// test empty key
+		testProof2 := tree.Prove(key)
+		if testProof2.Check(tree.Hash()) == false {
+			t.Fatal("expected verification witness to verify")
+		}
+
 		val := ch(fmt.Sprintf("val1%d", i))
 
 		witnesses = append(witnesses, tree.SetWithWitness(key, val))
+
+		testProof := tree.Prove(key)
+		if testProof.Check(tree.Hash()) == false {
+			t.Fatal("expected verification witness to verify")
+		}
 	}
 
 	currentRoot := initialRoot
@@ -245,4 +269,23 @@ func TestEmptyBranchWitness(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+func TestCheckWitness(t *testing.T) {
+	tree := NewTree()
+	//preroot := tree.Hash()
+
+	tree.Set(ch("test"), ch("asdf"))
+	tree.Set(ch("asdfghi"), ch("asdf"))
+
+	testProof := tree.Prove(ch("test"))
+	if testProof.Check(tree.Hash()) == false {
+		t.Fatal("expected verification witness to verify")
+	}
+
+	// test empty key
+	testProof2 := tree.Prove(ch("test1"))
+	if testProof2.Check(tree.Hash()) == false {
+		t.Fatal("expected verification witness to verify")
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/phoreproject/synapse/beacon/config"
+	ssz "github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -14,20 +15,9 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
 )
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
-	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &empty.Empty{})
-	if err != nil {
-		return err
-	}
-
-	v.logger.WithFields(logrus.Fields{
-		"mempoolSize": len(mempool.Attestations) + len(mempool.Deposits) + len(mempool.CasperSlashings) + len(mempool.ProposerSlashings),
-		"slot":        information.slot,
-	}).Debug("creating block")
-
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})
 	if err != nil {
 		return err
@@ -49,7 +39,9 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		return err
 	}
 
-	parentRootBytes, err := v.blockchainRPC.GetLastBlockHash(context.Background(), &empty.Empty{})
+	parentRootBytes, err := v.blockchainRPC.GetBlockHash(context.Background(), &pb.GetBlockHashRequest{
+		SlotNumber: information.slot,
+	})
 	if err != nil {
 		return err
 	}
@@ -58,6 +50,18 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 	if err != nil {
 		return err
 	}
+
+	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &pb.MempoolRequest{
+		LastBlockHash: parentRootBytes.Hash,
+	})
+	if err != nil {
+		return err
+	}
+
+	v.logger.WithFields(logrus.Fields{
+		"mempoolSize": len(mempool.Attestations) + len(mempool.Deposits) + len(mempool.CasperSlashings) + len(mempool.ProposerSlashings),
+		"slot":        information.slot,
+	}).Debug("creating block")
 
 	blockBody, err := primitives.BlockBodyFromProto(mempool)
 	if err != nil {

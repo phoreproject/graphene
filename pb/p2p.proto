@@ -25,9 +25,23 @@ message RejectMessage {
     string Message = 1;
 }
 
+message AttestationMempoolItem {
+    bytes AttestationHash = 1;
+    bytes Participation = 2;
+}
+
+// This will advertise which mempool items the client needs/has.
+message GetMempoolMessage {
+    repeated AttestationMempoolItem Attestations = 1;
+}
+
 message GetBlockMessage {
     repeated bytes LocatorHashes = 1; //block locator object; newest back to genesis block (dense to start, but then sparse)
     bytes HashStop = 2; //hash of the last desired block header; set to zero to get as many blocks as possible (2000)
+}
+
+message MempoolMessage {
+    repeated Attestation Attestations = 1;
 }
 
 // Response to GetBlockMessage

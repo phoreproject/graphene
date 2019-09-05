@@ -28,7 +28,7 @@ This documentation gives information about how each of the different modules int
 6. Modules
     1. Beacon
     2. [Validator](validator.md)
-    3. Shard
+    3. [Shard](shard.md)
     4. Explorer
 7. Communication
     1. P2P

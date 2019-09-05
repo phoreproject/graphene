@@ -2,6 +2,7 @@ package primitives
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
@@ -20,6 +21,25 @@ const (
 	// ExitedWithPenalty is a validator that exited not-so-gracefully
 	ExitedWithPenalty
 )
+
+var pubkeyCache = make(map[[96]byte]bls.PublicKey)
+var pubkeyCacheLock = new(sync.RWMutex)
+
+func lookupPubkey(pk [96]byte) *bls.PublicKey {
+	pubkeyCacheLock.RLock()
+	out, found := pubkeyCache[pk]
+	pubkeyCacheLock.RUnlock()
+	if found {
+		return &out
+	}
+	return nil
+}
+
+func setPubkey(pkSer [96]byte, pub *bls.PublicKey) {
+	pubkeyCacheLock.Lock()
+	pubkeyCache[pkSer] = *pub
+	pubkeyCacheLock.Unlock()
+}
 
 // Validator is a single validator session (logging in and out)
 type Validator struct {
@@ -44,10 +64,16 @@ type Validator struct {
 // GetPublicKey gets the cached validator pubkey.
 func (v *Validator) GetPublicKey() (*bls.PublicKey, error) {
 	if v.XXXPubkeyCached == nil {
+		if pub := lookupPubkey(v.Pubkey); pub != nil {
+			return pub, nil
+		}
+
 		pub, err := bls.DeserializePublicKey(v.Pubkey)
 		if err != nil {
 			return nil, err
 		}
+
+		setPubkey(v.Pubkey, pub)
 		v.XXXPubkeyCached = pub
 	}
 	return v.XXXPubkeyCached, nil

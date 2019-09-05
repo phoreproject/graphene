@@ -43,12 +43,27 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 		return nil, err
 	}
 
+	data, err := proto.Marshal(att)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.p2p.Broadcast("attestation", data)
+	if err != nil {
+		return nil, err
+	}
+
 	return &empty.Empty{}, nil
 }
 
 // GetMempool gets the mempool for a block.
-func (s *server) GetMempool(context.Context, *empty.Empty) (*pb.BlockBody, error) {
-	atts, err := s.mempool.GetAttestationsToInclude(s.chain.GetCurrentSlot(), s.chain.GetConfig())
+func (s *server) GetMempool(ctx context.Context, req *pb.MempoolRequest) (*pb.BlockBody, error) {
+	lastBlockHash, err := chainhash.NewHash(req.LastBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	atts, err := s.mempool.GetAttestationsToInclude(s.chain.GetCurrentSlot(), *lastBlockHash, s.chain.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -159,12 +174,7 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	if state.EpochIndex < in.EpochIndex {
 		state = state.Copy()
 
-		view, err := s.chain.GetSubView(s.chain.View.Chain.Tip().Hash)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = state.ProcessEpochTransition(s.chain.GetConfig(), &view)
+		_, err := state.ProcessEpochTransition(s.chain.GetConfig())
 		if err != nil {
 			return nil, err
 		}

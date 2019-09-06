@@ -16,6 +16,10 @@ type Node struct {
 
 // Copy returns a deep copy of the tree.
 func (n *Node) Copy() *Node {
+	if n == nil {
+		return nil
+	}
+
 	newNode := &Node{
 		Value: n.Value,
 		One:   n.One,
@@ -64,11 +68,16 @@ func NewTree() Tree {
 var emptyHash = chainhash.Hash{}
 var emptyTrees [256]chainhash.Hash
 
+// EmptyTree is the hash of an empty tree.
+var EmptyTree = chainhash.Hash{}
+
 func init() {
 	emptyTrees[0] = emptyHash
 	for i := range emptyTrees[1:] {
 		emptyTrees[i+1] = combineHashes(&emptyTrees[i], &emptyTrees[i])
 	}
+
+	EmptyTree = emptyTrees[255]
 }
 
 // Hash get the root hash

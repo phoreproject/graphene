@@ -9,7 +9,9 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/mempool"
+	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
@@ -32,6 +34,7 @@ type ShardManager struct {
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
 	Mempool                  *mempool.ShardMempool
+	StateManager             *execution.BasicFullStateManager
 }
 
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
@@ -46,6 +49,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
 		Mempool:                  mempool.NewShardMempool(mempool.ValidateTrue, mempool.PrioritizeEqual),
+		StateManager:             execution.NewBasicFullStateManager(transfer.Code), // TODO: this should be loaded dynamically instead of directly from the filesystem
 	}
 }
 
@@ -60,6 +64,23 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 	hasParent := sm.Index.HasBlock(block.Header.PreviousBlockHash)
 	if !hasParent {
 		return fmt.Errorf("missing parent block %s", block.Header.PreviousBlockHash)
+	}
+
+	parentStateRoot, _ := sm.Index.GetNodeByHash(&block.Header.PreviousBlockHash)
+
+	transactions := make([][]byte, len(block.Body.Transactions))
+	for i := range transactions {
+		transactions[i] = block.Body.Transactions[i].TransactionData
+	}
+
+	// update state based on block transactions
+	newStateRoot, err := sm.StateManager.CheckTransition(parentStateRoot.StateRoot, transactions)
+	if err != nil {
+		return err
+	}
+
+	if !block.Header.StateRoot.IsEqual(newStateRoot) {
+		return fmt.Errorf("expected new state root: %s, but block state root is %s", newStateRoot, block.Header.StateRoot)
 	}
 
 	if block.Header.Slot*uint64(sm.Config.SlotDuration)+sm.InitializationParameters.GenesisTime > uint64(utils.Now().Unix()) {
@@ -108,6 +129,11 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 
 	if !valid {
 		return errors.New("block signature was not valid")
+	}
+
+	_, err = sm.StateManager.Transition(parentStateRoot.StateRoot, transactions)
+	if err != nil {
+		return err
 	}
 
 	node, err := sm.Index.AddToIndex(block)

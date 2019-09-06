@@ -1,6 +1,8 @@
 package transfer
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // ShardContext is the context for a call to Transfer.
 type ShardContext struct {
@@ -27,3 +29,6 @@ func (t ShardContext) LoadArgument(argumentNumber int32) []byte {
 
 	return nil
 }
+
+// Code is the binary code used.
+var Code = FSMustByte(false, "/transfer_shard.wasm")

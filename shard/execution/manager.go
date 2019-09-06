@@ -30,3 +30,14 @@ func (m *BasicFullStateManager) Transition(preHash chainhash.Hash, transactions 
 	m.state = fst.GetPostState()
 	return postHash, nil
 }
+
+// CheckTransition gets the state root without modifying the current state.
+func (m *BasicFullStateManager) CheckTransition(preHash chainhash.Hash, transactions [][]byte) (*chainhash.Hash, error) {
+	stateCopy := m.state.Copy()
+	fst := NewFullStateTransition(stateCopy, transactions, m.code)
+	postHash, err := fst.Transition(&preHash)
+	if err != nil {
+		return nil, err
+	}
+	return postHash, nil
+}

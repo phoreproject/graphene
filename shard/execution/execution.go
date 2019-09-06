@@ -18,17 +18,6 @@ import (
 	"github.com/go-interpreter/wagon/wasm"
 )
 
-// ArgumentContext represents a single execution of a shard.
-type ArgumentContext interface {
-	LoadArgument(argumentNumber int32) []byte
-}
-
-// EmptyContext is a context that doesn't resolve arguments.
-type EmptyContext struct{}
-
-// LoadArgument for empty context doesn't load anything.
-func (e EmptyContext) LoadArgument(argumentNumber int32) []byte { return nil }
-
 // Shard represents a single shard on the Phore blockchain.
 type Shard struct {
 	Module           *wasm.Module
@@ -80,8 +69,6 @@ func (s *Shard) ValidateECDSA(proc *exec.Process, hashAddr int32, signatureAddr 
 
 	var sigBytes [65]byte
 	s.SafeRead(proc, signatureAddr, sigBytes[:])
-
-	//fmt.Printf("validateECDSA: hash: %x, sig: %x\n", hash, sigBytes)
 
 	// as long as hash is a random oracle (not chosen by the user),
 	// we can derive the pubkey from the signature and the hash.

@@ -13,6 +13,8 @@ service ShardRPC {
     rpc GenerateBlockTemplate (BlockGenerationRequest) returns (ShardBlock);
 
     rpc SubmitBlock (ShardBlockSubmission) returns (google.protobuf.Empty);
+
+    rpc SubmitTransaction (ShardTransactionSubmission) returns (google.protobuf.Empty);
 }
 
 message BlockHashResponse {
@@ -44,4 +46,9 @@ message ShardSubscribeRequest {
 
 message ShardUnsubscribeRequest {
     uint64 ShardID = 1;
+}
+
+message ShardTransactionSubmission {
+    uint64 ShardID = 1;
+    ShardTransaction Transaction = 2;
 }

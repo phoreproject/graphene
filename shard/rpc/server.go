@@ -19,6 +19,16 @@ type ShardRPCServer struct {
 	sm *chain.ShardMux
 }
 
+// SubmitTransaction submits a transaction to a certain shard.
+func (s *ShardRPCServer) SubmitTransaction(ctx context.Context, tx *pb.ShardTransactionSubmission) (*empty.Empty, error) {
+	manager, err := s.sm.GetManager(tx.ShardID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &empty.Empty{}, manager.SubmitTransaction(tx.Transaction.TransactionData)
+}
+
 // SubscribeToShard instructs the shard module to subscribe to a specific shard and start downloading blocks. This is a
 // no-op until we implement the P2P network.
 func (s *ShardRPCServer) SubscribeToShard(ctx context.Context, req *pb.ShardSubscribeRequest) (*empty.Empty, error) {

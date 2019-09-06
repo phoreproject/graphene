@@ -14,6 +14,34 @@ type Node struct {
 	Right    *Node
 }
 
+// Copy returns a deep copy of the tree.
+func (n *Node) Copy() *Node {
+	newNode := &Node{
+		Value: n.Value,
+		One:   n.One,
+	}
+
+	if n.OneKey != nil {
+		newNode.OneKey = &chainhash.Hash{}
+		copy(newNode.OneKey[:], n.OneKey[:])
+	}
+
+	if n.OneValue != nil {
+		newNode.OneValue = &chainhash.Hash{}
+		copy(newNode.OneValue[:], n.OneValue[:])
+	}
+
+	if n.Left != nil {
+		newNode.Left = n.Left.Copy()
+	}
+
+	if n.Right != nil {
+		newNode.Right = n.Right.Copy()
+	}
+
+	return newNode
+}
+
 // Tree is Compact Sparse Merkle Tree
 // It implements interface SMT
 type Tree struct {
@@ -174,4 +202,19 @@ func (t *Tree) Get(key chainhash.Hash) *chainhash.Hash {
 		return &emptyHash
 	}
 	return &h
+}
+
+// Copy copies the tree.
+func (t *Tree) Copy() Tree {
+	newTree := Tree{
+		datastore: map[chainhash.Hash]chainhash.Hash{},
+	}
+
+	for k, v := range t.datastore {
+		newTree.datastore[k] = v
+	}
+
+	newTree.root = t.root.Copy()
+
+	return newTree
 }

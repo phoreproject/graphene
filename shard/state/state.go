@@ -18,6 +18,13 @@ func NewFullShardState() *FullShardState {
 	}
 }
 
+// Copy copies the state.
+func (s *FullShardState) Copy() *FullShardState {
+	return &FullShardState{
+		tree: s.tree.Copy(),
+	}
+}
+
 // Set sets a key in state.
 func (s *FullShardState) Set(key chainhash.Hash, value chainhash.Hash) error {
 	s.tree.Set(key, value)

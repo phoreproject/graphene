@@ -24,13 +24,13 @@ func SerializeTransactionWithArguments(fnName string, args ...[]byte) ([]byte, e
 	buf.Write([]byte(fnName))
 
 	argsLenBuf := make([]byte, binary.MaxVarintLen16)
-	binary.PutUvarint(argsLenBuf, uint64(len(args)))
-	buf.Write(argsLenBuf)
+	n := binary.PutUvarint(argsLenBuf, uint64(len(args)))
+	buf.Write(argsLenBuf[:n])
 
 	for i := range args {
 		argLenBuf := make([]byte, binary.MaxVarintLen16)
-		binary.PutUvarint(argLenBuf, uint64(len(args[i])))
-		buf.Write(argLenBuf)
+		n := binary.PutUvarint(argLenBuf, uint64(len(args[i])))
+		buf.Write(argLenBuf[:n])
 
 		buf.Write(args[i])
 	}
@@ -124,7 +124,7 @@ func NewIndexedContext(fnName string, data [][]byte) *IndexedContext {
 
 // LoadArgument for empty context doesn't load anything.
 func (i *IndexedContext) LoadArgument(argumentNumber int32) []byte {
-	if argumentNumber < int32(len(i.args)) && argumentNumber > 0 {
+	if argumentNumber < int32(len(i.args)) && argumentNumber >= 0 {
 		return i.args[argumentNumber]
 	}
 	return []byte{}

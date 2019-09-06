@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/phoreproject/synapse/shard/state"
+	"github.com/sirupsen/logrus"
 	"math/big"
 	"reflect"
+	"sync"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/phoreproject/synapse/chainhash"
@@ -34,6 +36,91 @@ type Shard struct {
 	VM               *exec.VM
 	ExportedFuncs    []int64
 	ExecutionContext ArgumentContext
+
+	err           error
+	executionLock *sync.Mutex
+}
+
+// error informs the executor that execution has failed.
+func (s *Shard) error(proc *exec.Process, err error) {
+	s.err = err
+	proc.Terminate()
+}
+
+// Load loads a value from state storage.
+func (s *Shard) Load(proc *exec.Process, outAddr int32, inAddr int32) {
+	addrHash := s.ReadHashAt(proc, inAddr)
+	outHash, err := s.Storage.Get(addrHash)
+	if err != nil {
+		s.error(proc, err)
+	}
+	s.SafeWrite(proc, outAddr, outHash[:])
+}
+
+// Store stores a value to state storage.
+func (s *Shard) Store(proc *exec.Process, addr int32, val int32) {
+	addrHash := s.ReadHashAt(proc, addr)
+	valHash := s.ReadHashAt(proc, val)
+	err := s.Storage.Set(addrHash, valHash)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// LoadArgument loads an argument passed in via the transaction.
+func (s *Shard) LoadArgument(proc *exec.Process, argNum int32, outAddr int32) {
+	out := s.ExecutionContext.LoadArgument(argNum)
+	s.SafeWrite(proc, outAddr, out)
+}
+
+// ValidateECDSA validates a certain ECDSA signature.
+func (s *Shard) ValidateECDSA(proc *exec.Process, hashAddr int32, signatureAddr int32, pubkeyOut int32) int64 {
+	var hash [32]byte
+	s.SafeRead(proc, hashAddr, hash[:])
+
+	var sigBytes [65]byte
+	s.SafeRead(proc, signatureAddr, sigBytes[:])
+
+	//fmt.Printf("validateECDSA: hash: %x, sig: %x\n", hash, sigBytes)
+
+	// as long as hash is a random oracle (not chosen by the user),
+	// we can derive the pubkey from the signature and the hash.
+	pub, _, err := secp256k1.RecoverCompact(sigBytes[:], hash[:])
+	if err != nil {
+		return 1
+	}
+
+	var pubkeyCompressed [33]byte
+
+	copy(pubkeyCompressed[:], pub.Serialize())
+
+	s.SafeWrite(proc, pubkeyOut, pubkeyCompressed[:])
+
+	sig := DecompressSignature(sigBytes)
+
+	if !sig.Verify(hash[:], pub) {
+		return 2
+	}
+	return 0
+}
+
+// Hash calculates the hash of some data.
+func (s *Shard) Hash(proc *exec.Process, hashOut int32, inputStart int32, inputSize int32) {
+	toHash := make([]byte, inputSize)
+
+	s.SafeRead(proc, inputStart, toHash)
+
+	h := chainhash.HashH(toHash)
+
+	s.SafeWrite(proc, hashOut, h[:])
+}
+
+// Log logs a message.
+func (s *Shard) Log(proc *exec.Process, strPtr int32, strLen int32) {
+	logMessage := make([]byte, strLen)
+
+	s.SafeRead(proc, strPtr, logMessage)
+	logrus.Debugf("log message: %s", string(logMessage))
 }
 
 // DecompressSignature decompresses a signature.
@@ -47,116 +134,22 @@ func DecompressSignature(sig [65]byte) *secp256k1.Signature {
 	return secp256k1.NewSignature(R, S)
 }
 
-// SafeRead reads from a process and handles errors while reading.
-func SafeRead(proc *exec.Process, location int32, out []byte) {
-	_, err := proc.ReadAt(out, int64(location))
-	if err != nil {
-		fmt.Printf("error reading from memory at address: 0x%x\n", location)
-		proc.Terminate()
-	}
-}
-
-// SafeWrite writes to a process and handles errors while writing.
-func SafeWrite(proc *exec.Process, location int32, val []byte) {
-	_, err := proc.WriteAt(val, int64(location))
-	if err != nil {
-		fmt.Printf("error writing to memory at address: 0x%x\n", location)
-		proc.Terminate()
-	}
-}
-
-// ReadHashAt reads a hash from WebAssembly memory.
-func ReadHashAt(proc *exec.Process, addr int32) [32]byte {
-	var hash [32]byte
-	SafeRead(proc, addr, hash[:])
-	return hash
-}
+var _ ShardInterface = &Shard{}
 
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
 func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface, execContext ArgumentContext) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
+
+	s := &Shard{
+		Storage:          storageAccess,
+		ExportedFuncs:    exportedFuncs,
+		ExecutionContext: execContext,
+		executionLock:    new(sync.Mutex),
+	}
+
 	mod, err := wasm.ReadModule(buf, func(name string) (*wasm.Module, error) {
 		switch name {
 		case "phore":
-			load := func(proc *exec.Process, outAddr int32, inAddr int32) {
-				addrHash := ReadHashAt(proc, inAddr)
-				outHash, err := storageAccess.Get(addrHash)
-				if err != nil {
-					// this should be handled better
-					panic(err)
-				}
-				//fmt.Printf("load: load %x, got %x\n", addrHash[:], outHash[:])
-				SafeWrite(proc, outAddr, outHash[:])
-			}
-
-			store := func(proc *exec.Process, addr int32, val int32) {
-				addrHash := ReadHashAt(proc, addr)
-				valHash := ReadHashAt(proc, val)
-				err := storageAccess.Set(addrHash, valHash)
-				if err != nil {
-					panic(err)
-				}
-				//fmt.Printf("store: set addr %x to %x\n", addrHash[:], valHash[:])
-			}
-
-			loadArgument := func(proc *exec.Process, argNum int32, outAddr int32) {
-				out := execContext.LoadArgument(argNum)
-				//fmt.Printf("loadArg: get arg %d, got %x\n", argNum, out)
-				SafeWrite(proc, outAddr, out)
-			}
-
-			// validate ECDSA signature
-			// ECDSA signatures in Phore use the following format:
-			//
-			validateECDSA := func(proc *exec.Process, hashAddr int32, signatureAddr int32, pubkeyOut int32) int64 {
-				var hash [32]byte
-				SafeRead(proc, hashAddr, hash[:])
-
-				var sigBytes [65]byte
-				SafeRead(proc, signatureAddr, sigBytes[:])
-
-				//fmt.Printf("validateECDSA: hash: %x, sig: %x\n", hash, sigBytes)
-
-				// as long as hash is a random oracle (not chosen by the user),
-				// we can derive the pubkey from the signature and the hash.
-				pub, _, err := secp256k1.RecoverCompact(sigBytes[:], hash[:])
-				if err != nil {
-					return 1
-				}
-
-				var pubkeyCompressed [33]byte
-
-				copy(pubkeyCompressed[:], pub.Serialize())
-
-				SafeWrite(proc, pubkeyOut, pubkeyCompressed[:])
-
-				sig := DecompressSignature(sigBytes)
-
-				if !sig.Verify(hash[:], pub) {
-					return 2
-				}
-				return 0
-			}
-
-			hash := func(proc *exec.Process, hashOut int32, inputStart int32, inputSize int32) {
-				toHash := make([]byte, inputSize)
-
-				SafeRead(proc, inputStart, toHash)
-
-				h := chainhash.HashH(toHash)
-
-				//fmt.Printf("hash: hashing %x to get %x\n", toHash, h.CloneBytes())
-
-				SafeWrite(proc, hashOut, h[:])
-			}
-
-			writeLog := func(proc *exec.Process, strPtr int32, strlen int32) {
-				logMessage := make([]byte, strlen)
-
-				SafeRead(proc, strPtr, logMessage)
-				fmt.Printf("log message: %s\n", string(logMessage))
-			}
-
 			m := wasm.NewModule()
 			m.Types = &wasm.SectionTypes{
 				Entries: []wasm.FunctionSig{
@@ -179,32 +172,32 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.Access
 			m.FunctionIndexSpace = []wasm.Function{
 				{
 					Sig:  &m.Types.Entries[0],
-					Host: reflect.ValueOf(load),
+					Host: reflect.ValueOf(s.Load),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
 					Sig:  &m.Types.Entries[0],
-					Host: reflect.ValueOf(store),
+					Host: reflect.ValueOf(s.Store),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
 					Sig:  &m.Types.Entries[1],
-					Host: reflect.ValueOf(validateECDSA),
+					Host: reflect.ValueOf(s.ValidateECDSA),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
 					Sig:  &m.Types.Entries[2],
-					Host: reflect.ValueOf(hash),
+					Host: reflect.ValueOf(s.Hash),
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
 					Sig:  &m.Types.Entries[0],
-					Host: reflect.ValueOf(loadArgument),
+					Host: reflect.ValueOf(s.LoadArgument),
 					Body: &wasm.FunctionBody{},
 				},
 				{
 					Sig:  &m.Types.Entries[0],
-					Host: reflect.ValueOf(writeLog),
+					Host: reflect.ValueOf(s.Log),
 					Body: &wasm.FunctionBody{},
 				},
 			}
@@ -257,31 +250,59 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.Access
 		return nil, err
 	}
 
-	return &Shard{
-		mod,
-		storageAccess,
-		vm,
-		exportedFuncs,
-		execContext,
-	}, nil
+	s.VM = vm
+	s.Module = mod
+
+	return s, nil
+}
+
+// SafeRead reads from a process and handles errors while reading.
+func (s *Shard) SafeRead(proc *exec.Process, location int32, out []byte) {
+	_, err := proc.ReadAt(out, int64(location))
+	if err != nil {
+		s.error(proc, err)
+	}
+}
+
+// SafeWrite writes to a process and handles errors while writing.
+func (s *Shard) SafeWrite(proc *exec.Process, location int32, val []byte) {
+	_, err := proc.WriteAt(val, int64(location))
+	if err != nil {
+		s.error(proc, err)
+	}
+}
+
+// ReadHashAt reads a hash from WebAssembly memory.
+func (s *Shard) ReadHashAt(proc *exec.Process, addr int32) [32]byte {
+	var hash [32]byte
+	s.SafeRead(proc, addr, hash[:])
+	return hash
 }
 
 // RunFunc runs a shard function
 func (s *Shard) RunFunc(fnName string) (interface{}, error) {
 	// TODO: ensure in exportedFuncs
 
+	s.executionLock.Lock()
+	defer s.executionLock.Unlock()
+
 	fnToCall, found := s.Module.Export.Entries[fnName]
 	if !found {
 		return nil, fmt.Errorf("could not find function %s", fnName)
 	}
+
+	s.err = nil
 
 	out, err := s.VM.ExecCode(int64(fnToCall.Index))
 	if err != nil {
 		return nil, err
 	}
 
-	return out, nil
+	if s.err != nil {
+		return nil, s.err
+	}
 
+	return out, nil
 }
 
 // HashTo64 converts a hash to a uint64.

@@ -2,32 +2,25 @@ package transfer
 
 import (
 	"encoding/binary"
+	"github.com/phoreproject/synapse/shard/execution"
 )
 
-// ShardContext is the context for a call to Transfer.
-type ShardContext struct {
+// ShardTransaction is a transaction for the transfer shard.
+type ShardTransaction struct {
 	FromPubkey   [33]byte
 	Signature    [65]byte
 	ToPubkeyHash [32]byte
 	Amount       uint64
 }
 
-// LoadArgument loads an argument from the context.
-func (t ShardContext) LoadArgument(argumentNumber int32) []byte {
-	switch argumentNumber {
-	case 0:
-		return t.FromPubkey[:]
-	case 1:
-		return t.Signature[:]
-	case 2:
-		return t.ToPubkeyHash[:]
-	case 3:
-		b := make([]byte, 8)
-		binary.BigEndian.PutUint64(b, t.Amount)
-		return b
-	}
+// Serialize serializes the transfer transaction to bytes.
+func (t *ShardTransaction) Serialize() []byte {
+	var amountBytes [8]byte
+	binary.BigEndian.PutUint64(amountBytes[:], t.Amount)
 
-	return nil
+	out, _ := execution.SerializeTransactionWithArguments("transfer_to_address", t.FromPubkey[:], t.Signature[:], t.ToPubkeyHash[:], amountBytes[:])
+
+	return out
 }
 
 // Code is the binary code used.

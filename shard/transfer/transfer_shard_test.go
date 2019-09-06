@@ -60,19 +60,24 @@ func TestTransferShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx := ShardContext{
+	s, err := execution.NewShard(shardCode, []int64{8}, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txBytes := ShardTransaction{
 		FromPubkey:   pubkeyFrom,
 		Signature:    signature,
 		ToPubkeyHash: zeroHash,
 		Amount:       10,
 	}
 
-	s, err := execution.NewShard(shardCode, []int64{8}, store, ctx)
+	txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	code, err := s.RunFunc("transfer_to_address")
+	code, err := s.RunFunc(txContext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,21 +141,26 @@ func BenchmarkTransferShard(t *testing.B) {
 	// manually set the balance of from
 	_ = store.Set(hashPubkeyFrom, execution.Uint64ToHash(10*uint64(t.N)))
 
-	ctx := ShardContext{
+	txBytes := ShardTransaction{
 		FromPubkey:   pubkeyFrom,
 		Signature:    signature,
 		ToPubkeyHash: zeroHash,
 		Amount:       10,
 	}
 
-	s, err := execution.NewShard(shardCode, []int64{8}, store, ctx)
+	txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := execution.NewShard(shardCode, []int64{8}, store)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
-		_, err := s.RunFunc("transfer_to_address")
+		_, err := s.RunFunc(txContext)
 		if err != nil {
 			t.Fatal(err)
 		}

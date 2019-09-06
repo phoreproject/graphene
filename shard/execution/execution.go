@@ -124,14 +124,13 @@ func DecompressSignature(sig [65]byte) *secp256k1.Signature {
 var _ ShardInterface = &Shard{}
 
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
-func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface, execContext ArgumentContext) (*Shard, error) {
+func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
 
 	s := &Shard{
-		Storage:          storageAccess,
-		ExportedFuncs:    exportedFuncs,
-		ExecutionContext: execContext,
-		executionLock:    new(sync.Mutex),
+		Storage:       storageAccess,
+		ExportedFuncs: exportedFuncs,
+		executionLock: new(sync.Mutex),
 	}
 
 	mod, err := wasm.ReadModule(buf, func(name string) (*wasm.Module, error) {
@@ -267,20 +266,27 @@ func (s *Shard) ReadHashAt(proc *exec.Process, addr int32) [32]byte {
 }
 
 // RunFunc runs a shard function
-func (s *Shard) RunFunc(fnName string) (interface{}, error) {
+func (s *Shard) RunFunc(executionContext ArgumentContext) (interface{}, error) {
 	// TODO: ensure in exportedFuncs
 
 	s.executionLock.Lock()
 	defer s.executionLock.Unlock()
+
+	fnName := executionContext.GetFunction()
 
 	fnToCall, found := s.Module.Export.Entries[fnName]
 	if !found {
 		return nil, fmt.Errorf("could not find function %s", fnName)
 	}
 
+	s.ExecutionContext = executionContext
 	s.err = nil
 
 	out, err := s.VM.ExecCode(int64(fnToCall.Index))
+
+	// set this to nil because we should re-set it every time we run a function
+	s.ExecutionContext = nil
+
 	if err != nil {
 		return nil, err
 	}

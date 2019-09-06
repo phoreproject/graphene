@@ -9,6 +9,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/shard/mempool"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
@@ -30,6 +31,7 @@ type ShardManager struct {
 	InitializationParameters ShardChainInitializationParameters
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
+	Mempool                  *mempool.ShardMempool
 }
 
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
@@ -43,7 +45,13 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
+		Mempool:                  mempool.NewShardMempool(mempool.ValidateTrue, mempool.PrioritizeEqual),
 	}
+}
+
+// SubmitTransaction submits a transaction to the shard.
+func (sm *ShardManager) SubmitTransaction(transaction []byte) error {
+	return sm.Mempool.SubmitTransaction(transaction)
 }
 
 // SubmitBlock submits a block to the chain for processing.

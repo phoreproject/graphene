@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/phoreproject/synapse/shard/state"
 	"math/big"
 	"reflect"
 
@@ -29,7 +30,7 @@ func (e EmptyContext) LoadArgument(argumentNumber int32) []byte { return nil }
 // Shard represents a single shard on the Phore blockchain.
 type Shard struct {
 	Module           *wasm.Module
-	Storage          Storage
+	Storage          state.AccessInterface
 	VM               *exec.VM
 	ExportedFuncs    []int64
 	ExecutionContext ArgumentContext
@@ -72,14 +73,18 @@ func ReadHashAt(proc *exec.Process, addr int32) [32]byte {
 }
 
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
-func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage, execContext ArgumentContext) (*Shard, error) {
+func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface, execContext ArgumentContext) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
 	mod, err := wasm.ReadModule(buf, func(name string) (*wasm.Module, error) {
 		switch name {
 		case "phore":
 			load := func(proc *exec.Process, outAddr int32, inAddr int32) {
 				addrHash := ReadHashAt(proc, inAddr)
-				outHash := storage.PhoreLoad(addrHash)
+				outHash, err := storageAccess.Get(addrHash)
+				if err != nil {
+					// this should be handled better
+					panic(err)
+				}
 				//fmt.Printf("load: load %x, got %x\n", addrHash[:], outHash[:])
 				SafeWrite(proc, outAddr, outHash[:])
 			}
@@ -87,8 +92,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage, execConte
 			store := func(proc *exec.Process, addr int32, val int32) {
 				addrHash := ReadHashAt(proc, addr)
 				valHash := ReadHashAt(proc, val)
+				err := storageAccess.Set(addrHash, valHash)
+				if err != nil {
+					panic(err)
+				}
 				//fmt.Printf("store: set addr %x to %x\n", addrHash[:], valHash[:])
-				storage.PhoreStore(addrHash, valHash)
 			}
 
 			loadArgument := func(proc *exec.Process, argNum int32, outAddr int32) {
@@ -251,7 +259,7 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storage Storage, execConte
 
 	return &Shard{
 		mod,
-		storage,
+		storageAccess,
 		vm,
 		exportedFuncs,
 		execContext,
@@ -276,36 +284,6 @@ func (s *Shard) RunFunc(fnName string) (interface{}, error) {
 
 }
 
-// Storage is the storage backend interface
-type Storage interface {
-	PhoreLoad(address chainhash.Hash) chainhash.Hash
-	PhoreLoad64(address chainhash.Hash) uint64
-	PhoreStore(address chainhash.Hash, value chainhash.Hash)
-	PhoreStore64(address chainhash.Hash, value uint64)
-}
-
-// MemoryStorage is a memory-backed storage backend
-type MemoryStorage struct {
-	memory map[chainhash.Hash]chainhash.Hash
-}
-
-// NewMemoryStorage creates a new memory-backed storage backend
-func NewMemoryStorage() *MemoryStorage {
-	return &MemoryStorage{
-		memory: make(map[chainhash.Hash]chainhash.Hash),
-	}
-}
-
-var zeroHash = chainhash.Hash{}
-
-// PhoreLoad loads a 256-bit value from memory.
-func (m *MemoryStorage) PhoreLoad(address chainhash.Hash) chainhash.Hash {
-	if value, found := m.memory[address]; found {
-		return value
-	}
-	return zeroHash
-}
-
 // HashTo64 converts a hash to a uint64.
 func HashTo64(h chainhash.Hash) uint64 {
 	return binary.BigEndian.Uint64(h[24:])
@@ -316,22 +294,4 @@ func Uint64ToHash(i uint64) chainhash.Hash {
 	var h chainhash.Hash
 	binary.BigEndian.PutUint64(h[24:], i)
 	return h
-}
-
-// PhoreLoad64 loads a 64-bit value from memory.
-func (m *MemoryStorage) PhoreLoad64(address chainhash.Hash) uint64 {
-	if value, found := m.memory[address]; found {
-		return HashTo64(value)
-	}
-	return 0
-}
-
-// PhoreStore stores a value to memory.
-func (m *MemoryStorage) PhoreStore(address chainhash.Hash, val chainhash.Hash) {
-	m.memory[address] = val
-}
-
-// PhoreStore64 stores a 64-bit value to memory.
-func (m *MemoryStorage) PhoreStore64(address chainhash.Hash, val uint64) {
-	m.memory[address] = Uint64ToHash(val)
 }

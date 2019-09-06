@@ -2,6 +2,7 @@ package execution
 
 import (
 	"encoding/hex"
+	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -21,7 +22,7 @@ func TestShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := NewMemoryStorage()
+	store := state.NewFullShardState()
 
 	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
@@ -38,9 +39,12 @@ func TestShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr0 := s.Storage.PhoreLoad64(Uint64ToHash(0))
+	addr0, err := s.Storage.Get(Uint64ToHash(0))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if addr0 != 2 {
+	if HashTo64(*addr0) != 2 {
 		t.Fatalf("Expected to load 2 from Phore storage, got: %d", addr0)
 	}
 }
@@ -56,7 +60,7 @@ func BenchmarkShardCall(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	store := NewMemoryStorage()
+	store := state.NewFullShardState()
 
 	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
@@ -84,7 +88,7 @@ func TestECDSAShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := NewMemoryStorage()
+	store := state.NewFullShardState()
 
 	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {
@@ -96,14 +100,21 @@ func TestECDSAShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr0 := s.Storage.PhoreLoad64(Uint64ToHash(0))
+	addr0, err := s.Storage.Get(Uint64ToHash(0))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if addr0 != 0 {
+	if HashTo64(*addr0) != 0 {
 		t.Fatalf("Expected to load 0 from Phore storage, got: %d", addr0)
 	}
 
-	addr1 := s.Storage.PhoreLoad64(Uint64ToHash(1))
-	if byte(addr1) != chainhash.HashH([]byte{1, 2, 3, 4})[0] {
+	addr1, err := s.Storage.Get(Uint64ToHash(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if byte(HashTo64(*addr1)) != chainhash.HashH([]byte{1, 2, 3, 4})[0] {
 		t.Fatal("Expected to load correct hash value from shard")
 	}
 }
@@ -157,7 +168,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	store := NewMemoryStorage()
+	store := state.NewFullShardState()
 
 	s, err := NewShard(shardCode, []int64{2}, store, EmptyContext{})
 	if err != nil {

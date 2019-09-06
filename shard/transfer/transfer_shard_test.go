@@ -3,6 +3,7 @@ package transfer
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -24,7 +25,7 @@ func TestTransferShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := execution.NewMemoryStorage()
+	store := state.NewFullShardState()
 
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
 		"20ee63e502ee2869afab7de234b80c")
@@ -54,7 +55,10 @@ func TestTransferShard(t *testing.T) {
 	copy(signature[:], sigBytes)
 
 	// manually set the balance of from
-	store.PhoreStore64(hashPubkeyFrom, 100)
+	err = store.Set(hashPubkeyFrom, execution.Uint64ToHash(100))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx := ShardContext{
 		FromPubkey:   pubkeyFrom,
@@ -77,13 +81,14 @@ func TestTransferShard(t *testing.T) {
 		t.Fatal("function exited with non-zero exit code")
 	}
 
-	endAmount := store.PhoreLoad64(zeroHash)
-	if endAmount != 10 {
+	endAmount, _ := store.Get(zeroHash)
+
+	if execution.HashTo64(*endAmount) != 10 {
 		t.Fatal("expected 10 PHR to be transferred to address 0")
 	}
 
-	endAmountFrom := store.PhoreLoad64(hashPubkeyFrom)
-	if endAmountFrom != 90 {
+	endAmountFrom, _ := store.Get(hashPubkeyFrom)
+	if execution.HashTo64(*endAmountFrom) != 90 {
 		t.Fatal("expected 90 PHR to be left in old address")
 	}
 }
@@ -99,7 +104,7 @@ func BenchmarkTransferShard(t *testing.B) {
 		t.Fatal(err)
 	}
 
-	store := execution.NewMemoryStorage()
+	store := state.NewFullShardState()
 
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
 		"20ee63e502ee2869afab7de234b80c")
@@ -129,7 +134,7 @@ func BenchmarkTransferShard(t *testing.B) {
 	copy(signature[:], sigBytes)
 
 	// manually set the balance of from
-	store.PhoreStore64(hashPubkeyFrom, 10*uint64(t.N))
+	_ = store.Set(hashPubkeyFrom, execution.Uint64ToHash(10*uint64(t.N)))
 
 	ctx := ShardContext{
 		FromPubkey:   pubkeyFrom,

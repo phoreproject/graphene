@@ -98,6 +98,102 @@ func TestTransferShard(t *testing.T) {
 	}
 }
 
+func TestTransferShardRedeem(t *testing.T) {
+	shardFile, err := os.Open("transfer_shard.wasm")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shardCode, err := ioutil.ReadAll(shardFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	store := state.NewFullShardState()
+
+	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
+		"20ee63e502ee2869afab7de234b80c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	privkey, pubKey := secp256k1.PrivKeyFromBytes(pkBytes)
+
+	var pubkeyFrom [33]byte
+	copy(pubkeyFrom[:], pubKey.SerializeCompressed())
+
+	hashPubkeyFrom := chainhash.HashH(pubkeyFrom[:])
+
+	zeroHash := chainhash.Hash{}
+
+	message := fmt.Sprintf("transfer %d PHR to %s", 10, zeroHash.String())
+
+	messageHash := chainhash.HashH([]byte(message))
+
+	var signature [65]byte
+
+	sigBytes, err := secp256k1.SignCompact(privkey, messageHash[:], false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copy(signature[:], sigBytes)
+
+	s, err := execution.NewShard(shardCode, []int64{8}, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redeemTx := RedeemTransaction{
+		ToPubkeyHash: hashPubkeyFrom,
+	}
+
+	redeemCtx, err := execution.LoadArgumentContextFromTransaction(redeemTx.Serialize())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, err := s.RunFunc(redeemCtx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if code.(uint64) != 0 {
+		t.Fatalf("function exited with non-zero exit code: %d", code)
+	}
+
+	txBytes := ShardTransaction{
+		FromPubkey:   pubkeyFrom,
+		Signature:    signature,
+		ToPubkeyHash: zeroHash,
+		Amount:       10,
+	}
+
+	txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, err = s.RunFunc(txContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if code.(uint64) != 0 {
+		t.Fatalf("function exited with non-zero exit code: %d", code)
+	}
+
+	endAmount, _ := store.Get(zeroHash)
+
+	if execution.HashTo64(*endAmount) != 10 {
+		t.Fatal("expected 10 PHR to be transferred to address 0")
+	}
+
+	endAmountFrom, _ := store.Get(hashPubkeyFrom)
+	if execution.HashTo64(*endAmountFrom) != 100000000-10 {
+		t.Fatal("expected 90 PHR to be left in old address")
+	}
+}
+
 func BenchmarkTransferShard(t *testing.B) {
 	shardFile, err := os.Open("transfer_shard.wasm")
 	if err != nil {

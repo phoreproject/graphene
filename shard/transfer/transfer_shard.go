@@ -23,5 +23,17 @@ func (t *ShardTransaction) Serialize() []byte {
 	return out
 }
 
+// RedeemTransaction redeems a premine from the transfer shard.
+type RedeemTransaction struct {
+	ToPubkeyHash [32]byte
+}
+
+// Serialize serializes the transfer transaction to bytes.
+func (t *RedeemTransaction) Serialize() []byte {
+	out, _ := execution.SerializeTransactionWithArguments("redeem_premine", t.ToPubkeyHash[:])
+
+	return out
+}
+
 // Code is the binary code used.
 var Code = FSMustByte(false, "/transfer_shard.wasm")

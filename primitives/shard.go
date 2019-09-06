@@ -3,6 +3,7 @@ package primitives
 import (
 	"errors"
 	"fmt"
+	"github.com/phoreproject/synapse/csmt"
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
@@ -202,7 +203,7 @@ func GetGenesisBlockForShard(shardID uint64) ShardBlock {
 			PreviousBlockHash:   chainhash.HashH([]byte(fmt.Sprintf("%d", shardID))),
 			Slot:                0,
 			Signature:           [48]byte{},
-			StateRoot:           chainhash.Hash{}, // TODO: should be empty state, not 0 hash
+			StateRoot:           csmt.EmptyTree,
 			TransactionRoot:     transactionRoot,
 			FinalizedBeaconHash: chainhash.Hash{},
 		},

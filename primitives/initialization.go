@@ -4,6 +4,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/csmt"
 	"github.com/prysmaticlabs/go-ssz"
 )
 
@@ -32,6 +33,7 @@ func InitializeState(c *config.Config, initialValidators []InitialValidatorEntry
 		crosslinks[i] = Crosslink{
 			Slot:           c.InitialSlotNumber,
 			ShardBlockHash: shardGenesisHash,
+			ShardStateHash: csmt.EmptyTree,
 		}
 	}
 

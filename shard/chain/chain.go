@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 	"sync"
@@ -30,7 +29,7 @@ func NewShardChain(rootSlot uint64, genesisBlock *primitives.ShardBlock) *ShardC
 			{
 				Parent:    nil,
 				BlockHash: genesisHash,
-				StateRoot: chainhash.Hash{},
+				StateRoot: genesisBlock.Header.StateRoot,
 				Slot:      0,
 				Height:    0,
 			},

@@ -6,11 +6,13 @@ require (
 	cloud.google.com/go v0.45.1 // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/beevik/ntp v0.2.0
+	github.com/c-bata/go-prompt v0.2.3
 	github.com/coreos/etcd v3.3.15+incompatible // indirect
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/ethereum/go-ethereum v1.8.27 // indirect
+	github.com/fatih/color v1.7.0
 	github.com/go-interpreter/wagon v0.4.0
 	github.com/go-test/deep v1.0.1
 	github.com/gobuffalo/logger v1.0.1 // indirect
@@ -38,12 +40,14 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.1.2
 	github.com/libp2p/go-libp2p-protocol v0.1.0
 	github.com/libp2p/go-libp2p-pubsub v0.1.0
+	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mjibson/esc v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/phoreproject/bls v0.0.0-20190621015719-e008a268030e
 	github.com/phoreproject/go-phore-connmgr v0.1.1-0.20190729173651-7739b05fbd21
 	github.com/pkg/errors v0.8.1
+	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.1.0 // indirect
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4 // indirect
 	github.com/prometheus/procfs v0.0.4 // indirect

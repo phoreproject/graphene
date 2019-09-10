@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
+	"encoding/binary"
 	"flag"
 	mrand "math/rand"
 	"strings"
@@ -43,9 +45,13 @@ func (app *goTestApp) run() {
 
 	app.createHostNode()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	app.executeCommands()
+
+	time.Sleep(5 * time.Second)
+
+	app.disconnectAllPeers()
 }
 
 func (app *goTestApp) parseArgs() {
@@ -137,6 +143,18 @@ func (app *goTestApp) executeCommand(command string) {
 	case "invalidRejectMessage":
 		app.commandInvalidRejectMessage()
 		break
+
+	case "invalidRawData":
+		app.commandInvalidRawData()
+		break
+
+	case "hugeMessageSize":
+		app.commandHugeMessageSize()
+		break
+
+	default:
+		logger.Errorf("Unknown command: %s", command)
+		break
 	}
 }
 
@@ -151,7 +169,7 @@ func (app *goTestApp) commandInvalidVersionMessage() {
 	app.getPeerNode(0).SendMessage(message)
 
 	logger.Info("commandInvalidVersionMessage finished.")
-	logger.Info("Expect 'error processing message from peer PEERID: stream reset' in the Beacon stdout.")
+	logger.Info("Expect 'error handling message: multihash length inconsistent' in the Beacon stdout.")
 }
 
 func (app *goTestApp) commandInvalidRejectMessage() {
@@ -164,6 +182,32 @@ func (app *goTestApp) commandInvalidRejectMessage() {
 	logger.Info("Expect 'error processing message from peer PEERID: stream reset' in the Beacon stdout.")
 }
 
+func (app *goTestApp) commandInvalidRawData() {
+	connection := app.getPeerNode(0).GetConnection()
+	writer := bufio.NewWriter(connection)
+	data := makeRandomBytes(10000)
+	writer.Write(data)
+	writer.Flush()
+
+	logger.Info("commandInvalidRawData finished.")
+	logger.Info("Expect 'processMessages: error when reading message' in the Beacon stdout.")
+}
+
+func (app *goTestApp) commandHugeMessageSize() {
+	connection := app.getPeerNode(0).GetConnection()
+	writer := bufio.NewWriter(connection)
+
+	buf := make([]byte, 4)
+
+	binary.LittleEndian.PutUint32(buf, uint32(0xffffffff))
+	writer.Write(buf)
+	writer.Write(buf)
+	writer.Flush()
+
+	logger.Info("commandHugeMessageSize finished.")
+	logger.Info("Expect 'processMessages: message size 4294967295 is too large' in the Beacon stdout.")
+}
+
 func (app *goTestApp) getPeerNode(index int) *p2p.Peer {
 	peerList := app.hostNode.GetPeerList()
 	if index >= len(peerList) {
@@ -171,6 +215,12 @@ func (app *goTestApp) getPeerNode(index int) *p2p.Peer {
 		return nil
 	}
 	return peerList[index]
+}
+
+func (app *goTestApp) disconnectAllPeers() {
+	//for len(app.hostNode.GetPeerList()) > 0 {
+	//	app.hostNode.DisconnectPeer(app.hostNode.GetPeerList()[0])
+	//}
 }
 
 func main() {

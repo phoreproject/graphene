@@ -13,7 +13,7 @@ from framework import context
 from framework import asserts
 from framework import gotestrunner
 
-class P2pExample :
+class P2pInvalidRejectMessage :
     def __init__(self) :
         logger.set_verbose(True)
         
@@ -36,7 +36,7 @@ class P2pExample :
         )
         
         self._tester.start_all_nodes()
-        util.sleep_for_seconds(5)
+        util.sleep_for_seconds(10)
         
         peers = [
             '/ip4/0.0.0.0/tcp/11781/p2p/12D3KooWCnEau1w32qUwVDKDt9hH8H5889j7vmb2SYAoduhMDpmS',
@@ -54,4 +54,4 @@ class P2pExample :
         goTestRunner = gotestrunner.GoTestRunner('../../gotest', peers, commands, genesis)
         goTestRunner.run()
         
-P2pExample().run()
+P2pInvalidRejectMessage().run()

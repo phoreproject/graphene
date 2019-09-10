@@ -55,6 +55,9 @@ type Peer struct {
 	startBlock       uint64
 
 	handlerLock *sync.RWMutex
+
+	// Store connection to ease the testing
+	connection inet.Stream
 }
 
 // newPeer creates a P2pPeerNode
@@ -86,6 +89,8 @@ func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Dur
 		},
 
 		handlerLock: new(sync.RWMutex),
+
+		connection: connection,
 	}
 
 	go peer.handleConnection(connection)
@@ -193,6 +198,11 @@ func (node *Peer) IsInbound() bool {
 // GetPeerInfo returns the peer info
 func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
 	return node.peerInfo
+}
+
+// GetConnection returns the underlying connection, useful for testing
+func (node *Peer) GetConnection() inet.Stream {
+	return node.connection
 }
 
 // Disconnect disconnects from a peer cleanly

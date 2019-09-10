@@ -11,6 +11,11 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	logger "github.com/sirupsen/logrus"
+)
+
+const (
+	maxMessageSize = 1024 * 1024 * 16
 )
 
 // writeMessage writes a message and message name to the provided writer.
@@ -117,9 +122,15 @@ func processMessages(ctx context.Context, stream *bufio.Reader, handler func(mes
 		case stateReadHeader:
 			if _, err := io.ReadFull(stream, headerBuffer); err == nil {
 				messageLength := binary.LittleEndian.Uint32(headerBuffer)
+				if messageLength > maxMessageSize {
+					// Limit the message size, we don't want to allocate huge memory to crash the program if an attacker sends 4G message size.
+					logger.Errorf("processMessages: message size %d is too large", messageLength)
+					return fmt.Errorf("processMessages: message size %d is too large", messageLength)
+				}
 				messageBuffer = make([]byte, messageLength)
 				state = stateReadMessage
 			} else {
+				logger.Errorf("processMessages: error when reading header, error=%s", err)
 				return err
 			}
 
@@ -128,13 +139,16 @@ func processMessages(ctx context.Context, stream *bufio.Reader, handler func(mes
 				state = stateReadHeader
 				message, err := readMessage(uint32(len(messageBuffer)), bufio.NewReader(bytes.NewReader(messageBuffer)))
 				if err != nil {
+					logger.Errorf("processMessages: error when reading message body, error=%s", err)
 					return err
 				}
 				err = handler(message)
 				if err != nil {
+					logger.Errorf("processMessages: error when handling message, error=%s", err)
 					return err
 				}
 			} else {
+				logger.Errorf("processMessages: error when reading message, error=%s", err)
 				return err
 			}
 		}

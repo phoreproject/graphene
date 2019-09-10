@@ -13,7 +13,7 @@ from framework import context
 from framework import asserts
 from framework import gotestrunner
 
-class P2pInvalidVersionMessage :
+class P2pInvalidRawData :
     def __init__(self) :
         logger.set_verbose(True)
         
@@ -42,7 +42,7 @@ class P2pInvalidVersionMessage :
             '/ip4/0.0.0.0/tcp/11781/p2p/12D3KooWCnEau1w32qUwVDKDt9hH8H5889j7vmb2SYAoduhMDpmS',
         ]
         commands = [
-            'invalidVersionMessage'
+            'invalidRawData'
         ]
         genesis = util.revert_hex_string(
             util.parse_genesis_hash(
@@ -54,4 +54,4 @@ class P2pInvalidVersionMessage :
         goTestRunner = gotestrunner.GoTestRunner('../../gotest', peers, commands, genesis)
         goTestRunner.run()
         
-P2pInvalidVersionMessage().run()
+P2pInvalidRawData().run()

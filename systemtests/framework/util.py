@@ -6,6 +6,7 @@ import time
 import codecs
 import json
 import random
+import re
 
 def write_file(fileName, message) :
     file = codecs.open(fileName, "w", "utf-8")
@@ -73,3 +74,16 @@ def make_local_address(port) :
 
 def make_random_hash() :
     return bytes(random.getrandbits(8) for _ in range(32))
+    
+def revert_hex_string(hex_string) :
+    result = ''
+    for i in range(0, len(hex_string), 2) :
+        result = hex_string[i : i + 2] + result
+    return result
+
+def parse_genesis_hash(text) :
+    matches = re.search(r'genesisHash\=([\w\d]+)', text)
+    if matches == None :
+        return ''
+    return matches.group(1)
+

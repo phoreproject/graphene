@@ -22,7 +22,8 @@ class BeaconNode(Node) :
         self._config_file_name = os.path.join(self.get_directory(), 'testconfig.json')
         self._create_config_file(self._config_file_name)
 
-        self._stdout_file_name = os.path.join(self.get_directory(), 'beacon.stdout.log')
+        self._stdout_file_name = self.get_stdout_log_file_name()
+        util.write_file(self._stdout_file_name, '')
         
         node_config = self.get_config()
         self._process = Process(stdout = self._stdout_file_name).run(
@@ -37,6 +38,8 @@ class BeaconNode(Node) :
             self.get_listen_address(),
             '-connect',
             util.get_dict_value(node_config, 'connect', ''),
+            '-level',
+            'trace',
         )
         return True
     
@@ -45,6 +48,9 @@ class BeaconNode(Node) :
             self._process.kill()
             self._process = None
         return True
+        
+    def get_stdout_log_file_name(self) :
+        return os.path.join(self.get_directory(), 'beacon.stdout.log')
     
     def _create_config_file(self, file_name) :
         config = {}

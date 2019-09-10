@@ -16,6 +16,8 @@ class Process :
             self._stdout = self._stdout_file
         elif stdout == Process.output_pipe :
             self._stdout = subprocess.PIPE
+        else :
+            self._stdout = None
         self._process = None
 
     def run(self, *args) :

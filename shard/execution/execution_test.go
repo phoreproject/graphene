@@ -24,7 +24,7 @@ func TestShard(t *testing.T) {
 
 	store := state.NewFullShardState()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func BenchmarkShardCall(b *testing.B) {
 
 	store := state.NewFullShardState()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestECDSAShard(t *testing.T) {
 
 	store := state.NewFullShardState()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 
 	store := state.NewFullShardState()
 
-	s, err := NewShard(shardCode, []int64{2}, store)
+	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
 		b.Fatal(err)
 	}

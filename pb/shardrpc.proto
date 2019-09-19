@@ -15,6 +15,17 @@ service ShardRPC {
     rpc SubmitBlock (ShardBlockSubmission) returns (google.protobuf.Empty);
 
     rpc SubmitTransaction (ShardTransactionSubmission) returns (google.protobuf.Empty);
+
+    rpc GetStateKey (GetStateKeyRequest) returns (GetStateKeyResponse);
+}
+
+message GetStateKeyRequest {
+    bytes Key = 1;
+    uint64 ShardID = 2;
+}
+
+message GetStateKeyResponse {
+    bytes Value = 1;
 }
 
 message BlockHashResponse {

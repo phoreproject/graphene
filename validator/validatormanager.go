@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/phoreproject/synapse/utils"
@@ -277,14 +278,23 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 
 	assignments, found := vm.toPropose[slotNumber]
 	if found {
+		w := new(sync.WaitGroup)
+
 		for _, assignment := range assignments {
-			if validator, found := vm.validatorMap[assignment.Validator]; found {
-				err := validator.proposeShardblock(context.Background(), assignment.Shard, slotNumber, chainhash.Hash{})
-				if err != nil {
-					return err
-				}
+			assignmentClosed := assignment
+			if validator, found := vm.validatorMap[assignmentClosed.Validator]; found {
+				w.Add(1)
+				go func() {
+					err := validator.proposeShardblock(context.Background(), assignmentClosed.Shard, slotNumber, chainhash.Hash{})
+					if err != nil {
+						panic(err)
+					}
+					w.Done()
+				}()
 			}
 		}
+
+		w.Wait()
 
 		delete(vm.toPropose, slotNumber)
 	}

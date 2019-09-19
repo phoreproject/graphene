@@ -8,7 +8,6 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
 	"github.com/prysmaticlabs/go-ssz"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"net"
@@ -17,6 +16,28 @@ import (
 // ShardRPCServer handles incoming commands for the shard module.
 type ShardRPCServer struct {
 	sm *chain.ShardMux
+}
+
+// GetStateKey gets a key from the current state.
+func (s *ShardRPCServer) GetStateKey(ctx context.Context, req *pb.GetStateKeyRequest) (*pb.GetStateKeyResponse, error) {
+	manager, err := s.sm.GetManager(req.ShardID)
+	if err != nil {
+		return nil, err
+	}
+
+	keyH, err := chainhash.NewHash(req.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	val, err := manager.StateManager.Get(*keyH)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetStateKeyResponse{
+		Value: val[:],
+	}, nil
 }
 
 // SubmitTransaction submits a transaction to a certain shard.
@@ -37,9 +58,6 @@ func (s *ShardRPCServer) SubscribeToShard(ctx context.Context, req *pb.ShardSubs
 		return nil, err
 	}
 
-	logrus.Infof("subscribing to shard %d with crosslink at %d and latest block hash %s", req.ShardID,
-		req.CrosslinkSlot, blockHash)
-
 	if !s.sm.IsManaging(req.ShardID) {
 		s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
 			RootBlockHash: *blockHash,
@@ -53,8 +71,6 @@ func (s *ShardRPCServer) SubscribeToShard(ctx context.Context, req *pb.ShardSubs
 // UnsubscribeFromShard instructs the shard module to unsubscribe from a specific shard including disconnecting from
 // unnecessary peers and clearing the database of any unnecessary state. No-op until we implement the P2P network.
 func (s *ShardRPCServer) UnsubscribeFromShard(ctx context.Context, req *pb.ShardUnsubscribeRequest) (*empty.Empty, error) {
-	logrus.Infof("unsubscribing to shard %d", req.ShardID)
-
 	s.sm.StopManaging(req.ShardID)
 
 	return &empty.Empty{}, nil
@@ -93,11 +109,6 @@ func (s *ShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *pb.SlotReq
 // GenerateBlockTemplate generates a block template using transactions and witnesses for a certain shard at a certain
 // slot.
 func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.BlockGenerationRequest) (*pb.ShardBlock, error) {
-	logrus.WithFields(logrus.Fields{
-		"shard": req.Shard,
-		"slot":  req.Slot,
-	}).Debug("generating block template for signing")
-
 	finalizedBeaconHash, err := chainhash.NewHash(req.FinalizedBeaconHash)
 	if err != nil {
 		return nil, err
@@ -144,14 +155,6 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		},
 	}
 
-	blockHash, err := ssz.HashTreeRoot(block)
-	if err != nil {
-		return nil, err
-	}
-
-	logrus.Infof("generated shard block skeleton for shard %d with block hash %x and previous block hash %s",
-		req.Shard, blockHash, block.Header.PreviousBlockHash)
-
 	return block.ToProto(), nil
 }
 
@@ -161,14 +164,6 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 	if err != nil {
 		return nil, err
 	}
-
-	blockHash, err := ssz.HashTreeRoot(block)
-	if err != nil {
-		return nil, err
-	}
-
-	logrus.Infof("submitting shard block for shard %d with block hash %x",
-		req.Shard, blockHash)
 
 	manager, err := s.sm.GetManager(req.Shard)
 	if err != nil {

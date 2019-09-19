@@ -14,7 +14,6 @@ import (
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
-	"github.com/sirupsen/logrus"
 )
 
 // ShardChainInitializationParameters are the initialization parameters from the crosslink.
@@ -49,7 +48,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
 		Mempool:                  mempool.NewShardMempool(mempool.ValidateTrue, mempool.PrioritizeEqual),
-		StateManager:             execution.NewBasicFullStateManager(transfer.Code), // TODO: this should be loaded dynamically instead of directly from the filesystem
+		StateManager:             execution.NewBasicFullStateManager(transfer.Code, uint32(shardID)), // TODO: this should be loaded dynamically instead of directly from the filesystem
 	}
 }
 
@@ -149,11 +148,8 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 
 	if node.Height > tipNode.Height || (node.Height == tipNode.Height && node.Slot > tipNode.Slot) {
 		sm.Chain.SetTip(node)
-		logrus.WithFields(logrus.Fields{
-			"height": node.Height,
-			"slot":   node.Slot,
-			"shard":  sm.ShardID,
-		}).Debug("set new tip")
+
+		sm.Mempool.RemoveTransactionsFromBlock(&block)
 	}
 
 	return nil

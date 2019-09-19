@@ -12,7 +12,7 @@ import (
 type ShardInterface interface {
 	Load(proc *exec.Process, outAddr int32, inAddr int32)
 	Store(proc *exec.Process, addr int32, val int32)
-	LoadArgument(proc *exec.Process, argNum int32, outAddr int32)
+	LoadArgument(proc *exec.Process, argNum int32, argLen int32, outAddr int32)
 	ValidateECDSA(proc *exec.Process, hashAddr int32, signatureAddr int32, pubkeyOut int32) int64
 	Hash(proc *exec.Process, hashOut int32, inputStart int32, inputSize int32)
 	Log(proc *exec.Process, strPtr int32, len int32)
@@ -29,14 +29,16 @@ type FullStateTransition struct {
 	state        *state.FullShardState
 	transactions [][]byte
 	code         []byte
+	shardID      uint32
 }
 
 // NewFullStateTransition creates a new full state transition using the previous state and the transactions to run.
-func NewFullStateTransition(state *state.FullShardState, transactions [][]byte, code []byte) *FullStateTransition {
+func NewFullStateTransition(state *state.FullShardState, transactions [][]byte, code []byte, shardID uint32) *FullStateTransition {
 	return &FullStateTransition{
 		state:        state,
 		transactions: transactions,
 		code:         code,
+		shardID:      shardID,
 	}
 }
 
@@ -47,7 +49,7 @@ func (f *FullStateTransition) Transition(preHash *chainhash.Hash) (*chainhash.Ha
 		return nil, fmt.Errorf("expected state root of full state to equal %s but got %s", expectedPreHash, preHash)
 	}
 
-	shard, err := NewShard(f.code, []int64{}, f.state)
+	shard, err := NewShard(f.code, []int64{}, f.state, f.shardID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +60,13 @@ func (f *FullStateTransition) Transition(preHash *chainhash.Hash) (*chainhash.Ha
 			return nil, err
 		}
 
-		_, err = shard.RunFunc(argContext)
+		out, err := shard.RunFunc(argContext)
 		if err != nil {
 			return nil, err
+		}
+
+		if out.(uint64) != 0 {
+			return nil, fmt.Errorf("transaction failed with code: %d", out)
 		}
 	}
 

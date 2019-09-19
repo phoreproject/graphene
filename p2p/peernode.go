@@ -11,14 +11,13 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/mux"
 
-	inet "github.com/libp2p/go-libp2p-net"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/network"
 	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/pb"
 
 	"github.com/golang/protobuf/proto"
-	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/phoreproject/synapse/chainhash"
 )
 
@@ -27,7 +26,7 @@ const ClientVersion = 0
 
 // Peer is a representation of an external peer.
 type Peer struct {
-	peerInfo          *peerstore.PeerInfo
+	peerInfo          *peer.AddrInfo
 	host              *HostNode
 	timeoutInterval   time.Duration
 	heartbeatInterval time.Duration
@@ -54,7 +53,7 @@ type Peer struct {
 }
 
 // newPeer creates a P2pPeerNode
-func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection inet.Stream, heartbeatInterval time.Duration) *Peer {
+func newPeer(outbound bool, id peer.ID, host *HostNode, timeoutInterval time.Duration, connection network.Stream, heartbeatInterval time.Duration) *Peer {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p := &Peer{
@@ -158,7 +157,7 @@ func (node *Peer) processMessages(reader *bufio.Reader) {
 	}
 }
 
-func (node *Peer) handleConnection(connection inet.Stream) {
+func (node *Peer) handleConnection(connection network.Stream) {
 	go node.processMessages(bufio.NewReader(connection))
 
 	go node.sendMessages(bufio.NewWriter(connection))
@@ -185,7 +184,7 @@ func (node *Peer) IsInbound() bool {
 }
 
 // GetPeerInfo returns the peer info
-func (node *Peer) GetPeerInfo() *peerstore.PeerInfo {
+func (node *Peer) GetPeerInfo() *peer.AddrInfo {
 	return node.peerInfo
 }
 
@@ -228,7 +227,7 @@ func (node *Peer) HandleVersionMessage(message *pb.VersionMessage) error {
 		return nil
 	}
 
-	peerInfo := peerstore.PeerInfo{}
+	peerInfo := peer.AddrInfo{}
 	if peerInfo.UnmarshalJSON(message.PeerInfo) == nil {
 		node.peerInfo = &peerInfo
 	}
@@ -276,7 +275,7 @@ func (node *Peer) handleGetAddrMessage(message *pb.GetAddrMessage) error {
 
 func (node *Peer) handleAddrMessage(message *pb.AddrMessage) error {
 	for _, data := range message.Addrs {
-		peerInfo := peerstore.PeerInfo{}
+		peerInfo := peer.AddrInfo{}
 		if peerInfo.UnmarshalJSON(data) == nil {
 			if peerInfo.ID != node.host.GetHost().ID() {
 				node.host.PeerDiscovered(peerInfo)

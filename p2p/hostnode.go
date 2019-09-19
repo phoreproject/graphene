@@ -3,6 +3,7 @@ package p2p
 import (
 	"context"
 	"errors"
+	"github.com/libp2p/go-libp2p"
 	"sort"
 	"sync"
 	"time"
@@ -14,16 +15,15 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p"
-	crypto "github.com/libp2p/go-libp2p-crypto"
-	host "github.com/libp2p/go-libp2p-host"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	protocol "github.com/libp2p/go-libp2p-protocol"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
-	connmgr "github.com/phoreproject/go-phore-connmgr"
+	"github.com/phoreproject/go-phore-connmgr"
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 )
@@ -98,7 +98,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 		return nil, err
 	}
 
-	addrs, err := peerstore.InfoToP2pAddrs(&peerstore.PeerInfo{
+	addrs, err := peer.AddrInfoToP2pAddrs(&peer.AddrInfo{
 		ID: h.ID(),
 		Addrs: []multiaddr.Multiaddr{
 			listenAddress,
@@ -149,7 +149,7 @@ func NewHostNode(listenAddress multiaddr.Multiaddr, publicKey crypto.PubKey, pri
 }
 
 // handleStream handles an incoming stream.
-func (node *HostNode) handleStream(stream inet.Stream) {
+func (node *HostNode) handleStream(stream network.Stream) {
 	_, err := node.setupPeerNode(stream, false)
 	if err != nil {
 		logger.Error("setup", err)
@@ -211,7 +211,7 @@ func (node *HostNode) RemoveMessageHandler(handler Handler) {
 }
 
 // Connect connects to a peer that we're not already connected to.
-func (node *HostNode) Connect(peerInfo peerstore.PeerInfo) (*Peer, error) {
+func (node *HostNode) Connect(peerInfo peer.AddrInfo) (*Peer, error) {
 	if peerInfo.ID == node.GetHost().ID() {
 		return nil, errors.New("cannot connect to self")
 	}
@@ -291,7 +291,7 @@ func eraseLastKElements(candidates []nodeEvictionCandidate, k int, comparator fu
 }
 
 func (node *HostNode) attemptToEvictConnection() {
-	candidates := []nodeEvictionCandidate{}
+	var candidates []nodeEvictionCandidate
 	for _, p := range node.peerList {
 		c := nodeEvictionCandidate{
 			peer:            p,
@@ -382,7 +382,7 @@ type ChainProvider interface {
 }
 
 // Run runs the main loop of the host node
-func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, error) {
+func (node *HostNode) setupPeerNode(stream network.Stream, outbound bool) (*Peer, error) {
 	peerNode := newPeer(outbound, stream.Conn().RemotePeer(), node, node.timeoutInterval, stream, node.heartbeatInterval)
 
 	node.peerListLock.Lock()
@@ -396,7 +396,7 @@ func (node *HostNode) setupPeerNode(stream inet.Stream, outbound bool) (*Peer, e
 		return nil, err
 	}
 
-	peerInfo := peerstore.PeerInfo{
+	peerInfo := peer.AddrInfo{
 		ID:    node.host.ID(),
 		Addrs: node.host.Addrs(),
 	}
@@ -506,7 +506,7 @@ func (node *HostNode) FindPeerByID(id peer.ID) (*Peer, bool) {
 }
 
 // PeerDiscovered is run when peers are discovered.
-func (node *HostNode) PeerDiscovered(pi peerstore.PeerInfo) {
+func (node *HostNode) PeerDiscovered(pi peer.AddrInfo) {
 	_, err := node.Connect(pi)
 	if err != nil {
 		logger.WithField("err", err).Debug("could not connect to peer")

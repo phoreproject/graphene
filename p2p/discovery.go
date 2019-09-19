@@ -4,14 +4,15 @@ import (
 	"context"
 	"time"
 
-	protocol "github.com/libp2p/go-libp2p-protocol"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	logger "github.com/sirupsen/logrus"
 
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 
-	p2pdiscovery "github.com/libp2p/go-libp2p-discovery"
+	"github.com/libp2p/go-libp2p-core/discovery"
+	"github.com/libp2p/go-libp2p-core/peer"
+	routingdiscovery "github.com/libp2p/go-libp2p-discovery"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	ps "github.com/libp2p/go-libp2p-peerstore"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/phoreproject/synapse/pb"
 )
@@ -25,7 +26,7 @@ type MDNSOptions struct {
 // DiscoveryOptions is the options used to discover peers
 type DiscoveryOptions struct {
 	// Optional. Each element is a peer address to connect with.
-	PeerAddresses []ps.PeerInfo
+	PeerAddresses []peer.AddrInfo
 
 	MDNS MDNSOptions
 }
@@ -47,7 +48,7 @@ type Discovery struct {
 	host         *HostNode
 	options      DiscoveryOptions
 	ctx          context.Context
-	p2pDiscovery p2pdiscovery.Discovery
+	p2pDiscovery discovery.Discovery
 }
 
 // DHTProtocolID is the protocol ID used for DHT for Phore.
@@ -74,7 +75,7 @@ func NewDiscovery(ctx context.Context, host *HostNode, discoveryOptions Discover
 		host:         host,
 		ctx:          ctx,
 		options:      discoveryOptions,
-		p2pDiscovery: p2pdiscovery.NewRoutingDiscovery(routing),
+		p2pDiscovery: routingdiscovery.NewRoutingDiscovery(routing),
 	}
 }
 
@@ -167,11 +168,11 @@ func (d Discovery) startFindPeers() {
 
 	go func() {
 		for {
-			for peer := range peerChan {
-				if d.host.GetHost().ID() == peer.ID {
+			for p := range peerChan {
+				if d.host.GetHost().ID() == p.ID {
 					continue
 				}
-				d.HandlePeerFound(peer)
+				d.HandlePeerFound(p)
 			}
 			select {
 			case <-time.After(10 * time.Second):
@@ -189,8 +190,8 @@ func (d Discovery) startGetAddr() {
 	go func() {
 		for {
 			peerList := d.host.GetPeerList()
-			for _, peer := range peerList {
-				peer.SendMessage(&pb.GetAddrMessage{})
+			for _, p := range peerList {
+				p.SendMessage(&pb.GetAddrMessage{})
 			}
 			select {
 			case <-time.After(60 * time.Second):
@@ -204,7 +205,7 @@ func (d Discovery) startGetAddr() {
 }
 
 // HandlePeerFound registers the peer with the host.
-func (d Discovery) HandlePeerFound(pi ps.PeerInfo) {
+func (d Discovery) HandlePeerFound(pi peer.AddrInfo) {
 	if d.host.GetHost().ID() == pi.ID {
 		return
 	}

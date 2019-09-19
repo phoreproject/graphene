@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"sync"
 )
 
@@ -57,6 +58,9 @@ func (sm *ShardMempool) SubmitTransaction(tx []byte) error {
 
 // GetTransactions gets transactions from the mempool.
 func (sm *ShardMempool) GetTransactions() [][]byte {
+	sm.lock.Lock()
+	defer sm.lock.Unlock()
+
 	transactions := make([][]byte, len(sm.transactions))
 
 	i := 0
@@ -66,4 +70,18 @@ func (sm *ShardMempool) GetTransactions() [][]byte {
 	}
 
 	return transactions
+}
+
+// RemoveTransactionsFromBlock removes transactions from the mempool from an accepted block.
+func (sm *ShardMempool) RemoveTransactionsFromBlock(b *primitives.ShardBlock) {
+	sm.lock.Lock()
+	defer sm.lock.Unlock()
+
+	for _, tx := range b.Body.Transactions {
+		txBody := tx.TransactionData
+
+		txHash := chainhash.HashH(txBody)
+
+		delete(sm.transactions, txHash)
+	}
 }

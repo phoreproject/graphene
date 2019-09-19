@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
+	"google.golang.org/grpc"
 	"os"
 	"strings"
 )
@@ -13,54 +15,46 @@ func commandCompleter(d prompt.Document) []prompt.Suggest {
 		{Text: "sendtoaddress", Description: "Sends money from one address to another"},
 		{Text: "redeem", Description: "Redeems the premine of a certain address"},
 		{Text: "exit", Description: "Exits the wallet"},
+		{Text: "getnewaddress", Description: "Generates a new address"},
+		{Text: "importprivkey", Description: "Imports a private key"},
 	}
 	return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
 }
 
 var output = color.New(color.FgCyan)
+
 var errOut = color.New(color.FgRed, color.Bold)
 
 func exit(b *prompt.Buffer) {
-	output.Println("Exiting wallet...")
 	os.Exit(0)
 }
 
-func getbalance(args []string) {
-	if len(args) != 1 {
-		errOut.Println("Usage: getbalance <address>")
-		return
-	}
-	output.Printf("Getting balance of %s...\n", args[0])
-}
-
-func redeem(args []string) {
-	if len(args) != 1 {
-		errOut.Println("Usage: redeem <address>")
-		return
-	}
-	output.Printf("Redeeming premine balance of %s...\n", args[0])
-}
-
-func exitCommand(args []string) {
-	exit(nil)
-}
-
-func sendtoaddress(args []string) {
-	if len(args) != 3 {
-		errOut.Println("Usage: sendtoaddress <amount> <fromaddress> <toaddress>")
-		return
-	}
-	output.Printf("Sending %s PHR from %s to %s...\n", args[0], args[1], args[2])
-}
-
-var commandMap = map[string]func(args []string){
-	"getbalance":    getbalance,
-	"redeem":        redeem,
-	"exit":          exitCommand,
-	"sendtoaddress": sendtoaddress,
-}
-
 func main() {
+	shardHost := flag.String("shardhost", "localhost:11783", "host of shard module to connect to")
+
+	flag.Parse()
+
+	c, err := grpc.Dial(*shardHost, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+
+	walletRPC := NewWalletRPC(c, *output, *errOut)
+
+	var commandMap = map[string]func(args []string){
+		"getbalance":    walletRPC.GetBalance,
+		"redeem":        walletRPC.Redeem,
+		"exit":          walletRPC.Exit,
+		"sendtoaddress": walletRPC.SendToAddress,
+		"getnewaddress": walletRPC.GetNewAddress,
+		"importprivkey": walletRPC.ImportPrivKey,
+	}
+
+	go func() {
+		<-walletRPC.exitChan
+		exit(nil)
+	}()
+
 	for {
 		out := prompt.Input("> ", commandCompleter,
 			prompt.OptionAddKeyBind(prompt.KeyBind{Key: prompt.ControlC, Fn: exit}),
@@ -74,7 +68,7 @@ func main() {
 
 		comFunc, found := commandMap[args[0]]
 		if !found {
-			errOut.Printf("invalid command: %s\n", args[0])
+			_, _ = errOut.Printf("invalid command: %s\n", args[0])
 			continue
 		}
 

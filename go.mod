@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go v0.45.1 // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/beevik/ntp v0.2.0
+	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/coreos/etcd v3.3.15+incompatible // indirect
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.1

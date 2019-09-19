@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/phoreproject/synapse/shard/state"
-	"github.com/sirupsen/logrus"
 	"math/big"
 	"reflect"
 	"sync"
@@ -25,9 +24,27 @@ type Shard struct {
 	VM               *exec.VM
 	ExportedFuncs    []int64
 	ExecutionContext ArgumentContext
+	Number           uint32
 
 	err           error
 	executionLock *sync.Mutex
+}
+
+// GetStorageHashForPath gets the hash for a certain path.
+func GetStorageHashForPath(path ...[]byte) chainhash.Hash {
+	if len(path) == 0 {
+		return chainhash.HashH([]byte{})
+	} else if len(path) == 1 {
+		return chainhash.HashH(path[0])
+	} else {
+		subHash := GetStorageHashForPath(path[1:]...)
+		return chainhash.HashH(append(path[0], subHash[:]...))
+	}
+}
+
+// ShardNumber gets the current shard number.
+func (s *Shard) ShardNumber(proc *exec.Process) int32 {
+	return int32(s.Number)
 }
 
 // error informs the executor that execution has failed.
@@ -52,13 +69,18 @@ func (s *Shard) Store(proc *exec.Process, addr int32, val int32) {
 	valHash := s.ReadHashAt(proc, val)
 	err := s.Storage.Set(addrHash, valHash)
 	if err != nil {
-		panic(err)
+		s.error(proc, err)
 	}
 }
 
 // LoadArgument loads an argument passed in via the transaction.
-func (s *Shard) LoadArgument(proc *exec.Process, argNum int32, outAddr int32) {
-	out := s.ExecutionContext.LoadArgument(argNum)
+func (s *Shard) LoadArgument(proc *exec.Process, argNum int32, argLen int32, outAddr int32) {
+	out, err := s.ExecutionContext.LoadArgument(argNum, argLen)
+	if err != nil {
+		s.error(proc, err)
+		return
+	}
+
 	s.SafeWrite(proc, outAddr, out)
 }
 
@@ -91,7 +113,7 @@ func (s *Shard) ValidateECDSA(proc *exec.Process, hashAddr int32, signatureAddr 
 	return 0
 }
 
-// Hash calculates the hash of some data.
+// Hash calculates the 32-byte hash of some data.
 func (s *Shard) Hash(proc *exec.Process, hashOut int32, inputStart int32, inputSize int32) {
 	toHash := make([]byte, inputSize)
 
@@ -107,7 +129,7 @@ func (s *Shard) Log(proc *exec.Process, strPtr int32, strLen int32) {
 	logMessage := make([]byte, strLen)
 
 	s.SafeRead(proc, strPtr, logMessage)
-	logrus.Debugf("log message: %s", string(logMessage))
+	fmt.Printf("log message: %s\n", string(logMessage))
 }
 
 // DecompressSignature decompresses a signature.
@@ -124,13 +146,14 @@ func DecompressSignature(sig [65]byte) *secp256k1.Signature {
 var _ ShardInterface = &Shard{}
 
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
-func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface) (*Shard, error) {
+func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface, shardNumber uint32) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
 
 	s := &Shard{
 		Storage:       storageAccess,
 		ExportedFuncs: exportedFuncs,
 		executionLock: new(sync.Mutex),
+		Number:        shardNumber,
 	}
 
 	mod, err := wasm.ReadModule(buf, func(name string) (*wasm.Module, error) {
@@ -152,6 +175,10 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.Access
 					{
 						Form:       0, // value for the 'func' type constructor
 						ParamTypes: []wasm.ValueType{wasm.ValueTypeI32, wasm.ValueTypeI32, wasm.ValueTypeI32},
+					},
+					{
+						Form:        0,
+						ReturnTypes: []wasm.ValueType{wasm.ValueTypeI32},
 					},
 				},
 			}
@@ -177,13 +204,18 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.Access
 					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
 				},
 				{
-					Sig:  &m.Types.Entries[0],
+					Sig:  &m.Types.Entries[2],
 					Host: reflect.ValueOf(s.LoadArgument),
 					Body: &wasm.FunctionBody{},
 				},
 				{
 					Sig:  &m.Types.Entries[0],
 					Host: reflect.ValueOf(s.Log),
+					Body: &wasm.FunctionBody{},
+				},
+				{
+					Sig:  &m.Types.Entries[3],
+					Host: reflect.ValueOf(s.ShardNumber),
 					Body: &wasm.FunctionBody{},
 				},
 			}
@@ -218,6 +250,11 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.Access
 						FieldStr: "write_log",
 						Kind:     wasm.ExternalFunction,
 						Index:    5,
+					},
+					"shard_number": {
+						FieldStr: "shard_number",
+						Kind:     wasm.ExternalFunction,
+						Index:    6,
 					},
 				},
 			}

@@ -9,7 +9,7 @@ import (
 
 // ArgumentContext represents a single execution of a shard.
 type ArgumentContext interface {
-	LoadArgument(argumentNumber int32) []byte
+	LoadArgument(argumentNumber int32, argLen int32) ([]byte, error)
 	GetFunction() string
 }
 
@@ -106,7 +106,9 @@ func (e EmptyContext) GetFunction() string {
 }
 
 // LoadArgument for empty context doesn't load anything.
-func (e EmptyContext) LoadArgument(argumentNumber int32) []byte { return nil }
+func (e EmptyContext) LoadArgument(argumentNumber int32, argLen int32) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
 
 // IndexedContext is an ArgumentContext that returns the inputted data for the defined arguments and an empty slice otherwise.
 type IndexedContext struct {
@@ -123,11 +125,16 @@ func NewIndexedContext(fnName string, data [][]byte) *IndexedContext {
 }
 
 // LoadArgument for empty context doesn't load anything.
-func (i *IndexedContext) LoadArgument(argumentNumber int32) []byte {
+func (i *IndexedContext) LoadArgument(argumentNumber int32, argLen int32) ([]byte, error) {
 	if argumentNumber < int32(len(i.args)) && argumentNumber >= 0 {
-		return i.args[argumentNumber]
+		if len(i.args[argumentNumber]) == int(argLen) {
+			return i.args[argumentNumber], nil
+		}
+
+		return nil, fmt.Errorf("invalid argument length: %d (expected: %d)", argLen, len(i.args[argumentNumber]))
 	}
-	return []byte{}
+
+	return nil, fmt.Errorf("invalid argument number: %d (max: %d)", argumentNumber, len(i.args))
 }
 
 // GetFunction gets the function associated with the IndexedContext.

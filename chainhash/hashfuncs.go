@@ -5,7 +5,9 @@
 
 package chainhash
 
-import "golang.org/x/crypto/blake2b"
+import (
+	"golang.org/x/crypto/blake2b"
+)
 
 // HashB calculates hash(b) and returns the resulting bytes.
 func HashB(b []byte) []byte {

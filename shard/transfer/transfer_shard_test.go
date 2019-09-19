@@ -2,7 +2,6 @@ package transfer
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
@@ -37,40 +36,42 @@ func TestTransferShard(t *testing.T) {
 	var pubkeyFrom [33]byte
 	copy(pubkeyFrom[:], pubKey.SerializeCompressed())
 
-	hashPubkeyFrom := chainhash.HashH(pubkeyFrom[:])
+	var shardBytes [4]byte
 
-	zeroHash := chainhash.Hash{}
+	fromAddressHash := chainhash.HashH(append(shardBytes[:], pubkeyFrom[:]...))
 
-	message := fmt.Sprintf("transfer %d PHR to %s", 10, zeroHash.String())
+	storageHashPubkeyFrom := execution.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
 
-	messageHash := chainhash.HashH([]byte(message))
+	err = store.Set(storageHashPubkeyFrom, execution.Uint64ToHash(100))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	var signature [65]byte
+	s, err := execution.NewShard(shardCode, []int64{8}, store, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var fromAddress [20]byte
+	copy(fromAddress[:], fromAddressHash[:20])
+
+	txBytes := ShardTransaction{
+		FromPubkeyHash: fromAddress,
+		ToPubkeyHash:   [20]byte{},
+		Amount:         10,
+		Nonce:          0,
+	}
+
+	message := txBytes.GetTransactionData()
+
+	messageHash := chainhash.HashH(message[:])
 
 	sigBytes, err := secp256k1.SignCompact(privkey, messageHash[:], false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	copy(signature[:], sigBytes)
-
-	// manually set the balance of from
-	err = store.Set(hashPubkeyFrom, execution.Uint64ToHash(100))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	s, err := execution.NewShard(shardCode, []int64{8}, store)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	txBytes := ShardTransaction{
-		FromPubkey:   pubkeyFrom,
-		Signature:    signature,
-		ToPubkeyHash: zeroHash,
-		Amount:       10,
-	}
+	copy(txBytes.Signature[:], sigBytes)
 
 	txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
 	if err != nil {
@@ -83,17 +84,62 @@ func TestTransferShard(t *testing.T) {
 	}
 
 	if code.(uint64) != 0 {
-		t.Fatal("function exited with non-zero exit code")
+		t.Fatalf("function exited with non-zero exit code: %d", code)
 	}
 
-	endAmount, _ := store.Get(zeroHash)
+	// next test sending the same transaction again (should fail due to used nonce)
+	code, err = s.RunFunc(txContext)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if execution.HashTo64(*endAmount) != 10 {
+	if code.(uint64) == 0 {
+		t.Fatalf("function exited with zero exit code: %d", code)
+	}
+
+	// next test sending the same transaction with a different nonce
+	txBytes = ShardTransaction{
+		FromPubkeyHash: fromAddress,
+		ToPubkeyHash:   [20]byte{},
+		Amount:         10,
+		Nonce:          1,
+	}
+
+	message = txBytes.GetTransactionData()
+
+	messageHash = chainhash.HashH(message[:])
+
+	sigBytes, err = secp256k1.SignCompact(privkey, messageHash[:], false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copy(txBytes.Signature[:], sigBytes)
+
+	txContext, err = execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, err = s.RunFunc(txContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if code.(uint64) != 0 {
+		t.Fatalf("function exited with zero exit code: %d", code)
+	}
+
+	fromStoragePath := execution.GetStorageHashForPath([]byte("balance"), make([]byte, 20))
+
+	endAmount, _ := store.Get(fromStoragePath)
+
+	if execution.HashTo64(*endAmount) != 20 {
 		t.Fatal("expected 10 PHR to be transferred to address 0")
 	}
 
-	endAmountFrom, _ := store.Get(hashPubkeyFrom)
-	if execution.HashTo64(*endAmountFrom) != 90 {
+	endAmountFrom, _ := store.Get(storageHashPubkeyFrom)
+	if execution.HashTo64(*endAmountFrom) != 80 {
 		t.Fatal("expected 90 PHR to be left in old address")
 	}
 }
@@ -121,30 +167,20 @@ func TestTransferShardRedeem(t *testing.T) {
 	var pubkeyFrom [33]byte
 	copy(pubkeyFrom[:], pubKey.SerializeCompressed())
 
-	hashPubkeyFrom := chainhash.HashH(pubkeyFrom[:])
+	var shardBytes [4]byte
 
-	zeroHash := chainhash.Hash{}
+	fromAddressHash := chainhash.HashH(append(shardBytes[:], pubkeyFrom[:]...))
 
-	message := fmt.Sprintf("transfer %d PHR to %s", 10, zeroHash.String())
+	var fromAddress [20]byte
+	copy(fromAddress[:], fromAddressHash[:20])
 
-	messageHash := chainhash.HashH([]byte(message))
-
-	var signature [65]byte
-
-	sigBytes, err := secp256k1.SignCompact(privkey, messageHash[:], false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	copy(signature[:], sigBytes)
-
-	s, err := execution.NewShard(shardCode, []int64{8}, store)
+	s, err := execution.NewShard(shardCode, []int64{8}, store, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	redeemTx := RedeemTransaction{
-		ToPubkeyHash: hashPubkeyFrom,
+		ToPubkeyHash: fromAddress,
 	}
 
 	redeemCtx, err := execution.LoadArgumentContextFromTransaction(redeemTx.Serialize())
@@ -161,14 +197,25 @@ func TestTransferShardRedeem(t *testing.T) {
 		t.Fatalf("function exited with non-zero exit code: %d", code)
 	}
 
-	txBytes := ShardTransaction{
-		FromPubkey:   pubkeyFrom,
-		Signature:    signature,
-		ToPubkeyHash: zeroHash,
-		Amount:       10,
+	tx := ShardTransaction{
+		FromPubkeyHash: fromAddress,
+		ToPubkeyHash:   [20]byte{},
+		Amount:         10,
+		Nonce:          0,
 	}
 
-	txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+	txBytes := tx.GetTransactionData()
+
+	messageHash := chainhash.HashH(txBytes[:])
+
+	sigBytes, err := secp256k1.SignCompact(privkey, messageHash[:], false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copy(tx.Signature[:], sigBytes)
+
+	txContext, err := execution.LoadArgumentContextFromTransaction(tx.Serialize())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,13 +229,16 @@ func TestTransferShardRedeem(t *testing.T) {
 		t.Fatalf("function exited with non-zero exit code: %d", code)
 	}
 
-	endAmount, _ := store.Get(zeroHash)
+	toStoragePath := execution.GetStorageHashForPath([]byte("balance"), make([]byte, 20))
+	storageHashPubkeyFrom := execution.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
+
+	endAmount, _ := store.Get(toStoragePath)
 
 	if execution.HashTo64(*endAmount) != 10 {
 		t.Fatal("expected 10 PHR to be transferred to address 0")
 	}
 
-	endAmountFrom, _ := store.Get(hashPubkeyFrom)
+	endAmountFrom, _ := store.Get(storageHashPubkeyFrom)
 	if execution.HashTo64(*endAmountFrom) != 100000000-10 {
 		t.Fatal("expected 90 PHR to be left in old address")
 	}
@@ -217,39 +267,42 @@ func BenchmarkTransferShard(t *testing.B) {
 	var pubkeyFrom [33]byte
 	copy(pubkeyFrom[:], pubKey.SerializeCompressed())
 
-	hashPubkeyFrom := chainhash.HashH(pubkeyFrom[:])
+	var shardBytes [4]byte
 
-	zeroHash := chainhash.Hash{}
+	fromAddressHash := chainhash.HashH(append(shardBytes[:], pubkeyFrom[:]...))
 
-	message := fmt.Sprintf("transfer %d PHR to %s", 10, zeroHash.String())
+	var fromAddress [20]byte
+	copy(fromAddress[:], fromAddressHash[:20])
 
-	messageHash := chainhash.HashH([]byte(message))
+	tx := ShardTransaction{
+		FromPubkeyHash: fromAddress,
+		ToPubkeyHash:   [20]byte{},
+		Amount:         10,
+		Nonce:          0,
+	}
 
-	var signature [65]byte
+	txBytes := tx.GetTransactionData()
+
+	messageHash := chainhash.HashH(txBytes[:])
 
 	sigBytes, err := secp256k1.SignCompact(privkey, messageHash[:], false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	copy(signature[:], sigBytes)
+	copy(tx.Signature[:], sigBytes)
+
+	storageHashPubkeyFrom := execution.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
 
 	// manually set the balance of from
-	_ = store.Set(hashPubkeyFrom, execution.Uint64ToHash(10*uint64(t.N)))
+	_ = store.Set(storageHashPubkeyFrom, execution.Uint64ToHash(10*uint64(t.N)))
 
-	txBytes := ShardTransaction{
-		FromPubkey:   pubkeyFrom,
-		Signature:    signature,
-		ToPubkeyHash: zeroHash,
-		Amount:       10,
-	}
-
-	txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+	txContext, err := execution.LoadArgumentContextFromTransaction(tx.Serialize())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s, err := execution.NewShard(shardCode, []int64{8}, store)
+	s, err := execution.NewShard(shardCode, []int64{8}, store, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

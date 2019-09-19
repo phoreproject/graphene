@@ -7,25 +7,41 @@ import (
 
 // ShardTransaction is a transaction for the transfer shard.
 type ShardTransaction struct {
-	FromPubkey   [33]byte
-	Signature    [65]byte
-	ToPubkeyHash [32]byte
-	Amount       uint64
+	FromPubkeyHash [20]byte
+	Signature      [65]byte
+	ToPubkeyHash   [20]byte
+	Amount         uint64
+	Nonce          uint32
+}
+
+// GetTransactionData gets the transaction data.
+func (t *ShardTransaction) GetTransactionData() [33]byte {
+	var amountBytes [8]byte
+	binary.BigEndian.PutUint64(amountBytes[:], t.Amount)
+
+	var txData [33]byte
+	txData[0] = 0
+	binary.BigEndian.PutUint32(txData[1:5], t.Nonce)
+
+	copy(txData[5:25], t.ToPubkeyHash[:])
+	binary.BigEndian.PutUint64(txData[25:33], t.Amount)
+
+	return txData
 }
 
 // Serialize serializes the transfer transaction to bytes.
 func (t *ShardTransaction) Serialize() []byte {
-	var amountBytes [8]byte
-	binary.BigEndian.PutUint64(amountBytes[:], t.Amount)
 
-	out, _ := execution.SerializeTransactionWithArguments("transfer_to_address", t.FromPubkey[:], t.Signature[:], t.ToPubkeyHash[:], amountBytes[:])
+	data := t.GetTransactionData()
+
+	out, _ := execution.SerializeTransactionWithArguments("transfer_to_address", data[:], t.Signature[:], t.FromPubkeyHash[:])
 
 	return out
 }
 
 // RedeemTransaction redeems a premine from the transfer shard.
 type RedeemTransaction struct {
-	ToPubkeyHash [32]byte
+	ToPubkeyHash [20]byte
 }
 
 // Serialize serializes the transfer transaction to bytes.

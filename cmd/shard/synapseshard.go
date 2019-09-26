@@ -1,13 +1,14 @@
 package main
 
 import (
-	"flag"
-	"fmt"
+	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
+	"github.com/phoreproject/synapse/cfg"
+	"github.com/phoreproject/synapse/shard/config"
+	"github.com/phoreproject/synapse/utils"
 	"google.golang.org/grpc"
 
-	"github.com/phoreproject/synapse/utils"
-
-	"github.com/phoreproject/synapse/shard/app"
+	"github.com/phoreproject/synapse/shard/module"
 
 	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
@@ -16,20 +17,18 @@ import (
 const clientVersion = "0.2.6"
 
 func main() {
-	rpcConnect := flag.String("rpclisten", "127.0.0.1:11783", "host and port for RPC server to listen on")
-	//chainconfig := flag.String("chainconfig", "testnet.json", "chain config file")
-	//datadir := flag.String("datadir", "", "location to store blockchain data")
-	beaconHost := flag.String("beaconhost", "127.0.0.1:11782", "host and port of beacon RPC server")
-
-	// Logging
-	level := flag.String("level", "info", "log level")
-	flag.Parse()
+	shardConfig := config.Options{}
+	globalConfig := cfg.GlobalOptions{}
+	err := cfg.LoadFlags(&shardConfig, &globalConfig)
+	if err != nil {
+		logger.Fatal(err)
+	}
 
 	utils.CheckNTP()
 
-	lvl, err := logrus.ParseLevel(*level)
+	lvl, err := logrus.ParseLevel(globalConfig.LogLevel)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	logrus.SetLevel(lvl)
 
@@ -37,28 +36,42 @@ func main() {
 
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 	if changed {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	cc, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
+	beaconAddr, err := utils.MultiaddrStringToDialString(shardConfig.BeaconRPC)
 	if err != nil {
-		err = fmt.Errorf("could not connect to beacon host at %s with error: %s", *beaconHost, err)
-		panic(err)
+		logger.Fatal(err)
 	}
 
-	sc := app.ShardConfig{
+	cc, err := grpc.Dial(beaconAddr, grpc.WithInsecure())
+	if err != nil {
+		logger.Fatalf("could not connect to beacon host at %s with error: %s", shardConfig.BeaconRPC, err)
+	}
+
+	ma, err := multiaddr.NewMultiaddr(shardConfig.RPCListen)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	addr, err := manet.ToNetAddr(ma)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	sc := config.ShardConfig{
 		BeaconConn:  cc,
-		RPCProtocol: "tcp",
-		RPCAddress:  *rpcConnect,
+		RPCProtocol: addr.Network(),
+		RPCAddress:  addr.String(),
 	}
 
-	sa := app.NewShardApp(sc)
+	sa := module.NewShardApp(sc)
 
 	err = sa.Run()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
 
-	beaconapp "github.com/phoreproject/synapse/beacon/app"
+	beaconapp "github.com/phoreproject/synapse/beacon/module"
 )
 
 // Config is the explorer app config.

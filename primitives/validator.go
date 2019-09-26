@@ -45,8 +45,6 @@ func setPubkey(pkSer [96]byte, pub *bls.PublicKey) {
 type Validator struct {
 	// BLS public key
 	Pubkey [96]byte
-	// XXXPubkeyCached is the cached deserialized public key.
-	XXXPubkeyCached *bls.PublicKey
 	// Withdrawal credentials
 	WithdrawalCredentials chainhash.Hash
 	// Status code
@@ -63,20 +61,18 @@ type Validator struct {
 
 // GetPublicKey gets the cached validator pubkey.
 func (v *Validator) GetPublicKey() (*bls.PublicKey, error) {
-	if v.XXXPubkeyCached == nil {
-		if pub := lookupPubkey(v.Pubkey); pub != nil {
-			return pub, nil
-		}
-
-		pub, err := bls.DeserializePublicKey(v.Pubkey)
-		if err != nil {
-			return nil, err
-		}
-
-		setPubkey(v.Pubkey, pub)
-		v.XXXPubkeyCached = pub
+	if pub := lookupPubkey(v.Pubkey); pub != nil {
+		return pub, nil
 	}
-	return v.XXXPubkeyCached, nil
+
+	pub, err := bls.DeserializePublicKey(v.Pubkey)
+	if err != nil {
+		return nil, err
+	}
+
+	setPubkey(v.Pubkey, pub)
+
+	return pub, nil
 }
 
 // Copy copies a validator instance.

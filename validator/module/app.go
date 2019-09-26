@@ -1,9 +1,10 @@
-package app
+package module
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/phoreproject/synapse/validator/config"
 
 	"github.com/phoreproject/synapse/primitives"
 
@@ -15,7 +16,7 @@ import (
 
 // ValidatorApp is the app to run the validator runtime.
 type ValidatorApp struct {
-	config ValidatorConfig
+	config config.ValidatorConfig
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -23,7 +24,7 @@ type ValidatorApp struct {
 var log = logrus.New()
 
 // NewValidatorApp creates a new validator app from the config.
-func NewValidatorApp(config ValidatorConfig) *ValidatorApp {
+func NewValidatorApp(config config.ValidatorConfig) *ValidatorApp {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ValidatorApp{
 		config: config,
@@ -34,7 +35,7 @@ func NewValidatorApp(config ValidatorConfig) *ValidatorApp {
 
 // Run starts the validator app.
 func (v *ValidatorApp) Run() error {
-	blockchainRPC := pb.NewBlockchainRPCClient(v.config.BlockchainConn)
+	blockchainRPC := pb.NewBlockchainRPCClient(v.config.BeaconConn)
 
 	shardRPC := pb.NewShardRPCClient(v.config.ShardConn)
 

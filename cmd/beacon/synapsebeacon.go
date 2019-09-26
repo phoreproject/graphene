@@ -1,62 +1,53 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/beacon/module"
+	"github.com/phoreproject/synapse/cfg"
+	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/utils"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/utils"
-
-	"github.com/phoreproject/synapse/beacon/app"
-
-	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
 const clientVersion = "0.2.6"
 
 func main() {
-	rpcConnect := flag.String("rpclisten", "127.0.0.1:11782", "host and port for RPC server to listen on")
-	chainconfig := flag.String("chainconfig", "testnet.json", "chain config file")
-	resync := flag.Bool("resync", false, "resyncs the blockchain if this is set")
-	datadir := flag.String("datadir", "", "location to store blockchain data")
-	genesisTime := flag.String("genesistime", "", "time to use if not specified by config")
-
-	// P2P
-	initialConnections := flag.String("connect", "", "comma separated multiaddrs")
-	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
-
-	// Logging
-	level := flag.String("level", "info", "log level")
-	flag.Parse()
+	beaconConfig := config.Options{}
+	globalConfig := cfg.GlobalOptions{}
+	err := cfg.LoadFlags(&beaconConfig, &globalConfig)
+	if err != nil {
+		logger.Fatal(err)
+	}
 
 	utils.CheckNTP()
 
-	lvl, err := logrus.ParseLevel(*level)
+	lvl, err := logger.ParseLevel(globalConfig.LogLevel)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
-	logrus.SetLevel(lvl)
+	logger.SetLevel(lvl)
 
 	logger.WithField("version", clientVersion).Info("initializing client")
 
-	initialPeers, err := p2p.ParseInitialConnections(*initialConnections)
+	initialPeers, err := p2p.ParseInitialConnections(beaconConfig.InitialConnections)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 
-	f, err := os.Open(*chainconfig)
+	f, err := os.Open(beaconConfig.ChainCFG)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 
-	appConfig, err := app.ReadChainFileToConfig(f)
+	appConfig, err := module.ReadChainFileToConfig(f)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 
 	err = f.Close()
@@ -64,17 +55,17 @@ func main() {
 		panic(err)
 	}
 
-	appConfig.ListeningAddress = *listen
-	appConfig.RPCAddress = *rpcConnect
+	appConfig.ListeningAddress = beaconConfig.P2PListen
+	appConfig.RPCAddress = beaconConfig.RPCListen
 	appConfig.DiscoveryOptions.PeerAddresses = append(appConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
-	appConfig.DataDirectory = *datadir
+	appConfig.DataDirectory = beaconConfig.DataDir
 
-	appConfig.Resync = *resync
+	appConfig.Resync = beaconConfig.Resync
 	if appConfig.GenesisTime == 0 {
-		if *genesisTime == "" {
+		if beaconConfig.GenesisTime == "" {
 			appConfig.GenesisTime = uint64(utils.Now().Unix())
 		} else {
-			genesisTimeString := *genesisTime
+			genesisTimeString := beaconConfig.GenesisTime
 			if strings.HasPrefix(genesisTimeString, "+") {
 				offsetString := genesisTimeString[1:]
 
@@ -112,7 +103,7 @@ func main() {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	a := app.NewBeaconApp(*appConfig)
+	a := module.NewBeaconApp(*appConfig)
 	err = a.Run()
 	if err != nil {
 		panic(err)

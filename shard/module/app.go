@@ -1,8 +1,9 @@
-package app
+package module
 
 import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/shard/chain"
+	"github.com/phoreproject/synapse/shard/config"
 	"github.com/phoreproject/synapse/shard/rpc"
 	"github.com/sirupsen/logrus"
 )
@@ -11,12 +12,12 @@ const shardExecutionVersion = "0.0.1"
 
 // ShardApp runs the shard microservice which handles state execution and fork choice on shards.
 type ShardApp struct {
-	Config ShardConfig
+	Config config.ShardConfig
 	RPC    rpc.ShardRPCServer
 }
 
 // NewShardApp creates a new shard app given a config.
-func NewShardApp(c ShardConfig) *ShardApp {
+func NewShardApp(c config.ShardConfig) *ShardApp {
 	return &ShardApp{Config: c}
 }
 

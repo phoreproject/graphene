@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
@@ -63,7 +64,7 @@ func main() {
 		panic(err)
 	}
 
-	initialPeers, err := p2p.ParseInitialConnections(*initialConnections)
+	initialPeers, err := p2p.ParseInitialConnections(strings.Split(*initialConnections, ","))
 	if err != nil {
 		panic(err)
 	}

@@ -2,19 +2,20 @@ package testcase
 
 import (
 	"fmt"
+	config2 "github.com/phoreproject/synapse/validator/config"
 	"os"
 	"path"
 	"time"
 
 	"google.golang.org/grpc/connectivity"
 
-	beaconapp "github.com/phoreproject/synapse/beacon/app"
+	beaconapp "github.com/phoreproject/synapse/beacon/module"
 
 	"github.com/phoreproject/synapse/beacon/config"
 
 	testframework "github.com/phoreproject/synapse/integrationtests/framework"
 	"github.com/phoreproject/synapse/utils"
-	validatorapp "github.com/phoreproject/synapse/validator/app"
+	validatorapp "github.com/phoreproject/synapse/validator/module"
 	"google.golang.org/grpc"
 )
 
@@ -49,8 +50,7 @@ func (test *ValidateTest) setup() error {
 		panic(err)
 	}
 
-	beaconConfig.RPCProto = "unix"
-	beaconConfig.RPCAddress = "/tmp/beacon.sock"
+	beaconConfig.RPCAddress = "/unix/tmp/beacon.sock"
 	beaconConfig.GenesisTime = uint64(utils.Now().Unix())
 	beaconConfig.Resync = true
 	beaconConfig.DataDirectory = test.dataDir
@@ -77,8 +77,8 @@ func (test *ValidateTest) setup() error {
 		validatorIndices[i] = uint32(i)
 	}
 
-	validatorConfig := validatorapp.ValidatorConfig{
-		BlockchainConn:   beaconConn,
+	validatorConfig := config2.ValidatorConfig{
+		BeaconConn:       beaconConn,
 		ValidatorIndices: validatorIndices,
 		RootKey:          "testnet",
 		NetworkConfig:    &config.RegtestConfig,

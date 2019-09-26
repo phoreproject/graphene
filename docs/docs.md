@@ -30,6 +30,7 @@ This documentation gives information about how each of the different modules int
     2. [Validator](validator.md)
     3. [Shard](shard.md)
     4. Explorer
+    5. [Config](config.md)
 7. Communication
     1. P2P
     2. Beacon-Validator

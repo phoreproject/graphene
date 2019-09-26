@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/phoreproject/synapse/beacon/app"
+	"github.com/phoreproject/synapse/beacon/module"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
@@ -57,7 +57,7 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 		}
 	}
 
-	validators := make([]app.InitialValidatorInformation, len(validatorIndices))
+	validators := make([]module.InitialValidatorInformation, len(validatorIndices))
 
 	for i, v := range validatorIndices {
 		key, _ := bls.RandSecretKey(validator.GetReaderForID(rootkey, v))
@@ -78,7 +78,7 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 
 		sigSer := sig.Serialize()
 
-		iv := app.InitialValidatorInformation{
+		iv := module.InitialValidatorInformation{
 			PubKey:                fmt.Sprintf("%x", pubSer),
 			ProofOfPossession:     fmt.Sprintf("%x", sigSer),
 			WithdrawalShard:       0,
@@ -90,7 +90,7 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 		validators[i] = iv
 	}
 
-	vList := app.InitialValidatorList{
+	vList := module.InitialValidatorList{
 		NumValidators: len(validatorIndices),
 		Validators:    validators,
 	}
@@ -104,7 +104,7 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 }
 
 // ByID sorts validator information by ID.
-type ByID []app.InitialValidatorInformation
+type ByID []module.InitialValidatorInformation
 
 func (b ByID) Len() int { return len(b) }
 
@@ -164,7 +164,7 @@ func main() {
 
 			decoder := json.NewDecoder(f)
 
-			var ivList app.InitialValidatorList
+			var ivList module.InitialValidatorList
 
 			err = decoder.Decode(&ivList)
 			if err == nil {
@@ -238,12 +238,12 @@ func main() {
 			f.Close()
 		}
 
-		validators := make([]app.InitialValidatorInformation, len(validatorList))
+		validators := make([]module.InitialValidatorInformation, len(validatorList))
 
 		i := 0
 
 		for index, entry := range validatorList {
-			validators[i] = app.InitialValidatorInformation{
+			validators[i] = module.InitialValidatorInformation{
 				PubKey:                fmt.Sprintf("%x", entry.PubKey),
 				ProofOfPossession:     fmt.Sprintf("%x", entry.ProofOfPossession),
 				WithdrawalShard:       entry.WithdrawalShard,
@@ -261,7 +261,7 @@ func main() {
 
 		sort.Sort(ByID(validators))
 
-		vList := app.InitialValidatorList{
+		vList := module.InitialValidatorList{
 			NumValidators: len(validators),
 			Validators:    validators,
 		}

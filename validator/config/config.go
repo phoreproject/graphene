@@ -1,4 +1,4 @@
-package app
+package config
 
 import (
 	"strconv"
@@ -8,9 +8,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Options for the validator module.
+type Options struct {
+	BeaconRPC  string   `yaml:"beacon_addr" cli:"beacon"`
+	ShardRPC   string   `yaml:"shard_addr" cli:"shard"`
+	Validators []string `yaml:"validators" cli:"validators"`
+	RootKey    string   `yaml:"root_key" cli:"rootkey"`
+	RPCListen  string   `yaml:"listen_addr" cli:"listen"`
+	NetworkID  string   `yaml:"network_id" cli:"networkid"`
+}
+
 // ValidatorConfig is the config passed into the validator app.
 type ValidatorConfig struct {
-	BlockchainConn   *grpc.ClientConn
+	BeaconConn       *grpc.ClientConn
 	ShardConn        *grpc.ClientConn
 	NetworkConfig    *config.Config
 	ValidatorIndices []uint32
@@ -18,8 +28,7 @@ type ValidatorConfig struct {
 }
 
 // ParseValidatorIndices parses validator indices given a user-supplied list of ranges.
-func (vc *ValidatorConfig) ParseValidatorIndices(validators string) {
-	validatorsStrings := strings.Split(validators, ",")
+func (vc *ValidatorConfig) ParseValidatorIndices(validatorsStrings []string) {
 	var validatorIndices []uint32
 	validatorIndicesMap := map[int]struct{}{}
 	for _, s := range validatorsStrings {

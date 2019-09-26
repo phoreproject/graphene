@@ -1,0 +1,6 @@
+beacon_addr: "/ip4/127.0.0.1/tcp/11782"
+shard_addr: "/ip4/127.0.0.1/tcp/11783"
+validators:
+  - "0-255"
+root_key: "testnet"
+network_id: "regtest"

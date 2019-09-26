@@ -32,14 +32,13 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.1.3
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/multiformats/go-multiaddr v0.1.1
+	github.com/multiformats/go-multiaddr v0.0.4
+	github.com/multiformats/go-multiaddr-net v0.0.1
 	github.com/multiformats/go-multicodec v0.1.6 // indirect
 	github.com/phoreproject/bls v0.0.0-20190821133044-da95d4798b09
 	github.com/phoreproject/go-phore-connmgr v0.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
-	github.com/protolambda/zssz v0.1.3 // indirect
-	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364 // indirect
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
@@ -47,5 +46,8 @@ require (
 	golang.org/x/net v0.0.0-20190918130420-a8b05e9114ab
 	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
 	google.golang.org/grpc v1.23.1
+	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools/gotestsum v0.3.4 // indirect
 )
+
+replace github.com/prysmaticlabs/go-ssz => ../go-ssz

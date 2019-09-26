@@ -1,59 +1,69 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	beaconconfig "github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/cfg"
+	"github.com/phoreproject/synapse/validator/config"
 
-	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/utils"
-	"github.com/phoreproject/synapse/validator/app"
+	"github.com/phoreproject/synapse/validator/module"
 
-	"github.com/sirupsen/logrus"
+	logger "github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
 )
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	validatorConfig := config.Options{}
+	globalConfig := cfg.GlobalOptions{}
+	err := cfg.LoadFlags(&validatorConfig, &globalConfig)
+	if err != nil {
+		logger.Fatal(err)
+	}
 
-	logrus.Info("Starting validator manager")
-	beaconHost := flag.String("beaconhost", ":11782", "the address to connect to the beacon node")
-	shardHost := flag.String("shardhost", ":11783", "the address to connect to the shard node")
-	validators := flag.String("validators", "", "validators to manage (id separated by commas) (ex. \"1,2,3\")")
-	networkID := flag.String("networkid", "testnet", "networkID to use when starting network")
-	rootkey := flag.String("rootkey", "testnet", "root key to run validators")
-	flag.Parse()
+	logger.Info("Starting validator manager")
 
 	utils.CheckNTP()
 
-	logrus.WithField("validators", *validators).Debug("running with validators")
+	logger.WithField("validators", validatorConfig.Validators).Debug("running with validators")
 
-	logrus.Info("connecting to blockchain RPC")
+	logger.Info("connecting to blockchain RPC")
 
-	blockchainConn, err := grpc.Dial(*beaconHost, grpc.WithInsecure())
+	beaconAddr, err := utils.MultiaddrStringToDialString(validatorConfig.BeaconRPC)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 
-	shardConn, err := grpc.Dial(*shardHost, grpc.WithInsecure())
+	shardAddr, err := utils.MultiaddrStringToDialString(validatorConfig.ShardRPC)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err)
 	}
 
-	networkConfig, found := config.NetworkIDs[*networkID]
+	beaconConn, err := grpc.Dial(beaconAddr, grpc.WithInsecure())
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	shardConn, err := grpc.Dial(shardAddr, grpc.WithInsecure())
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	networkConfig, found := beaconconfig.NetworkIDs[validatorConfig.NetworkID]
 	if !found {
-		panic(fmt.Errorf("could not find network config %s", *networkID))
+		logger.Fatal(fmt.Errorf("could not find network config %s", validatorConfig.NetworkID))
 	}
 
-	c := app.ValidatorConfig{
-		BlockchainConn: blockchainConn,
-		ShardConn:      shardConn,
-		RootKey:        *rootkey,
-		NetworkConfig:  &networkConfig,
+	c := config.ValidatorConfig{
+		BeaconConn:    beaconConn,
+		ShardConn:     shardConn,
+		RootKey:       validatorConfig.RootKey,
+		NetworkConfig: &networkConfig,
 	}
-	c.ParseValidatorIndices(*validators)
+	c.ParseValidatorIndices(validatorConfig.Validators)
 
-	a := app.NewValidatorApp(c)
+	a := module.NewValidatorApp(c)
 	err = a.Run()
 	if err != nil {
 		panic(err)

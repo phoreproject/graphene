@@ -1,5 +1,16 @@
 package config
 
+// Options are bare options passed to the beacon app.
+type Options struct {
+	RPCListen          string   `yaml:"rpc_listen_addr" cli:"rpclisten"`
+	ChainCFG           string   `yaml:"chain_config" cli:"chaincfg"`
+	Resync             bool     `yaml:"resync" cli:"resync"`
+	DataDir            string   `yaml:"data_directory" cli:"datadir"`
+	GenesisTime        string   `yaml:"genesis_time" cli:"genesistime"`
+	InitialConnections []string `yaml:"initial_connections" cli:"connect"`
+	P2PListen          string   `yaml:"p2p_listen_addr" cli:"listen"`
+}
+
 // Config is the config for the blockchain.
 type Config struct {
 	ShardCount                         int

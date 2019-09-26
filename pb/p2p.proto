@@ -1,7 +1,7 @@
 // This is for P2P
 syntax = "proto3";
 
-import "common.proto";
+//import "common.proto";
 
 package pb;
 
@@ -41,18 +41,24 @@ message GetBlockMessage {
 }
 
 message MempoolMessage {
-    repeated Attestation Attestations = 1;
+    repeated bytes AttestationHashes = 1;
 }
 
 // Response to GetBlockMessage
 message BlockMessage {
-    repeated Block Blocks = 1;
+    repeated string BlockPaths = 1;
     bytes LatestBlockHash = 2;
 }
 
-
-message GetAddrMessage {
+message GetDataMessage {
+    repeated bytes DataHash = 1;
 }
+
+message DataMessage {
+    repeated bytes Data = 2;
+}
+
+message GetAddrMessage {}
 
 message AddrMessage {
     repeated bytes Addrs = 1;

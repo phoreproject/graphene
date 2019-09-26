@@ -1090,7 +1090,6 @@ func (s *State) ProcessDeposit(pubkey *bls.PublicKey, amount uint64, proofOfPoss
 	if validatorAlreadyRegisteredIndex == -1 {
 		validator := Validator{
 			Pubkey:                  pubSer,
-			XXXPubkeyCached:         pubkey,
 			WithdrawalCredentials:   withdrawalCredentials,
 			Status:                  PendingActivation,
 			LatestStatusChangeSlot:  s.Slot,

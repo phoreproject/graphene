@@ -1,4 +1,4 @@
-package app
+package module
 
 import (
 	"crypto/rand"
@@ -10,9 +10,10 @@ import (
 
 	"github.com/phoreproject/synapse/primitives"
 
-	crypto "github.com/libp2p/go-libp2p-crypto"
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/beacon/db"
@@ -24,7 +25,6 @@ import (
 
 // Config is the config of an BeaconApp
 type Config struct {
-	RPCProto               string
 	RPCAddress             string
 	DataDirectory          string
 	NetworkConfig          *config.Config
@@ -41,14 +41,14 @@ type Config struct {
 	GenesisTime          uint64
 	InitialValidatorList []primitives.InitialValidatorEntry
 	DiscoveryOptions     p2p.DiscoveryOptions
+	LogLevel             logger.Level
 }
 
 // NewConfig creates a default Config
 func NewConfig() Config {
 	return Config{
-		RPCProto:               "tcp",
 		ListeningAddress:       "/ip4/127.0.0.1/tcp/20000",
-		RPCAddress:             "127.0.0.1:20002",
+		RPCAddress:             "/ip4/127.0.0.1/tcp/20002",
 		GenesisTime:            uint64(utils.Now().Unix()),
 		InitialValidatorList:   []primitives.InitialValidatorEntry{},
 		NetworkConfig:          &config.MainNetConfig,
@@ -274,8 +274,18 @@ func (app *BeaconApp) loadBlockchain() error {
 }
 
 func (app *BeaconApp) createRPCServer() error {
+	rpcListen, err := ma.NewMultiaddr(app.config.RPCAddress)
+	if err != nil {
+		return err
+	}
+
+	rpcListenAddr, err := manet.ToNetAddr(rpcListen)
+	if err != nil {
+		return err
+	}
+
 	go func() {
-		err := rpc.Serve(app.config.RPCProto, app.config.RPCAddress, app.blockchain, app.hostNode, app.mempool)
+		err := rpc.Serve(rpcListenAddr.Network(), rpcListenAddr.String(), app.blockchain, app.hostNode, app.mempool)
 		if err != nil {
 			panic(err)
 		}
@@ -345,9 +355,9 @@ func (app BeaconApp) exit() {
 		p.Disconnect()
 	}
 
-	os.Exit(0)
-
 	app.exited.Unlock()
+
+	os.Exit(0)
 }
 
 // Exit sends a request to exit the application.

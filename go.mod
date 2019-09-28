@@ -10,10 +10,9 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.2
 	github.com/dgraph-io/badger v1.6.0
 	github.com/fatih/color v1.7.0
-	github.com/go-critic/go-critic v0.0.0-20181204210945-ee9bf5809ead // indirect
 	github.com/go-interpreter/wagon v0.6.0
+	github.com/go-test/deep v1.0.4
 	github.com/golang/protobuf v1.3.2
-	github.com/golangci/golangci-lint v1.16.1-0.20190425135923-692dacb773b7 // indirect
 	github.com/hsanjuan/go-libp2p-http v0.0.2 // indirect
 	github.com/ipfs/dir-index-html v1.0.3 // indirect
 	github.com/ipfs/go-ipfs v0.4.22-0.20190911184350-a8fbd066d744 // indirect

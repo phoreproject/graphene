@@ -48,5 +48,3 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools/gotestsum v0.3.4 // indirect
 )
-
-replace github.com/prysmaticlabs/go-ssz => ../go-ssz

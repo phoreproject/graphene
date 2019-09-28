@@ -10,7 +10,7 @@ import (
 // NetAddrToGRPCDialString converts a net address to a GRPC dial string.
 func NetAddrToGRPCDialString(addr net.Addr) string {
 	if addr.Network() == "unix" {
-		return fmt.Sprintf("%s:/%s", addr.Network(), addr.String())
+		return fmt.Sprintf("%s://%s", addr.Network(), addr.String())
 	}
 	return addr.String()
 }

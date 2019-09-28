@@ -35,28 +35,20 @@ func (test *ValidateTest) setup() error {
 		return err
 	}
 
-	f, err := os.Open("regtest.json")
+	bApp, err := beaconapp.NewBeaconApp(config.Options{
+		RPCListen:          "/unix/tmp/beacon.sock",
+		ChainCFG:           "regtest.json",
+		Resync:             false,
+		DataDir:            test.dataDir,
+		GenesisTime:        fmt.Sprintf("%d", utils.Now().Unix()),
+		InitialConnections: nil,
+		P2PListen:          "/ip4/127.0.0.1/tcp/0",
+	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	beaconConfig, err := beaconapp.ReadChainFileToConfig(f)
-	if err != nil {
-		panic(err)
-	}
-
-	err = f.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	beaconConfig.RPCAddress = "/unix/tmp/beacon.sock"
-	beaconConfig.GenesisTime = uint64(utils.Now().Unix())
-	beaconConfig.Resync = true
-	beaconConfig.DataDirectory = test.dataDir
-	beaconConfig.NetworkConfig = &config.RegtestConfig
-
-	test.beacon = beaconapp.NewBeaconApp(*beaconConfig)
+	test.beacon = bApp
 
 	if _, err := os.Stat("/tmp/beacon.sock"); !os.IsNotExist(err) {
 		err = os.Remove("/tmp/beacon.sock")

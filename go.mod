@@ -38,6 +38,8 @@ require (
 	github.com/phoreproject/go-phore-connmgr v0.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
+	github.com/protolambda/zssz v0.1.3 // indirect
+	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364 // indirect
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect

@@ -2,8 +2,11 @@ package module
 
 import (
 	"crypto/rand"
+	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -82,16 +85,76 @@ type BeaconApp struct {
 }
 
 // NewBeaconApp creates a new instance of BeaconApp
-func NewBeaconApp(config Config) *BeaconApp {
+func NewBeaconApp(options config.Options) (*BeaconApp, error) {
+	initialPeers, err := p2p.ParseInitialConnections(options.InitialConnections)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	f, err := os.Open(options.ChainCFG)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	beaconConfig, err := ReadChainFileToConfig(f)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = f.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	beaconConfig.ListeningAddress = options.P2PListen
+	beaconConfig.RPCAddress = options.RPCListen
+	beaconConfig.DiscoveryOptions.PeerAddresses = append(beaconConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
+	beaconConfig.DataDirectory = options.DataDir
+
+	beaconConfig.Resync = options.Resync
+	if beaconConfig.GenesisTime == 0 {
+		if options.GenesisTime == "" {
+			beaconConfig.GenesisTime = uint64(utils.Now().Unix())
+		} else {
+			genesisTimeString := options.GenesisTime
+			if strings.HasPrefix(genesisTimeString, "+") {
+				offsetString := genesisTimeString[1:]
+
+				offset, err := strconv.Atoi(offsetString)
+				if err != nil {
+					panic(fmt.Errorf("invalid offset (should be number): %s", offsetString))
+				}
+
+				beaconConfig.GenesisTime = uint64(utils.Now().Add(time.Duration(offset) * time.Second).Unix())
+			} else if strings.HasPrefix(genesisTimeString, "-") {
+				offsetString := genesisTimeString[1:]
+
+				offset, err := strconv.Atoi(offsetString)
+				if err != nil {
+					panic(fmt.Errorf("invalid offset (should be number): %s", offsetString))
+				}
+
+				beaconConfig.GenesisTime = uint64(utils.Now().Add(time.Duration(-offset) * time.Second).Unix())
+			} else {
+				offset, err := strconv.Atoi(genesisTimeString)
+				if err != nil {
+					panic(fmt.Errorf("invalid genesis time (should be number): %s", genesisTimeString))
+				}
+
+				beaconConfig.GenesisTime = uint64(offset)
+			}
+		}
+	}
+
 	app := &BeaconApp{
-		config:   config,
+		config:   *beaconConfig,
 		exitChan: make(chan struct{}),
 		exited:   new(sync.Mutex),
 	}
 
 	// locked while running
 	app.exited.Lock()
-	return app
+	return app, nil
 }
 
 // Run runs the main loop of BeaconApp

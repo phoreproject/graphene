@@ -1,6 +1,6 @@
 module github.com/phoreproject/synapse
 
-go 1.12
+go 1.13
 
 require (
 	github.com/Kubuxu/gocovmerge v0.0.0-20161216165753-7ecaa51963cd // indirect

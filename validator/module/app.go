@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	beaconconfig "github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/synapse/utils"
 	"github.com/phoreproject/synapse/validator/config"
+	"google.golang.org/grpc"
 
 	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/pb"
-	"github.com/sirupsen/logrus"
+	logger "github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/validator"
 )
@@ -21,16 +24,49 @@ type ValidatorApp struct {
 	cancel context.CancelFunc
 }
 
-var log = logrus.New()
-
 // NewValidatorApp creates a new validator app from the config.
-func NewValidatorApp(config config.ValidatorConfig) *ValidatorApp {
+func NewValidatorApp(options config.Options) (*ValidatorApp, error) {
+	beaconAddr, err := utils.MultiaddrStringToDialString(options.BeaconRPC)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(beaconAddr)
+
+	shardAddr, err := utils.MultiaddrStringToDialString(options.ShardRPC)
+	if err != nil {
+		return nil, err
+	}
+
+	beaconConn, err := grpc.Dial(beaconAddr, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	shardConn, err := grpc.Dial(shardAddr, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	networkConfig, found := beaconconfig.NetworkIDs[options.NetworkID]
+	if !found {
+		return nil, fmt.Errorf("could not find network config %s", options.NetworkID)
+	}
+
+	c := config.ValidatorConfig{
+		BeaconConn:    beaconConn,
+		ShardConn:     shardConn,
+		RootKey:       options.RootKey,
+		NetworkConfig: &networkConfig,
+	}
+	c.ParseValidatorIndices(options.Validators)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ValidatorApp{
-		config: config,
+		config: c,
 		ctx:    ctx,
 		cancel: cancel,
-	}
+	}, nil
 }
 
 // Run starts the validator app.
@@ -41,7 +77,7 @@ func (v *ValidatorApp) Run() error {
 
 	keystore := validator.NewRootKeyStore(v.config.RootKey)
 
-	log.Info("Checking validator public keys...")
+	logger.Info("Checking validator public keys...")
 
 	for _, val := range v.config.ValidatorIndices {
 		validatorProto, err := blockchainRPC.GetValidatorInformation(v.ctx, &pb.GetValidatorRequest{ID: uint32(val)})
@@ -61,7 +97,7 @@ func (v *ValidatorApp) Run() error {
 		}
 	}
 
-	log.Info("Validators successfully verified!")
+	logger.Info("Validators successfully verified!")
 
 	vm, err := validator.NewManager(v.ctx, blockchainRPC, shardRPC, v.config.ValidatorIndices, keystore, v.config.NetworkConfig)
 	if err != nil {

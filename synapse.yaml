@@ -1,0 +1,21 @@
+modules:
+  - type: "shard"
+    listen_addr: "/ip4/127.0.0.1/tcp/11783"
+    beacon_addr: "/ip4/127.0.0.1/tcp/11782"
+    log_level: "info"
+  - type: "beacon"
+    rpc_listen_addr: "/ip4/127.0.0.1/tcp/11782"
+    chain_config: "regtest.json"
+    resync: true
+    data_directory: "~/.phore-synapse"
+    genesis_time: "+5"
+    p2p_listen_addr: "/ip4/0.0.0.0/tcp/11781"
+  - type: "validator"
+    beacon_addr: "/ip4/127.0.0.1/tcp/11782"
+    shard_addr: "/ip4/127.0.0.1/tcp/11783"
+    validators:
+      - "0-255"
+    root_key: "testnet"
+    network_id: "regtest"
+    listen_addr: "/ip4/127.0.0.1/tcp/11784"
+log_level: "info"

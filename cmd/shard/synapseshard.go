@@ -6,7 +6,6 @@ import (
 	"github.com/phoreproject/synapse/shard/module"
 	"github.com/phoreproject/synapse/utils"
 
-	"github.com/sirupsen/logrus"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -22,11 +21,11 @@ func main() {
 
 	utils.CheckNTP()
 
-	lvl, err := logrus.ParseLevel(globalConfig.LogLevel)
+	lvl, err := logger.ParseLevel(globalConfig.LogLevel)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logrus.SetLevel(lvl)
+	logger.SetLevel(lvl)
 
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {

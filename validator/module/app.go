@@ -31,8 +31,6 @@ func NewValidatorApp(options config.Options) (*ValidatorApp, error) {
 		return nil, err
 	}
 
-	fmt.Println(beaconAddr)
-
 	shardAddr, err := utils.MultiaddrStringToDialString(options.ShardRPC)
 	if err != nil {
 		return nil, err

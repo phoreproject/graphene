@@ -144,8 +144,6 @@ func (w *Wallet) SendToAddress(from Address, to Address, amount uint64) error {
 		return fmt.Errorf("could not find key for address: %s", from)
 	}
 
-	fmt.Println(key.CurrentNonce)
-
 	fromPkh, err := from.ToPubkeyHash()
 	if err != nil {
 		return err

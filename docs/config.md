@@ -62,3 +62,11 @@ type ConfigInterface struct {
 |----|---|----|----|-----------|
 |Beacon RPC Address|`beacon`|`beacon_addr`|string|multiaddr of beacon chain RPC|
 |RPC Listen Port|`listen`|`listen_addr`|string|multiaddr to listen on for RPC|
+
+### Relayer
+|Name|CLI|YAML|Type|Description
+|----|---|----|----|-----------|
+|Shard RPC Address|`shard`|`shard_addr`|string|multiaddr of shard module RPC|
+|P2P Listen Port|`listen`|`p2p_listen_addr`|string|multiaddr to listen on for P2P|
+|RPC Listen Port|`rpc_listen`|`rpc_listen_addr`|string|multiaddr to listen on for RPC|
+|Shards|`shards`|`shards`|comma-separated string|range of ints or list of Shard IDs to relay for|

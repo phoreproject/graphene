@@ -152,20 +152,13 @@ func NewBeaconApp(options config.Options) (*BeaconApp, error) {
 		exited:   new(sync.Mutex),
 	}
 
-	// locked while running
-	app.exited.Lock()
-	return app, nil
-}
-
-// Run runs the main loop of BeaconApp
-func (app *BeaconApp) Run() error {
-	err := app.loadConfig()
+	err = app.loadConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = app.loadDatabase()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	signalHandler := make(chan os.Signal, 1)
@@ -177,20 +170,26 @@ func (app *BeaconApp) Run() error {
 
 	err = app.loadBlockchain()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = app.loadP2P()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = app.createRPCServer()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	app.syncManager = beacon.NewSyncManager(app.hostNode, app.blockchain, app.mempool)
 
+	// locked while running
+	app.exited.Lock()
+	return app, nil
+}
+
+// Run runs the main loop of BeaconApp
+func (app *BeaconApp) Run() error {
 	app.syncManager.Start()
 
 	return app.runMainLoop()

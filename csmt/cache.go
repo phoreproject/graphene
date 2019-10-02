@@ -22,6 +22,7 @@ type TreeTransaction struct {
 	valid bool
 }
 
+// NewTreeTransaction constructs a tree transaction that can be committed based on an underlying tree (probably on disk).
 func NewTreeTransaction(underlyingTree TreeDatabase, underlyingKV KVStore) TreeTransaction {
 	rootHash := EmptyTree
 	root := underlyingTree.Root()
@@ -98,6 +99,7 @@ func (t *TreeTransaction) NewNode(left Node, right Node, subtreeHash chainhash.H
 	return newNode
 }
 
+// NewSingleNode creates a new node with only a single KV-pair in the subtree.
 func (t *TreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node {
 	if !t.valid {
 		logger.Warn("NewSingleNode called on transaction already committed")
@@ -114,6 +116,7 @@ func (t *TreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash
 	return newNode
 }
 
+// GetNode gets a node based on the subtree hash.
 func (t *TreeTransaction) GetNode(c chainhash.Hash) (Node, bool) {
 	if n, found := t.dirty[c]; found {
 		return n, true
@@ -126,6 +129,7 @@ func (t *TreeTransaction) GetNode(c chainhash.Hash) (Node, bool) {
 	}
 }
 
+// SetNode sets a node in the transaction.
 func (t *TreeTransaction) SetNode(n Node) {
 	if !t.valid {
 		logger.Warn("SetNode called on transaction already committed")
@@ -135,6 +139,7 @@ func (t *TreeTransaction) SetNode(n Node) {
 	t.dirty[n.GetHash()] = n
 }
 
+// DeleteNode deletes a node from the transaction.
 func (t *TreeTransaction) DeleteNode(c chainhash.Hash) {
 	if !t.valid {
 		logger.Warn("DeleteNode called on transaction already committed")
@@ -146,6 +151,7 @@ func (t *TreeTransaction) DeleteNode(c chainhash.Hash) {
 	t.toRemove[c] = struct{}{}
 }
 
+// Flush flushes the transaction to the underlying tree.
 func (t *TreeTransaction) Flush() {
 	t.valid = false
 
@@ -164,6 +170,7 @@ func (t *TreeTransaction) Flush() {
 	}
 }
 
+// Get gets a value from the transaction.
 func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, bool) {
 	if val, found := t.dirtyKV[key]; found {
 		return &val, true
@@ -172,6 +179,7 @@ func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, bool) {
 	}
 }
 
+// Set sets a value in the transaction.
 func (t *TreeTransaction) Set(key chainhash.Hash, val chainhash.Hash) {
 	if !t.valid {
 		logger.Warn("SetNode called on transaction already committed")

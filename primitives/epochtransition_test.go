@@ -15,7 +15,7 @@ func generateParticipation(totalValidators uint64, numValidators uint64) []uint8
 	participation := make([]uint8, (totalValidators+7)/8)
 
 	for i := uint64(0); i < numValidators; i++ {
-		participation[i/8] |= (1 << uint(i%8))
+		participation[i/8] |= 1 << uint(i%8)
 	}
 
 	return participation

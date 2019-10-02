@@ -146,11 +146,6 @@ func (i *InMemoryNode) Empty() bool {
 	return i == nil
 }
 
-// Backend gets the backend behind the node.
-func (i *InMemoryNode) Backend() int {
-	return BackendPrimary
-}
-
 // InMemoryKVStore is a key-value store in memory.
 type InMemoryKVStore struct {
 	store map[chainhash.Hash]chainhash.Hash

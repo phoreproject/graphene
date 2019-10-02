@@ -106,12 +106,15 @@ func generateKeyFile(validatorsToGenerate string, rootkey string, f io.Writer) {
 // ByID sorts validator information by ID.
 type ByID []module.InitialValidatorInformation
 
+// Len gets the length of the infos.
 func (b ByID) Len() int { return len(b) }
 
+// Swap swaps two indices for the info.
 func (b ByID) Swap(i, j int) {
 	b[i], b[j] = b[j], b[i]
 }
 
+// Less checks which index comes first.
 func (b ByID) Less(i, j int) bool {
 	return b[i].ID < b[j].ID
 }

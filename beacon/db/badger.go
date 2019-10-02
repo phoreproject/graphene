@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p-core/crypto"
 
 	"github.com/phoreproject/synapse/pb"
 	"github.com/prysmaticlabs/go-ssz"

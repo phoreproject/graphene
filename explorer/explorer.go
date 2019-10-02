@@ -16,7 +16,7 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/jinzhu/gorm"
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"

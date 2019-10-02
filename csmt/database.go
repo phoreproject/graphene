@@ -37,14 +37,6 @@ type KVStore interface {
 	Set(chainhash.Hash, chainhash.Hash)
 }
 
-const (
-	// BackendPrimary represents a node stored on disk (long-term storage).
-	BackendPrimary = iota
-
-	// BackendSecondary represents a node stored in memory (short-term storage).
-	BackendSecondary
-)
-
 // Node is a node in the tree database.
 type Node interface {
 	// GetHash gets the current hash of the subtree

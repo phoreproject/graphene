@@ -4,10 +4,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"io"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/primitives"
@@ -81,7 +81,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 
 	c.DiscoveryOptions = p2p.NewDiscoveryOptions()
 
-	c.DiscoveryOptions.PeerAddresses = make([]peerstore.PeerInfo, len(chainConfig.BootstrapPeers))
+	c.DiscoveryOptions.PeerAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
 
 	networkConfig, found := config.NetworkIDs[chainConfig.NetworkID]
 	if !found {
@@ -94,7 +94,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		peerInfo, err := peerstore.InfoFromP2pAddr(a)
+		peerInfo, err := peer.AddrInfoFromP2pAddr(a)
 		if err != nil {
 			return nil, err
 		}

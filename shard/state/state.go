@@ -12,16 +12,9 @@ type FullShardState struct {
 }
 
 // NewFullShardState creates a new empty state tree.
-func NewFullShardState() *FullShardState {
+func NewFullShardState(treeDB csmt.TreeDatabase, kvDB csmt.KVStore) *FullShardState {
 	return &FullShardState{
-		tree: csmt.NewTree(),
-	}
-}
-
-// Copy copies the state.
-func (s *FullShardState) Copy() *FullShardState {
-	return &FullShardState{
-		tree: s.tree.Copy(),
+		tree: csmt.NewTree(treeDB, kvDB),
 	}
 }
 

@@ -4,65 +4,9 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 )
 
-// Node represents a node in the merkle tree.
-type Node struct {
-	Value    chainhash.Hash
-	One      bool
-	OneKey   *chainhash.Hash
-	OneValue *chainhash.Hash
-	Left     *Node
-	Right    *Node
-}
-
-// Copy returns a deep copy of the tree.
-func (n *Node) Copy() *Node {
-	if n == nil {
-		return nil
-	}
-
-	newNode := &Node{
-		Value: n.Value,
-		One:   n.One,
-	}
-
-	if n.OneKey != nil {
-		newNode.OneKey = &chainhash.Hash{}
-		copy(newNode.OneKey[:], n.OneKey[:])
-	}
-
-	if n.OneValue != nil {
-		newNode.OneValue = &chainhash.Hash{}
-		copy(newNode.OneValue[:], n.OneValue[:])
-	}
-
-	if n.Left != nil {
-		newNode.Left = n.Left.Copy()
-	}
-
-	if n.Right != nil {
-		newNode.Right = n.Right.Copy()
-	}
-
-	return newNode
-}
-
-// Tree is Compact Sparse Merkle Tree
-// It implements interface SMT
-type Tree struct {
-	root      *Node
-	datastore map[chainhash.Hash]chainhash.Hash
-}
 
 func combineHashes(left *chainhash.Hash, right *chainhash.Hash) chainhash.Hash {
 	return chainhash.HashH(append(left[:], right[:]...))
-}
-
-// NewTree creates a Tree
-func NewTree() Tree {
-	return Tree{
-		root:      nil,
-		datastore: map[chainhash.Hash]chainhash.Hash{},
-	}
 }
 
 var emptyHash = chainhash.Hash{}
@@ -78,39 +22,6 @@ func init() {
 	}
 
 	EmptyTree = emptyTrees[255]
-}
-
-// Hash get the root hash
-func (t *Tree) Hash() chainhash.Hash {
-	if t.root == nil {
-		return emptyTrees[255]
-	}
-	return t.root.Value
-}
-
-// Set inserts/updates a value
-func (t *Tree) Set(key chainhash.Hash, value chainhash.Hash) {
-	// if the t is empty, insert at the root
-
-	hk := chainhash.HashH(key[:])
-
-	t.root = t.insert(t.root, hk, value, 255)
-
-	t.datastore[key] = value
-}
-
-// SetWithWitness returns an update witness and sets the value in the tree.
-func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateWitness {
-	uw := GenerateUpdateWitness(t, key, value)
-	t.Set(key, value)
-
-	return &uw
-}
-
-// Prove proves a key in the tree.
-func (t *Tree) Prove(key chainhash.Hash) *VerificationWitness {
-	vw := GenerateVerificationWitness(t, key)
-	return &vw
 }
 
 // isRight checks if the key is in the left or right subtree at a certain level. Level 255 is the root level.
@@ -137,94 +48,67 @@ func calculateSubtreeHashWithOneLeaf(key *chainhash.Hash, value *chainhash.Hash,
 	return h
 }
 
-func (t *Tree) insert(root *Node, key chainhash.Hash, value chainhash.Hash, level uint8) *Node {
+func insertIntoTree(t TreeDatabase, root Node, key chainhash.Hash, value chainhash.Hash, level uint8) Node {
 	right := isRight(key, level)
 
 	if level == 0 {
-		if root != nil {
-			root.Value = value
+		if !root.Empty() {
+			root.SetHash(value)
+			return root
 		}
-		return &Node{
-			Value: value,
-		}
+		return t.NewNodeWithHash(value)
 	}
 
 	// if this tree is empty and we're inserting, we know it's the only key in the subtree, so let's mark it as such and
 	// fill in the necessary values
-	if root == nil {
-		return &Node{
-			One:      true,
-			OneKey:   &key,
-			OneValue: &value,
-			Value:    calculateSubtreeHashWithOneLeaf(&key, &value, level),
-		}
+	if root.Empty() {
+		return t.NewSingleNode(key, value, calculateSubtreeHashWithOneLeaf(&key, &value, level))
 	}
 
 	// if there is only one key in this subtree,
-	if root.One {
+	if root.IsSingle() {
+		rootKey := root.GetSingleKey()
 		// this operation is an update
-		if root.OneKey.IsEqual(&key) {
+		if rootKey.IsEqual(&key) {
 			// calculate the new root hash for this subtree
-			root.Value = calculateSubtreeHashWithOneLeaf(&key, &value, level)
-			root.OneValue = &value
+			root.SetHash(calculateSubtreeHashWithOneLeaf(&key, &value, level))
+			root.SetSingleValue(value)
 			return root
 		}
 
 		// we also need to add the old key to a lower sub-level.
+		newRoot := t.NewNode()
 
 		// check if the old key goes in the left or right
-		subRight := isRight(*root.OneKey, level)
+		subRight := isRight(rootKey, level)
 		if subRight {
-			root.Right = t.insert(root.Right, *root.OneKey, *root.OneValue, level-1)
+			newRoot.SetRight(insertIntoTree(t, root.Right(), rootKey, root.GetSingleValue(), level-1))
 		} else {
-			root.Left = t.insert(root.Left, *root.OneKey, *root.OneValue, level-1)
+			newRoot.SetLeft(insertIntoTree(t, root.Left(), rootKey, root.GetSingleValue(), level-1))
 		}
-		root.One = false
-		root.OneKey = nil
-		root.OneValue = nil
+
+		root = newRoot
 	}
 
 	if right {
-		root.Right = t.insert(root.Right, key, value, level-1)
+		root.SetRight(insertIntoTree(t, root.Right(), key, value, level-1))
 	} else {
-		root.Left = t.insert(root.Left, key, value, level-1)
+		root.SetLeft(insertIntoTree(t, root.Left(), key, value, level-1))
 	}
 
+	rootLeft := root.Left()
 	lv := emptyTrees[level-1]
-	if root.Left != nil {
-		lv = root.Left.Value
+	if !rootLeft.Empty() {
+		lv = rootLeft.GetHash()
 	}
 
+	rootRight := root.Right()
 	rv := emptyTrees[level-1]
-	if root.Right != nil {
-		rv = root.Right.Value
+	if !rootRight.Empty() {
+		rv = rootRight.GetHash()
 	}
 
-	root.Value = combineHashes(&lv, &rv)
+	root.SetHash(combineHashes(&lv, &rv))
 
 	return root
-}
-
-// Get gets a value from the tree.
-func (t *Tree) Get(key chainhash.Hash) *chainhash.Hash {
-	h, found := t.datastore[key]
-	if !found {
-		return &emptyHash
-	}
-	return &h
-}
-
-// Copy copies the tree.
-func (t *Tree) Copy() Tree {
-	newTree := Tree{
-		datastore: map[chainhash.Hash]chainhash.Hash{},
-	}
-
-	for k, v := range t.datastore {
-		newTree.datastore[k] = v
-	}
-
-	newTree.root = t.root.Copy()
-
-	return newTree
 }

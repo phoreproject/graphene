@@ -17,10 +17,13 @@ type UpdateWitness struct {
 }
 
 // GenerateUpdateWitness generates a witness that allows calculation of a new state root.
-func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash) UpdateWitness {
+func GenerateUpdateWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash, value chainhash.Hash) UpdateWitness {
 	hk := chainhash.HashH(key[:])
 
-	oldValue := tree.Get(key)
+	oldValue, found := kv.Get(key)
+	if !found {
+		oldValue = &chainhash.Hash{}
+	}
 
 	uw := UpdateWitness{
 		Key:      key,
@@ -28,7 +31,9 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 		NewValue: value,
 	}
 
-	if tree.root == nil {
+	current := tree.Root()
+
+	if current.Empty() {
 		uw.Witnesses = make([]chainhash.Hash, 0)
 		uw.WitnessBitfield = chainhash.Hash{}
 		uw.LastLevel = 255
@@ -37,40 +42,43 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 
 	w := make([]chainhash.Hash, 0)
 
-	current := tree.root
-
 	// if current == nil, we know the subtree is empty, so we can break
 
 	level := uint8(255)
 
-	for current != nil && !current.One {
+	for !current.Empty() && !current.IsSingle() {
 		right := isRight(hk, level)
 
 		if right {
-			if current.Left != nil {
-				w = append(w, current.Left.Value)
+			left := current.Left()
+			if !left.Empty() {
+				w = append(w, left.GetHash())
 				uw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Right
+			current = current.Right()
 		} else if !right {
-			if current.Right != nil {
-				w = append(w, current.Right.Value)
+			right := current.Right()
+			if !right.Empty() {
+				w = append(w, right.GetHash())
 				uw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Left
+			current = current.Left()
 		}
 		level--
 	}
 
-	if current != nil && !current.OneKey.IsEqual(&hk) {
-		existingKey := *current.OneKey
-		// go down until we find the place where they branch
-		for isRight(existingKey, level) == isRight(hk, level) {
+	if !current.Empty() {
+		existingKey := current.GetSingleKey()
+		if !existingKey.IsEqual(&hk) {
+			existingValue := current.GetSingleValue()
+			// go down until we find the place where they branch
+			for isRight(existingKey, level) == isRight(hk, level) {
+				level--
+			}
 			level--
+			w = append(w, calculateSubtreeHashWithOneLeaf(&existingKey, &existingValue, level))
+			uw.WitnessBitfield[(level+1)/8] |= 1 << uint((level+1)%8)
 		}
-		level--
-		w = append(w, calculateSubtreeHashWithOneLeaf(current.OneKey, current.OneValue, level))
-		uw.WitnessBitfield[(level+1)/8] |= 1 << uint((level+1)%8)
 	}
 
 	uw.LastLevel = level
@@ -86,17 +94,22 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 }
 
 // GenerateVerificationWitness generates a witness that allows verification of a key in the tree.
-func GenerateVerificationWitness(tree *Tree, key chainhash.Hash) VerificationWitness {
+func GenerateVerificationWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash) VerificationWitness {
 	hk := chainhash.HashH(key[:])
 
-	val := tree.Get(key)
+	val, found := kv.Get(key)
+	if !found {
+		val = &chainhash.Hash{}
+	}
 
 	vw := VerificationWitness{
 		Key:   key,
 		Value: *val,
 	}
 
-	if tree.root == nil {
+	current := tree.Root()
+
+	if current.Empty() {
 		vw.Witnesses = make([]chainhash.Hash, 0)
 		vw.WitnessBitfield = chainhash.Hash{}
 		vw.LastLevel = 255
@@ -105,42 +118,45 @@ func GenerateVerificationWitness(tree *Tree, key chainhash.Hash) VerificationWit
 
 	w := make([]chainhash.Hash, 0)
 
-	current := tree.root
-
 	// if current == nil, we know the subtree is empty, so we can break
 
 	level := uint8(255)
 
 	// we recurse down the tree until we find a subtree with only one root
-	for current != nil && !current.One {
+	for !current.Empty() && !current.IsSingle() {
 		right := isRight(hk, level)
 
 		if right {
-			if current.Left != nil {
-				w = append(w, current.Left.Value)
+			left := current.Left()
+			if !left.Empty() {
+				w = append(w, left.GetHash())
 				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Right
+			current = current.Right()
 		} else if !right {
-			if current.Right != nil {
-				w = append(w, current.Right.Value)
+			right := current.Right()
+			if !right.Empty() {
+				w = append(w, right.GetHash())
 				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Left
+			current = current.Left()
 		}
 
 		level--
 	}
 
-	if current != nil && !current.OneKey.IsEqual(&hk) {
-		existingKey := *current.OneKey
-		// go down until we find the place where they branch
-		for isRight(existingKey, level) == isRight(hk, level) {
+	if !current.Empty() {
+		existingKey := current.GetSingleKey()
+		if !existingKey.IsEqual(&hk) {
+			existingValue := current.GetSingleValue()
+			// go down until we find the place where they branch
+			for isRight(existingKey, level) == isRight(hk, level) {
+				level--
+			}
 			level--
+			w = append(w, calculateSubtreeHashWithOneLeaf(&existingKey, &existingValue, level))
+			vw.WitnessBitfield[(level+1)/8] |= 1 << uint((level+1)%8)
 		}
-		level--
-		w = append(w, calculateSubtreeHashWithOneLeaf(current.OneKey, current.OneValue, level))
-		vw.WitnessBitfield[(level+1)/8] |= 1 << uint((level+1)%8)
 	}
 
 	vw.LastLevel = level

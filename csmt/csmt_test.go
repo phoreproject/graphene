@@ -15,7 +15,7 @@ func ch(s string) chainhash.Hash {
 func TestTree_RandomSet(t *testing.T) {
 	keys := make([]chainhash.Hash, 500)
 	val := ch("testval")
-	tree := NewTree()
+	tree := NewTree(NewInMemoryTreeDB(), NewInMemoryKVStore())
 
 	for i := range keys {
 		keys[i] = ch(fmt.Sprintf("%d", i))
@@ -29,7 +29,7 @@ func TestTree_RandomSet(t *testing.T) {
 func TestTree_SetZero(t *testing.T) {
 	val := emptyHash
 
-	tree := NewTree()
+	tree := NewTree(NewInMemoryTreeDB(), NewInMemoryKVStore())
 
 	tree.Set(ch("1"), val)
 	tree.Set(ch("2"), val)
@@ -46,7 +46,7 @@ func TestTree_SetZero(t *testing.T) {
 func BenchmarkTree_Set(b *testing.B) {
 	keys := make([]chainhash.Hash, b.N)
 	val := ch("testval")
-	t := NewTree()
+	t := NewTree(NewInMemoryTreeDB(), NewInMemoryKVStore())
 
 	for i := range keys {
 		keys[i] = ch(fmt.Sprintf("%d", i))
@@ -101,7 +101,9 @@ func Test_calculateSubtreeHashWithOneLeaf(t *testing.T) {
 func TestRandomGenerateUpdateWitness(t *testing.T) {
 	keys := make([]chainhash.Hash, 500)
 	val := ch("testval")
-	tree := NewTree()
+	treeDB := NewInMemoryTreeDB()
+	treeKV := NewInMemoryKVStore()
+	tree := NewTree(treeDB, treeKV)
 
 	for i := range keys {
 		keys[i] = ch(fmt.Sprintf("%d", i))
@@ -114,7 +116,7 @@ func TestRandomGenerateUpdateWitness(t *testing.T) {
 	treehash := tree.Hash()
 
 	for i := 0; i < 500; i++ {
-		w := GenerateUpdateWitness(&tree, keys[i], val)
+		w := GenerateUpdateWitness(treeDB, treeKV, keys[i], val)
 		root, err := CalculateRoot(keys[i], val, w.WitnessBitfield, w.Witnesses, w.LastLevel)
 		if err != nil {
 			t.Fatal(err)
@@ -126,9 +128,11 @@ func TestRandomGenerateUpdateWitness(t *testing.T) {
 }
 
 func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
-	tree := NewTree()
+	treeDB := NewInMemoryTreeDB()
+	treeKV := NewInMemoryKVStore()
+	tree := NewTree(treeDB, treeKV)
 
-	w := GenerateUpdateWitness(&tree, ch("asdf"), ch("1"))
+	w := GenerateUpdateWitness(treeDB, treeKV, ch("asdf"), ch("1"))
 
 	newRoot, err := w.Apply(tree.Hash())
 	if err != nil {
@@ -144,7 +148,9 @@ func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
 }
 
 func TestGenerateUpdateWitnessUpdate(t *testing.T) {
-	tree := NewTree()
+	treeDB := NewInMemoryTreeDB()
+	treeKV := NewInMemoryKVStore()
+	tree := NewTree(treeDB, treeKV)
 
 	tree.Set(ch("asdf"), ch("2"))
 	tree.Set(ch("asdf1"), ch("2"))
@@ -155,7 +161,7 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		setVal := fmt.Sprintf("%d", i)
 
-		w := GenerateUpdateWitness(&tree, ch("asdf"), ch(setVal))
+		w := GenerateUpdateWitness(treeDB, treeKV, ch("asdf"), ch(setVal))
 
 		newRoot, err := w.Apply(tree.Hash())
 		if err != nil {
@@ -174,25 +180,28 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 func BenchmarkGenerateUpdateWitness(b *testing.B) {
 	keys := make([]chainhash.Hash, b.N)
 	val := ch("testval")
-	t := NewTree()
+	treeDB := NewInMemoryTreeDB()
+	treeKV := NewInMemoryKVStore()
+	tree := NewTree(treeDB, treeKV)
 
 	for i := range keys {
 		keys[i] = ch(fmt.Sprintf("%d", i))
 	}
 
 	for i := 0; i < b.N; i++ {
-		t.Set(keys[i], val)
+		tree.Set(keys[i], val)
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		GenerateUpdateWitness(&t, keys[i], val)
+		GenerateUpdateWitness(treeDB, treeKV, keys[i], val)
 	}
 }
 
 func TestChainedUpdates(t *testing.T) {
-	tree := NewTree()
+	tree := NewTree(NewInMemoryTreeDB(), NewInMemoryKVStore())
+
 	initialRoot := tree.Hash()
 	witnesses := make([]*UpdateWitness, 0)
 
@@ -252,7 +261,7 @@ func TestChainedUpdates(t *testing.T) {
 }
 
 func TestEmptyBranchWitness(t *testing.T) {
-	tree := NewTree()
+	tree := NewTree(NewInMemoryTreeDB(), NewInMemoryKVStore())
 	preroot := tree.Hash()
 
 	w0 := tree.SetWithWitness(ch("test"), ch("asdf"))
@@ -272,7 +281,7 @@ func TestEmptyBranchWitness(t *testing.T) {
 }
 
 func TestCheckWitness(t *testing.T) {
-	tree := NewTree()
+	tree := NewTree(NewInMemoryTreeDB(), NewInMemoryKVStore())
 	//preroot := tree.Hash()
 
 	tree.Set(ch("test"), ch("asdf"))

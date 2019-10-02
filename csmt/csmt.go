@@ -94,15 +94,13 @@ func (t *Tree) Set(key chainhash.Hash, value chainhash.Hash) {
 
 	hk := chainhash.HashH(key[:])
 
-	t.root = t.insert(t.root, &hk, &value, 255)
+	t.root = t.insert(t.root, hk, value, 255)
 
 	t.datastore[key] = value
 }
 
 // SetWithWitness returns an update witness and sets the value in the tree.
 func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateWitness {
-	oldVal := t.Get(key)
-	t.Set(key, *oldVal)
 	uw := GenerateUpdateWitness(t, key, value)
 	t.Set(key, value)
 
@@ -111,12 +109,11 @@ func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateW
 
 // Prove proves a key in the tree.
 func (t *Tree) Prove(key chainhash.Hash) *VerificationWitness {
-	oldVal := t.Get(key)
-	t.Set(key, *oldVal)
 	vw := GenerateVerificationWitness(t, key)
 	return &vw
 }
 
+// isRight checks if the key is in the left or right subtree at a certain level. Level 255 is the root level.
 func isRight(key chainhash.Hash, level uint8) bool {
 	return key[level/8]&(1<<uint(level%8)) != 0
 }
@@ -140,15 +137,15 @@ func calculateSubtreeHashWithOneLeaf(key *chainhash.Hash, value *chainhash.Hash,
 	return h
 }
 
-func (t *Tree) insert(root *Node, key *chainhash.Hash, value *chainhash.Hash, level uint8) *Node {
-	right := isRight(*key, level)
+func (t *Tree) insert(root *Node, key chainhash.Hash, value chainhash.Hash, level uint8) *Node {
+	right := isRight(key, level)
 
 	if level == 0 {
 		if root != nil {
-			root.Value = *value
+			root.Value = value
 		}
 		return &Node{
-			Value: *value,
+			Value: value,
 		}
 	}
 
@@ -157,26 +154,30 @@ func (t *Tree) insert(root *Node, key *chainhash.Hash, value *chainhash.Hash, le
 	if root == nil {
 		return &Node{
 			One:      true,
-			OneKey:   key,
-			OneValue: value,
-			Value:    calculateSubtreeHashWithOneLeaf(key, value, level),
+			OneKey:   &key,
+			OneValue: &value,
+			Value:    calculateSubtreeHashWithOneLeaf(&key, &value, level),
 		}
 	}
 
 	// if there is only one key in this subtree,
 	if root.One {
 		// this operation is an update
-		if root.OneKey.IsEqual(key) {
-			root.Value = calculateSubtreeHashWithOneLeaf(key, value, level)
-			root.OneValue = value
+		if root.OneKey.IsEqual(&key) {
+			// calculate the new root hash for this subtree
+			root.Value = calculateSubtreeHashWithOneLeaf(&key, &value, level)
+			root.OneValue = &value
 			return root
 		}
+
 		// we also need to add the old key to a lower sub-level.
+
+		// check if the old key goes in the left or right
 		subRight := isRight(*root.OneKey, level)
 		if subRight {
-			root.Right = t.insert(root.Right, root.OneKey, root.OneValue, level-1)
+			root.Right = t.insert(root.Right, *root.OneKey, *root.OneValue, level-1)
 		} else {
-			root.Left = t.insert(root.Left, root.OneKey, root.OneValue, level-1)
+			root.Left = t.insert(root.Left, *root.OneKey, *root.OneValue, level-1)
 		}
 		root.One = false
 		root.OneKey = nil

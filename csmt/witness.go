@@ -59,8 +59,18 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 			}
 			current = current.Left
 		}
-
 		level--
+	}
+
+	if !current.OneKey.IsEqual(&hk) {
+		existingKey := *current.OneKey
+		// go down until we find the place where they branch
+		for isRight(existingKey, level) == isRight(hk, level) {
+			level--
+		}
+		level--
+		w = append(w, calculateSubtreeHashWithOneLeaf(current.OneKey, current.OneValue, level))
+		uw.WitnessBitfield[(level+1)/8] |= 1 << uint((level+1)%8)
 	}
 
 	uw.LastLevel = level
@@ -101,6 +111,7 @@ func GenerateVerificationWitness(tree *Tree, key chainhash.Hash) VerificationWit
 
 	level := uint8(255)
 
+	// we recurse down the tree until we find a subtree with only one root
 	for current != nil && !current.One {
 		right := isRight(hk, level)
 
@@ -119,6 +130,17 @@ func GenerateVerificationWitness(tree *Tree, key chainhash.Hash) VerificationWit
 		}
 
 		level--
+	}
+
+	if current != nil && !current.OneKey.IsEqual(&hk) {
+		existingKey := *current.OneKey
+		// go down until we find the place where they branch
+		for isRight(existingKey, level) == isRight(hk, level) {
+			level--
+		}
+		level--
+		w = append(w, calculateSubtreeHashWithOneLeaf(current.OneKey, current.OneValue, level))
+		vw.WitnessBitfield[(level+1)/8] |= 1 << uint((level+1)%8)
 	}
 
 	vw.LastLevel = level
@@ -164,6 +186,9 @@ func CalculateRoot(key chainhash.Hash, value chainhash.Hash, witnessBitfield cha
 
 // Apply applies a witness to an old state root to generate a new state root.
 func (uw *UpdateWitness) Apply(oldStateRoot chainhash.Hash) (*chainhash.Hash, error) {
+	// if this is an update, last level should be the same for the pre root, but if this is an insertion, last level should
+	// be one level higher
+
 	preRoot, err := CalculateRoot(uw.Key, uw.OldValue, uw.WitnessBitfield, uw.Witnesses, uw.LastLevel)
 	if err != nil {
 		return nil, err
@@ -173,7 +198,12 @@ func (uw *UpdateWitness) Apply(oldStateRoot chainhash.Hash) (*chainhash.Hash, er
 		return nil, errors.New("old state root doesn't match witness")
 	}
 
-	return CalculateRoot(uw.Key, uw.NewValue, uw.WitnessBitfield, uw.Witnesses, uw.LastLevel)
+	newRoot, err := CalculateRoot(uw.Key, uw.NewValue, uw.WitnessBitfield, uw.Witnesses, uw.LastLevel)
+	if err != nil {
+		return nil, err
+	}
+
+	return newRoot, nil
 }
 
 // Check ensures the state root matches.

@@ -1,0 +1,184 @@
+package csmt
+
+import (
+	"github.com/phoreproject/synapse/chainhash"
+
+	logger "github.com/sirupsen/logrus"
+)
+
+// TreeTransaction is a transaction wrapper on a CSMT that allows reading and writing from an underlying data store.
+type TreeTransaction struct {
+	underlyingTree TreeDatabase
+	underlyingKV KVStore
+
+	root chainhash.Hash
+
+	// dirty are nodes that are marked as dirty
+	dirty map[chainhash.Hash]Node
+	dirtyKV map[chainhash.Hash]chainhash.Hash
+
+	toRemove map[chainhash.Hash]struct{}
+
+	valid bool
+}
+
+func NewTreeTransaction(underlyingTree TreeDatabase, underlyingKV KVStore) TreeTransaction {
+	rootHash := EmptyTree
+	root := underlyingTree.Root()
+	if root != nil {
+		rootHash = root.GetHash()
+	}
+	return TreeTransaction{
+		underlyingTree: underlyingTree,
+		underlyingKV: underlyingKV,
+		root: rootHash,
+		dirty: make(map[chainhash.Hash]Node),
+		dirtyKV: make(map[chainhash.Hash]chainhash.Hash),
+		toRemove: make(map[chainhash.Hash]struct{}),
+		valid: true,
+	}
+}
+
+// Root gets the current root of the transaction.
+func (t *TreeTransaction) Root() Node {
+	if n, found := t.dirty[t.root]; found {
+		return n
+	} else {
+		if n, found := t.underlyingTree.GetNode(t.root); found {
+			return n
+		} else {
+			return nil
+		}
+	}
+}
+
+// SetRoot sets the root for the current transaction. If it does not exist in the cache or the underlying data store,
+// add it to the cache.
+func (t *TreeTransaction) SetRoot(n Node) {
+	if !t.valid {
+		logger.Warn("SetRoot called on transaction already committed")
+		return
+	}
+
+	nodeHash := n.GetHash()
+	if _, found := t.dirty[nodeHash]; !found {
+		if _, found := t.underlyingTree.GetNode(nodeHash); !found {
+			t.SetNode(n)
+		}
+	}
+	t.root = nodeHash
+}
+
+// NewNode creates a new node and adds it to the cache.
+func (t *TreeTransaction) NewNode(left Node, right Node, subtreeHash chainhash.Hash) Node {
+	if !t.valid {
+		logger.Warn("NewNode called on transaction already committed")
+		return nil
+	}
+
+	var leftHash *chainhash.Hash
+	var rightHash *chainhash.Hash
+
+	if left != nil {
+		lh := left.GetHash()
+		leftHash = &lh
+	}
+
+	if right != nil {
+		rh := right.GetHash()
+		rightHash = &rh
+	}
+
+	newNode := &InMemoryNode{
+		value: subtreeHash,
+		left: leftHash,
+		right: rightHash,
+	}
+	t.dirty[subtreeHash] = newNode
+	return newNode
+}
+
+func (t *TreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node {
+	if !t.valid {
+		logger.Warn("NewSingleNode called on transaction already committed")
+		return nil
+	}
+
+	newNode := &InMemoryNode{
+		one: true,
+		oneKey: &key,
+		oneValue: &value,
+		value: subtreeHash,
+	}
+	t.dirty[subtreeHash] = newNode
+	return newNode
+}
+
+func (t *TreeTransaction) GetNode(c chainhash.Hash) (Node, bool) {
+	if n, found := t.dirty[c]; found {
+		return n, true
+	} else {
+		if n, found := t.underlyingTree.GetNode(c); found {
+			return n, true
+		} else {
+			return nil, false
+		}
+	}
+}
+
+func (t *TreeTransaction) SetNode(n Node) {
+	if !t.valid {
+		logger.Warn("SetNode called on transaction already committed")
+		return
+	}
+
+	t.dirty[n.GetHash()] = n
+}
+
+func (t *TreeTransaction) DeleteNode(c chainhash.Hash) {
+	if !t.valid {
+		logger.Warn("DeleteNode called on transaction already committed")
+		return
+	}
+
+	delete(t.dirty, c)
+
+	t.toRemove[c] = struct{}{}
+}
+
+func (t *TreeTransaction) Flush() {
+	t.valid = false
+
+	for _, dirtyNode := range t.dirty {
+		t.underlyingTree.SetNode(dirtyNode)
+	}
+
+	for c := range t.toRemove {
+		t.underlyingTree.DeleteNode(c)
+	}
+
+	t.underlyingTree.SetRoot(t.Root())
+
+	for k, v := range t.dirtyKV {
+		t.underlyingKV.Set(k, v)
+	}
+}
+
+func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, bool) {
+	if val, found := t.dirtyKV[key]; found {
+		return &val, true
+	} else {
+		return t.underlyingKV.Get(key)
+	}
+}
+
+func (t *TreeTransaction) Set(key chainhash.Hash, val chainhash.Hash) {
+	if !t.valid {
+		logger.Warn("SetNode called on transaction already committed")
+		return
+	}
+
+	t.dirtyKV[key] = val
+}
+
+var _ TreeDatabase = &TreeTransaction{}

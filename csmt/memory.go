@@ -4,47 +4,93 @@ import "github.com/phoreproject/synapse/chainhash"
 
 // InMemoryTreeDB is a tree stored in memory.
 type InMemoryTreeDB struct {
-	root *InMemoryNode
+	root chainhash.Hash
+	nodes map[chainhash.Hash]InMemoryNode
 }
 
 // NewInMemoryTreeDB creates a new in-memory tree database.
 func NewInMemoryTreeDB() *InMemoryTreeDB {
 	return &InMemoryTreeDB{
-		root: nil,
+		root: EmptyTree,
+		nodes: make(map[chainhash.Hash]InMemoryNode),
 	}
+}
+
+// GetNode gets a node from the tree database.
+func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (Node, bool) {
+	if n, found := i.nodes[nodeHash]; found {
+		return &n, false
+	} else {
+		return nil, true
+	}
+}
+
+// SetNode sets a node in the database. The node passed MUST be an InMemoryNode
+func (i *InMemoryTreeDB) SetNode(n Node) {
+	if imn, ok := n.(*InMemoryNode); ok {
+		i.nodes[n.GetHash()] = *imn
+	} else {
+		panic("InMemoryTreeDB.SetNode(Node) must be called with an in-memory node.")
+	}
+}
+
+// DeleteNode deletes a node if it exists.
+func (i *InMemoryTreeDB) DeleteNode(h chainhash.Hash) {
+	delete(i.nodes, h)
 }
 
 // Root gets the root of the tree.
 func (i *InMemoryTreeDB) Root() Node {
-	return i.root
+	if n, found := i.nodes[i.root]; found {
+		return &n
+	} else {
+		return nil
+	}
 }
 
 // SetRoot sets the root of the tree.
 func (i *InMemoryTreeDB) SetRoot(n Node) {
-	imn, _ := n.(*InMemoryNode)
-	i.root = imn
+	nodeHash := n.GetHash()
+	if _, found := i.nodes[nodeHash]; !found {
+		i.SetNode(n)
+	}
+	i.root = nodeHash
 }
 
 // NewNode creates a new empty node.
-func (InMemoryTreeDB) NewNode() Node {
-	return &InMemoryNode{}
-}
+func (i *InMemoryTreeDB) NewNode(left Node, right Node, subtreeHash chainhash.Hash) Node {
+	var leftHash *chainhash.Hash
+	var rightHash *chainhash.Hash
 
-// NewNodeWithHash creates a new node with a specific hash.
-func (i *InMemoryTreeDB) NewNodeWithHash(subtreeHash chainhash.Hash) Node {
-	return &InMemoryNode{
-		value: subtreeHash,
+	if left != nil {
+		lh := left.GetHash()
+		leftHash = &lh
 	}
+
+	if right != nil {
+		rh := right.GetHash()
+		rightHash = &rh
+	}
+
+	newNode := &InMemoryNode{
+		value: subtreeHash,
+		left: leftHash,
+		right: rightHash,
+	}
+	i.nodes[subtreeHash] = *newNode
+	return newNode
 }
 
 // NewSingleNode creates a new node with only one key-value pair.
 func (i *InMemoryTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node {
-	return &InMemoryNode{
+	newNode := &InMemoryNode{
 		one: true,
 		oneKey: &key,
 		oneValue: &value,
 		value: subtreeHash,
 	}
+	i.nodes[subtreeHash] = *newNode
+	return newNode
 }
 
 // InMemoryNode is a node of the in-memory tree database.
@@ -53,8 +99,8 @@ type InMemoryNode struct {
 	one      bool
 	oneKey   *chainhash.Hash
 	oneValue *chainhash.Hash
-	left     *InMemoryNode
-	right    *InMemoryNode
+	left     *chainhash.Hash
+	right    *chainhash.Hash
 }
 
 // GetHash gets the current hash from memory.
@@ -62,31 +108,14 @@ func (i *InMemoryNode) GetHash() chainhash.Hash {
 	return i.value
 }
 
-// SetHash sets the current hash in memory.
-func (i *InMemoryNode) SetHash(v chainhash.Hash) {
-	i.value = v
-}
-
 // Left gets the left node in memory.
-func (i *InMemoryNode) Left() Node {
+func (i *InMemoryNode) Left() *chainhash.Hash {
 	return i.left
 }
 
-// SetLeft sets the left node in memory.
-func (i *InMemoryNode) SetLeft(n Node) {
-	imn, _ := n.(*InMemoryNode)
-	i.left = imn
-}
-
 // Right gets the right node in memory.
-func (i *InMemoryNode) Right() Node {
+func (i *InMemoryNode) Right() *chainhash.Hash {
 	return i.right
-}
-
-// SetRight sets the right node in memory.
-func (i *InMemoryNode) SetRight(n Node) {
-	imn, _ := n.(*InMemoryNode)
-	i.right = imn
 }
 
 // IsSingle checks if there is only a single key in the subtree.
@@ -112,14 +141,14 @@ func (i *InMemoryNode) GetSingleValue() chainhash.Hash {
 	}
 }
 
-// SetSingleValue sets the only value in the subtree.
-func (i *InMemoryNode) SetSingleValue(v chainhash.Hash) {
-	*i.oneValue = v
-}
-
 // Empty checks if the node is empty.
 func (i *InMemoryNode) Empty() bool {
 	return i == nil
+}
+
+// Backend gets the backend behind the node.
+func (i *InMemoryNode) Backend() int {
+	return BackendPrimary
 }
 
 // InMemoryKVStore is a key-value store in memory.
@@ -127,6 +156,7 @@ type InMemoryKVStore struct {
 	store map[chainhash.Hash]chainhash.Hash
 }
 
+// NewInMemoryKVStore constructs a new key-value store in memory.
 func NewInMemoryKVStore() *InMemoryKVStore {
 	return &InMemoryKVStore{
 		store: make(map[chainhash.Hash]chainhash.Hash),

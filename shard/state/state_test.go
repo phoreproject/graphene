@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/shard/state"
 	"testing"
 )
@@ -11,7 +12,7 @@ func ch(s string) chainhash.Hash {
 }
 
 func TestPartialStateGeneration(t *testing.T) {
-	fs := state.NewFullShardState()
+	fs := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
 	ts := state.NewTrackingState(fs)
 
 	key := ch("test")

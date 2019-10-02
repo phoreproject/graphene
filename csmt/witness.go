@@ -33,7 +33,7 @@ func GenerateUpdateWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash, va
 
 	current := tree.Root()
 
-	if current.Empty() {
+	if current == nil || current.Empty() {
 		uw.Witnesses = make([]chainhash.Hash, 0)
 		uw.WitnessBitfield = chainhash.Hash{}
 		uw.LastLevel = 255
@@ -46,28 +46,40 @@ func GenerateUpdateWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash, va
 
 	level := uint8(255)
 
-	for !current.Empty() && !current.IsSingle() {
+	for current != nil && !current.Empty() && !current.IsSingle() {
 		right := isRight(hk, level)
 
 		if right {
-			left := current.Left()
-			if !left.Empty() {
-				w = append(w, left.GetHash())
+			leftNodeHash := current.Left()
+			if leftNodeHash != nil {
+				w = append(w, *leftNodeHash)
 				uw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Right()
+
+			rightHash := current.Right()
+			if rightHash == nil {
+				current = nil
+			} else {
+				current, _ = tree.GetNode(*rightHash)
+			}
 		} else if !right {
-			right := current.Right()
-			if !right.Empty() {
-				w = append(w, right.GetHash())
+			rightNodeHash := current.Right()
+			if rightNodeHash != nil {
+				w = append(w, *rightNodeHash)
 				uw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Left()
+
+			leftHash := current.Left()
+			if leftHash == nil {
+				current = nil
+			} else {
+				current, _ = tree.GetNode(*leftHash)
+			}
 		}
 		level--
 	}
 
-	if !current.Empty() {
+	if current != nil && !current.Empty() {
 		existingKey := current.GetSingleKey()
 		if !existingKey.IsEqual(&hk) {
 			existingValue := current.GetSingleValue()
@@ -109,7 +121,7 @@ func GenerateVerificationWitness(tree TreeDatabase, kv KVStore, key chainhash.Ha
 
 	current := tree.Root()
 
-	if current.Empty() {
+	if current == nil || current.Empty() {
 		vw.Witnesses = make([]chainhash.Hash, 0)
 		vw.WitnessBitfield = chainhash.Hash{}
 		vw.LastLevel = 255
@@ -123,29 +135,40 @@ func GenerateVerificationWitness(tree TreeDatabase, kv KVStore, key chainhash.Ha
 	level := uint8(255)
 
 	// we recurse down the tree until we find a subtree with only one root
-	for !current.Empty() && !current.IsSingle() {
+	for current != nil && !current.Empty() && !current.IsSingle() {
 		right := isRight(hk, level)
 
 		if right {
-			left := current.Left()
-			if !left.Empty() {
-				w = append(w, left.GetHash())
+			leftNodeHash := current.Left()
+			if leftNodeHash != nil {
+				w = append(w, *leftNodeHash)
 				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
 			}
-			current = current.Right()
-		} else if !right {
-			right := current.Right()
-			if !right.Empty() {
-				w = append(w, right.GetHash())
-				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
-			}
-			current = current.Left()
-		}
 
+			rightHash := current.Right()
+			if rightHash == nil {
+				current = nil
+			} else {
+				current, _ = tree.GetNode(*rightHash)
+			}
+		} else if !right {
+			rightNodeHash := current.Right()
+			if rightNodeHash != nil {
+				w = append(w, *rightNodeHash)
+				vw.WitnessBitfield[level/8] |= 1 << uint(level%8)
+			}
+
+			leftHash := current.Left()
+			if leftHash == nil {
+				current = nil
+			} else {
+				current, _ = tree.GetNode(*leftHash)
+			}
+		}
 		level--
 	}
 
-	if !current.Empty() {
+	if current != nil && !current.Empty() {
 		existingKey := current.GetSingleKey()
 		if !existingKey.IsEqual(&hk) {
 			existingValue := current.GetSingleValue()

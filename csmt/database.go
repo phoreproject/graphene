@@ -12,14 +12,20 @@ type TreeDatabase interface {
 	// SetRoot sets the root node.
 	SetRoot(Node)
 
-	// NewNode creates a new node.
-	NewNode() Node
-
-	// NewNodeWithHash creates a new node with the given initial subtree hash.
-	NewNodeWithHash(subtreeHash chainhash.Hash) Node
+	// NewNode creates a new node, adds it to the tree database, and returns it.
+	NewNode(left Node, right Node, subtreeHash chainhash.Hash) Node
 
 	// NewSingleNode creates a new node that represents a subtree with only a single key.
 	NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node
+
+	// GetNode gets a node from the database.
+	GetNode(chainhash.Hash) (Node, bool)
+
+	// SetNode sets a node in the database.
+	SetNode(Node)
+
+	// DeleteNode deletes a node from the database.
+	DeleteNode(chainhash.Hash)
 }
 
 // KVStore is a database that associates keys with values.
@@ -31,25 +37,24 @@ type KVStore interface {
 	Set(chainhash.Hash, chainhash.Hash)
 }
 
+const (
+	// BackendPrimary represents a node stored on disk (long-term storage).
+	BackendPrimary = iota
+
+	// BackendSecondary represents a node stored in memory (short-term storage).
+	BackendSecondary
+)
+
 // Node is a node in the tree database.
 type Node interface {
 	// GetHash gets the current hash of the subtree
 	GetHash() chainhash.Hash
 
-	// SetHash sets the current hash of the subtree.
-	SetHash(chainhash.Hash)
-
 	// Left gets the node on the left side or returns nil if there is no node on the left.
-	Left() Node
-
-	// SetLeft sets the node on the left side.
-	SetLeft(Node)
+	Left() *chainhash.Hash
 
 	// Right gets the node on the right side or returns nil if there is no node on the right.
-	Right() Node
-
-	// SetRight sets the node on the right side.
-	SetRight(Node)
+	Right() *chainhash.Hash
 
 	// IsSingle returns true if there is only one key in this subtree.
 	IsSingle() bool
@@ -60,53 +65,8 @@ type Node interface {
 	// GetSingleValue gets the value of the only key in this subtree. Undefined if not a single node.
 	GetSingleValue() chainhash.Hash
 
-	// SetSingleValue sets the value of the only key in this subtree.
-	SetSingleValue(chainhash.Hash)
-
 	// Empty checks if the node is empty.
 	Empty() bool
-}
-
-// MemoryNode represents a node in the merkle tree.
-type MemoryNode struct {
-	Value    chainhash.Hash
-	One      bool
-	OneKey   *chainhash.Hash
-	OneValue *chainhash.Hash
-	Left     *MemoryNode
-	Right    *MemoryNode
-}
-
-// Copy returns a deep copy of the tree.
-func (n *MemoryNode) Copy() *MemoryNode {
-	if n == nil {
-		return nil
-	}
-
-	newNode := &MemoryNode{
-		Value: n.Value,
-		One:   n.One,
-	}
-
-	if n.OneKey != nil {
-		newNode.OneKey = &chainhash.Hash{}
-		copy(newNode.OneKey[:], n.OneKey[:])
-	}
-
-	if n.OneValue != nil {
-		newNode.OneValue = &chainhash.Hash{}
-		copy(newNode.OneValue[:], n.OneValue[:])
-	}
-
-	if n.Left != nil {
-		newNode.Left = n.Left.Copy()
-	}
-
-	if n.Right != nil {
-		newNode.Right = n.Right.Copy()
-	}
-
-	return newNode
 }
 
 // Tree is a wr
@@ -127,7 +87,7 @@ func NewTree(d TreeDatabase, store KVStore) Tree {
 // Hash get the root hash
 func (t *Tree) Hash() chainhash.Hash {
 	r := t.tree.Root()
-	if r.Empty() {
+	if r == nil || r.Empty() {
 		return emptyTrees[255]
 	}
 	return r.GetHash()

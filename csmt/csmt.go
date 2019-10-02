@@ -52,63 +52,76 @@ func insertIntoTree(t TreeDatabase, root Node, key chainhash.Hash, value chainha
 	right := isRight(key, level)
 
 	if level == 0 {
-		if !root.Empty() {
-			root.SetHash(value)
-			return root
+		if root != nil && !root.Empty() {
+			// remove the old node if it exists
+			t.DeleteNode(root.GetHash())
 		}
-		return t.NewNodeWithHash(value)
+
+		// bottom leafs should have no siblings and a value
+		return t.NewNode(nil, nil, value)
 	}
 
 	// if this tree is empty and we're inserting, we know it's the only key in the subtree, so let's mark it as such and
 	// fill in the necessary values
-	if root.Empty() {
+	if root == nil || root.Empty() {
 		return t.NewSingleNode(key, value, calculateSubtreeHashWithOneLeaf(&key, &value, level))
+	}
+
+	leftHash := root.Left()
+	rightHash := root.Right()
+
+	var newLeftBranch Node
+	var newRightBranch Node
+
+	if leftHash != nil {
+		newLeftBranch, _ = t.GetNode(*leftHash)
+	}
+
+	if rightHash != nil {
+		newRightBranch, _ = t.GetNode(*rightHash)
 	}
 
 	// if there is only one key in this subtree,
 	if root.IsSingle() {
 		rootKey := root.GetSingleKey()
+
 		// this operation is an update
 		if rootKey.IsEqual(&key) {
-			// calculate the new root hash for this subtree
-			root.SetHash(calculateSubtreeHashWithOneLeaf(&key, &value, level))
-			root.SetSingleValue(value)
-			return root
-		}
+			// delete the old root
+			t.DeleteNode(root.GetHash())
 
-		// we also need to add the old key to a lower sub-level.
-		newRoot := t.NewNode()
+			// calculate the new root hash for this subtree
+			return t.NewSingleNode(key, value, calculateSubtreeHashWithOneLeaf(&key, &value, level))
+		}
 
 		// check if the old key goes in the left or right
 		subRight := isRight(rootKey, level)
-		if subRight {
-			newRoot.SetRight(insertIntoTree(t, root.Right(), rootKey, root.GetSingleValue(), level-1))
-		} else {
-			newRoot.SetLeft(insertIntoTree(t, root.Left(), rootKey, root.GetSingleValue(), level-1))
-		}
 
-		root = newRoot
+		// we know this is a single, so the left and right should be nil
+		if subRight {
+			newRightBranch = insertIntoTree(t, newRightBranch, rootKey, root.GetSingleValue(), level-1)
+		} else {
+			newLeftBranch = insertIntoTree(t, newLeftBranch, rootKey, root.GetSingleValue(), level-1)
+		}
 	}
 
 	if right {
-		root.SetRight(insertIntoTree(t, root.Right(), key, value, level-1))
+		newRightBranch = insertIntoTree(t, newRightBranch, key, value, level-1)
 	} else {
-		root.SetLeft(insertIntoTree(t, root.Left(), key, value, level-1))
+		newLeftBranch = insertIntoTree(t, newLeftBranch, key, value, level-1)
 	}
 
-	rootLeft := root.Left()
 	lv := emptyTrees[level-1]
-	if !rootLeft.Empty() {
-		lv = rootLeft.GetHash()
+	if newLeftBranch != nil && !newLeftBranch.Empty() {
+		lv = newLeftBranch.GetHash()
 	}
 
-	rootRight := root.Right()
 	rv := emptyTrees[level-1]
-	if !rootRight.Empty() {
-		rv = rootRight.GetHash()
+	if newRightBranch != nil && !newRightBranch.Empty() {
+		rv = newRightBranch.GetHash()
 	}
 
-	root.SetHash(combineHashes(&lv, &rv))
+	newHash := combineHashes(&lv, &rv)
 
-	return root
+	return t.NewNode(newLeftBranch, newRightBranch, newHash)
 }

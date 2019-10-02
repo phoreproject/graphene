@@ -43,7 +43,7 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 
 	level := uint8(255)
 
-	for !current.One {
+	for current != nil && !current.One {
 		right := isRight(hk, level)
 
 		if right {
@@ -62,7 +62,7 @@ func GenerateUpdateWitness(tree *Tree, key chainhash.Hash, value chainhash.Hash)
 		level--
 	}
 
-	if !current.OneKey.IsEqual(&hk) {
+	if current != nil && !current.OneKey.IsEqual(&hk) {
 		existingKey := *current.OneKey
 		// go down until we find the place where they branch
 		for isRight(existingKey, level) == isRight(hk, level) {

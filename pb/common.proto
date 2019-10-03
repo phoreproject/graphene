@@ -225,3 +225,28 @@ message ShardBlockBody {
 message ShardTransaction {
     bytes TransactionData = 1;
 }
+
+message VerificationWitness {
+    bytes Key = 1;
+    bytes Value = 2;
+    bytes WitnessBitfield = 3;
+    repeated bytes WitnessHashes = 4;
+    uint32 LastLevel = 5;
+}
+
+message UpdateWitness {
+    bytes Key = 1;
+    bytes OldValue = 2;
+    bytes NewValue = 3;
+    bytes WitnessBitfield = 4;
+    repeated bytes WitnessHashes = 5;
+    uint32 LastLevel = 6;
+}
+
+message Package {
+    repeated VerificationWitness VerificationWitnesses = 1;
+    repeated UpdateWitness UpdateWitnesses = 2;
+    repeated ShardTransaction Transactions = 3;
+    bytes StartRoot = 4;
+    bytes EndRoot = 5;
+}

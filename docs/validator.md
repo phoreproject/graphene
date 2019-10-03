@@ -1,4 +1,4 @@
-# Validator
+w# Validator
 
 A validator has two main responsibilities: attesting to shard blocks to form cross-links and proposing beacon blocks by aggregating all of the attestations together and putting them into a block.
 

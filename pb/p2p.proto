@@ -1,7 +1,7 @@
 // This is for P2P
 syntax = "proto3";
 
-//import "common.proto";
+import "common.proto";
 
 package pb;
 
@@ -64,3 +64,19 @@ message AddrMessage {
     repeated bytes Addrs = 1;
 }
 
+message GetPackage {
+    bytes StateRoot = 1;
+}
+
+message GetPackageResponse {
+    bool HasPackage = 1;
+    Package Package = 2;
+}
+
+message SubmitTransaction {
+    ShardTransaction Transaction = 1;
+}
+
+message SubmitTransactionResponse {
+    uint64 Result = 1;
+}

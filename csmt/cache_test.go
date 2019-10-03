@@ -2,6 +2,7 @@ package csmt
 
 import (
 	"fmt"
+	"github.com/phoreproject/synapse/chainhash"
 	"testing"
 )
 
@@ -77,6 +78,34 @@ func TestRandomWritesRollbackCommit(t *testing.T) {
 
 		if !cachedTreeHash.IsEqual(underlyingHash) {
 			t.Fatal("expected flush to update the underlying tree")
+		}
+	}
+
+	setNodeHashes := make(map[chainhash.Hash]struct{})
+
+	root, _ := under.Root()
+
+	queue := []*Node{root}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		setNodeHashes[current.GetHash()] = struct{}{}
+
+		if current.right != nil {
+			right, _ := under.GetNode(*current.right)
+			queue = append(queue, right)
+		}
+
+		if current.left != nil {
+			left, _ := under.GetNode(*current.left)
+			queue = append(queue, left)
+		}
+	}
+
+	for nodeHash := range under.nodes {
+		if _, found := setNodeHashes[nodeHash]; !found {
+			t.Fatalf("did not clean up node with hash %s", nodeHash)
 		}
 	}
 }

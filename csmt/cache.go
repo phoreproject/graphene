@@ -139,7 +139,8 @@ func (t *TreeTransaction) SetNode(n *Node) error {
 		return errors.New("SetNode called on transaction already committed")
 	}
 
-	t.dirty[n.GetHash()] = *n
+	nodeHash := n.GetHash()
+	t.dirty[nodeHash] = *n
 
 	return nil
 }

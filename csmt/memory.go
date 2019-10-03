@@ -35,7 +35,8 @@ func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 
 // SetNode sets a node in the database. The node passed MUST be an Node
 func (i *InMemoryTreeDB) SetNode(n *Node) error {
-	i.nodes[n.GetHash()] = *n
+	nodeHash := n.GetHash()
+	i.nodes[nodeHash] = *n
 
 	return nil
 }

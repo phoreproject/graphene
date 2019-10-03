@@ -66,8 +66,8 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 	cachedTree := NewTree(cachedTreeDB)
 
 	for i := 0; i < 100; i++ {
-		for i := 198; i < 202; i++ {
-			err := cachedTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val3%d", i)))
+		for newVal := 198; newVal < 202; newVal++ {
+			err := cachedTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val3%d", newVal)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -89,9 +89,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-
 	if !cachedTreeHash.IsEqual(underlyingHash) {
 		t.Fatal("expected flush to update the underlying tree")
 	}
-
 }

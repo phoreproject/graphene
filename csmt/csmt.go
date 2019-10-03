@@ -125,12 +125,12 @@ func insertIntoTree(t TreeDatabase, root *Node, key chainhash.Hash, value chainh
 			}
 			newLeftBranch = leftBranchInserted
 		}
+	}
 
-		// delete the old root because it was added to left or right branch
-		err := t.DeleteNode(root.GetHash())
-		if err != nil {
-			return nil, err
-		}
+	// delete the old root because it was added to left or right branch
+	err := t.DeleteNode(root.GetHash())
+	if err != nil {
+		return nil, err
 	}
 
 	if right {

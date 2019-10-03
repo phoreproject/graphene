@@ -7,55 +7,31 @@ import (
 // TreeDatabase is a database that keeps track of a tree.
 type TreeDatabase interface {
 	// Root gets the root node.
-	Root() Node
+	Root() (*Node, error)
 
 	// SetRoot sets the root node.
-	SetRoot(Node)
+	SetRoot(*Node) error
 
 	// NewNode creates a new node, adds it to the tree database, and returns it.
-	NewNode(left Node, right Node, subtreeHash chainhash.Hash) Node
+	NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error)
 
 	// NewSingleNode creates a new node that represents a subtree with only a single key.
-	NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node
+	NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error)
 
 	// GetNode gets a node from the database.
-	GetNode(chainhash.Hash) (Node, bool)
+	GetNode(chainhash.Hash) (*Node, error)
 
 	// SetNode sets a node in the database.
-	SetNode(Node)
+	SetNode(*Node) error
 
 	// DeleteNode deletes a node from the database.
-	DeleteNode(chainhash.Hash)
+	DeleteNode(chainhash.Hash) error
 
 	// Get a value from the kv store.
-	Get(chainhash.Hash) (*chainhash.Hash, bool)
+	Get(chainhash.Hash) (*chainhash.Hash, error)
 
 	// Set a value in the kv store.
-	Set(chainhash.Hash, chainhash.Hash)
-}
-
-// Node is a node in the tree database.
-type Node interface {
-	// GetHash gets the current hash of the subtree
-	GetHash() chainhash.Hash
-
-	// Left gets the node on the left side or returns nil if there is no node on the left.
-	Left() *chainhash.Hash
-
-	// Right gets the node on the right side or returns nil if there is no node on the right.
-	Right() *chainhash.Hash
-
-	// IsSingle returns true if there is only one key in this subtree.
-	IsSingle() bool
-
-	// GetSingleKey gets the key of the only key in this subtree. Undefined if not a single node.
-	GetSingleKey() chainhash.Hash
-
-	// GetSingleValue gets the value of the only key in this subtree. Undefined if not a single node.
-	GetSingleValue() chainhash.Hash
-
-	// Empty checks if the node is empty.
-	Empty() bool
+	Set(chainhash.Hash, chainhash.Hash) error
 }
 
 // Tree is a wr
@@ -72,45 +48,75 @@ func NewTree(d TreeDatabase) Tree {
 
 
 // Hash get the root hash
-func (t *Tree) Hash() chainhash.Hash {
-	r := t.tree.Root()
-	if r == nil || r.Empty() {
-		return emptyTrees[255]
+func (t *Tree) Hash() (*chainhash.Hash, error) {
+	r, err := t.tree.Root()
+	if err != nil {
+		return nil, err
 	}
-	return r.GetHash()
+	if r == nil || r.Empty() {
+		return &emptyTrees[255], nil
+	}
+	h := r.GetHash()
+	return &h, nil
 }
 
 // Set inserts/updates a value
-func (t *Tree) Set(key chainhash.Hash, value chainhash.Hash) {
+func (t *Tree) Set(key chainhash.Hash, value chainhash.Hash) error {
 	// if the t is empty, insert at the root
 
 	hk := chainhash.HashH(key[:])
 
-	t.tree.SetRoot(insertIntoTree(t.tree, t.tree.Root(), hk, value, 255))
+	root, err := t.tree.Root()
+	if err != nil {
+		return err
+	}
 
-	t.tree.Set(key, value)
+	n, err := insertIntoTree(t.tree, root, hk, value, 255)
+	if err != nil {
+		return err
+	}
+
+	err = t.tree.SetRoot(n)
+	if err != nil {
+		return err
+	}
+
+	return t.tree.Set(key, value)
 }
 
 // SetWithWitness returns an update witness and sets the value in the tree.
-func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateWitness {
-	uw := GenerateUpdateWitness(t.tree, key, value)
-	t.Set(key, value)
+func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
+	uw, err := GenerateUpdateWitness(t.tree, key, value)
+	if err != nil {
+		return nil, err
+	}
 
-	return &uw
+	err = t.Set(key, value)
+	if err != nil {
+		return nil, err
+	}
+
+	return uw, nil
 }
 
 // Prove proves a key in the tree.
-func (t *Tree) Prove(key chainhash.Hash) *VerificationWitness {
-	vw := GenerateVerificationWitness(t.tree, key)
-	return &vw
+func (t *Tree) Prove(key chainhash.Hash) (*VerificationWitness, error) {
+	vw, err := GenerateVerificationWitness(t.tree, key)
+	if err != nil {
+		return nil, err
+	}
+	return vw, nil
 }
 
 
 // Get gets a value from the tree.
-func (t *Tree) Get(key chainhash.Hash) *chainhash.Hash {
-	h, found := t.tree.Get(key)
-	if !found {
-		return &emptyHash
+func (t *Tree) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+	h, err := t.tree.Get(key)
+	if err != nil {
+		return nil, err
 	}
-	return h
+	if h == nil {
+		return &emptyHash, nil
+	}
+	return h, nil
 }

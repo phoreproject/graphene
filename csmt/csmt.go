@@ -48,13 +48,16 @@ func calculateSubtreeHashWithOneLeaf(key *chainhash.Hash, value *chainhash.Hash,
 	return h
 }
 
-func insertIntoTree(t TreeDatabase, root Node, key chainhash.Hash, value chainhash.Hash, level uint8) Node {
+func insertIntoTree(t TreeDatabase, root *Node, key chainhash.Hash, value chainhash.Hash, level uint8) (*Node, error) {
 	right := isRight(key, level)
 
 	if level == 0 {
 		if root != nil && !root.Empty() {
 			// remove the old node if it exists
-			t.DeleteNode(root.GetHash())
+			err := t.DeleteNode(root.GetHash())
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// bottom leafs should have no siblings and a value
@@ -70,8 +73,8 @@ func insertIntoTree(t TreeDatabase, root Node, key chainhash.Hash, value chainha
 	leftHash := root.Left()
 	rightHash := root.Right()
 
-	var newLeftBranch Node
-	var newRightBranch Node
+	var newLeftBranch *Node
+	var newRightBranch *Node
 
 	if leftHash != nil {
 		newLeftBranch, _ = t.GetNode(*leftHash)
@@ -88,7 +91,10 @@ func insertIntoTree(t TreeDatabase, root Node, key chainhash.Hash, value chainha
 		// this operation is an update
 		if rootKey.IsEqual(&key) {
 			// delete the old root
-			t.DeleteNode(root.GetHash())
+			err := t.DeleteNode(root.GetHash())
+			if err != nil {
+				return nil, err
+			}
 
 			// calculate the new root hash for this subtree
 			return t.NewSingleNode(key, value, calculateSubtreeHashWithOneLeaf(&key, &value, level))
@@ -99,16 +105,32 @@ func insertIntoTree(t TreeDatabase, root Node, key chainhash.Hash, value chainha
 
 		// we know this is a single, so the left and right should be nil
 		if subRight {
-			newRightBranch = insertIntoTree(t, newRightBranch, rootKey, root.GetSingleValue(), level-1)
+			rightBranchInserted, err := insertIntoTree(t, newRightBranch, rootKey, root.GetSingleValue(), level-1)
+			if err != nil {
+				return nil, err
+			}
+			newRightBranch = rightBranchInserted
 		} else {
-			newLeftBranch = insertIntoTree(t, newLeftBranch, rootKey, root.GetSingleValue(), level-1)
+			leftBranchInserted, err := insertIntoTree(t, newLeftBranch, rootKey, root.GetSingleValue(), level-1)
+			if err != nil {
+				return nil, err
+			}
+			newLeftBranch = leftBranchInserted
 		}
 	}
 
 	if right {
-		newRightBranch = insertIntoTree(t, newRightBranch, key, value, level-1)
+		rightBranchInserted, err := insertIntoTree(t, newRightBranch, key, value, level-1)
+		if err != nil {
+			return nil, err
+		}
+		newRightBranch = rightBranchInserted
 	} else {
-		newLeftBranch = insertIntoTree(t, newLeftBranch, key, value, level-1)
+		leftBranchInserted, err := insertIntoTree(t, newLeftBranch, key, value, level-1)
+		if err != nil {
+			return nil, err
+		}
+		newLeftBranch = leftBranchInserted
 	}
 
 	lv := emptyTrees[level-1]

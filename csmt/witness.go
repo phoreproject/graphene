@@ -17,27 +17,34 @@ type UpdateWitness struct {
 }
 
 // GenerateUpdateWitness generates a witness that allows calculation of a new state root.
-func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhash.Hash) UpdateWitness {
+func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
 	hk := chainhash.HashH(key[:])
 
-	oldValue, found := tree.Get(key)
-	if !found {
+	oldValue, err := tree.Get(key)
+	if err != nil {
 		oldValue = &chainhash.Hash{}
 	}
 
-	uw := UpdateWitness{
+	if oldValue == nil {
+		oldValue = &chainhash.Hash{}
+	}
+
+	uw := &UpdateWitness{
 		Key:      key,
 		OldValue: *oldValue,
 		NewValue: value,
 	}
 
-	current := tree.Root()
+	current, err := tree.Root()
+	if err != nil {
+		return nil, err
+	}
 
 	if current == nil || current.Empty() {
 		uw.Witnesses = make([]chainhash.Hash, 0)
 		uw.WitnessBitfield = chainhash.Hash{}
 		uw.LastLevel = 255
-		return uw
+		return uw, nil
 	}
 
 	w := make([]chainhash.Hash, 0)
@@ -60,7 +67,10 @@ func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhas
 			if rightHash == nil {
 				current = nil
 			} else {
-				current, _ = tree.GetNode(*rightHash)
+				current, err = tree.GetNode(*rightHash)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else if !right {
 			rightNodeHash := current.Right()
@@ -73,7 +83,10 @@ func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhas
 			if leftHash == nil {
 				current = nil
 			} else {
-				current, _ = tree.GetNode(*leftHash)
+				current, err = tree.GetNode(*leftHash)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		level--
@@ -102,30 +115,36 @@ func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhas
 
 	uw.Witnesses = w
 
-	return uw
+	return uw, nil
 }
 
 // GenerateVerificationWitness generates a witness that allows verification of a key in the tree.
-func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) VerificationWitness {
+func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) (*VerificationWitness, error) {
 	hk := chainhash.HashH(key[:])
 
-	val, found := tree.Get(key)
-	if !found {
+	val, err := tree.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if val == nil {
 		val = &chainhash.Hash{}
 	}
 
-	vw := VerificationWitness{
+	vw := &VerificationWitness{
 		Key:   key,
 		Value: *val,
 	}
 
-	current := tree.Root()
+	current, err := tree.Root()
+	if err != nil {
+		return nil, err
+	}
 
 	if current == nil || current.Empty() {
 		vw.Witnesses = make([]chainhash.Hash, 0)
 		vw.WitnessBitfield = chainhash.Hash{}
 		vw.LastLevel = 255
-		return vw
+		return vw, nil
 	}
 
 	w := make([]chainhash.Hash, 0)
@@ -149,7 +168,10 @@ func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) Verifica
 			if rightHash == nil {
 				current = nil
 			} else {
-				current, _ = tree.GetNode(*rightHash)
+				current, err = tree.GetNode(*rightHash)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else if !right {
 			rightNodeHash := current.Right()
@@ -162,7 +184,10 @@ func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) Verifica
 			if leftHash == nil {
 				current = nil
 			} else {
-				current, _ = tree.GetNode(*leftHash)
+				current, err = tree.GetNode(*leftHash)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		level--
@@ -191,7 +216,7 @@ func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) Verifica
 
 	vw.Witnesses = w
 
-	return vw
+	return vw, nil
 }
 
 // CalculateRoot calculates the root of the tree with the given witness information.

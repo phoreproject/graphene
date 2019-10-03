@@ -1,11 +1,18 @@
 package csmt
 
-import "github.com/phoreproject/synapse/chainhash"
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"github.com/phoreproject/synapse/chainhash"
+	"io"
+	"runtime/debug"
+)
 
 // InMemoryTreeDB is a tree stored in memory.
 type InMemoryTreeDB struct {
 	root chainhash.Hash
-	nodes map[chainhash.Hash]InMemoryNode
+	nodes map[chainhash.Hash]Node
 	store map[chainhash.Hash]chainhash.Hash
 }
 
@@ -13,54 +20,60 @@ type InMemoryTreeDB struct {
 func NewInMemoryTreeDB() *InMemoryTreeDB {
 	return &InMemoryTreeDB{
 		root: EmptyTree,
-		nodes: make(map[chainhash.Hash]InMemoryNode),
+		nodes: make(map[chainhash.Hash]Node),
 		store: make(map[chainhash.Hash]chainhash.Hash),
 	}
 }
 
 // GetNode gets a node from the tree database.
-func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (Node, bool) {
+func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	if n, found := i.nodes[nodeHash]; found {
-		return &n, false
+		return &n, nil
 	} else {
-		return nil, true
+		debug.PrintStack()
+		return nil, fmt.Errorf("could not find node with hash %s", nodeHash)
 	}
 }
 
-// SetNode sets a node in the database. The node passed MUST be an InMemoryNode
-func (i *InMemoryTreeDB) SetNode(n Node) {
-	if imn, ok := n.(*InMemoryNode); ok {
-		i.nodes[n.GetHash()] = *imn
-	} else {
-		panic("InMemoryTreeDB.SetNode(Node) must be called with an in-memory node.")
-	}
+// SetNode sets a node in the database. The node passed MUST be an Node
+func (i *InMemoryTreeDB) SetNode(n *Node) error {
+	i.nodes[n.GetHash()] = *n
+
+	return nil
 }
 
 // DeleteNode deletes a node if it exists.
-func (i *InMemoryTreeDB) DeleteNode(h chainhash.Hash) {
+func (i *InMemoryTreeDB) DeleteNode(h chainhash.Hash) error {
 	delete(i.nodes, h)
+
+	return nil
 }
 
 // Root gets the root of the tree.
-func (i *InMemoryTreeDB) Root() Node {
+func (i *InMemoryTreeDB) Root() (*Node, error) {
 	if n, found := i.nodes[i.root]; found {
-		return &n
+		return &n, nil
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 
 // SetRoot sets the root of the tree.
-func (i *InMemoryTreeDB) SetRoot(n Node) {
+func (i *InMemoryTreeDB) SetRoot(n *Node) error {
 	nodeHash := n.GetHash()
 	if _, found := i.nodes[nodeHash]; !found {
-		i.SetNode(n)
+		err := i.SetNode(n)
+		if err != nil {
+			return err
+		}
 	}
 	i.root = nodeHash
+
+	return nil
 }
 
 // NewNode creates a new empty node.
-func (i *InMemoryTreeDB) NewNode(left Node, right Node, subtreeHash chainhash.Hash) Node {
+func (i *InMemoryTreeDB) NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error) {
 	var leftHash *chainhash.Hash
 	var rightHash *chainhash.Hash
 
@@ -74,47 +87,49 @@ func (i *InMemoryTreeDB) NewNode(left Node, right Node, subtreeHash chainhash.Ha
 		rightHash = &rh
 	}
 
-	newNode := &InMemoryNode{
+	newNode := &Node{
 		value: subtreeHash,
 		left: leftHash,
 		right: rightHash,
 	}
 	i.nodes[subtreeHash] = *newNode
-	return newNode
+	return newNode, nil
 }
 
 // NewSingleNode creates a new node with only one key-value pair.
-func (i *InMemoryTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node {
-	newNode := &InMemoryNode{
+func (i *InMemoryTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
+	newNode := &Node{
 		one: true,
 		oneKey: &key,
 		oneValue: &value,
 		value: subtreeHash,
 	}
 	i.nodes[subtreeHash] = *newNode
-	return newNode
+	return newNode, nil
 }
 
 // Empty checks if the node is empty.
-func (i *InMemoryNode) Empty() bool {
+func (i *Node) Empty() bool {
 	return i == nil
 }
 
 // Get gets a value from the key-value store.
-func (i *InMemoryTreeDB) Get(k chainhash.Hash) (*chainhash.Hash, bool) {
+func (i *InMemoryTreeDB) Get(k chainhash.Hash) (*chainhash.Hash, error) {
 	if v, found := i.store[k]; found {
-		return &v, true
+		return &v, nil
 	}
-	return nil, false
+	return nil, nil
 }
 
 // Set sets a value in the key-value store.
-func (i *InMemoryTreeDB) Set(k chainhash.Hash, v chainhash.Hash) {
+func (i *InMemoryTreeDB) Set(k chainhash.Hash, v chainhash.Hash) error {
 	i.store[k] = v
+
+	return nil
 }
 
-// InMemoryNode is a node of the in-memory tree database.
-type InMemoryNode struct {
+// Node is a node of the in-memory tree database.
+type Node struct {
 	value    chainhash.Hash
 	one      bool
 	oneKey   *chainhash.Hash
@@ -123,28 +138,151 @@ type InMemoryNode struct {
 	right    *chainhash.Hash
 }
 
+const (
+	// FlagSingle designates that this node is a single node.
+	FlagSingle = iota
+
+	// FlagLeft designates that this node has a left branch.
+	FlagLeft
+
+	// FlagRight designates that this node has a right branch.
+	FlagRight
+
+	// FlagBoth designates that this node has both a left and right branch.
+	FlagBoth
+)
+
+func readHash(r io.Reader) (*chainhash.Hash, error) {
+	var value chainhash.Hash
+	n, err := r.Read(value[:])
+	if err != nil {
+		return nil, err
+	}
+	if n != 32 {
+		return nil, errors.New("expected to read 32 bytes from node")
+	}
+	return &value, nil
+}
+
+// DeserializeNode deserializes a node from disk.
+func DeserializeNode(b []byte) (*Node, error) {
+	r := bytes.NewBuffer(b)
+
+	flag, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	hash, err := readHash(r)
+	if err != nil {
+		return nil, err
+	}
+
+	switch flag {
+	case FlagSingle:
+		key, err := readHash(r)
+		if err != nil {
+			return nil, err
+		}
+		val, err := readHash(r)
+		if err != nil {
+			return nil, err
+		}
+		return &Node{
+			value:    *hash,
+			one:      true,
+			oneKey:   key,
+			oneValue: val,
+		}, nil
+	case FlagLeft:
+		left, err := readHash(r)
+		if err != nil {
+			return nil, err
+		}
+		return &Node{
+			value:    *hash,
+			left: left,
+		}, nil
+	case FlagRight:
+		right, err := readHash(r)
+		if err != nil {
+			return nil, err
+		}
+		return &Node{
+			value:    *hash,
+			right: right,
+		}, nil
+	case FlagBoth:
+		left, err := readHash(r)
+		if err != nil {
+			return nil, err
+		}
+		right, err := readHash(r)
+		if err != nil {
+			return nil, err
+		}
+		return &Node{
+			value:    *hash,
+			left: left,
+			right: right,
+		}, nil
+	default:
+		return nil, errors.New("unexpected flag")
+	}
+}
+
+// Serialize gets the node as a byte representation.
+func (i *Node) Serialize() []byte {
+	var flag byte
+	if i.one {
+		flag = FlagSingle
+	} else if i.left != nil && i.right != nil {
+		flag = FlagBoth
+	} else if i.left != nil {
+		flag = FlagLeft
+	} else if i.right != nil {
+		flag = FlagRight
+	} else {
+		panic("improper node (not single and no left/right)")
+	}
+	b := []byte{flag}
+	b = append(b, i.value[:]...)
+	if i.one {
+		b = append(b, i.oneKey[:]...)
+		b = append(b, i.oneValue[:]...)
+	} else {
+		if i.left != nil {
+			b = append(b, i.left[:]...)
+		}
+		if i.right != nil {
+			b = append(b, i.right[:]...)
+		}
+	}
+	return b
+}
+
 // GetHash gets the current hash from memory.
-func (i *InMemoryNode) GetHash() chainhash.Hash {
+func (i *Node) GetHash() chainhash.Hash {
 	return i.value
 }
 
 // Left gets the left node in memory.
-func (i *InMemoryNode) Left() *chainhash.Hash {
+func (i *Node) Left() *chainhash.Hash {
 	return i.left
 }
 
 // Right gets the right node in memory.
-func (i *InMemoryNode) Right() *chainhash.Hash {
+func (i *Node) Right() *chainhash.Hash {
 	return i.right
 }
 
 // IsSingle checks if there is only a single key in the subtree.
-func (i *InMemoryNode) IsSingle() bool {
+func (i *Node) IsSingle() bool {
 	return i.one
 }
 
 // GetSingleKey gets the only key in the subtree.
-func (i *InMemoryNode) GetSingleKey() chainhash.Hash {
+func (i *Node) GetSingleKey() chainhash.Hash {
 	if i.oneKey != nil {
 		return *i.oneKey
 	} else {
@@ -153,7 +291,7 @@ func (i *InMemoryNode) GetSingleKey() chainhash.Hash {
 }
 
 // GetSingleValue gets the only value in the subtree.
-func (i *InMemoryNode) GetSingleValue() chainhash.Hash {
+func (i *Node) GetSingleValue() chainhash.Hash {
 	if i.oneValue != nil {
 		return *i.oneValue
 	} else {
@@ -162,6 +300,5 @@ func (i *InMemoryNode) GetSingleValue() chainhash.Hash {
 }
 
 var _ TreeDatabase = &InMemoryTreeDB{}
-var _ Node = &InMemoryNode{}
 
 

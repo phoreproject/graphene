@@ -38,8 +38,11 @@ func (m *BasicFullStateManager) Transition(preHash chainhash.Hash, transactions 
 
 // CheckTransition gets the state root without modifying the current state.
 func (m *BasicFullStateManager) CheckTransition(preHash chainhash.Hash, transactions [][]byte) (*chainhash.Hash, error) {
-	transactionStore := csmt.NewTreeTransaction(m.treeStore)
-	stateTransaction := state.NewFullShardState(&transactionStore)
+	transactionStore, err := csmt.NewTreeTransaction(m.treeStore)
+	if err != nil {
+		return nil, err
+	}
+	stateTransaction := state.NewFullShardState(transactionStore)
 	fst := NewFullStateTransition(stateTransaction, transactions, m.code, m.shardID)
 	postHash, err := fst.Transition(&preHash)
 	if err != nil {

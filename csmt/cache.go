@@ -1,9 +1,8 @@
 package csmt
 
 import (
+	"errors"
 	"github.com/phoreproject/synapse/chainhash"
-
-	logger "github.com/sirupsen/logrus"
 )
 
 // TreeTransaction is a transaction wrapper on a CSMT that allows reading and writing from an underlying data store.
@@ -22,57 +21,66 @@ type TreeTransaction struct {
 }
 
 // NewTreeTransaction constructs a tree transaction that can be committed based on an underlying tree (probably on disk).
-func NewTreeTransaction(underlyingStore TreeDatabase) TreeTransaction {
+func NewTreeTransaction(underlyingStore TreeDatabase) (*TreeTransaction, error) {
 	rootHash := EmptyTree
-	root := underlyingStore.Root()
+	root, err := underlyingStore.Root()
+	if err != nil {
+		return nil, err
+	}
 	if root != nil {
 		rootHash = root.GetHash()
 	}
-	return TreeTransaction{
+	return &TreeTransaction{
 		underlyingStore: underlyingStore,
 		root: rootHash,
 		dirty: make(map[chainhash.Hash]Node),
 		dirtyKV: make(map[chainhash.Hash]chainhash.Hash),
 		toRemove: make(map[chainhash.Hash]struct{}),
 		valid: true,
-	}
+	}, nil
 }
 
 // Root gets the current root of the transaction.
-func (t *TreeTransaction) Root() Node {
-	if n, found := t.dirty[t.root]; found {
-		return n
-	} else {
-		if n, found := t.underlyingStore.GetNode(t.root); found {
-			return n
-		} else {
-			return nil
-		}
+func (t *TreeTransaction) Root() (*Node, error) {
+	if !t.valid {
+		return nil, errors.New("root called on transaction already committed")
 	}
+
+	if t.root.IsEqual(&EmptyTree) {
+		return nil, nil
+	}
+
+	if n, found := t.dirty[t.root]; found {
+		return &n, nil
+	}
+	return t.underlyingStore.GetNode(t.root)
 }
 
 // SetRoot sets the root for the current transaction. If it does not exist in the cache or the underlying data store,
 // add it to the cache.
-func (t *TreeTransaction) SetRoot(n Node) {
+func (t *TreeTransaction) SetRoot(n *Node) error {
 	if !t.valid {
-		logger.Warn("SetRoot called on transaction already committed")
-		return
+		return errors.New("SetRoot called on transaction already committed")
 	}
 
 	nodeHash := n.GetHash()
 	if _, found := t.dirty[nodeHash]; !found {
-		if _, found := t.underlyingStore.GetNode(nodeHash); !found {
-			t.SetNode(n)
+		if _, err := t.underlyingStore.GetNode(nodeHash); err != nil {
+			err := t.SetNode(n)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	t.root = nodeHash
+
+	return nil
 }
 
 // NewNode creates a new node and adds it to the cache.
-func (t *TreeTransaction) NewNode(left Node, right Node, subtreeHash chainhash.Hash) Node {
+func (t *TreeTransaction) NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error) {
 	if !t.valid {
-		logger.Warn("NewNode called on transaction already committed")
-		return nil
+		return nil, errors.New("NewNode called on transaction already committed")
 	}
 
 	var leftHash *chainhash.Hash
@@ -88,103 +96,131 @@ func (t *TreeTransaction) NewNode(left Node, right Node, subtreeHash chainhash.H
 		rightHash = &rh
 	}
 
-	newNode := &InMemoryNode{
+	newNode := &Node{
 		value: subtreeHash,
 		left: leftHash,
 		right: rightHash,
 	}
-	t.dirty[subtreeHash] = newNode
-	return newNode
+	t.dirty[subtreeHash] = *newNode
+	return newNode, nil
 }
 
 // NewSingleNode creates a new node with only a single KV-pair in the subtree.
-func (t *TreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) Node {
+func (t *TreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
 	if !t.valid {
-		logger.Warn("NewSingleNode called on transaction already committed")
-		return nil
+		return nil, errors.New("NewSingleNode called on transaction already committed")
 	}
 
-	newNode := &InMemoryNode{
+	newNode := &Node{
 		one: true,
 		oneKey: &key,
 		oneValue: &value,
 		value: subtreeHash,
 	}
-	t.dirty[subtreeHash] = newNode
-	return newNode
+	t.dirty[subtreeHash] = *newNode
+	return newNode, nil
 }
 
 // GetNode gets a node based on the subtree hash.
-func (t *TreeTransaction) GetNode(c chainhash.Hash) (Node, bool) {
-	if n, found := t.dirty[c]; found {
-		return n, true
-	} else {
-		if n, found := t.underlyingStore.GetNode(c); found {
-			return n, true
-		} else {
-			return nil, false
-		}
+func (t *TreeTransaction) GetNode(c chainhash.Hash) (*Node, error) {
+	if !t.valid {
+		return nil, errors.New("GetNode called on transaction already committed")
 	}
+
+	if n, found := t.dirty[c]; found {
+		return &n, nil
+	}
+	return t.underlyingStore.GetNode(c)
 }
 
 // SetNode sets a node in the transaction.
-func (t *TreeTransaction) SetNode(n Node) {
+func (t *TreeTransaction) SetNode(n *Node) error {
 	if !t.valid {
-		logger.Warn("SetNode called on transaction already committed")
-		return
+		return errors.New("SetNode called on transaction already committed")
 	}
 
-	t.dirty[n.GetHash()] = n
+	t.dirty[n.GetHash()] = *n
+
+	return nil
 }
 
 // DeleteNode deletes a node from the transaction.
-func (t *TreeTransaction) DeleteNode(c chainhash.Hash) {
+func (t *TreeTransaction) DeleteNode(c chainhash.Hash) error {
 	if !t.valid {
-		logger.Warn("DeleteNode called on transaction already committed")
-		return
+		return errors.New("DeleteNode called on transaction already committed")
 	}
 
 	delete(t.dirty, c)
 
 	t.toRemove[c] = struct{}{}
+
+	return nil
 }
 
 // Flush flushes the transaction to the underlying tree.
-func (t *TreeTransaction) Flush() {
-	t.valid = false
+func (t *TreeTransaction) Flush() error {
+	if !t.valid {
+		return errors.New("flush called on transaction already committed")
+	}
 
 	for _, dirtyNode := range t.dirty {
-		t.underlyingStore.SetNode(dirtyNode)
+		err := t.underlyingStore.SetNode(&dirtyNode)
+		if err != nil {
+			return err
+		}
 	}
 
 	for c := range t.toRemove {
-		t.underlyingStore.DeleteNode(c)
+		err := t.underlyingStore.DeleteNode(c)
+		if err != nil {
+			return err
+		}
 	}
 
-	t.underlyingStore.SetRoot(t.Root())
+	root, err := t.Root()
+	if err != nil {
+		return err
+	}
+
+	err = t.underlyingStore.SetRoot(root)
+	if err != nil {
+		return err
+	}
 
 	for k, v := range t.dirtyKV {
-		t.underlyingStore.Set(k, v)
+		err := t.underlyingStore.Set(k, v)
+		if err != nil {
+			return err
+		}
 	}
+
+	t.valid = false
+
+	return nil
 }
 
 // Get gets a value from the transaction.
-func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, bool) {
+func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+	if !t.valid {
+		return nil, errors.New("get called on transaction already committed")
+	}
+
 	if val, found := t.dirtyKV[key]; found {
-		return &val, true
+		return &val, nil
 	} else {
 		return t.underlyingStore.Get(key)
 	}
 }
 
 // Set sets a value in the transaction.
-func (t *TreeTransaction) Set(key chainhash.Hash, val chainhash.Hash) {
+func (t *TreeTransaction) Set(key chainhash.Hash, val chainhash.Hash) error {
 	if !t.valid {
-		logger.Warn("SetNode called on transaction already committed")
-		return
+		return errors.New("set called on transaction already committed")
 	}
 
 	t.dirtyKV[key] = val
+
+	return nil
 }
 
 var _ TreeDatabase = &TreeTransaction{}

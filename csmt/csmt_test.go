@@ -22,7 +22,10 @@ func TestTree_RandomSet(t *testing.T) {
 	}
 
 	for i := 0; i < 500; i++ {
-		tree.Set(keys[i], val)
+		err := tree.Set(keys[i], val)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -31,12 +34,30 @@ func TestTree_SetZero(t *testing.T) {
 
 	tree := NewTree(NewInMemoryTreeDB())
 
-	tree.Set(ch("1"), val)
-	tree.Set(ch("2"), val)
-	tree.Set(ch("3"), val)
-	tree.Set(ch("4"), val)
-	tree.Set(ch("5"), val)
-	th := tree.Hash()
+	err := tree.Set(ch("1"), val)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("2"), val)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("3"), val)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("4"), val)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("5"), val)
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if !th.IsEqual(&emptyTrees[255]) {
 		t.Fatalf("expected tree to match %s but got %s", emptyTrees[255], th)
@@ -55,7 +76,10 @@ func BenchmarkTree_Set(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		t.Set(keys[i], val)
+		err := t.Set(keys[i], val)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -109,18 +133,27 @@ func TestRandomGenerateUpdateWitness(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		tree.Set(keys[i], val)
+		err := tree.Set(keys[i], val)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	treehash := tree.Hash()
+	treehash, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for i := 0; i < 1; i++ {
-		w := GenerateUpdateWitness(treeDB, keys[i], val)
+		w, err := GenerateUpdateWitness(treeDB, keys[i], val)
+		if err != nil {
+			t.Fatal(err)
+		}
 		root, err := CalculateRoot(keys[i], val, w.WitnessBitfield, w.Witnesses, w.LastLevel)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !root.IsEqual(&treehash) {
+		if !root.IsEqual(treehash) {
 			t.Fatalf("expected witness root to equal tree hash (expected: %s, got: %s)", treehash, root)
 		}
 	}
@@ -130,16 +163,30 @@ func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
 	treeDB := NewInMemoryTreeDB()
 	tree := NewTree(treeDB)
 
-	w := GenerateUpdateWitness(treeDB, ch("asdf"), ch("1"))
-
-	newRoot, err := w.Apply(tree.Hash())
+	w, err := GenerateUpdateWitness(treeDB, ch("asdf"), ch("1"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tree.Set(ch("asdf"), ch("1"))
+	th, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	th := tree.Hash()
+	newRoot, err := w.Apply(*th)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = tree.Set(ch("asdf"), ch("1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	th, err = tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !th.IsEqual(newRoot) {
 		t.Fatalf("expected calculated state root (%s) to match tree state root (%s)", newRoot, th)
 	}
@@ -149,25 +196,54 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 	treeDB := NewInMemoryTreeDB()
 	tree := NewTree(treeDB)
 
-	tree.Set(ch("asdf"), ch("2"))
-	tree.Set(ch("asdf1"), ch("2"))
-	tree.Set(ch("asdf2"), ch("2"))
-	tree.Set(ch("asdf3"), ch("2"))
-	tree.Set(ch("asdf4"), ch("2"))
+	err := tree.Set(ch("asdf"), ch("2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("asdf1"), ch("2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("asdf2"), ch("2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("asdf3"), ch("2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("asdf4"), ch("2"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for i := 0; i < 1; i++ {
 		setVal := fmt.Sprintf("%d", i)
 
-		w := GenerateUpdateWitness(treeDB, ch("asdf"), ch(setVal))
-
-		newRoot, err := w.Apply(tree.Hash())
+		w, err := GenerateUpdateWitness(treeDB, ch("asdf"), ch(setVal))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		tree.Set(ch("asdf"), ch(setVal))
+		th, err := tree.Hash()
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		th := tree.Hash()
+		newRoot, err := w.Apply(*th)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = tree.Set(ch("asdf"), ch(setVal))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		th, err = tree.Hash()
+		if err != nil {
+			t.Fatal(err)
+		}
 		if !th.IsEqual(newRoot) {
 			t.Fatalf("expected calculated state root (%s) to match tree state root (%s)", newRoot, th)
 		}
@@ -185,20 +261,29 @@ func BenchmarkGenerateUpdateWitness(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		tree.Set(keys[i], val)
+		err := tree.Set(keys[i], val)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		GenerateUpdateWitness(treeDB, keys[i], val)
+		_, err := GenerateUpdateWitness(treeDB, keys[i], val)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
 func TestChainedUpdates(t *testing.T) {
 	tree := NewTree(NewInMemoryTreeDB())
 
-	initialRoot := tree.Hash()
+	initialRoot, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
 	witnesses := make([]*UpdateWitness, 0)
 
 	// start by generating a bunch of witnesses
@@ -206,17 +291,36 @@ func TestChainedUpdates(t *testing.T) {
 		key := ch(fmt.Sprintf("key%d", i))
 
 		// test empty key
-		testProof2 := tree.Prove(key)
-		if testProof2.Check(tree.Hash()) == false {
+		testProof2, err := tree.Prove(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		th, err := tree.Hash()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if testProof2.Check(*th) == false {
 			t.Fatal("expected verification witness to verify")
 		}
 
 		val := ch(fmt.Sprintf("val%d", i))
 
-		witnesses = append(witnesses, tree.SetWithWitness(key, val))
+		uw, err := tree.SetWithWitness(key, val)
+		if err != nil {
+			t.Fatal(err)
+		}
+		witnesses = append(witnesses, uw)
 
-		testProof := tree.Prove(key)
-		if testProof.Check(tree.Hash()) == false {
+		testProof, err := tree.Prove(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		th, err = tree.Hash()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if testProof.Check(*th) == false {
 			t.Fatal("expected verification witness to verify")
 		}
 	}
@@ -226,45 +330,76 @@ func TestChainedUpdates(t *testing.T) {
 		key := ch(fmt.Sprintf("key%d", i))
 
 		// test empty key
-		testProof2 := tree.Prove(key)
-		if testProof2.Check(tree.Hash()) == false {
+		testProof2, err := tree.Prove(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		th, err := tree.Hash()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if testProof2.Check(*th) == false {
 			t.Fatal("expected verification witness to verify")
 		}
 
 		val := ch(fmt.Sprintf("val1%d", i))
 
-		witnesses = append(witnesses, tree.SetWithWitness(key, val))
+		uw, err := tree.SetWithWitness(key, val)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		testProof := tree.Prove(key)
-		if testProof.Check(tree.Hash()) == false {
+		witnesses = append(witnesses, uw)
+
+		testProof, err := tree.Prove(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		th, err = tree.Hash()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if testProof.Check(*th) == false {
 			t.Fatal("expected verification witness to verify")
 		}
 	}
 
 	currentRoot := initialRoot
 	for i := range witnesses {
-		newRoot, err := witnesses[i].Apply(currentRoot)
+		newRoot, err := witnesses[i].Apply(*currentRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
-		currentRoot = *newRoot
+		currentRoot = newRoot
 	}
 
-	th := tree.Hash()
-	if !th.IsEqual(&currentRoot) {
+	th, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !th.IsEqual(currentRoot) {
 		t.Fatal("expected hash after applying updates to match")
 	}
 }
 
 func TestEmptyBranchWitness(t *testing.T) {
 	tree := NewTree(NewInMemoryTreeDB())
-	preroot := tree.Hash()
+	preroot, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	w0 := tree.SetWithWitness(ch("test"), ch("asdf"))
+	w0, err := tree.SetWithWitness(ch("test"), ch("asdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	w1 := tree.SetWithWitness(ch("asdfghi"), ch("asdf"))
+	w1, err := tree.SetWithWitness(ch("asdfghi"), ch("asdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	newRoot, err := w0.Apply(preroot)
+	newRoot, err := w0.Apply(*preroot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,17 +415,37 @@ func TestCheckWitness(t *testing.T) {
 	tree := NewTree(NewInMemoryTreeDB())
 	//preroot := tree.Hash()
 
-	tree.Set(ch("test"), ch("asdf"))
-	tree.Set(ch("asdfghi"), ch("asdf"))
+	err := tree.Set(ch("test"), ch("asdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tree.Set(ch("asdfghi"), ch("asdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	testProof := tree.Prove(ch("test"))
-	if testProof.Check(tree.Hash()) == false {
+	testProof, err := tree.Prove(ch("test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err := tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if testProof.Check(*th) == false {
 		t.Fatal("expected verification witness to verify")
 	}
 
 	// test empty key
-	testProof2 := tree.Prove(ch("test1"))
-	if testProof2.Check(tree.Hash()) == false {
+	testProof2, err := tree.Prove(ch("test1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err = tree.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if testProof2.Check(*th) == false {
 		t.Fatal("expected verification witness to verify")
 	}
 }

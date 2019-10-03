@@ -20,27 +20,26 @@ func NewFullShardState(treeDB csmt.TreeDatabase) *FullShardState {
 
 // Set sets a key in state.
 func (s *FullShardState) Set(key chainhash.Hash, value chainhash.Hash) error {
-	s.tree.Set(key, value)
-	return nil
+	return s.tree.Set(key, value)
 }
 
 // Get gets a key from the state.
 func (s *FullShardState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
-	return s.tree.Get(key), nil
+	return s.tree.Get(key)
 }
 
 // SetWithWitness sets a key and generates a witness.
-func (s *FullShardState) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *csmt.UpdateWitness {
+func (s *FullShardState) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*csmt.UpdateWitness, error) {
 	return s.tree.SetWithWitness(key, value)
 }
 
 // VerifyWitness proves a key in the tree.
-func (s *FullShardState) VerifyWitness(key chainhash.Hash) *csmt.VerificationWitness {
+func (s *FullShardState) VerifyWitness(key chainhash.Hash) (*csmt.VerificationWitness, error) {
 	return s.tree.Prove(key)
 }
 
 // Hash returns the hash of the tree.
-func (s *FullShardState) Hash() chainhash.Hash {
+func (s *FullShardState) Hash() (*chainhash.Hash, error) {
 	return s.tree.Hash()
 }
 
@@ -52,8 +51,8 @@ type PartialShardState struct {
 }
 
 // Hash gets the hash of the partial state tree.
-func (p *PartialShardState) Hash() chainhash.Hash {
-	return p.stateRoot
+func (p PartialShardState) Hash() (*chainhash.Hash, error) {
+	return &p.stateRoot, nil
 }
 
 // NewPartialShardState creates a new partial shard state.
@@ -123,28 +122,39 @@ type TrackingState struct {
 }
 
 // Hash returns the hash of the state tree.
-func (t *TrackingState) Hash() chainhash.Hash {
-	return t.Hash()
+func (t *TrackingState) Hash() (*chainhash.Hash, error) {
+	return t.fullState.Hash()
 }
 
 // NewTrackingState creates a new tracking state derived from a full state.
-func NewTrackingState(state *FullShardState) *TrackingState {
+func NewTrackingState(state *FullShardState) (*TrackingState, error) {
+	initialRoot, err := state.Hash()
+	if err != nil {
+		return nil, err
+	}
+
 	return &TrackingState{
 		fullState:   state,
-		initialRoot: state.Hash(),
-	}
+		initialRoot: *initialRoot,
+	}, nil
 }
 
 // Get gets a key from state.
 func (t *TrackingState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
-	proof := t.fullState.VerifyWitness(key)
+	proof, err := t.fullState.VerifyWitness(key)
+	if err != nil {
+		return nil, err
+	}
 	t.verificationWitnesses = append(t.verificationWitnesses, *proof)
 	return t.fullState.Get(key)
 }
 
 // Set sets a key in state.
 func (t *TrackingState) Set(key chainhash.Hash, value chainhash.Hash) error {
-	proof := t.fullState.SetWithWitness(key, value)
+	proof, err := t.fullState.SetWithWitness(key, value)
+	if err != nil {
+		return err
+	}
 	t.updateWitnesses = append(t.updateWitnesses, *proof)
 	return nil
 }
@@ -164,7 +174,7 @@ func (t *TrackingState) Reset() {
 type AccessInterface interface {
 	Get(key chainhash.Hash) (*chainhash.Hash, error)
 	Set(key chainhash.Hash, value chainhash.Hash) error
-	Hash() chainhash.Hash
+	Hash() (*chainhash.Hash, error)
 }
 
 var _ AccessInterface = &FullShardState{}

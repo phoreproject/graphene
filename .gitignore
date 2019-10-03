@@ -14,5 +14,8 @@ integration
 *.exe
 /.vscode
 
+# testing
+csmt/badger-test
+
 .idea
 validators.pubs

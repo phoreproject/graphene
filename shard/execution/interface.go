@@ -44,8 +44,11 @@ func NewFullStateTransition(state *state.FullShardState, transactions [][]byte, 
 
 // Transition runs the transition using the given prehash to calculate the post hash.
 func (f *FullStateTransition) Transition(preHash *chainhash.Hash) (*chainhash.Hash, error) {
-	expectedPreHash := f.state.Hash()
-	if !preHash.IsEqual(&expectedPreHash) {
+	expectedPreHash, err := f.state.Hash()
+	if err != nil {
+		return nil, err
+	}
+	if !preHash.IsEqual(expectedPreHash) {
 		return nil, fmt.Errorf("expected state root of full state to equal %s but got %s", expectedPreHash, preHash)
 	}
 
@@ -70,9 +73,7 @@ func (f *FullStateTransition) Transition(preHash *chainhash.Hash) (*chainhash.Ha
 		}
 	}
 
-	postHash := f.state.Hash()
-
-	return &postHash, nil
+	return f.state.Hash()
 }
 
 // GetPostState gets the state after the state transition.

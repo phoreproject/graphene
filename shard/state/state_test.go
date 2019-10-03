@@ -13,12 +13,15 @@ func ch(s string) chainhash.Hash {
 
 func TestPartialStateGeneration(t *testing.T) {
 	fs := state.NewFullShardState(csmt.NewInMemoryTreeDB())
-	ts := state.NewTrackingState(fs)
+	ts, err := state.NewTrackingState(fs)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	key := ch("test")
 	val := ch("test2")
 
-	err := ts.Set(key, val)
+	err = ts.Set(key, val)
 	if err != nil {
 		t.Fatal(err)
 	}

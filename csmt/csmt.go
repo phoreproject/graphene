@@ -77,11 +77,19 @@ func insertIntoTree(t TreeDatabase, root *Node, key chainhash.Hash, value chainh
 	var newRightBranch *Node
 
 	if leftHash != nil {
-		newLeftBranch, _ = t.GetNode(*leftHash)
+		oldLeftBranch, err := t.GetNode(*leftHash)
+		if err != nil {
+			return nil, err
+		}
+		newLeftBranch = oldLeftBranch
 	}
 
 	if rightHash != nil {
-		newRightBranch, _ = t.GetNode(*rightHash)
+		oldRightBranch, err := t.GetNode(*rightHash)
+		if err != nil {
+			return nil, err
+		}
+		newRightBranch = oldRightBranch
 	}
 
 	// if there is only one key in this subtree,
@@ -116,6 +124,12 @@ func insertIntoTree(t TreeDatabase, root *Node, key chainhash.Hash, value chainh
 				return nil, err
 			}
 			newLeftBranch = leftBranchInserted
+		}
+
+		// delete the old root because it was added to left or right branch
+		err := t.DeleteNode(root.GetHash())
+		if err != nil {
+			return nil, err
 		}
 	}
 

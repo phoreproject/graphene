@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/dgraph-io/badger"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/pkg/errors"
 )
 
 // BadgerTreeDB is a tree database implemented on top of badger.
@@ -76,7 +77,7 @@ func (b *BadgerTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	err := b.db.View(func(txn *badger.Txn) error {
 		nodeItem, err := txn.Get(nodeKey)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error getting node %s", nodeHash)
 		}
 
 		nodeSer, err := nodeItem.ValueCopy(nil)

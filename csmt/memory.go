@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
 	"io"
-	"runtime/debug"
 )
 
 // InMemoryTreeDB is a tree stored in memory.
@@ -30,7 +29,6 @@ func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	if n, found := i.nodes[nodeHash]; found {
 		return &n, nil
 	} else {
-		debug.PrintStack()
 		return nil, fmt.Errorf("could not find node with hash %s", nodeHash)
 	}
 }
@@ -233,6 +231,7 @@ func DeserializeNode(b []byte) (*Node, error) {
 
 // Serialize gets the node as a byte representation.
 func (i *Node) Serialize() []byte {
+	buf := bytes.NewBuffer(nil)
 	var flag byte
 	if i.one {
 		flag = FlagSingle
@@ -245,20 +244,20 @@ func (i *Node) Serialize() []byte {
 	} else {
 		panic("improper node (not single and no left/right)")
 	}
-	b := []byte{flag}
-	b = append(b, i.value[:]...)
+	buf.WriteByte(flag)
+	buf.Write(i.value[:])
 	if i.one {
-		b = append(b, i.oneKey[:]...)
-		b = append(b, i.oneValue[:]...)
+		buf.Write(i.oneKey[:])
+		buf.Write(i.oneValue[:])
 	} else {
 		if i.left != nil {
-			b = append(b, i.left[:]...)
+			buf.Write(i.left[:])
 		}
 		if i.right != nil {
-			b = append(b, i.right[:]...)
+			buf.Write(i.right[:])
 		}
 	}
-	return b
+	return buf.Bytes()
 }
 
 // GetHash gets the current hash from memory.

@@ -10,18 +10,16 @@ import (
 // next call to Transition will use the same prehash as the last posthash.
 type BasicFullStateManager struct {
 	treeStore csmt.TreeDatabase
-	treeKV csmt.KVStore
 	state   *state.FullShardState
 	shardID uint32
 	code    []byte
 }
 
 // NewBasicFullStateManager creates a new basic full state manager with the given code.
-func NewBasicFullStateManager(code []byte, shardID uint32, treeStore csmt.TreeDatabase, treeKV csmt.KVStore) *BasicFullStateManager {
+func NewBasicFullStateManager(code []byte, shardID uint32, treeStore csmt.TreeDatabase) *BasicFullStateManager {
 	return &BasicFullStateManager{
-		state:   state.NewFullShardState(treeStore, treeKV),
+		state:   state.NewFullShardState(treeStore),
 		treeStore: treeStore,
-		treeKV: treeKV,
 		code:    code,
 		shardID: shardID,
 	}
@@ -40,8 +38,8 @@ func (m *BasicFullStateManager) Transition(preHash chainhash.Hash, transactions 
 
 // CheckTransition gets the state root without modifying the current state.
 func (m *BasicFullStateManager) CheckTransition(preHash chainhash.Hash, transactions [][]byte) (*chainhash.Hash, error) {
-	transactionStore := csmt.NewTreeTransaction(m.treeStore, m.treeKV)
-	stateTransaction := state.NewFullShardState(&transactionStore, &transactionStore)
+	transactionStore := csmt.NewTreeTransaction(m.treeStore)
+	stateTransaction := state.NewFullShardState(&transactionStore)
 	fst := NewFullStateTransition(stateTransaction, transactions, m.code, m.shardID)
 	postHash, err := fst.Transition(&preHash)
 	if err != nil {

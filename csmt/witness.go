@@ -17,10 +17,10 @@ type UpdateWitness struct {
 }
 
 // GenerateUpdateWitness generates a witness that allows calculation of a new state root.
-func GenerateUpdateWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash, value chainhash.Hash) UpdateWitness {
+func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhash.Hash) UpdateWitness {
 	hk := chainhash.HashH(key[:])
 
-	oldValue, found := kv.Get(key)
+	oldValue, found := tree.Get(key)
 	if !found {
 		oldValue = &chainhash.Hash{}
 	}
@@ -106,10 +106,10 @@ func GenerateUpdateWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash, va
 }
 
 // GenerateVerificationWitness generates a witness that allows verification of a key in the tree.
-func GenerateVerificationWitness(tree TreeDatabase, kv KVStore, key chainhash.Hash) VerificationWitness {
+func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) VerificationWitness {
 	hk := chainhash.HashH(key[:])
 
-	val, found := kv.Get(key)
+	val, found := tree.Get(key)
 	if !found {
 		val = &chainhash.Hash{}
 	}

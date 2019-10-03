@@ -8,8 +8,7 @@ import (
 
 // TreeTransaction is a transaction wrapper on a CSMT that allows reading and writing from an underlying data store.
 type TreeTransaction struct {
-	underlyingTree TreeDatabase
-	underlyingKV KVStore
+	underlyingStore TreeDatabase
 
 	root chainhash.Hash
 
@@ -23,15 +22,14 @@ type TreeTransaction struct {
 }
 
 // NewTreeTransaction constructs a tree transaction that can be committed based on an underlying tree (probably on disk).
-func NewTreeTransaction(underlyingTree TreeDatabase, underlyingKV KVStore) TreeTransaction {
+func NewTreeTransaction(underlyingStore TreeDatabase) TreeTransaction {
 	rootHash := EmptyTree
-	root := underlyingTree.Root()
+	root := underlyingStore.Root()
 	if root != nil {
 		rootHash = root.GetHash()
 	}
 	return TreeTransaction{
-		underlyingTree: underlyingTree,
-		underlyingKV: underlyingKV,
+		underlyingStore: underlyingStore,
 		root: rootHash,
 		dirty: make(map[chainhash.Hash]Node),
 		dirtyKV: make(map[chainhash.Hash]chainhash.Hash),
@@ -45,7 +43,7 @@ func (t *TreeTransaction) Root() Node {
 	if n, found := t.dirty[t.root]; found {
 		return n
 	} else {
-		if n, found := t.underlyingTree.GetNode(t.root); found {
+		if n, found := t.underlyingStore.GetNode(t.root); found {
 			return n
 		} else {
 			return nil
@@ -63,7 +61,7 @@ func (t *TreeTransaction) SetRoot(n Node) {
 
 	nodeHash := n.GetHash()
 	if _, found := t.dirty[nodeHash]; !found {
-		if _, found := t.underlyingTree.GetNode(nodeHash); !found {
+		if _, found := t.underlyingStore.GetNode(nodeHash); !found {
 			t.SetNode(n)
 		}
 	}
@@ -121,7 +119,7 @@ func (t *TreeTransaction) GetNode(c chainhash.Hash) (Node, bool) {
 	if n, found := t.dirty[c]; found {
 		return n, true
 	} else {
-		if n, found := t.underlyingTree.GetNode(c); found {
+		if n, found := t.underlyingStore.GetNode(c); found {
 			return n, true
 		} else {
 			return nil, false
@@ -156,17 +154,17 @@ func (t *TreeTransaction) Flush() {
 	t.valid = false
 
 	for _, dirtyNode := range t.dirty {
-		t.underlyingTree.SetNode(dirtyNode)
+		t.underlyingStore.SetNode(dirtyNode)
 	}
 
 	for c := range t.toRemove {
-		t.underlyingTree.DeleteNode(c)
+		t.underlyingStore.DeleteNode(c)
 	}
 
-	t.underlyingTree.SetRoot(t.Root())
+	t.underlyingStore.SetRoot(t.Root())
 
 	for k, v := range t.dirtyKV {
-		t.underlyingKV.Set(k, v)
+		t.underlyingStore.Set(k, v)
 	}
 }
 
@@ -175,7 +173,7 @@ func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, bool) {
 	if val, found := t.dirtyKV[key]; found {
 		return &val, true
 	} else {
-		return t.underlyingKV.Get(key)
+		return t.underlyingStore.Get(key)
 	}
 }
 

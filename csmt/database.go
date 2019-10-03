@@ -26,10 +26,7 @@ type TreeDatabase interface {
 
 	// DeleteNode deletes a node from the database.
 	DeleteNode(chainhash.Hash)
-}
 
-// KVStore is a database that associates keys with values.
-type KVStore interface {
 	// Get a value from the kv store.
 	Get(chainhash.Hash) (*chainhash.Hash, bool)
 
@@ -64,14 +61,12 @@ type Node interface {
 // Tree is a wr
 type Tree struct {
 	tree TreeDatabase
-	kv   KVStore
 }
 
 // NewTree creates a MemoryTree
-func NewTree(d TreeDatabase, store KVStore) Tree {
+func NewTree(d TreeDatabase) Tree {
 	return Tree{
 		tree: d,
-		kv:   store,
 	}
 }
 
@@ -93,12 +88,12 @@ func (t *Tree) Set(key chainhash.Hash, value chainhash.Hash) {
 
 	t.tree.SetRoot(insertIntoTree(t.tree, t.tree.Root(), hk, value, 255))
 
-	t.kv.Set(key, value)
+	t.tree.Set(key, value)
 }
 
 // SetWithWitness returns an update witness and sets the value in the tree.
 func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateWitness {
-	uw := GenerateUpdateWitness(t.tree, t.kv, key, value)
+	uw := GenerateUpdateWitness(t.tree, key, value)
 	t.Set(key, value)
 
 	return &uw
@@ -106,14 +101,14 @@ func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *UpdateW
 
 // Prove proves a key in the tree.
 func (t *Tree) Prove(key chainhash.Hash) *VerificationWitness {
-	vw := GenerateVerificationWitness(t.tree, t.kv, key)
+	vw := GenerateVerificationWitness(t.tree, key)
 	return &vw
 }
 
 
 // Get gets a value from the tree.
 func (t *Tree) Get(key chainhash.Hash) *chainhash.Hash {
-	h, found := t.kv.Get(key)
+	h, found := t.tree.Get(key)
 	if !found {
 		return &emptyHash
 	}

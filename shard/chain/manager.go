@@ -49,7 +49,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
 		Mempool:                  mempool.NewShardMempool(mempool.ValidateTrue, mempool.PrioritizeEqual),
-		StateManager:             execution.NewBasicFullStateManager(transfer.Code, uint32(shardID), csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore()), // TODO: this should be loaded dynamically instead of directly from the filesystem
+		StateManager:             execution.NewBasicFullStateManager(transfer.Code, uint32(shardID), csmt.NewInMemoryTreeDB()), // TODO: this should be loaded dynamically instead of directly from the filesystem
 	}
 }
 

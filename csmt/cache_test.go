@@ -7,9 +7,8 @@ import (
 
 func TestRandomWritesRollbackCommit(t *testing.T) {
 	under := NewInMemoryTreeDB()
-	kv := NewInMemoryKVStore()
 
-	underlyingTree := NewTree(under, kv)
+	underlyingTree := NewTree(under)
 
 	for i := 0; i < 200; i++ {
 		underlyingTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val%d", i)))
@@ -18,8 +17,8 @@ func TestRandomWritesRollbackCommit(t *testing.T) {
 	treeRoot := underlyingTree.Hash()
 
 	for i := 0; i < 100; i++ {
-		cachedTreeDB := NewTreeTransaction(under, kv)
-		cachedTree := NewTree(&cachedTreeDB, &cachedTreeDB)
+		cachedTreeDB := NewTreeTransaction(under)
+		cachedTree := NewTree(&cachedTreeDB)
 
 		for i := 198; i < 202; i++ {
 			cachedTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val2%d", i)))
@@ -33,8 +32,8 @@ func TestRandomWritesRollbackCommit(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		cachedTreeDB := NewTreeTransaction(under, kv)
-		cachedTree := NewTree(&cachedTreeDB, &cachedTreeDB)
+		cachedTreeDB := NewTreeTransaction(under)
+		cachedTree := NewTree(&cachedTreeDB)
 
 		for i := 198; i < 202; i++ {
 			cachedTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val3%d", i)))

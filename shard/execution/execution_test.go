@@ -23,7 +23,7 @@ func TestShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
@@ -61,7 +61,7 @@ func BenchmarkShardCall(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
@@ -89,7 +89,7 @@ func TestECDSAShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {
@@ -169,7 +169,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	s, err := NewShard(shardCode, []int64{2}, store, 0)
 	if err != nil {

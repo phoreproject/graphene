@@ -6,6 +6,7 @@ import "github.com/phoreproject/synapse/chainhash"
 type InMemoryTreeDB struct {
 	root chainhash.Hash
 	nodes map[chainhash.Hash]InMemoryNode
+	store map[chainhash.Hash]chainhash.Hash
 }
 
 // NewInMemoryTreeDB creates a new in-memory tree database.
@@ -13,6 +14,7 @@ func NewInMemoryTreeDB() *InMemoryTreeDB {
 	return &InMemoryTreeDB{
 		root: EmptyTree,
 		nodes: make(map[chainhash.Hash]InMemoryNode),
+		store: make(map[chainhash.Hash]chainhash.Hash),
 	}
 }
 
@@ -93,6 +95,24 @@ func (i *InMemoryTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash,
 	return newNode
 }
 
+// Empty checks if the node is empty.
+func (i *InMemoryNode) Empty() bool {
+	return i == nil
+}
+
+// Get gets a value from the key-value store.
+func (i *InMemoryTreeDB) Get(k chainhash.Hash) (*chainhash.Hash, bool) {
+	if v, found := i.store[k]; found {
+		return &v, true
+	}
+	return nil, false
+}
+
+// Set sets a value in the key-value store.
+func (i *InMemoryTreeDB) Set(k chainhash.Hash, v chainhash.Hash) {
+	i.store[k] = v
+}
+
 // InMemoryNode is a node of the in-memory tree database.
 type InMemoryNode struct {
 	value    chainhash.Hash
@@ -141,37 +161,6 @@ func (i *InMemoryNode) GetSingleValue() chainhash.Hash {
 	}
 }
 
-// Empty checks if the node is empty.
-func (i *InMemoryNode) Empty() bool {
-	return i == nil
-}
-
-// InMemoryKVStore is a key-value store in memory.
-type InMemoryKVStore struct {
-	store map[chainhash.Hash]chainhash.Hash
-}
-
-// NewInMemoryKVStore constructs a new key-value store in memory.
-func NewInMemoryKVStore() *InMemoryKVStore {
-	return &InMemoryKVStore{
-		store: make(map[chainhash.Hash]chainhash.Hash),
-	}
-}
-
-// Get gets a value from the key-value store.
-func (i *InMemoryKVStore) Get(k chainhash.Hash) (*chainhash.Hash, bool) {
-	if v, found := i.store[k]; found {
-		return &v, true
-	}
-	return nil, false
-}
-
-// Set sets a value in the key-value store.
-func (i *InMemoryKVStore) Set(k chainhash.Hash, v chainhash.Hash) {
-	i.store[k] = v
-}
-
-var _ KVStore = &InMemoryKVStore{}
 var _ TreeDatabase = &InMemoryTreeDB{}
 var _ Node = &InMemoryNode{}
 

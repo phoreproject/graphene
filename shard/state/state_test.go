@@ -12,7 +12,7 @@ func ch(s string) chainhash.Hash {
 }
 
 func TestPartialStateGeneration(t *testing.T) {
-	fs := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	fs := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 	ts := state.NewTrackingState(fs)
 
 	key := ch("test")

@@ -25,7 +25,7 @@ func TestTransferShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
 		"20ee63e502ee2869afab7de234b80c")
@@ -156,7 +156,7 @@ func TestTransferShardRedeem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
 		"20ee63e502ee2869afab7de234b80c")
@@ -256,7 +256,7 @@ func BenchmarkTransferShard(t *testing.B) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB(), csmt.NewInMemoryKVStore())
+	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
 
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f87" +
 		"20ee63e502ee2869afab7de234b80c")

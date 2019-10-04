@@ -48,7 +48,7 @@ func calculateSubtreeHashWithOneLeaf(key *chainhash.Hash, value *chainhash.Hash,
 	return h
 }
 
-func insertIntoTree(t TreeDatabase, root *Node, key chainhash.Hash, value chainhash.Hash, level uint8) (*Node, error) {
+func insertIntoTree(t TreeDatabaseTransaction, root *Node, key chainhash.Hash, value chainhash.Hash, level uint8) (*Node, error) {
 	right := isRight(key, level)
 
 	if level == 0 {

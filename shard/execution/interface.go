@@ -52,26 +52,34 @@ func (f *FullStateTransition) Transition(preHash *chainhash.Hash) (*chainhash.Ha
 		return nil, fmt.Errorf("expected state root of full state to equal %s but got %s", expectedPreHash, preHash)
 	}
 
-	shard, err := NewShard(f.code, []int64{}, f.state, f.shardID)
+	err = f.state.Update(func(a state.AccessInterface) error {
+		shard, err := NewShard(f.code, []int64{}, a, f.shardID)
+		if err != nil {
+			return err
+		}
+
+		for _, tx := range f.transactions {
+			argContext, err := LoadArgumentContextFromTransaction(tx)
+			if err != nil {
+				return err
+			}
+
+			out, err := shard.RunFunc(argContext)
+			if err != nil {
+				return err
+			}
+
+			if out.(uint64) != 0 {
+				return fmt.Errorf("transaction failed with code: %d", out)
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, tx := range f.transactions {
-		argContext, err := LoadArgumentContextFromTransaction(tx)
-		if err != nil {
-			return nil, err
-		}
-
-		out, err := shard.RunFunc(argContext)
-		if err != nil {
-			return nil, err
-		}
-
-		if out.(uint64) != 0 {
-			return nil, fmt.Errorf("transaction failed with code: %d", out)
-		}
-	}
 
 	return f.state.Hash()
 }

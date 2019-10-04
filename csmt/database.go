@@ -4,8 +4,15 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 )
 
-// TreeDatabase is a database that keeps track of a tree.
+// TreeDatabase provides functions to update or view parts of the tree.
 type TreeDatabase interface {
+	Update(func (TreeDatabaseTransaction) error) error
+
+	View(func (TreeDatabaseTransaction) error) error
+}
+
+// TreeDatabaseTransaction is a transaction interface to access or update the tree.
+type TreeDatabaseTransaction interface {
 	// Root gets the root node.
 	Root() (*Node, error)
 
@@ -34,89 +41,125 @@ type TreeDatabase interface {
 	Set(chainhash.Hash, chainhash.Hash) error
 }
 
-// Tree is a wr
+// Tree represents a state tree.
 type Tree struct {
-	tree TreeDatabase
+	db TreeDatabase
 }
 
 // NewTree creates a MemoryTree
 func NewTree(d TreeDatabase) Tree {
 	return Tree{
-		tree: d,
+		db: d,
 	}
 }
 
+// Update creates a transaction for the tree.
+func (t *Tree) Update(cb func (TreeTransaction) error) error {
+	return t.db.Update(func(tx TreeDatabaseTransaction) error {
+		return cb(TreeTransaction{tx, true})
+	})
+}
+
+// View creates a view-only transaction for the tree.
+func (t *Tree) View(cb func (TreeTransaction) error) error {
+	return t.db.View(func(tx TreeDatabaseTransaction) error {
+		return cb(TreeTransaction{tx, false})
+	})
+}
+
+// Hash gets the hash of the tree.
+func (t *Tree) Hash() (chainhash.Hash, error) {
+	out := EmptyTree
+	err := t.View(func(tx TreeTransaction) error {
+		h, err := tx.Hash()
+		if err != nil {
+			return err
+		}
+		out = *h
+		return nil
+	})
+	return out, err
+}
+
+// TreeTransaction is a wr
+type TreeTransaction struct {
+	tx TreeDatabaseTransaction
+	update bool
+}
 
 // Hash get the root hash
-func (t *Tree) Hash() (*chainhash.Hash, error) {
-	r, err := t.tree.Root()
+func (t *TreeTransaction) Hash() (*chainhash.Hash, error) {
+	treeHash := EmptyTree
+
+	r, err := t.tx.Root()
 	if err != nil {
 		return nil, err
 	}
 	if r == nil || r.Empty() {
-		return &emptyTrees[255], nil
+		return &treeHash, nil
 	}
-	h := r.GetHash()
-	return &h, nil
+	treeHash = r.GetHash()
+
+	return &treeHash, err
 }
 
 // Set inserts/updates a value
-func (t *Tree) Set(key chainhash.Hash, value chainhash.Hash) error {
+func (t *TreeTransaction) Set(key chainhash.Hash, value chainhash.Hash) error {
 	// if the t is empty, insert at the root
 
 	hk := chainhash.HashH(key[:])
 
-	root, err := t.tree.Root()
+	root, err := t.tx.Root()
 	if err != nil {
 		return err
 	}
 
-	n, err := insertIntoTree(t.tree, root, hk, value, 255)
+	n, err := insertIntoTree(t.tx, root, hk, value, 255)
 	if err != nil {
 		return err
 	}
 
-	err = t.tree.SetRoot(n)
+	err = t.tx.SetRoot(n)
 	if err != nil {
 		return err
 	}
 
-	return t.tree.Set(key, value)
+	return t.tx.Set(key, value)
 }
 
 // SetWithWitness returns an update witness and sets the value in the tree.
-func (t *Tree) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
-	uw, err := GenerateUpdateWitness(t.tree, key, value)
+func (t *TreeTransaction) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
+	uw, err := GenerateUpdateWitness(t.tx, key, value)
 	if err != nil {
 		return nil, err
 	}
 
 	err = t.Set(key, value)
-	if err != nil {
-		return nil, err
-	}
 
-	return uw, nil
+	return uw, err
 }
 
 // Prove proves a key in the tree.
-func (t *Tree) Prove(key chainhash.Hash) (*VerificationWitness, error) {
-	vw, err := GenerateVerificationWitness(t.tree, key)
+func (t *TreeTransaction) Prove(key chainhash.Hash) (*VerificationWitness, error) {
+	vw, err := GenerateVerificationWitness(t.tx, key)
 	if err != nil {
 		return nil, err
 	}
-	return vw, nil
+
+	return vw, err
 }
 
 
 // Get gets a value from the tree.
-func (t *Tree) Get(key chainhash.Hash) (*chainhash.Hash, error) {
-	h, err := t.tree.Get(key)
+func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+	h, err := t.tx.Get(key)
 	if err != nil {
 		return nil, err
 	}
 	if h == nil {
-		return &emptyHash, nil
+		out := emptyHash
+		h = &out
 	}
-	return h, nil
+
+	return h, err
 }

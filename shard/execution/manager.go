@@ -9,17 +9,18 @@ import (
 // BasicFullStateManager is a manager for shard's full state with no support for reorgs or roll-backs. It assumes that the
 // next call to Transition will use the same prehash as the last posthash.
 type BasicFullStateManager struct {
-	treeStore csmt.TreeDatabase
 	state   *state.FullShardState
+	treeDB csmt.TreeDatabase
 	shardID uint32
 	code    []byte
 }
 
 // NewBasicFullStateManager creates a new basic full state manager with the given code.
 func NewBasicFullStateManager(code []byte, shardID uint32, treeStore csmt.TreeDatabase) *BasicFullStateManager {
+	tree := csmt.NewTree(treeStore)
 	return &BasicFullStateManager{
-		state:   state.NewFullShardState(treeStore),
-		treeStore: treeStore,
+		state:   state.NewFullShardState(tree),
+		treeDB: treeStore,
 		code:    code,
 		shardID: shardID,
 	}
@@ -38,11 +39,12 @@ func (m *BasicFullStateManager) Transition(preHash chainhash.Hash, transactions 
 
 // CheckTransition gets the state root without modifying the current state.
 func (m *BasicFullStateManager) CheckTransition(preHash chainhash.Hash, transactions [][]byte) (*chainhash.Hash, error) {
-	transactionStore, err := csmt.NewTreeTransaction(m.treeStore)
+	transactionStore, err := csmt.NewTreeMemoryCache(m.treeDB)
 	if err != nil {
 		return nil, err
 	}
-	stateTransaction := state.NewFullShardState(transactionStore)
+	transactionTree := csmt.NewTree(transactionStore)
+	stateTransaction := state.NewFullShardState(transactionTree)
 	fst := NewFullStateTransition(stateTransaction, transactions, m.code, m.shardID)
 	postHash, err := fst.Transition(&preHash)
 	if err != nil {
@@ -53,5 +55,13 @@ func (m *BasicFullStateManager) CheckTransition(preHash chainhash.Hash, transact
 
 // Get gets a key from the current state.
 func (m *BasicFullStateManager) Get(key chainhash.Hash) (*chainhash.Hash, error) {
-	return m.state.Get(key)
+	var val chainhash.Hash
+	return &val, m.state.View(func(a state.AccessInterface) error {
+		v, err := a.Get(key)
+		if err != nil {
+			return err
+		}
+		val = *v
+		return nil
+	})
 }

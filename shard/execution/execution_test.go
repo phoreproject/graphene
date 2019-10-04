@@ -23,30 +23,40 @@ func TestShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
+	treeDB := csmt.NewInMemoryTreeDB()
+	tree := csmt.NewTree(treeDB)
 
-	s, err := NewShard(shardCode, []int64{2}, store, 0)
+	store := state.NewFullShardState(tree)
+
+	err = store.Update(func(a state.AccessInterface) error {
+		s, err := NewShard(shardCode, []int64{2}, a, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = s.RunFunc(NewEmptyContext("run"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = s.RunFunc(NewEmptyContext("run"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		addr0, err := s.Storage.Get(Uint64ToHash(0))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if HashTo64(*addr0) != 2 {
+			t.Fatalf("Expected to load 2 from Phore storage, got: %d", addr0)
+		}
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	_, err = s.RunFunc(NewEmptyContext("run"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = s.RunFunc(NewEmptyContext("run"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr0, err := s.Storage.Get(Uint64ToHash(0))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if HashTo64(*addr0) != 2 {
-		t.Fatalf("Expected to load 2 from Phore storage, got: %d", addr0)
 	}
 }
 
@@ -61,20 +71,29 @@ func BenchmarkShardCall(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
+	treeDB := csmt.NewInMemoryTreeDB()
+	tree := csmt.NewTree(treeDB)
 
-	s, err := NewShard(shardCode, []int64{2}, store, 0)
-	if err != nil {
-		b.Fatal(err)
-	}
+	store := state.NewFullShardState(tree)
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		_, err = s.RunFunc(NewEmptyContext("run"))
+	err = store.Update(func(a state.AccessInterface) error {
+		s, err := NewShard(shardCode, []int64{2}, a, 0)
 		if err != nil {
 			b.Fatal(err)
 		}
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			_, err = s.RunFunc(NewEmptyContext("run"))
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		b.Fatal(err)
 	}
 }
 
@@ -89,34 +108,41 @@ func TestECDSAShard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
+	treeDB := csmt.NewInMemoryTreeDB()
+	tree := csmt.NewTree(treeDB)
+	err = tree.Update(func(a csmt.TreeTransaction) error {
+		s, err := NewShard(shardCode, []int64{2}, &a, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	s, err := NewShard(shardCode, []int64{2}, store, 0)
+		_, err = s.RunFunc(NewEmptyContext("run"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		addr0, err := s.Storage.Get(Uint64ToHash(0))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if HashTo64(*addr0) != 0 {
+			t.Fatalf("Expected to load 0 from Phore storage, got: %d", addr0)
+		}
+
+		addr1, err := s.Storage.Get(Uint64ToHash(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if byte(HashTo64(*addr1)) != chainhash.HashH([]byte{1, 2, 3, 4})[0] {
+			t.Fatal("Expected to load correct hash value from shard")
+		}
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	_, err = s.RunFunc(NewEmptyContext("run"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr0, err := s.Storage.Get(Uint64ToHash(0))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if HashTo64(*addr0) != 0 {
-		t.Fatalf("Expected to load 0 from Phore storage, got: %d", addr0)
-	}
-
-	addr1, err := s.Storage.Get(Uint64ToHash(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if byte(HashTo64(*addr1)) != chainhash.HashH([]byte{1, 2, 3, 4})[0] {
-		t.Fatal("Expected to load correct hash value from shard")
 	}
 }
 
@@ -169,19 +195,27 @@ func BenchmarkShardECDSA(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	store := state.NewFullShardState(csmt.NewInMemoryTreeDB())
+	treeDB := csmt.NewInMemoryTreeDB()
+	tree := csmt.NewTree(treeDB)
 
-	s, err := NewShard(shardCode, []int64{2}, store, 0)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		_, err = s.RunFunc(NewEmptyContext("run"))
+	err = tree.Update(func(tx csmt.TreeTransaction) error {
+		s, err := NewShard(shardCode, []int64{2}, &tx, 0)
 		if err != nil {
 			b.Fatal(err)
 		}
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			_, err = s.RunFunc(NewEmptyContext("run"))
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		b.Fatal(err)
 	}
 }

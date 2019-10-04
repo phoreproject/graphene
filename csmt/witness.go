@@ -17,7 +17,7 @@ type UpdateWitness struct {
 }
 
 // GenerateUpdateWitness generates a witness that allows calculation of a new state root.
-func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
+func GenerateUpdateWitness(tree TreeDatabaseTransaction, key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
 	hk := chainhash.HashH(key[:])
 
 	oldValue, err := tree.Get(key)
@@ -119,7 +119,7 @@ func GenerateUpdateWitness(tree TreeDatabase, key chainhash.Hash, value chainhas
 }
 
 // GenerateVerificationWitness generates a witness that allows verification of a key in the tree.
-func GenerateVerificationWitness(tree TreeDatabase, key chainhash.Hash) (*VerificationWitness, error) {
+func GenerateVerificationWitness(tree TreeDatabaseTransaction, key chainhash.Hash) (*VerificationWitness, error) {
 	hk := chainhash.HashH(key[:])
 
 	val, err := tree.Get(key)

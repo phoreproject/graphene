@@ -24,16 +24,14 @@ func getKVKey(key []byte) []byte {
 }
 
 // SetRoot sets the root of the database.
-func (b *BadgerTreeDB) SetRoot(n *Node) error {
+func (b *BadgerTreeTransaction) SetRoot(n *Node) error {
 	nodeHash := n.GetHash()
 
-	return b.db.Update(func(txn *badger.Txn) error {
-		return txn.Set([]byte("root"), nodeHash[:])
-	})
+	return b.tx.Set([]byte("root"), nodeHash[:])
 }
 
 // NewNode creates a new node with the given left and right children and adds it to the database.
-func (b *BadgerTreeDB) NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error) {
+func (b *BadgerTreeTransaction) NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error) {
 	var leftHash *chainhash.Hash
 	var rightHash *chainhash.Hash
 
@@ -57,7 +55,7 @@ func (b *BadgerTreeDB) NewNode(left *Node, right *Node, subtreeHash chainhash.Ha
 }
 
 // NewSingleNode creates a new single node and adds it to the database.
-func (b *BadgerTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
+func (b *BadgerTreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
 	n := &Node{
 		one: true,
 		oneKey: &key,
@@ -69,114 +67,115 @@ func (b *BadgerTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash, s
 }
 
 // GetNode gets a node from the database.
-func (b *BadgerTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
+func (b *BadgerTreeTransaction) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	nodeKey := getTreeKey(nodeHash[:])
 
-	var n *Node
 
-	err := b.db.View(func(txn *badger.Txn) error {
-		nodeItem, err := txn.Get(nodeKey)
-		if err != nil {
-			return errors.Wrapf(err, "error getting node %s", nodeHash)
-		}
+	nodeItem, err := b.tx.Get(nodeKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting node %s", nodeHash)
+	}
 
-		nodeSer, err := nodeItem.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
+	nodeSer, err := nodeItem.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
 
-		n, err = DeserializeNode(nodeSer)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	return n, err
+	return DeserializeNode(nodeSer)
 }
 
 // SetNode sets a node in the database.
-func (b *BadgerTreeDB) SetNode(n *Node) error {
+func (b *BadgerTreeTransaction) SetNode(n *Node) error {
 	nodeSer := n.Serialize()
 	nodeHash := n.GetHash()
 	nodeKey := getTreeKey(nodeHash[:])
 
-	return b.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(nodeKey, nodeSer)
-	})
+	return b.tx.Set(nodeKey, nodeSer)
 }
 
 // DeleteNode deletes a node from the database.
-func (b *BadgerTreeDB) DeleteNode(key chainhash.Hash) error {
-	return b.db.Update(func(txn *badger.Txn) error {
-		return txn.Delete(getTreeKey(key[:]))
-	})
+func (b *BadgerTreeTransaction) DeleteNode(key chainhash.Hash) error {
+	return b.tx.Delete(getTreeKey(key[:]))
 }
 
 // Get gets a value from the key-value store.
-func (b *BadgerTreeDB) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+func (b *BadgerTreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, error) {
 	var val chainhash.Hash
 
-	err := b.db.View(func(txn *badger.Txn) error {
-		valItem, err := txn.Get(getKVKey(key[:]))
-		if err != nil {
-			return err
-		}
+	valItem, err := b.tx.Get(getKVKey(key[:]))
+	if err != nil {
+		return nil, err
+	}
 
-		_, err = valItem.ValueCopy(val[:])
-		if err != nil {
-			return err
-		}
+	_, err = valItem.ValueCopy(val[:])
+	if err != nil {
+		return nil, err
+	}
 
-		return nil
-	})
-	return &val, err
+	return &val, nil
 }
 
 // Set sets a value in the key-value store.
-func (b *BadgerTreeDB) Set(key chainhash.Hash, value chainhash.Hash) error {
-	return b.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(getKVKey(key[:]), value[:])
-	})
+func (b *BadgerTreeTransaction) Set(key chainhash.Hash, value chainhash.Hash) error {
+	return b.tx.Set(getKVKey(key[:]), value[:])
 }
 
 // Root gets the root node.
-func (b *BadgerTreeDB) Root() (*Node, error) {
-	var node *Node
-	err := b.db.View(func(txn *badger.Txn) error {
-		i, err := txn.Get([]byte("root"))
-		if err != nil {
-			return nil
-		}
+func (b *BadgerTreeTransaction) Root() (*Node, error) {
+	i, err := b.tx.Get([]byte("root"))
+	if err != nil {
+		return nil, nil
+	}
 
-		rootHash, err := i.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
+	rootHash, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
 
-		if bytes.Equal(rootHash, EmptyTree[:]) {
-			return nil
-		}
+	if bytes.Equal(rootHash, EmptyTree[:]) {
+		return nil, nil
+	}
 
-		nodeKey, err := txn.Get(getTreeKey(rootHash))
-		if err != nil {
-			return err
-		}
+	nodeKey, err := b.tx.Get(getTreeKey(rootHash))
+	if err != nil {
+		return nil, err
+	}
 
-		nodeSer, err := nodeKey.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
+	nodeSer, err := nodeKey.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
 
-		node, err = DeserializeNode(nodeSer)
-		if err != nil {
-			return err
-		}
+	return DeserializeNode(nodeSer)
+}
 
-		return nil
-	})
-	return node, err
+// BadgerTreeTransaction represents a badger transaction.
+type BadgerTreeTransaction struct{
+	tx *badger.Txn
+}
+
+// Update updates the database.
+func (b *BadgerTreeDB) Update(callback func (TreeDatabaseTransaction) error) error {
+	badgerTx := b.db.NewTransaction(true)
+
+	err := callback(&BadgerTreeTransaction{badgerTx})
+	if err != nil {
+		badgerTx.Discard()
+		return err
+	}
+	return badgerTx.Commit()
+}
+
+// View creates a read-only transaction for the database.
+func (b *BadgerTreeDB) View(callback func (TreeDatabaseTransaction) error) error {
+	badgerTx := b.db.NewTransaction(false)
+
+	err := callback(&BadgerTreeTransaction{badgerTx})
+	if err != nil {
+		badgerTx.Discard()
+		return err
+	}
+	return badgerTx.Commit()
 }
 
 // NewBadgerTreeDB creates a new badger tree database from a badger database.

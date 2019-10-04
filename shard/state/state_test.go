@@ -12,7 +12,9 @@ func ch(s string) chainhash.Hash {
 }
 
 func TestPartialStateGeneration(t *testing.T) {
-	fs := state.NewFullShardState(csmt.NewInMemoryTreeDB())
+	treeDB := csmt.NewInMemoryTreeDB()
+	tree := csmt.NewTree(treeDB)
+	fs := state.NewFullShardState(tree)
 	ts, err := state.NewTrackingState(fs)
 	if err != nil {
 		t.Fatal(err)
@@ -21,18 +23,25 @@ func TestPartialStateGeneration(t *testing.T) {
 	key := ch("test")
 	val := ch("test2")
 
-	err = ts.Set(key, val)
+	err = ts.Update(func(a state.AccessInterface) error {
+		err = a.Set(key, val)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := a.Get(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !out.IsEqual(&val) {
+			t.Fatal("expected get value to return value set")
+		}
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	out, err := ts.Get(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !out.IsEqual(&val) {
-		t.Fatal("expected get value to return value set")
 	}
 
 	root, vws, uws := ts.GetWitnesses()

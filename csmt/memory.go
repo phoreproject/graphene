@@ -6,26 +6,99 @@ import (
 	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
 	"io"
+	"sync"
 )
 
-// InMemoryTreeDB is a tree stored in memory.
+// InMemoryTreeDB is a transaction based in memory.
 type InMemoryTreeDB struct {
-	root chainhash.Hash
+	root  chainhash.Hash
 	nodes map[chainhash.Hash]Node
 	store map[chainhash.Hash]chainhash.Hash
+
+	updateLock *sync.RWMutex
 }
 
 // NewInMemoryTreeDB creates a new in-memory tree database.
 func NewInMemoryTreeDB() *InMemoryTreeDB {
 	return &InMemoryTreeDB{
-		root: EmptyTree,
+		root:  EmptyTree,
 		nodes: make(map[chainhash.Hash]Node),
 		store: make(map[chainhash.Hash]chainhash.Hash),
+
+		updateLock: new(sync.RWMutex),
 	}
 }
 
+// Update runs cb with an update transaction.
+func (t *InMemoryTreeDB) Update(cb func(TreeDatabaseTransaction) error) error {
+	// lock so we don't read or write from database
+	t.updateLock.Lock()
+	defer t.updateLock.Unlock()
+
+	nodesCopy := make(map[chainhash.Hash]Node)
+	storeCopy := make(map[chainhash.Hash]chainhash.Hash)
+
+	for k, v := range t.nodes {
+		nodesCopy[k] = v
+	}
+
+	for k, v := range t.store {
+		storeCopy[k] = v
+	}
+
+	tx := &InMemoryTreeTX{
+		root:   t.root,
+		nodes:  nodesCopy,
+		store:  storeCopy,
+		update: true,
+	}
+
+	if err := cb(tx); err != nil {
+		return err
+	}
+
+	t.nodes = nodesCopy
+	t.store = storeCopy
+	t.root = tx.root
+
+	return nil
+}
+
+// View runs cb with a view only transaction.
+func (t *InMemoryTreeDB) View(cb func(TreeDatabaseTransaction) error) error {
+	nodesCopy := make(map[chainhash.Hash]Node)
+	storeCopy := make(map[chainhash.Hash]chainhash.Hash)
+
+	t.updateLock.RLock()
+	for k, v := range t.nodes {
+		nodesCopy[k] = v
+	}
+
+	for k, v := range t.store {
+		storeCopy[k] = v
+	}
+	t.updateLock.RUnlock()
+
+	tx := &InMemoryTreeTX{
+		root:   t.root,
+		nodes:  t.nodes,
+		store:  t.store,
+		update: false,
+	}
+
+	return cb(tx)
+}
+
+// InMemoryTreeTX is a tree stored in memory.
+type InMemoryTreeTX struct {
+	root   chainhash.Hash
+	nodes  map[chainhash.Hash]Node
+	store  map[chainhash.Hash]chainhash.Hash
+	update bool
+}
+
 // GetNode gets a node from the tree database.
-func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
+func (i *InMemoryTreeTX) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	if n, found := i.nodes[nodeHash]; found {
 		return &n, nil
 	} else {
@@ -34,7 +107,11 @@ func (i *InMemoryTreeDB) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 }
 
 // SetNode sets a node in the database. The node passed MUST be an Node
-func (i *InMemoryTreeDB) SetNode(n *Node) error {
+func (i *InMemoryTreeTX) SetNode(n *Node) error {
+	if !i.update {
+		return errors.New("set node called on view transaction")
+	}
+
 	nodeHash := n.GetHash()
 	i.nodes[nodeHash] = *n
 
@@ -42,14 +119,18 @@ func (i *InMemoryTreeDB) SetNode(n *Node) error {
 }
 
 // DeleteNode deletes a node if it exists.
-func (i *InMemoryTreeDB) DeleteNode(h chainhash.Hash) error {
+func (i *InMemoryTreeTX) DeleteNode(h chainhash.Hash) error {
+	if !i.update {
+		return errors.New("delete called on view transaction")
+	}
+
 	delete(i.nodes, h)
 
 	return nil
 }
 
 // Root gets the root of the tree.
-func (i *InMemoryTreeDB) Root() (*Node, error) {
+func (i *InMemoryTreeTX) Root() (*Node, error) {
 	if n, found := i.nodes[i.root]; found {
 		return &n, nil
 	} else {
@@ -58,7 +139,11 @@ func (i *InMemoryTreeDB) Root() (*Node, error) {
 }
 
 // SetRoot sets the root of the tree.
-func (i *InMemoryTreeDB) SetRoot(n *Node) error {
+func (i *InMemoryTreeTX) SetRoot(n *Node) error {
+	if !i.update {
+		return errors.New("set root called on view transaction")
+	}
+
 	nodeHash := n.GetHash()
 	if _, found := i.nodes[nodeHash]; !found {
 		err := i.SetNode(n)
@@ -72,7 +157,11 @@ func (i *InMemoryTreeDB) SetRoot(n *Node) error {
 }
 
 // NewNode creates a new empty node.
-func (i *InMemoryTreeDB) NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error) {
+func (i *InMemoryTreeTX) NewNode(left *Node, right *Node, subtreeHash chainhash.Hash) (*Node, error) {
+	if !i.update {
+		return nil, errors.New("new node called on view transaction")
+	}
+
 	var leftHash *chainhash.Hash
 	var rightHash *chainhash.Hash
 
@@ -88,7 +177,7 @@ func (i *InMemoryTreeDB) NewNode(left *Node, right *Node, subtreeHash chainhash.
 
 	newNode := &Node{
 		value: subtreeHash,
-		left: leftHash,
+		left:  leftHash,
 		right: rightHash,
 	}
 	i.nodes[subtreeHash] = *newNode
@@ -96,12 +185,16 @@ func (i *InMemoryTreeDB) NewNode(left *Node, right *Node, subtreeHash chainhash.
 }
 
 // NewSingleNode creates a new node with only one key-value pair.
-func (i *InMemoryTreeDB) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
+func (i *InMemoryTreeTX) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
+	if !i.update {
+		return nil, errors.New("new single node called on view transaction")
+	}
+
 	newNode := &Node{
-		one: true,
-		oneKey: &key,
+		one:      true,
+		oneKey:   &key,
 		oneValue: &value,
-		value: subtreeHash,
+		value:    subtreeHash,
 	}
 	i.nodes[subtreeHash] = *newNode
 	return newNode, nil
@@ -113,7 +206,7 @@ func (i *Node) Empty() bool {
 }
 
 // Get gets a value from the key-value store.
-func (i *InMemoryTreeDB) Get(k chainhash.Hash) (*chainhash.Hash, error) {
+func (i *InMemoryTreeTX) Get(k chainhash.Hash) (*chainhash.Hash, error) {
 	if v, found := i.store[k]; found {
 		return &v, nil
 	}
@@ -121,7 +214,7 @@ func (i *InMemoryTreeDB) Get(k chainhash.Hash) (*chainhash.Hash, error) {
 }
 
 // Set sets a value in the key-value store.
-func (i *InMemoryTreeDB) Set(k chainhash.Hash, v chainhash.Hash) error {
+func (i *InMemoryTreeTX) Set(k chainhash.Hash, v chainhash.Hash) error {
 	i.store[k] = v
 
 	return nil
@@ -199,8 +292,8 @@ func DeserializeNode(b []byte) (*Node, error) {
 			return nil, err
 		}
 		return &Node{
-			value:    *hash,
-			left: left,
+			value: *hash,
+			left:  left,
 		}, nil
 	case FlagRight:
 		right, err := readHash(r)
@@ -208,7 +301,7 @@ func DeserializeNode(b []byte) (*Node, error) {
 			return nil, err
 		}
 		return &Node{
-			value:    *hash,
+			value: *hash,
 			right: right,
 		}, nil
 	case FlagBoth:
@@ -221,8 +314,8 @@ func DeserializeNode(b []byte) (*Node, error) {
 			return nil, err
 		}
 		return &Node{
-			value:    *hash,
-			left: left,
+			value: *hash,
+			left:  left,
 			right: right,
 		}, nil
 	default:
@@ -300,5 +393,3 @@ func (i *Node) GetSingleValue() chainhash.Hash {
 }
 
 var _ TreeDatabase = &InMemoryTreeDB{}
-
-

@@ -3,6 +3,7 @@ package csmt
 import (
 	"fmt"
 	"github.com/dgraph-io/badger"
+	"github.com/phoreproject/synapse/chainhash"
 	"testing"
 )
 
@@ -23,58 +24,105 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 
 	underlyingTree := NewTree(under)
 
-	for i := 0; i < 200; i++ {
-		err := underlyingTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val%d", i)))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	var treeRoot chainhash.Hash
 
-	treeRoot, err := underlyingTree.Hash()
+	err = underlyingTree.Update(func(tx TreeTransaction) error {
+		for i := 0; i < 200; i++ {
+			err := tx.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val%d", i)))
+			if err != nil {
+				return err
+			}
+		}
+
+		initialRoot, err := tx.Hash()
+		if err != nil {
+			return err
+		}
+
+		treeRoot = *initialRoot
+
+		return nil
+	})
+
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i := 0; i < 100; i++ {
-		cachedTreeDB, err := NewTreeTransaction(under)
+		cachedTreeDB, err := NewTreeMemoryCache(under)
 		if err != nil {
 			t.Fatal(err)
 		}
 		cachedTree := NewTree(cachedTreeDB)
 
-		for newVal := 198; newVal < 202; newVal++ {
-			err := cachedTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val2%d", newVal)))
-			if err != nil {
-				t.Fatal(err)
+		err = cachedTree.Update(func(tx TreeTransaction) error {
+			for newVal := 198; newVal < 202; newVal++ {
+				err := tx.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val2%d", newVal)))
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
+
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 
-	underlyingHash, err := underlyingTree.Hash()
+	var underlyingHash chainhash.Hash
+
+	err = underlyingTree.View(func(tx TreeTransaction) error {
+		h, err := tx.Hash()
+		if err != nil {
+			return err
+		}
+		underlyingHash = *h
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !underlyingHash.IsEqual(treeRoot) {
+
+	if !underlyingHash.IsEqual(&treeRoot) {
 		t.Fatal("expected uncommitted transaction not to affect underlying tree")
 	}
 
-	cachedTreeDB, err := NewTreeTransaction(under)
+	cachedTreeDB, err := NewTreeMemoryCache(under)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cachedTree := NewTree(cachedTreeDB)
 
-	for i := 0; i < 100; i++ {
-		for newVal := 198; newVal < 202; newVal++ {
-			err := cachedTree.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val3%d", newVal)))
-			if err != nil {
-				t.Fatal(err)
+	err = cachedTree.Update(func(tx TreeTransaction) error {
+		for i := 0; i < 100; i++ {
+			for newVal := 198; newVal < 202; newVal++ {
+				err := tx.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val3%d", newVal)))
+				if err != nil {
+					return err
+				}
 			}
 		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	cachedTreeHash, err := cachedTree.Hash()
+	var cachedTreeHash chainhash.Hash
+
+	err = cachedTree.View(func(tx TreeTransaction) error {
+		h, err := tx.Hash()
+		if err != nil {
+			return err
+		}
+		cachedTreeHash = *h
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,12 +132,20 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	underlyingHash, err = underlyingTree.Hash()
+	err = underlyingTree.View(func(tx TreeTransaction) error {
+		h, err := tx.Hash()
+		if err != nil {
+			return err
+		}
+		underlyingHash = *h
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !cachedTreeHash.IsEqual(underlyingHash) {
+	if !cachedTreeHash.IsEqual(&underlyingHash) {
 		t.Fatal("expected flush to update the underlying tree")
 	}
 }

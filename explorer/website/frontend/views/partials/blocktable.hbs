@@ -1,0 +1,70 @@
+<div class="container">
+
+<table id="blockTable" class="table table-striped table-bordered w-100">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Height</th>
+            <th>Slot</th>
+            <th>Hash</th>
+            <th>Parent</th>
+        </tr>
+    </thead>
+</table>
+
+</div>
+
+<script>
+function initBlockTable()
+{
+	$('#blockTable').DataTable({
+		serverSide : false,
+		ajax : {
+				url: "{{ url '/api/blocks' }}",
+				dataSrc: '',
+		},
+		responsive: true,
+		fixedHeader: {
+			header: true,
+		},
+		lengthMenu: [ [ 25, 50, 100 ], [ 25, 50, 100 ] ],
+		pageLength: 25,
+		columns : [
+			{
+				data : 'id'
+			},
+			{
+				data : 'height',
+			},
+			{
+				data : 'slot',
+			},
+			{
+				data : 'hash',
+				render : function(data, type, row, meta) {
+					if(type !== 'display') return data;
+					return sprintf('<a href="/block?hash=%s">%s</a>', data, data);
+				}
+			},
+			{
+				data : 'parent_block_hash',
+				render : function(data, type, row, meta) {
+					if(type !== 'display') return data;
+					return util.shortenStringWithEllipsis(data);
+				}
+			},
+		],
+		columnDefs: [
+			{ orderable: false, targets: 0 },
+			{ className: "dt-right", targets: [ 0, 1, 2 ] },
+			//{ className: "dt-left", targets: 1 },
+			{ responsivePriority: 1, targets: 0 },
+			{ responsivePriority: 2, targets: 1 },
+		],
+		info: false
+	});
+}
+
+$(initBlockTable);
+
+</script>

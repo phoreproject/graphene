@@ -30,7 +30,7 @@ func (s *ShardRPCServer) GetStateKey(ctx context.Context, req *pb.GetStateKeyReq
 		return nil, err
 	}
 
-	val, err := manager.StateManager.Get(*keyH)
+	val, err := manager.GetKey(*keyH)
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +124,7 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		return nil, err
 	}
 
-	transactionsToInclude := manager.Mempool.GetTransactions()
-
-	newStateRoot, err := manager.StateManager.CheckTransition(tipNode.StateRoot, transactionsToInclude)
+	transactionsToInclude, newStateRoot, err := manager.Mempool.GetTransactions(-1)
 	if err != nil {
 		return nil, err
 	}

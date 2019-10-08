@@ -3,6 +3,8 @@ module github.com/phoreproject/synapse
 go 1.13
 
 require (
+	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
+	github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec // indirect
 	github.com/Kubuxu/gocovmerge v0.0.0-20161216165753-7ecaa51963cd // indirect
 	github.com/beevik/ntp v0.2.0
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
@@ -42,8 +44,9 @@ require (
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364 // indirect
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
+	github.com/tyler-smith/go-bip32 v0.0.0-20170922074101-2c9cfd177564 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
-	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
+	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/net v0.0.0-20190918130420-a8b05e9114ab
 	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
 	google.golang.org/grpc v1.23.1

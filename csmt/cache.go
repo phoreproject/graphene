@@ -151,14 +151,16 @@ func (t *TreeMemoryCache) Flush() error {
 
 		root := t.root
 
-		rootNode, err := tx.GetNode(root)
-		if err != nil {
-			return err
-		}
+		if !root.IsEqual(&EmptyTree) {
+			rootNode, err := tx.GetNode(root)
+			if err != nil {
+				return err
+			}
 
-		err = tx.SetRoot(rootNode)
-		if err != nil {
-			return err
+			err = tx.SetRoot(rootNode)
+			if err != nil {
+				return err
+			}
 		}
 
 		for k, v := range t.dirtyKV {

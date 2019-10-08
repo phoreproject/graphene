@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
 	"io"
+	"os"
+	"runtime/debug"
 	"sync"
 )
 
@@ -102,6 +104,8 @@ func (i *InMemoryTreeTX) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	if n, found := i.nodes[nodeHash]; found {
 		return &n, nil
 	} else {
+		debug.PrintStack()
+		os.Exit(1)
 		return nil, fmt.Errorf("could not find node with hash %s", nodeHash)
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-interpreter/wagon/exec"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/shard/state"
+	"github.com/phoreproject/synapse/csmt"
 )
 
 // ShardInterface is the interface a shard uses to access external information like state, and access slow functions like
@@ -26,65 +26,42 @@ type TransitionInterface interface {
 
 // FullStateTransition transitions the state using the transaction provided.
 type FullStateTransition struct {
-	state        *state.FullShardState
+	state        *csmt.Tree
 	transactions [][]byte
-	code         []byte
-	shardID      uint32
+	info ShardInfo
 }
 
-// NewFullStateTransition creates a new full state transition using the previous state and the transactions to run.
-func NewFullStateTransition(state *state.FullShardState, transactions [][]byte, code []byte, shardID uint32) *FullStateTransition {
-	return &FullStateTransition{
-		state:        state,
-		transactions: transactions,
-		code:         code,
-		shardID:      shardID,
-	}
+// ShardInfo is all of the shard specific information needed for execution.
+type ShardInfo struct {
+	CurrentCode []byte
+	ShardID uint32
 }
 
-// Transition runs the transition using the given prehash to calculate the post hash.
-func (f *FullStateTransition) Transition(preHash *chainhash.Hash) (*chainhash.Hash, error) {
-	expectedPreHash, err := f.state.Hash()
-	if err != nil {
-		return nil, err
-	}
-	if !preHash.IsEqual(expectedPreHash) {
-		return nil, fmt.Errorf("expected state root of full state to equal %s but got %s", expectedPreHash, preHash)
-	}
-
-	err = f.state.Update(func(a state.AccessInterface) error {
-		shard, err := NewShard(f.code, []int64{}, a, f.shardID)
-		if err != nil {
-			return err
-		}
-
-		for _, tx := range f.transactions {
-			argContext, err := LoadArgumentContextFromTransaction(tx)
-			if err != nil {
-				return err
-			}
-
-			out, err := shard.RunFunc(argContext)
-			if err != nil {
-				return err
-			}
-
-			if out.(uint64) != 0 {
-				return fmt.Errorf("transaction failed with code: %d", out)
-			}
-		}
-
-		return nil
-	})
+// Transition runs a transaction.
+func Transition(state csmt.TreeTransaction, tx []byte, info ShardInfo) (*chainhash.Hash, error) {
+	shard, err := NewShard(info.CurrentCode, []int64{}, &state, info.ShardID)
 	if err != nil {
 		return nil, err
 	}
 
+	argContext, err := LoadArgumentContextFromTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
 
-	return f.state.Hash()
-}
+	out, err := shard.RunFunc(argContext)
+	if err != nil {
+		return nil, err
+	}
 
-// GetPostState gets the state after the state transition.
-func (f *FullStateTransition) GetPostState() *state.FullShardState {
-	return f.state
+	if out.(uint64) != 0 {
+		return nil, fmt.Errorf("transaction failed with code: %d", out)
+	}
+
+	outHash, err := state.Hash()
+	if err != nil {
+		return nil, err
+	}
+
+	return outHash, nil
 }

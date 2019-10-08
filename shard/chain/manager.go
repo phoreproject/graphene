@@ -11,7 +11,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/execution"
-	"github.com/phoreproject/synapse/shard/mempool"
+	"github.com/phoreproject/synapse/relayer/mempool"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
@@ -34,7 +34,8 @@ type ShardManager struct {
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
 	Mempool                  *mempool.ShardMempool
-	StateManager             *execution.BasicFullStateManager
+	stateDB                  csmt.TreeDatabase
+	shardInfo                execution.ShardInfo
 }
 
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
@@ -42,20 +43,44 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 
 	genesisBlock := primitives.GetGenesisBlockForShard(shardID)
 
+	stateDB := csmt.NewInMemoryTreeDB()
+	shardInfo := execution.ShardInfo{
+		CurrentCode: transfer.Code, // TODO: this should be loaded dynamically instead of directly from the filesystem
+		ShardID:     0,
+	}
+
 	return &ShardManager{
 		ShardID:                  shardID,
 		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
-		Mempool:                  mempool.NewShardMempool(mempool.ValidateTrue, mempool.PrioritizeEqual),
-		StateManager:             execution.NewBasicFullStateManager(transfer.Code, uint32(shardID), csmt.NewInMemoryTreeDB()), // TODO: this should be loaded dynamically instead of directly from the filesystem
+		Mempool:                  mempool.NewShardMempool(stateDB, shardInfo),
+		shardInfo: shardInfo,
+		stateDB: stateDB,
 	}
 }
 
 // SubmitTransaction submits a transaction to the shard.
 func (sm *ShardManager) SubmitTransaction(transaction []byte) error {
-	return sm.Mempool.SubmitTransaction(transaction)
+	return sm.Mempool.Add(transaction)
+}
+
+// GetKey gets a key from the current state.
+func (sm *ShardManager) GetKey(key chainhash.Hash) (*chainhash.Hash, error) {
+	var out *chainhash.Hash
+	err := sm.stateDB.View(func(tx csmt.TreeDatabaseTransaction) error {
+		val, err := tx.Get(key)
+		if err != nil {
+			return err
+		}
+		out = val
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // SubmitBlock submits a block to the chain for processing.
@@ -66,15 +91,29 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 		return fmt.Errorf("missing parent block %s", block.Header.PreviousBlockHash)
 	}
 
-	parentStateRoot, _ := sm.Index.GetNodeByHash(&block.Header.PreviousBlockHash)
-
 	transactions := make([][]byte, len(block.Body.Transactions))
 	for i := range transactions {
 		transactions[i] = block.Body.Transactions[i].TransactionData
 	}
 
-	// update state based on block transactions
-	newStateRoot, err := sm.StateManager.CheckTransition(parentStateRoot.StateRoot, transactions)
+	databaseCache, err := csmt.NewTreeMemoryCache(sm.stateDB)
+	if err != nil {
+		return err
+	}
+
+	newStateRoot := &csmt.EmptyTree
+
+	tree := csmt.NewTree(databaseCache)
+	err = tree.Update(func(treeTx csmt.TreeTransaction) error {
+		for _, txBytes := range transactions {
+			sr, err := execution.Transition(treeTx, txBytes, sm.shardInfo)
+			if err != nil {
+				return err
+			}
+			newStateRoot = sr
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -131,8 +170,7 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 		return errors.New("block signature was not valid")
 	}
 
-	_, err = sm.StateManager.Transition(parentStateRoot.StateRoot, transactions)
-	if err != nil {
+	if err := databaseCache.Flush(); err != nil {
 		return err
 	}
 

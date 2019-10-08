@@ -195,7 +195,8 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		for i := epochStart; i < epochStart+ex.config.appConfig.NetworkConfig.EpochLength; i++ {
 			assignmentForSlot, err := state.GetShardCommitteesAtSlot(i, ex.config.appConfig.NetworkConfig)
 			if err != nil {
-				panic(err)
+				logger.Errorf("%v", err)
+				continue
 			}
 
 			for _, as := range assignmentForSlot {
@@ -227,12 +228,12 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
-		panic(err)
+		logger.Errorf("%v", err)
 	}
 
 	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber, ex.app.GetBlockchain().GetConfig())
 	if err != nil {
-		panic(err)
+		logger.Errorf("%v", err)
 	}
 
 	var idBytes [4]byte
@@ -256,7 +257,8 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	for _, att := range block.BlockBody.Attestations {
 		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.appConfig.NetworkConfig)
 		if err != nil {
-			panic(err)
+			logger.Errorf("%v", err)
+			continue
 		}
 
 		participantHashes := make([][32]byte, len(participants))

@@ -29,7 +29,7 @@ type Validator struct {
 type Attestation struct {
 	gorm.Model
 
-	ParticipantHashes   []byte
+	ParticipantHashes   []byte `gorm:"size:16384"`
 	Signature           []byte `gorm:"size:48"`
 	Slot                uint64
 	Shard               uint64
@@ -73,7 +73,7 @@ type Assignment struct {
 	gorm.Model
 
 	Shard           uint64
-	CommitteeHashes []byte
+	CommitteeHashes []byte `gorm:"size:16384"`
 	Slot            uint64
 }
 

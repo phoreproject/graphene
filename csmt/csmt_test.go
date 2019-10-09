@@ -2,6 +2,7 @@ package csmt
 
 import (
 	"fmt"
+	"github.com/phoreproject/synapse/primitives"
 	"reflect"
 	"testing"
 
@@ -67,8 +68,8 @@ func TestTree_SetZero(t *testing.T) {
 			return err
 		}
 
-		if !th.IsEqual(&emptyTrees[255]) {
-			return fmt.Errorf("expected tree to match %s but got %s", emptyTrees[255], th)
+		if !th.IsEqual(&primitives.EmptyTrees[255]) {
+			return fmt.Errorf("expected tree to match %s but got %s", primitives.EmptyTrees[255], th)
 		}
 
 		return nil
@@ -130,7 +131,7 @@ func Test_calculateSubtreeHashWithOneLeaf(t *testing.T) {
 				value:   emptyHash,
 				atLevel: 255,
 			},
-			want: emptyTrees[255],
+			want: primitives.EmptyTrees[255],
 		},
 	}
 	for _, tt := range tests {
@@ -200,7 +201,7 @@ func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
 	treeDB := NewInMemoryTreeDB()
 	tree := NewTree(treeDB)
 
-	var uw *UpdateWitness
+	var uw *primitives.UpdateWitness
 	err := treeDB.View(func(tx TreeDatabaseTransaction) error {
 		w, err := GenerateUpdateWitness(tx, ch("asdf"), ch("1"))
 		uw = w
@@ -224,7 +225,7 @@ func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newRoot, err := uw.Apply(*th)
+	newRoot, err := ApplyWitness(*uw, *th)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +285,7 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 	for i := 0; i < 1; i++ {
 		setVal := fmt.Sprintf("%d", i)
 
-		var uw *UpdateWitness
+		var uw *primitives.UpdateWitness
 
 		err := treeDB.Update(func(tx TreeDatabaseTransaction) error {
 			w, err := GenerateUpdateWitness(tx, ch("asdf"), ch(setVal))
@@ -301,7 +302,7 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		newRoot, err := uw.Apply(th)
+		newRoot, err := ApplyWitness(*uw, th)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -371,7 +372,7 @@ func TestChainedUpdates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	witnesses := make([]*UpdateWitness, 0)
+	witnesses := make([]*primitives.UpdateWitness, 0)
 
 	err = tree.Update(func(tx TreeTransaction) error {
 		// start by generating a bunch of witnesses
@@ -388,7 +389,7 @@ func TestChainedUpdates(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if testProof2.Check(*th) == false {
+			if CheckWitness(testProof2, *th) == false {
 				return fmt.Errorf("expected verification witness to verify")
 			}
 
@@ -408,7 +409,7 @@ func TestChainedUpdates(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if testProof.Check(*th) == false {
+			if CheckWitness(testProof, *th) == false {
 				return fmt.Errorf("expected verification witness to verify")
 			}
 		}
@@ -426,7 +427,7 @@ func TestChainedUpdates(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if testProof2.Check(*th) == false {
+			if CheckWitness(testProof2, *th) == false {
 				return fmt.Errorf("expected verification witness to verify")
 			}
 
@@ -447,14 +448,14 @@ func TestChainedUpdates(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if testProof.Check(*th) == false {
+			if CheckWitness(testProof, *th) == false {
 				return fmt.Errorf("expected verification witness to verify")
 			}
 		}
 
 		currentRoot := initialRoot
 		for i := range witnesses {
-			newRoot, err := witnesses[i].Apply(currentRoot)
+			newRoot, err := ApplyWitness(*witnesses[i], currentRoot)
 			if err != nil {
 				return err
 			}
@@ -495,12 +496,12 @@ func TestEmptyBranchWitness(t *testing.T) {
 			return err
 		}
 
-		newRoot, err := w0.Apply(*preroot)
+		newRoot, err := ApplyWitness(*w0, *preroot)
 		if err != nil {
 			return err
 		}
 
-		newRoot, err = w1.Apply(*newRoot)
+		newRoot, err = ApplyWitness(*w1, *newRoot)
 		return err
 	})
 
@@ -531,7 +532,7 @@ func TestCheckWitness(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if testProof.Check(*th) == false {
+		if CheckWitness(testProof, *th) == false {
 			t.Fatal("expected verification witness to verify")
 		}
 
@@ -544,7 +545,7 @@ func TestCheckWitness(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if testProof2.Check(*th) == false {
+		if CheckWitness(testProof2, *th) == false {
 			t.Fatal("expected verification witness to verify")
 		}
 

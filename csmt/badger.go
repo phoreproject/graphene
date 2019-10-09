@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/dgraph-io/badger"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"github.com/pkg/errors"
 )
 
@@ -132,7 +133,7 @@ func (b *BadgerTreeTransaction) Root() (*Node, error) {
 		return nil, err
 	}
 
-	if bytes.Equal(rootHash, EmptyTree[:]) {
+	if bytes.Equal(rootHash, primitives.EmptyTree[:]) {
 		return nil, nil
 	}
 

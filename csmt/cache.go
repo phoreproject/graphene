@@ -3,6 +3,7 @@ package csmt
 import (
 	"errors"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"sync"
 )
 
@@ -28,7 +29,7 @@ func NewTreeMemoryCache(underlyingDatabase TreeDatabase) (*TreeMemoryCache, erro
 		}
 
 		if root == nil {
-			preRoot = EmptyTree
+			preRoot = primitives.EmptyTree
 			return nil
 		}
 
@@ -151,7 +152,7 @@ func (t *TreeMemoryCache) Flush() error {
 
 		root := t.root
 
-		if !root.IsEqual(&EmptyTree) {
+		if !root.IsEqual(&primitives.EmptyTree) {
 			rootNode, err := tx.GetNode(root)
 			if err != nil {
 				return err
@@ -188,7 +189,7 @@ type TreeMemoryCacheTransaction struct {
 
 // Root gets the current root of the transaction.
 func (t *TreeMemoryCacheTransaction) Root() (*Node, error) {
-	if t.root.IsEqual(&EmptyTree) {
+	if t.root.IsEqual(&primitives.EmptyTree) {
 		return nil, nil
 	}
 

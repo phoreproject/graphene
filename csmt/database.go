@@ -2,6 +2,7 @@ package csmt
 
 import (
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 )
 
 // TreeDatabase provides functions to update or view parts of the tree.
@@ -69,7 +70,7 @@ func (t *Tree) View(cb func (TreeTransaction) error) error {
 
 // Hash gets the hash of the tree.
 func (t *Tree) Hash() (chainhash.Hash, error) {
-	out := EmptyTree
+	out := primitives.EmptyTree
 	err := t.View(func(tx TreeTransaction) error {
 		h, err := tx.Hash()
 		if err != nil {
@@ -89,7 +90,7 @@ type TreeTransaction struct {
 
 // Hash get the root hash
 func (t *TreeTransaction) Hash() (*chainhash.Hash, error) {
-	treeHash := EmptyTree
+	treeHash := primitives.EmptyTree
 
 	r, err := t.tx.Root()
 	if err != nil {
@@ -128,7 +129,7 @@ func (t *TreeTransaction) Set(key chainhash.Hash, value chainhash.Hash) error {
 }
 
 // SetWithWitness returns an update witness and sets the value in the tree.
-func (t *TreeTransaction) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
+func (t *TreeTransaction) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*primitives.UpdateWitness, error) {
 	uw, err := GenerateUpdateWitness(t.tx, key, value)
 	if err != nil {
 		return nil, err
@@ -140,7 +141,7 @@ func (t *TreeTransaction) SetWithWitness(key chainhash.Hash, value chainhash.Has
 }
 
 // Prove proves a key in the tree.
-func (t *TreeTransaction) Prove(key chainhash.Hash) (*VerificationWitness, error) {
+func (t *TreeTransaction) Prove(key chainhash.Hash) (*primitives.VerificationWitness, error) {
 	vw, err := GenerateVerificationWitness(t.tx, key)
 	if err != nil {
 		return nil, err

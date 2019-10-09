@@ -2,22 +2,13 @@ package csmt
 
 import (
 	"errors"
+	"github.com/phoreproject/synapse/primitives"
 
 	"github.com/phoreproject/synapse/chainhash"
 )
 
-// UpdateWitness allows an executor to securely update the tree root so that only a single key is changed.
-type UpdateWitness struct {
-	Key             chainhash.Hash
-	OldValue        chainhash.Hash
-	NewValue        chainhash.Hash
-	WitnessBitfield chainhash.Hash
-	LastLevel       uint8
-	Witnesses       []chainhash.Hash
-}
-
 // GenerateUpdateWitness generates a witness that allows calculation of a new state root.
-func GenerateUpdateWitness(tree TreeDatabaseTransaction, key chainhash.Hash, value chainhash.Hash) (*UpdateWitness, error) {
+func GenerateUpdateWitness(tree TreeDatabaseTransaction, key chainhash.Hash, value chainhash.Hash) (*primitives.UpdateWitness, error) {
 	hk := chainhash.HashH(key[:])
 
 	oldValue, err := tree.Get(key)
@@ -29,7 +20,7 @@ func GenerateUpdateWitness(tree TreeDatabaseTransaction, key chainhash.Hash, val
 		oldValue = &chainhash.Hash{}
 	}
 
-	uw := &UpdateWitness{
+	uw := &primitives.UpdateWitness{
 		Key:      key,
 		OldValue: *oldValue,
 		NewValue: value,
@@ -119,7 +110,7 @@ func GenerateUpdateWitness(tree TreeDatabaseTransaction, key chainhash.Hash, val
 }
 
 // GenerateVerificationWitness generates a witness that allows verification of a key in the tree.
-func GenerateVerificationWitness(tree TreeDatabaseTransaction, key chainhash.Hash) (*VerificationWitness, error) {
+func GenerateVerificationWitness(tree TreeDatabaseTransaction, key chainhash.Hash) (*primitives.VerificationWitness, error) {
 	hk := chainhash.HashH(key[:])
 
 	val, err := tree.Get(key)
@@ -130,7 +121,7 @@ func GenerateVerificationWitness(tree TreeDatabaseTransaction, key chainhash.Has
 		val = &chainhash.Hash{}
 	}
 
-	vw := &VerificationWitness{
+	vw := &primitives.VerificationWitness{
 		Key:   key,
 		Value: *val,
 	}
@@ -229,7 +220,7 @@ func CalculateRoot(key chainhash.Hash, value chainhash.Hash, witnessBitfield cha
 	for i := uint16(lastLevel) + 1; i <= 255; i++ {
 		right := isRight(hk, uint8(i))
 
-		hashToAdd := emptyTrees[i-1]
+		hashToAdd := primitives.EmptyTrees[i-1]
 		if witnessBitfield[i/8]&(1<<uint8(i%8)) != 0 {
 			if currentWitness >= len(witnesses) {
 				return nil, errors.New("not enough witnesses")
@@ -239,17 +230,17 @@ func CalculateRoot(key chainhash.Hash, value chainhash.Hash, witnessBitfield cha
 		}
 
 		if right {
-			h = combineHashes(&hashToAdd, &h)
+			h = primitives.CombineHashes(&hashToAdd, &h)
 		} else {
-			h = combineHashes(&h, &hashToAdd)
+			h = primitives.CombineHashes(&h, &hashToAdd)
 		}
 	}
 
 	return &h, nil
 }
 
-// Apply applies a witness to an old state root to generate a new state root.
-func (uw *UpdateWitness) Apply(oldStateRoot chainhash.Hash) (*chainhash.Hash, error) {
+// ApplyWitness applies a witness to an old state root to generate a new state root.
+func ApplyWitness(uw primitives.UpdateWitness, oldStateRoot chainhash.Hash) (*chainhash.Hash, error) {
 	// if this is an update, last level should be the same for the pre root, but if this is an insertion, last level should
 	// be one level higher
 
@@ -270,8 +261,8 @@ func (uw *UpdateWitness) Apply(oldStateRoot chainhash.Hash) (*chainhash.Hash, er
 	return newRoot, nil
 }
 
-// Check ensures the state root matches.
-func (vw *VerificationWitness) Check(oldStateRoot chainhash.Hash) bool {
+// CheckWitness ensures the state root matches.
+func CheckWitness(vw *primitives.VerificationWitness, oldStateRoot chainhash.Hash) bool {
 	preRoot, err := CalculateRoot(vw.Key, vw.Value, vw.WitnessBitfield, vw.Witnesses, vw.LastLevel)
 	if err != nil {
 		return false
@@ -282,13 +273,4 @@ func (vw *VerificationWitness) Check(oldStateRoot chainhash.Hash) bool {
 	}
 
 	return true
-}
-
-// VerificationWitness allows an executor to verify a specific node in the tree.
-type VerificationWitness struct {
-	Key             chainhash.Hash
-	Value           chainhash.Hash
-	WitnessBitfield chainhash.Hash
-	Witnesses       []chainhash.Hash
-	LastLevel       uint8
 }

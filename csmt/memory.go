@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 	"io"
 	"os"
 	"runtime/debug"
@@ -23,7 +24,7 @@ type InMemoryTreeDB struct {
 // NewInMemoryTreeDB creates a new in-memory tree database.
 func NewInMemoryTreeDB() *InMemoryTreeDB {
 	return &InMemoryTreeDB{
-		root:  EmptyTree,
+		root:  primitives.EmptyTree,
 		nodes: make(map[chainhash.Hash]Node),
 		store: make(map[chainhash.Hash]chainhash.Hash),
 

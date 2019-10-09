@@ -122,7 +122,7 @@ func (s *ShardMempool) GetTransactions(maxBytes int) ([][]byte, *chainhash.Hash,
 		}
 	}
 
-	endHash := csmt.EmptyTree
+	endHash := primitives.EmptyTree
 
 	err = packageTreeCache.View(func(tx csmt.TreeDatabaseTransaction) error {
 		rootNode, err := tx.Root()

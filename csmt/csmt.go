@@ -2,27 +2,10 @@ package csmt
 
 import (
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
 )
 
-
-func combineHashes(left *chainhash.Hash, right *chainhash.Hash) chainhash.Hash {
-	return chainhash.HashH(append(left[:], right[:]...))
-}
-
 var emptyHash = chainhash.Hash{}
-var emptyTrees [256]chainhash.Hash
-
-// EmptyTree is the hash of an empty tree.
-var EmptyTree = chainhash.Hash{}
-
-func init() {
-	emptyTrees[0] = emptyHash
-	for i := range emptyTrees[1:] {
-		emptyTrees[i+1] = combineHashes(&emptyTrees[i], &emptyTrees[i])
-	}
-
-	EmptyTree = emptyTrees[255]
-}
 
 // isRight checks if the key is in the left or right subtree at a certain level. Level 255 is the root level.
 func isRight(key chainhash.Hash, level uint8) bool {
@@ -39,9 +22,9 @@ func calculateSubtreeHashWithOneLeaf(key *chainhash.Hash, value *chainhash.Hash,
 
 		// the key is in the right subtree
 		if right {
-			h = combineHashes(&emptyTrees[i], &h)
+			h = primitives.CombineHashes(&primitives.EmptyTrees[i], &h)
 		} else {
-			h = combineHashes(&h, &emptyTrees[i])
+			h = primitives.CombineHashes(&h, &primitives.EmptyTrees[i])
 		}
 	}
 
@@ -147,17 +130,17 @@ func insertIntoTree(t TreeDatabaseTransaction, root *Node, key chainhash.Hash, v
 		newLeftBranch = leftBranchInserted
 	}
 
-	lv := emptyTrees[level-1]
+	lv := primitives.EmptyTrees[level-1]
 	if newLeftBranch != nil && !newLeftBranch.Empty() {
 		lv = newLeftBranch.GetHash()
 	}
 
-	rv := emptyTrees[level-1]
+	rv := primitives.EmptyTrees[level-1]
 	if newRightBranch != nil && !newRightBranch.Empty() {
 		rv = newRightBranch.GetHash()
 	}
 
-	newHash := combineHashes(&lv, &rv)
+	newHash := primitives.CombineHashes(&lv, &rv)
 
 	return t.NewNode(newLeftBranch, newRightBranch, newHash)
 }

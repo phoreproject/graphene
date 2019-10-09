@@ -10,8 +10,8 @@ import (
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/relayer/mempool"
+	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
@@ -101,7 +101,7 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 		return err
 	}
 
-	newStateRoot := &csmt.EmptyTree
+	newStateRoot := &primitives.EmptyTree
 
 	tree := csmt.NewTree(databaseCache)
 	err = tree.Update(func(treeTx csmt.TreeTransaction) error {

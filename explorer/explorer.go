@@ -185,17 +185,19 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	var epochCount int
 
-	epochStart := state.Slot - (state.Slot % ex.config.appConfig.NetworkConfig.EpochLength)
+	epochLength := ex.config.appConfig.NetworkConfig.EpochLength
+	//epochStart := state.Slot - (state.Slot % epochLength)
+	epochStart := state.EpochIndex * epochLength
 
 	ex.database.database.Model(&Epoch{}).Where(&Epoch{StartSlot: epochStart}).Count(&epochCount)
 
 	if epochCount == 0 {
 		var assignments []Assignment
 
-		for i := epochStart; i < epochStart+ex.config.appConfig.NetworkConfig.EpochLength; i++ {
+		for i := epochStart; i < epochStart+epochLength; i++ {
 			assignmentForSlot, err := state.GetShardCommitteesAtSlot(i, ex.config.appConfig.NetworkConfig)
 			if err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf("%v epochStart=%d", err, epochStart)
 				continue
 			}
 
@@ -231,7 +233,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		logger.Errorf("%v", err)
 	}
 
-	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber, ex.app.GetBlockchain().GetConfig())
+	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, ex.config.appConfig.NetworkConfig)
 	if err != nil {
 		logger.Errorf("%v", err)
 	}
@@ -297,6 +299,8 @@ func (ex *Explorer) exit() {
 
 // StartExplorer starts the block explorer
 func (ex *Explorer) StartExplorer() error {
+	logger.Info("StartExplorer 1")
+
 	signalHandler := make(chan os.Signal, 1)
 	signal.Notify(signalHandler, os.Interrupt, syscall.SIGTERM)
 

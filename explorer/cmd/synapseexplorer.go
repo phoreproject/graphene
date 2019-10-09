@@ -6,7 +6,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/phoreproject/synapse/explorer"
 
-	"github.com/sirupsen/logrus"
+	logger "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 	if changed {
-		logrus.Infof("changed ulimit to: %d", newLimit)
+		logger.Infof("changed ulimit to: %d", newLimit)
 	}
 
 	ex, err := explorer.NewExplorer(config)

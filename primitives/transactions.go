@@ -99,7 +99,7 @@ func (uw *UpdateWitness) ToProto() *pb.UpdateWitness {
 }
 
 // Copy returns a copy of the update witness.
-func (uw *UpdateWitness) Copy() *UpdateWitness {
+func (uw *UpdateWitness) Copy() UpdateWitness {
 	newUw := *uw
 
 	newUw.Witnesses = make([]chainhash.Hash, len(uw.Witnesses))
@@ -107,7 +107,7 @@ func (uw *UpdateWitness) Copy() *UpdateWitness {
 		copy(newUw.Witnesses[i][:], uw.Witnesses[i][:])
 	}
 
-	return &newUw
+	return newUw
 }
 
 
@@ -175,7 +175,7 @@ func (vw *VerificationWitness) ToProto() *pb.VerificationWitness {
 }
 
 // Copy returns a copy of the update witness.
-func (vw *VerificationWitness) Copy() *VerificationWitness {
+func (vw *VerificationWitness) Copy() VerificationWitness {
 	newVw := *vw
 
 	newVw.Witnesses = make([]chainhash.Hash, len(vw.Witnesses))
@@ -183,5 +183,107 @@ func (vw *VerificationWitness) Copy() *VerificationWitness {
 		copy(newVw.Witnesses[i][:], vw.Witnesses[i][:])
 	}
 
-	return &newVw
+	return newVw
+}
+
+// TransactionPackage is a way to update the state root without having the entire state.
+type TransactionPackage struct {
+	StartRoot chainhash.Hash
+	EndRoot chainhash.Hash
+	Updates []UpdateWitness
+	Verifications []VerificationWitness
+	Transactions []ShardTransaction
+}
+
+// Copy copies the transaction package.
+func (tp *TransactionPackage) Copy() TransactionPackage {
+	newTp := *tp
+
+	newTp.Updates = make([]UpdateWitness, len(tp.Updates))
+	newTp.Verifications = make([]VerificationWitness, len(tp.Verifications))
+	newTp.Transactions = make([]ShardTransaction, len(tp.Transactions))
+
+	for i := range newTp.Updates {
+		newTp.Updates[i] = tp.Updates[i].Copy()
+	}
+
+	for i := range newTp.Verifications {
+		newTp.Verifications[i] = tp.Verifications[i].Copy()
+	}
+
+	for i := range newTp.Transactions {
+		newTp.Transactions[i] = tp.Transactions[i].Copy()
+	}
+
+	return newTp
+}
+
+// ToProto converts a transaction package into the protobuf representation.
+func (tp *TransactionPackage) ToProto() *pb.TransactionPackage {
+	out := &pb.TransactionPackage{
+		StartRoot: tp.StartRoot[:],
+		EndRoot: tp.EndRoot[:],
+		UpdateWitnesses: make([]*pb.UpdateWitness, len(tp.Updates)),
+		VerificationWitnesses: make([]*pb.VerificationWitness, len(tp.Verifications)),
+		Transactions: make([]*pb.ShardTransaction, len(tp.Transactions)),
+	}
+
+	for i := range out.UpdateWitnesses {
+		out.UpdateWitnesses[i] = tp.Updates[i].ToProto()
+	}
+
+	for i := range out.VerificationWitnesses {
+		out.VerificationWitnesses[i] = tp.Verifications[i].ToProto()
+	}
+
+	for i := range out.Transactions {
+		out.Transactions[i] = tp.Transactions[i].ToProto()
+	}
+
+	return out
+}
+
+// TransactionPackageFromProto converts a protobuf representation of a transaction package to normal form.
+func TransactionPackageFromProto(tp *pb.TransactionPackage) (*TransactionPackage, error) {
+	outTp := &TransactionPackage{
+		Updates: make([]UpdateWitness, len(tp.UpdateWitnesses)),
+		Verifications: make([]VerificationWitness, len(tp.VerificationWitnesses)),
+		Transactions: make([]ShardTransaction, len(tp.Transactions)),
+	}
+
+	err := outTp.StartRoot.SetBytes(tp.StartRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = outTp.EndRoot.SetBytes(tp.EndRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range outTp.Updates {
+		u, err := UpdateWitnessFromProto(tp.UpdateWitnesses[i])
+		if err != nil {
+			return nil, err
+		}
+		outTp.Updates[i] = *u
+	}
+
+	for i := range outTp.Verifications {
+		v, err := VerificationWitnessFromProto(tp.VerificationWitnesses[i])
+		if err != nil {
+			return nil, err
+		}
+		outTp.Verifications[i] = *v
+	}
+
+	for i := range outTp.Transactions {
+		t, err := ShardTransactionFromProto(tp.Transactions[i])
+		if err != nil {
+			return nil, err
+		}
+		outTp.Transactions[i] = *t
+	}
+
+	return outTp, nil
 }

@@ -127,3 +127,94 @@ func TestVerificationWitness_ToFromProto(t *testing.T) {
 		t.Fatal(diff)
 	}
 }
+
+func TestTransactionPackage_Copy(t *testing.T) {
+	baseTransactionPackage := &primitives.TransactionPackage{
+		StartRoot:     chainhash.Hash{},
+		EndRoot:       chainhash.Hash{},
+		Updates:       []primitives.UpdateWitness{
+			{
+				Key:             chainhash.Hash{},
+				OldValue:        chainhash.Hash{},
+				NewValue:        chainhash.Hash{},
+				WitnessBitfield: chainhash.Hash{},
+				LastLevel:       0,
+				Witnesses:       nil,
+			},
+		},
+		Verifications: []primitives.VerificationWitness{
+			{
+				Key:             chainhash.Hash{},
+				Value:        chainhash.Hash{},
+				WitnessBitfield: chainhash.Hash{},
+				LastLevel:       0,
+				Witnesses:       nil,
+			},
+		},
+		Transactions:  []primitives.ShardTransaction{
+			{[]byte{0}},
+		},
+	}
+
+	copyTransactionPackage := baseTransactionPackage.Copy()
+
+	copyTransactionPackage.StartRoot[0] = 1
+	if baseTransactionPackage.StartRoot[0] == 1 {
+		t.Fatal("mutating StartRoot mutates base")
+	}
+	copyTransactionPackage.EndRoot[0] = 1
+	if baseTransactionPackage.EndRoot[0] == 1 {
+		t.Fatal("mutating EndRoot mutates base")
+	}
+	copyTransactionPackage.Updates[0].Key[0] = 1
+	if baseTransactionPackage.Updates[0].Key[0] == 1 {
+		t.Fatal("mutating Updates mutates base")
+	}
+	copyTransactionPackage.Verifications[0].Key[0] = 1
+	if baseTransactionPackage.Verifications[0].Key[0] == 1 {
+		t.Fatal("mutating Verifications mutates base")
+	}
+	copyTransactionPackage.Transactions[0].TransactionData[0] = 1
+	if baseTransactionPackage.Transactions[0].TransactionData[0] == 1 {
+		t.Fatal("mutating Witnesses mutates base")
+	}
+}
+
+func TestTransactionPackage_ToFromProto(t *testing.T) {
+	baseTransactionPackage := &primitives.TransactionPackage{
+		StartRoot:     chainhash.Hash{1},
+		EndRoot:       chainhash.Hash{1},
+		Updates:       []primitives.UpdateWitness{
+			{
+				Key:             chainhash.Hash{1},
+				OldValue:        chainhash.Hash{},
+				NewValue:        chainhash.Hash{},
+				WitnessBitfield: chainhash.Hash{},
+				LastLevel:       0,
+				Witnesses: []chainhash.Hash{},
+			},
+		},
+		Verifications: []primitives.VerificationWitness{
+			{
+				Key:             chainhash.Hash{1},
+				Value:        chainhash.Hash{},
+				WitnessBitfield: chainhash.Hash{},
+				LastLevel:       0,
+				Witnesses: []chainhash.Hash{},
+			},
+		},
+		Transactions:  []primitives.ShardTransaction{
+			{[]byte{1}},
+		},
+	}
+
+	transactionPackageProto := baseTransactionPackage.ToProto()
+	fromProto, err := primitives.TransactionPackageFromProto(transactionPackageProto)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := deep.Equal(fromProto, baseTransactionPackage); diff != nil {
+		t.Fatal(diff)
+	}
+}

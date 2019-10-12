@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/phoreproject/synapse/shard/state"
+	"github.com/phoreproject/synapse/csmt"
 	"math/big"
 	"reflect"
 	"sync"
@@ -20,7 +20,7 @@ import (
 // Shard represents a single shard on the Phore blockchain.
 type Shard struct {
 	Module           *wasm.Module
-	Storage          state.AccessInterface
+	Storage          csmt.TreeTransactionAccess
 	VM               *exec.VM
 	ExportedFuncs    []int64
 	ExecutionContext ArgumentContext
@@ -146,7 +146,7 @@ func DecompressSignature(sig [65]byte) *secp256k1.Signature {
 var _ ShardInterface = &Shard{}
 
 // NewShard creates a new shard given some WASM code, exported funcs, and storage backend.
-func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess state.AccessInterface, shardNumber uint32) (*Shard, error) {
+func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess csmt.TreeTransactionAccess, shardNumber uint32) (*Shard, error) {
 	buf := bytes.NewBuffer(wasmCode)
 
 	s := &Shard{

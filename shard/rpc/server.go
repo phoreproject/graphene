@@ -124,19 +124,12 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		return nil, err
 	}
 
-	transactionsToInclude, newStateRoot, err := manager.Mempool.GetTransactions(-1)
+	txPackage, err := manager.Mempool.GetTransactions(-1)
 	if err != nil {
 		return nil, err
 	}
 
-	transactions := make([]primitives.ShardTransaction, len(transactionsToInclude))
-	for i := range transactionsToInclude {
-		transactions[i] = primitives.ShardTransaction{
-			TransactionData: transactionsToInclude[i],
-		}
-	}
-
-	transactionRoot, _ := ssz.HashTreeRoot(transactions)
+	transactionRoot, _ := ssz.HashTreeRoot(txPackage.Transactions)
 
 	// for now, block is empty, but we'll fill this in eventually
 	block := &primitives.ShardBlock{
@@ -144,12 +137,12 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 			PreviousBlockHash:   tipNode.BlockHash,
 			Slot:                req.Slot,
 			Signature:           [48]byte{},
-			StateRoot:           *newStateRoot,
+			StateRoot:           txPackage.EndRoot,
 			TransactionRoot:     transactionRoot,
 			FinalizedBeaconHash: *finalizedBeaconHash,
 		},
 		Body: primitives.ShardBlockBody{
-			Transactions: transactions,
+			Transactions: txPackage.Transactions,
 		},
 	}
 

@@ -14,8 +14,7 @@ func ch(s string) chainhash.Hash {
 func TestPartialStateGeneration(t *testing.T) {
 	treeDB := csmt.NewInMemoryTreeDB()
 	tree := csmt.NewTree(treeDB)
-	fs := state.NewFullShardState(tree)
-	ts, err := state.NewTrackingState(fs)
+	ts, err := state.NewTrackingState(tree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +22,7 @@ func TestPartialStateGeneration(t *testing.T) {
 	key := ch("test")
 	val := ch("test2")
 
-	err = ts.Update(func(a state.AccessInterface) error {
+	err = ts.Update(func(a csmt.TreeTransactionAccess) error {
 		err = a.Set(key, val)
 		if err != nil {
 			t.Fatal(err)

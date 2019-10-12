@@ -7,8 +7,6 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"io"
-	"os"
-	"runtime/debug"
 	"sync"
 )
 
@@ -19,6 +17,14 @@ type InMemoryTreeDB struct {
 	store map[chainhash.Hash]chainhash.Hash
 
 	updateLock *sync.RWMutex
+}
+
+// Hash gets the root hash of the tree.
+func (t *InMemoryTreeDB) Hash() (*chainhash.Hash, error) {
+	t.updateLock.RLock()
+	defer t.updateLock.RUnlock()
+
+	return &t.root, nil
 }
 
 // NewInMemoryTreeDB creates a new in-memory tree database.
@@ -100,13 +106,16 @@ type InMemoryTreeTX struct {
 	update bool
 }
 
+// Hash gets the hash of the tree transaction.
+func (i *InMemoryTreeTX) Hash() (*chainhash.Hash, error) {
+	return &i.root, nil
+}
+
 // GetNode gets a node from the tree database.
 func (i *InMemoryTreeTX) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	if n, found := i.nodes[nodeHash]; found {
 		return &n, nil
 	} else {
-		debug.PrintStack()
-		os.Exit(1)
 		return nil, fmt.Errorf("could not find node with hash %s", nodeHash)
 	}
 }

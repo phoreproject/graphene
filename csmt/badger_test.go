@@ -26,7 +26,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 
 	var treeRoot chainhash.Hash
 
-	err = underlyingTree.Update(func(tx TreeTransaction) error {
+	err = underlyingTree.Update(func(tx TreeTransactionAccess) error {
 		for i := 0; i < 200; i++ {
 			err := tx.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val%d", i)))
 			if err != nil {
@@ -55,7 +55,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 		}
 		cachedTree := NewTree(cachedTreeDB)
 
-		err = cachedTree.Update(func(tx TreeTransaction) error {
+		err = cachedTree.Update(func(tx TreeTransactionAccess) error {
 			for newVal := 198; newVal < 202; newVal++ {
 				err := tx.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val2%d", newVal)))
 				if err != nil {
@@ -72,7 +72,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 
 	var underlyingHash chainhash.Hash
 
-	err = underlyingTree.View(func(tx TreeTransaction) error {
+	err = underlyingTree.View(func(tx TreeTransactionAccess) error {
 		h, err := tx.Hash()
 		if err != nil {
 			return err
@@ -96,7 +96,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 	}
 	cachedTree := NewTree(cachedTreeDB)
 
-	err = cachedTree.Update(func(tx TreeTransaction) error {
+	err = cachedTree.Update(func(tx TreeTransactionAccess) error {
 		for i := 0; i < 100; i++ {
 			for newVal := 198; newVal < 202; newVal++ {
 				err := tx.Set(ch(fmt.Sprintf("key%d", i)), ch(fmt.Sprintf("val3%d", newVal)))
@@ -114,7 +114,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 
 	var cachedTreeHash chainhash.Hash
 
-	err = cachedTree.View(func(tx TreeTransaction) error {
+	err = cachedTree.View(func(tx TreeTransactionAccess) error {
 		h, err := tx.Hash()
 		if err != nil {
 			return err
@@ -132,7 +132,7 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = underlyingTree.View(func(tx TreeTransaction) error {
+	err = underlyingTree.View(func(tx TreeTransactionAccess) error {
 		h, err := tx.Hash()
 		if err != nil {
 			return err

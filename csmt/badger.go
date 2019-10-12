@@ -13,6 +13,24 @@ type BadgerTreeDB struct {
 	db *badger.DB
 }
 
+// Hash gets the hash of the root.
+func (b *BadgerTreeDB) Hash() (*chainhash.Hash, error) {
+	out := primitives.EmptyTree
+	err := b.View(func(transaction TreeDatabaseTransaction) error {
+		h, err := transaction.Hash()
+		if err != nil {
+			return err
+		}
+		out = *h
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 var treeDBPrefix = []byte("tree-")
 var treeKVPrefix = []byte("kv-")
 
@@ -70,7 +88,6 @@ func (b *BadgerTreeTransaction) NewSingleNode(key chainhash.Hash, value chainhas
 // GetNode gets a node from the database.
 func (b *BadgerTreeTransaction) GetNode(nodeHash chainhash.Hash) (*Node, error) {
 	nodeKey := getTreeKey(nodeHash[:])
-
 
 	nodeItem, err := b.tx.Get(nodeKey)
 	if err != nil {
@@ -153,6 +170,21 @@ func (b *BadgerTreeTransaction) Root() (*Node, error) {
 // BadgerTreeTransaction represents a badger transaction.
 type BadgerTreeTransaction struct{
 	tx *badger.Txn
+}
+
+// Hash gets the hash of the root.
+func (b *BadgerTreeTransaction) Hash() (*chainhash.Hash, error) {
+	i, err := b.tx.Get([]byte("root"))
+	if err != nil {
+		return &primitives.EmptyTree, nil
+	}
+
+	rootHash, err := i.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return chainhash.NewHash(rootHash)
 }
 
 // Update updates the database.

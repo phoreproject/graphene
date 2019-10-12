@@ -5,6 +5,7 @@ import (
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/execution"
+	"github.com/phoreproject/synapse/shard/state"
 	"sync"
 
 	logger "github.com/sirupsen/logrus"
@@ -42,7 +43,7 @@ func (s *ShardMempool) check(tx []byte) error {
 	}
 	tree := csmt.NewTree(treeCache)
 
-	return tree.Update(func(treeTx csmt.TreeTransaction) error {
+	return tree.Update(func(treeTx csmt.TreeTransactionAccess) error {
 		_, err := execution.Transition(treeTx, tx, s.shardInfo)
 		return err
 	})
@@ -75,23 +76,30 @@ func (s *ShardMempool) Add(tx []byte) error {
 }
 
 // GetTransactions gets transactions to include.
-func (s *ShardMempool) GetTransactions(maxBytes int) ([][]byte, *chainhash.Hash, error) {
-	transactionsToInclude := make([][]byte, 0)
+func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPackage, error) {
+	transactionsToInclude := make([]primitives.ShardTransaction, 0)
 	s.mempoolLock.RLock()
 	defer s.mempoolLock.RUnlock()
 
 	totalBytes := 0
 
+	startRoot, err := s.stateDB.Hash()
+	if err != nil {
+		return nil, err
+	}
+
 	packageTreeCache, err := csmt.NewTreeMemoryCache(s.stateDB)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
+	updates := make([]primitives.UpdateWitness, 0)
+	verifications := make([]primitives.VerificationWitness, 0)
 
 	// we have two layers of transactions here. The first layer, we want to rollback if something outright fails. This
 	// could happen when we can't access part of the state for one reason or another.
 	// The second layer we want to rollback if a transaction doesn't fit into the current execution state. For example,
 	// a previous transaction may invalidate the next transaction.
-
 	for _, tx := range s.mempoolOrder {
 		if totalBytes + len(tx.tx) > maxBytes && maxBytes != -1 {
 			continue
@@ -99,11 +107,16 @@ func (s *ShardMempool) GetTransactions(maxBytes int) ([][]byte, *chainhash.Hash,
 
 		transactionTreeCache, err := csmt.NewTreeMemoryCache(packageTreeCache)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		tree := csmt.NewTree(transactionTreeCache)
 
-		err = tree.Update(func(treeTx csmt.TreeTransaction) error {
+		trackingTree, err := state.NewTrackingState(tree)
+		if err != nil {
+			return nil, err
+		}
+
+		err = trackingTree.Update(func(treeTx csmt.TreeTransactionAccess) error {
 			// try to transition
 			_, err := execution.Transition(treeTx, tx.tx, s.shardInfo)
 			return err
@@ -114,12 +127,19 @@ func (s *ShardMempool) GetTransactions(maxBytes int) ([][]byte, *chainhash.Hash,
 
 		totalBytes += len(tx.tx)
 
-		transactionsToInclude = append(transactionsToInclude, tx.tx)
+		transactionsToInclude = append(transactionsToInclude, primitives.ShardTransaction{
+			TransactionData: tx.tx,
+		})
 
 		err = transactionTreeCache.Flush()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
+
+		_, txVerifications, txUpdates := trackingTree.GetWitnesses()
+
+		updates = append(updates, txUpdates...)
+		verifications = append(verifications, txVerifications...)
 	}
 
 	endHash := primitives.EmptyTree
@@ -135,10 +155,22 @@ func (s *ShardMempool) GetTransactions(maxBytes int) ([][]byte, *chainhash.Hash,
 		return nil
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return transactionsToInclude, &endHash, nil
+	if err := packageTreeCache.Flush(); err != nil {
+		return nil, err
+	}
+
+	txPackage := &primitives.TransactionPackage{
+		StartRoot:     *startRoot,
+		EndRoot:       endHash,
+		Updates:       updates,
+		Verifications: verifications,
+		Transactions:  transactionsToInclude,
+	}
+
+	return txPackage, nil
 }
 
 // RemoveTransactionsFromBlock removes transactions from the mempool that were included in a block.

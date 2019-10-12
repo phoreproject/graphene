@@ -22,7 +22,7 @@ func TestTree_RandomSet(t *testing.T) {
 		keys[i] = ch(fmt.Sprintf("%d", i))
 	}
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(tx TreeTransactionAccess) error {
 		for i := 0; i < 500; i++ {
 			err := tx.Set(keys[i], val)
 			if err != nil {
@@ -42,7 +42,7 @@ func TestTree_SetZero(t *testing.T) {
 
 	tree := NewTree(NewInMemoryTreeDB())
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(tx TreeTransactionAccess) error {
 		err := tx.Set(ch("1"), val)
 		if err != nil {
 			return err
@@ -90,7 +90,7 @@ func BenchmarkTree_Set(b *testing.B) {
 
 	b.ResetTimer()
 
-	err := t.Update(func(tx TreeTransaction) error {
+	err := t.Update(func(tx TreeTransactionAccess) error {
 		for i := 0; i < b.N; i++ {
 			err := tx.Set(keys[i], val)
 			if err != nil {
@@ -155,7 +155,7 @@ func TestRandomGenerateUpdateWitness(t *testing.T) {
 
 	var treehash *chainhash.Hash
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(tx TreeTransactionAccess) error {
 		for i := 0; i < 2; i++ {
 			err := tx.Set(keys[i], val)
 			if err != nil {
@@ -212,7 +212,7 @@ func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
 	}
 
 	var th *chainhash.Hash
-	err = tree.View(func(tx TreeTransaction) error {
+	err = tree.View(func(tx TreeTransactionAccess) error {
 		h, err := tx.Hash()
 		if err != nil {
 			t.Fatal(err)
@@ -230,7 +230,7 @@ func TestGenerateUpdateWitnessEmptyTree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = tree.Update(func(tx TreeTransaction) error {
+	err = tree.Update(func(tx TreeTransactionAccess) error {
 		err = tx.Set(ch("asdf"), ch("1"))
 		if err != nil {
 			return err
@@ -255,7 +255,7 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 	treeDB := NewInMemoryTreeDB()
 	tree := NewTree(treeDB)
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(tx TreeTransactionAccess) error {
 		err := tx.Set(ch("asdf"), ch("2"))
 		if err != nil {
 			return err
@@ -307,7 +307,7 @@ func TestGenerateUpdateWitnessUpdate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = tree.Update(func(tx TreeTransaction) error {
+		err = tree.Update(func(tx TreeTransactionAccess) error {
 			return tx.Set(ch("asdf"), ch(setVal))
 		})
 		if err != nil {
@@ -334,7 +334,7 @@ func BenchmarkGenerateUpdateWitness(b *testing.B) {
 		keys[i] = ch(fmt.Sprintf("%d", i))
 	}
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(tx TreeTransactionAccess) error {
 		for i := 0; i < b.N; i++ {
 			err := tx.Set(keys[i], val)
 			if err != nil {
@@ -374,7 +374,8 @@ func TestChainedUpdates(t *testing.T) {
 	}
 	witnesses := make([]*primitives.UpdateWitness, 0)
 
-	err = tree.Update(func(tx TreeTransaction) error {
+	err = tree.Update(func(txA TreeTransactionAccess) error {
+		tx := txA.(*TreeTransaction)
 		// start by generating a bunch of witnesses
 		for i := 0; i < 1000; i++ {
 			key := ch(fmt.Sprintf("key%d", i))
@@ -480,7 +481,9 @@ func TestChainedUpdates(t *testing.T) {
 func TestEmptyBranchWitness(t *testing.T) {
 	tree := NewTree(NewInMemoryTreeDB())
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(txA TreeTransactionAccess) error {
+		tx := txA.(*TreeTransaction)
+
 		preroot, err := tx.Hash()
 		if err != nil {
 			t.Fatal(err)
@@ -514,7 +517,9 @@ func TestCheckWitness(t *testing.T) {
 	tree := NewTree(NewInMemoryTreeDB())
 	//preroot := tree.Hash()
 
-	err := tree.Update(func(tx TreeTransaction) error {
+	err := tree.Update(func(txA TreeTransactionAccess) error {
+		tx := txA.(*TreeTransaction)
+
 		err := tx.Set(ch("test"), ch("asdf"))
 		if err != nil {
 			return err

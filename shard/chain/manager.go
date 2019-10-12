@@ -104,7 +104,7 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 	newStateRoot := &primitives.EmptyTree
 
 	tree := csmt.NewTree(databaseCache)
-	err = tree.Update(func(treeTx csmt.TreeTransaction) error {
+	err = tree.Update(func(treeTx csmt.TreeTransactionAccess) error {
 		for _, txBytes := range transactions {
 			sr, err := execution.Transition(treeTx, txBytes, sm.shardInfo)
 			if err != nil {

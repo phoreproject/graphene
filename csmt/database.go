@@ -10,12 +10,17 @@ type TreeDatabase interface {
 	Update(func (TreeDatabaseTransaction) error) error
 
 	View(func (TreeDatabaseTransaction) error) error
+
+	Hash() (*chainhash.Hash, error)
 }
 
 // TreeDatabaseTransaction is a transaction interface to access or update the tree.
 type TreeDatabaseTransaction interface {
 	// Root gets the root node.
 	Root() (*Node, error)
+
+	// Hash gets the hash of the root node.
+	Hash() (*chainhash.Hash, error)
 
 	// SetRoot sets the root node.
 	SetRoot(*Node) error
@@ -55,23 +60,23 @@ func NewTree(d TreeDatabase) Tree {
 }
 
 // Update creates a transaction for the tree.
-func (t *Tree) Update(cb func (TreeTransaction) error) error {
+func (t *Tree) Update(cb func (access TreeTransactionAccess) error) error {
 	return t.db.Update(func(tx TreeDatabaseTransaction) error {
-		return cb(TreeTransaction{tx, true})
+		return cb(&TreeTransaction{tx, true})
 	})
 }
 
 // View creates a view-only transaction for the tree.
-func (t *Tree) View(cb func (TreeTransaction) error) error {
+func (t *Tree) View(cb func (access TreeTransactionAccess) error) error {
 	return t.db.View(func(tx TreeDatabaseTransaction) error {
-		return cb(TreeTransaction{tx, false})
+		return cb(&TreeTransaction{tx, false})
 	})
 }
 
 // Hash gets the hash of the tree.
 func (t *Tree) Hash() (chainhash.Hash, error) {
 	out := primitives.EmptyTree
-	err := t.View(func(tx TreeTransaction) error {
+	err := t.View(func(tx TreeTransactionAccess) error {
 		h, err := tx.Hash()
 		if err != nil {
 			return err
@@ -163,4 +168,11 @@ func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, error) {
 	}
 
 	return h, err
+}
+
+// TreeTransactionAccess represents basic access to the state tree.
+type TreeTransactionAccess interface {
+	Hash() (*chainhash.Hash, error)
+	Set(key chainhash.Hash, value chainhash.Hash) error
+	Get(key chainhash.Hash) (*chainhash.Hash, error)
 }

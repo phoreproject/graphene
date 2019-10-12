@@ -18,6 +18,14 @@ type TreeMemoryCache struct {
 	lock *sync.RWMutex
 }
 
+// Hash gets the hash of the current tree.
+func (t *TreeMemoryCache) Hash() (*chainhash.Hash, error) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	return &t.root, nil
+}
+
 // NewTreeMemoryCache constructs a tree memory cache that can be committed based on an underlying tree (probably on disk).
 func NewTreeMemoryCache(underlyingDatabase TreeDatabase) (*TreeMemoryCache, error) {
 	var preRoot chainhash.Hash
@@ -185,6 +193,11 @@ type TreeMemoryCacheTransaction struct {
 	dirty map[chainhash.Hash]Node
 	dirtyKV map[chainhash.Hash]chainhash.Hash
 	update   bool
+}
+
+// Hash gets the root hash of the tree transaction cache.
+func (t *TreeMemoryCacheTransaction) Hash() (*chainhash.Hash, error) {
+	return &t.root, nil
 }
 
 // Root gets the current root of the transaction.

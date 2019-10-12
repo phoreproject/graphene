@@ -38,8 +38,8 @@ type ShardInfo struct {
 }
 
 // Transition runs a transaction.
-func Transition(state csmt.TreeTransaction, tx []byte, info ShardInfo) (*chainhash.Hash, error) {
-	shard, err := NewShard(info.CurrentCode, []int64{}, &state, info.ShardID)
+func Transition(state csmt.TreeTransactionAccess, tx []byte, info ShardInfo) (*chainhash.Hash, error) {
+	shard, err := NewShard(info.CurrentCode, []int64{}, state, info.ShardID)
 	if err != nil {
 		return nil, err
 	}

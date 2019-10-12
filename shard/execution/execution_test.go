@@ -110,8 +110,8 @@ func TestECDSAShard(t *testing.T) {
 
 	treeDB := csmt.NewInMemoryTreeDB()
 	tree := csmt.NewTree(treeDB)
-	err = tree.Update(func(a csmt.TreeTransaction) error {
-		s, err := NewShard(shardCode, []int64{2}, &a, 0)
+	err = tree.Update(func(a csmt.TreeTransactionAccess) error {
+		s, err := NewShard(shardCode, []int64{2}, a, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -198,8 +198,8 @@ func BenchmarkShardECDSA(b *testing.B) {
 	treeDB := csmt.NewInMemoryTreeDB()
 	tree := csmt.NewTree(treeDB)
 
-	err = tree.Update(func(tx csmt.TreeTransaction) error {
-		s, err := NewShard(shardCode, []int64{2}, &tx, 0)
+	err = tree.Update(func(tx csmt.TreeTransactionAccess) error {
+		s, err := NewShard(shardCode, []int64{2}, tx, 0)
 		if err != nil {
 			b.Fatal(err)
 		}

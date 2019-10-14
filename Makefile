@@ -44,8 +44,6 @@ unittest:
 src_depend: $(SRC)
 
 integrationtests: src_depend
-	go build -o integration$(EXE) integrationtests/cmd/integrationtests.go
-	./integration$(EXE)
 
 clean:
 	go clean

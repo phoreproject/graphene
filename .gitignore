@@ -1,5 +1,7 @@
 *.prof
 *.test
+*.pyc
+**/__pycache__
 dist
 
 # binaries

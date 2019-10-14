@@ -317,7 +317,7 @@ func doAttestationsIntersect(participationBitfield []byte, att *primitives.Attes
 }
 
 // GetMempoolDifference gets the difference between our mempool and a peer's
-func (am *attestationMempool) GetMempoolDifference(message *pb.GetMempoolMessage) ([]primitives.Attestation, error) {
+func (am *attestationMempool) GetMempoolDifference(message *pb.GetAttestationMempoolMessage) ([]primitives.Attestation, error) {
 	difference := make([]primitives.Attestation, 0)
 
 	am.attestationsLock.RLock()
@@ -362,11 +362,11 @@ func (am *attestationMempool) GetMempoolDifference(message *pb.GetMempoolMessage
 }
 
 // GetMempoolSummary gets a summary of the mempool so we can sync it with other peers.
-func (am *attestationMempool) GetMempoolSummary() *pb.GetMempoolMessage {
+func (am *attestationMempool) GetMempoolSummary() pb.GetAttestationMempoolMessage {
 	am.attestationsLock.RLock()
 	defer am.attestationsLock.RUnlock()
 
-	summary := &pb.GetMempoolMessage{
+	summary := pb.GetAttestationMempoolMessage{
 		Attestations: make([]*pb.AttestationMempoolItem, len(am.attestations)),
 	}
 

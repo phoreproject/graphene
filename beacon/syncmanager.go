@@ -1,6 +1,8 @@
 package beacon
 
 import (
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/prysmaticlabs/go-ssz"
 
@@ -10,7 +12,7 @@ import (
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	logger "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // SyncManager is responsible for requesting blocks from clients
@@ -30,34 +32,38 @@ type SyncManager struct {
 	blockchain      *Blockchain
 	mempool         *Mempool
 	postProcessHook func(*primitives.Block, *primitives.State, []primitives.Receipt)
+
+	protocol *p2p.ProtocolHandler
 }
 
 // NewSyncManager creates a new sync manager
-func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain, mempool *Mempool) SyncManager {
-	return SyncManager{
+func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain, mempool *Mempool) (*SyncManager, error) {
+	sm := &SyncManager{
 		hostNode:    hostNode,
 		syncStarted: false,
 		blockchain:  blockchain,
 		mempool:     mempool,
 	}
+
+	ph, err := sm.registerHandlers()
+	if err != nil {
+		return nil, err
+	}
+
+	sm.protocol = ph
+
+	return sm, nil
 }
 
 // Connected returns whether the client should be considered connected to the
 // network.
 func (s SyncManager) Connected() bool {
-	peers := s.hostNode.GetPeerList()
-
-	for _, p := range peers {
-		if p.IsConnected() {
-			return true
-		}
-	}
-	return false
+	return s.hostNode.IsConnected()
 }
 
 const limitBlocksToSend = 500
 
-func (s SyncManager) onMessageGetBlock(peer *p2p.Peer, message proto.Message) error {
+func (s SyncManager) onMessageGetBlock(peer peer.ID, message proto.Message) error {
 	//getBlockMesssage := message.(*pb.GetBlockMessage)
 	//
 	//stopHash, err := chainhash.NewHash(getBlockMesssage.HashStop)
@@ -154,7 +160,7 @@ func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config,
 	currentEpochChunk := make([]*primitives.Block, 0)
 	currentEpoch := (firstBlock.BlockHeader.SlotNumber + c.EpochLength - 1) / c.EpochLength
 
-	logger.WithFields(logger.Fields{
+	logrus.WithFields(logrus.Fields{
 		"firstBlock": blocks[0].BlockHeader.SlotNumber,
 		"lastBlock":  blocks[len(blocks)-1].BlockHeader.SlotNumber,
 	}).Info("received blocks from peer")
@@ -198,7 +204,7 @@ func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config,
 	return epochBlockChunks, nil
 }
 
-func (s SyncManager) onMessageBlock(peer *p2p.Peer, message proto.Message) error {
+func (s SyncManager) onMessageBlock(peer *peer.ID, message proto.Message) error {
 	// TODO: limits for this and only should receive blocks if requested
 
 	//blockMessage := message.(*pb.BlockMessage)
@@ -426,31 +432,29 @@ func (s *SyncManager) RegisterPostProcessHook(hook func(*primitives.Block, *prim
 	s.postProcessHook = hook
 }
 
-func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.Peer, verifySignature bool) error {
+func (s *SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom peer.ID, verifySignature bool) error {
 	blockHash, err := ssz.HashTreeRoot(block)
 	if err != nil {
 		return err
 	}
 
 	if s.blockchain.View.Index.GetBlockNodeByHash(block.BlockHeader.ParentRoot) == nil {
-		// if we haven't handshaked with them, give up
-		if peerFrom == nil {
-			return nil
-		}
-
-		logger.WithFields(logger.Fields{
+		logrus.WithFields(logrus.Fields{
 			"hash":       chainhash.Hash(block.BlockHeader.ParentRoot),
 			"slotTrying": block.BlockHeader.SlotNumber,
 		}).Info("requesting parent block")
 
 		// request all blocks up to this block
-		peerFrom.SendMessage(&pb.GetBlockMessage{
+		err := s.protocol.SendMessage(peerFrom, &pb.GetBlocksMessage{
 			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
 			HashStop:      blockHash[:],
 		})
+		if err != nil {
+			return err
+		}
 
 	} else {
-		logger.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
+		logrus.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
 		receipts, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
@@ -468,34 +472,23 @@ func (s SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom *p2p.
 // being broadcast as a result of finding them.
 func (s SyncManager) ListenForBlocks() error {
 	_, err := s.hostNode.SubscribeMessage("block", func(data []byte, from peer.ID) {
-		peerFrom := s.hostNode.GetPeerByID(from)
-
-		if peerFrom == nil {
-			return
-		}
-
 		blockProto := new(pb.Block)
 
 		err := proto.Unmarshal(data, blockProto)
 		if err != nil {
-			logger.Error(err)
+			logrus.Error(err)
 			return
 		}
 
 		block, err := primitives.BlockFromProto(blockProto)
 		if err != nil {
-			logger.Error(err)
+			logrus.Error(err)
 			return
 		}
 
-		// if we're still syncing, ignore
-		if peerFrom.ProcessingRequest {
-			return
-		}
-
-		err = s.handleReceivedBlock(block, peerFrom, true)
+		err = s.handleReceivedBlock(block, from, true)
 		if err != nil {
-			logger.Error(err)
+			logrus.Error(err)
 			return
 		}
 	})
@@ -509,30 +502,24 @@ func (s SyncManager) ListenForBlocks() error {
 // ListenForAttestations listens for new attestations over the pub-sub network.
 func (s SyncManager) ListenForAttestations() error {
 	_, err := s.hostNode.SubscribeMessage("attestation", func(data []byte, from peer.ID) {
-		peerFrom := s.hostNode.GetPeerByID(from)
-
-		if peerFrom == nil {
-			return
-		}
-
 		attestationProto := new(pb.Attestation)
 
 		err := proto.Unmarshal(data, attestationProto)
 		if err != nil {
-			logger.Error(err)
+			logrus.Error(err)
 			return
 		}
 
 		attestation, err := primitives.AttestationFromProto(attestationProto)
 		if err != nil {
-			logger.Error(err)
+			logrus.Error(err)
 			return
 		}
 
 		if s.mempool != nil {
 			err = s.mempool.ProcessNewAttestation(*attestation)
 			if err != nil {
-				logger.Error(err)
+				logrus.Error(err)
 				return
 			}
 		}
@@ -544,15 +531,40 @@ func (s SyncManager) ListenForAttestations() error {
 	return nil
 }
 
-// Start starts the sync manager by registering message handlers
-func (s SyncManager) Start() {
-	s.hostNode.RegisterMessageHandler("pb.GetBlockMessage", s.onMessageGetBlock)
+const beaconSyncProtocol = protocol.ID("/phore/beacon/sync/1.0.0")
 
-	s.hostNode.RegisterMessageHandler("pb.BlockMessage", s.onMessageBlock)
+// TODO: these should be configurable
+const maxSyncPeers = 16
+const minSyncPeers = 8
 
-	s.hostNode.RegisterMessageHandler("pb.MempoolMessage", s.onMessageMempool)
+// registerHandlers registers handlers with the host node.
+func (s SyncManager) registerHandlers() (*p2p.ProtocolHandler, error) {
+	handler, err := s.hostNode.RegisterProtocolHandler(beaconSyncProtocol, maxSyncPeers, minSyncPeers)
+	if err != nil {
+		return nil, err
+	}
 
-	s.hostNode.RegisterMessageHandler("pb.GetMempoolMessage", s.onMessageGetMempool)
+	err = handler.RegisterHandler("pb.GetBlockMessage", s.onMessageGetBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handler.RegisterHandler("pb.BlockMessage", s.onMessageGetBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handler.RegisterHandler("pb.MempoolMessage", s.onMessageMempool)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handler.RegisterHandler("pb.GetMempoolMessage", s.onMessageGetMempool)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
 }
 
 // TryInitialSync tries to select a peer to sync with and
@@ -567,51 +579,59 @@ func (s SyncManager) TryInitialSync() {
 		s.syncStarted = true
 
 		bestPeer := peers[0]
+		bestPeerOutbound := s.hostNode.GetPeerDirection(peers[0]) == network.DirOutbound
 
 		for _, p := range peers[1:] {
-			if p.Outbound && !bestPeer.Outbound {
+			outbound := s.hostNode.GetPeerDirection(p) == network.DirOutbound
+
+			if outbound && !bestPeerOutbound {
 				bestPeer = p
+				bestPeerOutbound = outbound
 			}
 		}
 
-		getBlockMessage := &pb.GetBlockMessage{
+		getBlockMessage := &pb.GetBlocksMessage{
 			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
 			HashStop:      zeroHash[:],
 		}
 
-		bestPeer.SendMessage(getBlockMessage)
+		err := s.protocol.SendMessage(bestPeer, getBlockMessage)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
 
 		if s.mempool != nil {
 			attestationsMessage := s.mempool.AttestationMempool.GetMempoolSummary()
 
-			bestPeer.SendMessage(attestationsMessage)
+			err = s.protocol.SendMessage(bestPeer, &attestationsMessage)
 		}
 	}
 }
 
-func (s SyncManager) onMessageMempool(peer *p2p.Peer, message proto.Message) error {
-	//if s.mempool == nil {
-	//	return nil
-	//}
-	//
-	//mempoolMessage := message.(*pb.MempoolMessage)
+func (s SyncManager) onMessageMempool(peer peer.ID, message proto.Message) error {
+	if s.mempool == nil {
+		return nil
+	}
 
-	//for _, attProto := range mempoolMessage.Attestations {
-	//	a, err := primitives.AttestationFromProto(attProto)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	err = s.mempool.ProcessNewAttestation(*a)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
+	mempoolMessage := message.(*pb.AttestationMempoolMessage)
+
+	for _, attProto := range mempoolMessage.Attestations {
+		a, err := primitives.AttestationFromProto(attProto)
+		if err != nil {
+			return err
+		}
+
+		err = s.mempool.ProcessNewAttestation(*a)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-func (s SyncManager) onMessageGetMempool(peer *p2p.Peer, message proto.Message) error {
+func (s SyncManager) onMessageGetMempool(peer peer.ID, message proto.Message) error {
 	//if s.mempool == nil {
 	//	return nil
 	//}

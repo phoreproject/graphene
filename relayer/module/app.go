@@ -3,6 +3,8 @@ package module
 import (
 	manet "github.com/multiformats/go-multiaddr-net"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/relayer/mempool"
 
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/relayer/config"
@@ -12,6 +14,8 @@ import (
 type RelayerModule struct {
 	Options config.Options
 	RPCServer pb.RelayerRPCServer
+	mempool *mempool.ShardMempool
+	hostnode p2p.HostNode
 }
 
 // NewRelayerModule creates a new relayer module.

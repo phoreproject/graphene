@@ -17,6 +17,7 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/hsanjuan/go-libp2p-http v0.0.2 // indirect
 	github.com/ipfs/dir-index-html v1.0.3 // indirect
+	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-ipfs v0.4.22-0.20190911184350-a8fbd066d744 // indirect
 	github.com/ipfs/hang-fds v0.0.1 // indirect
 	github.com/ipfs/iptb-plugins v0.0.2 // indirect

@@ -81,7 +81,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 
 	c.DiscoveryOptions = p2p.NewDiscoveryOptions()
 
-	c.DiscoveryOptions.PeerAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
+	c.DiscoveryOptions.BootstrapAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
 
 	networkConfig, found := config.NetworkIDs[chainConfig.NetworkID]
 	if !found {
@@ -89,7 +89,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 	}
 	c.NetworkConfig = &networkConfig
 
-	for i := range c.DiscoveryOptions.PeerAddresses {
+	for i := range c.DiscoveryOptions.BootstrapAddresses {
 		a, err := multiaddr.NewMultiaddr(chainConfig.BootstrapPeers[i])
 		if err != nil {
 			return nil, err
@@ -98,7 +98,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.DiscoveryOptions.PeerAddresses[i] = *peerInfo
+		c.DiscoveryOptions.BootstrapAddresses[i] = *peerInfo
 	}
 
 	return &c, nil

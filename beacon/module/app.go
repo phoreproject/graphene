@@ -1,6 +1,7 @@
 package module
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ type Config struct {
 	// These options are filled in through the chain file.
 	GenesisTime          uint64
 	InitialValidatorList []primitives.InitialValidatorEntry
-	DiscoveryOptions     p2p.DiscoveryOptions
+	DiscoveryOptions     p2p.ConnectionManagerOptions
 	LogLevel             logger.Level
 }
 
@@ -81,7 +82,7 @@ type BeaconApp struct {
 
 	// P2P
 	hostNode    *p2p.HostNode
-	syncManager beacon.SyncManager
+	syncManager *beacon.SyncManager
 }
 
 // NewBeaconApp creates a new instance of BeaconApp
@@ -108,7 +109,7 @@ func NewBeaconApp(options config.Options) (*BeaconApp, error) {
 
 	beaconConfig.ListeningAddress = options.P2PListen
 	beaconConfig.RPCAddress = options.RPCListen
-	beaconConfig.DiscoveryOptions.PeerAddresses = append(beaconConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
+	beaconConfig.DiscoveryOptions.BootstrapAddresses = append(beaconConfig.DiscoveryOptions.BootstrapAddresses, initialPeers...)
 	beaconConfig.DataDirectory = options.DataDir
 
 	beaconConfig.Resync = options.Resync
@@ -181,7 +182,12 @@ func NewBeaconApp(options config.Options) (*BeaconApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	app.syncManager = beacon.NewSyncManager(app.hostNode, app.blockchain, app.mempool)
+	sm, err := beacon.NewSyncManager(app.hostNode, app.blockchain, app.mempool)
+	if err != nil {
+		return nil, err
+	}
+
+	app.syncManager = sm
 
 	// locked while running
 	app.exited.Lock()
@@ -190,8 +196,6 @@ func NewBeaconApp(options config.Options) (*BeaconApp, error) {
 
 // Run runs the main loop of BeaconApp
 func (app *BeaconApp) Run() error {
-	app.syncManager.Start()
-
 	return app.runMainLoop()
 }
 
@@ -226,24 +230,26 @@ func (app *BeaconApp) loadP2P() error {
 		panic(err)
 	}
 
-	priv, pub, err := app.getHostKey()
+	priv, _, err := app.getHostKey()
 	if err != nil {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, app.config.DiscoveryOptions, app.config.TimeOutInterval, app.config.MaxPeers, app.config.HeartBeatInterval, app.blockchain)
+	hostNode, err := p2p.NewHostNode(context.Background(), p2p.HostNodeOptions{
+		ListenAddresses:    []ma.Multiaddr{
+			addr,
+		},
+		PrivateKey:         priv,
+		ConnManagerOptions: p2p.ConnectionManagerOptions{
+			BootstrapAddresses: app.config.DiscoveryOptions.BootstrapAddresses,
+			MDNS:               p2p.MDNSOptions{},
+		},
+		Timeout:            0,
+	})
 	if err != nil {
 		panic(err)
 	}
 	app.hostNode = hostNode
-
-	logger.Debug("starting peer discovery")
-	go func() {
-		err := app.hostNode.StartDiscovery()
-		if err != nil {
-			logger.Errorf("error discovering peers: %s", err)
-		}
-	}()
 
 	return nil
 }
@@ -414,7 +420,10 @@ func (app BeaconApp) exit() {
 	}
 
 	for _, p := range app.hostNode.GetPeerList() {
-		p.Disconnect()
+		err := app.hostNode.DisconnectPeer(p)
+		if err != nil {
+			logger.Error(err)
+		}
 	}
 
 	app.exited.Unlock()

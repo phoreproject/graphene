@@ -186,22 +186,22 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess csmt.TreeTra
 				{
 					Sig:  &m.Types.Entries[0],
 					Host: reflect.ValueOf(s.Load),
-					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from host.)
 				},
 				{
 					Sig:  &m.Types.Entries[0],
 					Host: reflect.ValueOf(s.Store),
-					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from host.)
 				},
 				{
 					Sig:  &m.Types.Entries[1],
 					Host: reflect.ValueOf(s.ValidateECDSA),
-					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from host.)
 				},
 				{
 					Sig:  &m.Types.Entries[2],
 					Host: reflect.ValueOf(s.Hash),
-					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from Host.)
+					Body: &wasm.FunctionBody{}, // create a dummy wasm body (the actual value will be taken from host.)
 				},
 				{
 					Sig:  &m.Types.Entries[2],

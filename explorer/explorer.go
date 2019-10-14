@@ -1,6 +1,7 @@
 package explorer
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"io"
@@ -23,7 +24,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/p2p"
 
-	logger "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/labstack/echo"
 )
@@ -74,13 +75,13 @@ func (ex *Explorer) loadDatabase() error {
 		panic(err)
 	}
 
-	logger.Info("initializing client")
+	logrus.Info("initializing client")
 
-	logger.Info("initializing database")
+	logrus.Info("initializing database")
 	database := db.NewBadgerDB(dir)
 
 	if ex.config.Resync {
-		logger.Info("dropping all keys in database to resync")
+		logrus.Info("dropping all keys in database to resync")
 		err := database.Flush()
 		if err != nil {
 			return err
@@ -93,28 +94,35 @@ func (ex *Explorer) loadDatabase() error {
 }
 
 func (ex *Explorer) loadP2P() error {
-	logger.Info("loading P2P")
+	logrus.Info("loading P2P")
 	addr, err := ma.NewMultiaddr(ex.config.ListeningAddress)
 	if err != nil {
 		panic(err)
 	}
 
-	priv, pub, err := crypto.GenerateEd25519Key(rand.Reader)
+	priv, _, err := crypto.GenerateEd25519Key(rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	hostNode, err := p2p.NewHostNode(addr, pub, priv, ex.config.DiscoveryOptions, 16*time.Second, 16, 8*time.Second, ex.blockchain)
+	hostNode, err := p2p.NewHostNode(context.Background(), p2p.HostNodeOptions{
+		ListenAddresses: []ma.Multiaddr{
+			addr,
+		},
+		PrivateKey:      priv,
+		ConnManagerOptions: p2p.ConnectionManagerOptions{
+			BootstrapAddresses: ex.config.DiscoveryOptions.BootstrapAddresses,
+			MDNS: p2p.MDNSOptions{
+				Enabled:  false,
+				Interval: 0,
+			},
+		},
+		Timeout: 0,
+	})
 	if err != nil {
 		panic(err)
 	}
 	ex.hostNode = hostNode
-
-	logger.Debug("starting peer discovery")
-	err = ex.hostNode.StartDiscovery()
-	if err != nil {
-		panic(err)
-	}
 
 	return nil
 }
@@ -122,10 +130,10 @@ func (ex *Explorer) loadP2P() error {
 func (ex *Explorer) loadBlockchain() error {
 	var genesisTime uint64
 	if t, err := ex.chainDB.GetGenesisTime(); err == nil {
-		logger.WithField("genesisTime", t).Info("using time from database")
+		logrus.WithField("genesisTime", t).Info("using time from database")
 		genesisTime = t
 	} else {
-		logger.WithField("genesisTime", ex.config.GenesisTime).Info("using time from config")
+		logrus.WithField("genesisTime", ex.config.GenesisTime).Info("using time from config")
 		err := ex.chainDB.SetGenesisTime(ex.config.GenesisTime)
 		if err != nil {
 			return err
@@ -338,7 +346,10 @@ func (ex *Explorer) exit() {
 	}
 
 	for _, p := range ex.hostNode.GetPeerList() {
-		p.Disconnect()
+		err := ex.hostNode.DisconnectPeer(p)
+		if err != nil {
+			logrus.Error(err)
+		}
 	}
 
 	os.Exit(0)
@@ -370,11 +381,13 @@ func (ex *Explorer) StartExplorer() error {
 		return err
 	}
 
-	ex.syncManager = beacon.NewSyncManager(ex.hostNode, ex.blockchain, nil)
+	sm, err := beacon.NewSyncManager(ex.hostNode, ex.blockchain, nil)
+	if err != nil {
+		return err
+	}
+	ex.syncManager = *sm
 
 	ex.syncManager.RegisterPostProcessHook(ex.postProcessHook)
-
-	ex.syncManager.Start()
 
 	ex.WaitForConnections(1)
 
@@ -383,7 +396,7 @@ func (ex *Explorer) StartExplorer() error {
 	go func() {
 		err := ex.syncManager.ListenForBlocks()
 		if err != nil {
-			logger.Errorf("error listening for blocks: %s", err)
+			logrus.Errorf("error listening for blocks: %s", err)
 		}
 	}()
 

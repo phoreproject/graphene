@@ -24,7 +24,7 @@ type Config struct {
 	NetworkConfig        *config.Config
 	Resync               bool
 	ListeningAddress     string
-	DiscoveryOptions     p2p.DiscoveryOptions
+	DiscoveryOptions     p2p.ConnectionManagerOptions
 }
 
 // GenerateConfigFromChainConfig generates a new config from the passed in network config
@@ -72,7 +72,7 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 
 	c.DiscoveryOptions = p2p.NewDiscoveryOptions()
 
-	c.DiscoveryOptions.PeerAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
+	c.DiscoveryOptions.BootstrapAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
 
 	networkConfig, found := config.NetworkIDs[chainConfig.NetworkID]
 	if !found {
@@ -80,7 +80,7 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 	}
 	c.NetworkConfig = &networkConfig
 
-	for i := range c.DiscoveryOptions.PeerAddresses {
+	for i := range c.DiscoveryOptions.BootstrapAddresses {
 		a, err := multiaddr.NewMultiaddr(chainConfig.BootstrapPeers[i])
 		if err != nil {
 			return nil, err
@@ -89,7 +89,7 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 		if err != nil {
 			return nil, err
 		}
-		c.DiscoveryOptions.PeerAddresses[i] = *peerInfo
+		c.DiscoveryOptions.BootstrapAddresses[i] = *peerInfo
 	}
 
 	return &c, nil

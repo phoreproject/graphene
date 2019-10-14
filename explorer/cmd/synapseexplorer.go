@@ -69,7 +69,7 @@ func main() {
 		panic(err)
 	}
 
-	explorerConfig.DiscoveryOptions.PeerAddresses = append(explorerConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
+	explorerConfig.DiscoveryOptions.BootstrapAddresses = append(explorerConfig.DiscoveryOptions.BootstrapAddresses, initialPeers...)
 
 	explorerConfig.DataDirectory = *datadir
 	explorerConfig.Resync = *resync

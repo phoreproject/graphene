@@ -3,10 +3,11 @@ package cfg
 import (
 	"flag"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"reflect"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 type argInfo struct {

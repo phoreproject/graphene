@@ -2,6 +2,7 @@ package module
 
 import (
 	"fmt"
+
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/pb"
@@ -19,6 +20,7 @@ const shardExecutionVersion = "0.0.1"
 type ShardApp struct {
 	Config config.ShardConfig
 	RPC    rpc.ShardRPCServer
+	Mux    *chain.ShardMux
 }
 
 // NewShardApp creates a new shard app given a config.
@@ -60,11 +62,11 @@ func (s *ShardApp) Run() error {
 
 	client := pb.NewBlockchainRPCClient(s.Config.BeaconConn)
 
-	mux := chain.NewShardMux(client)
+	s.Mux = chain.NewShardMux(client)
 
 	logger.Infof("starting RPC server on %s with protocol %s", s.Config.RPCAddress, s.Config.RPCProtocol)
 
-	err := rpc.Serve(s.Config.RPCProtocol, s.Config.RPCAddress, mux)
+	err := rpc.Serve(s.Config.RPCProtocol, s.Config.RPCAddress, s.Mux)
 
 	return err
 }

@@ -2,8 +2,9 @@ package chain
 
 import (
 	"fmt"
-	"github.com/phoreproject/synapse/pb"
 	"sync"
+
+	"github.com/phoreproject/synapse/pb"
 )
 
 // ShardMux handles the various different blockchains associated with different shards.
@@ -54,4 +55,18 @@ func (sm *ShardMux) GetManager(shardID uint64) (*ShardManager, error) {
 		return nil, fmt.Errorf("not currently tracking shard %d", shardID)
 	}
 	return manager, nil
+}
+
+// GetShardIDList gets the shards ID list. It's useful to enumerate all shards
+func (sm *ShardMux) GetShardIDList() []uint64 {
+	shardIDList := []uint64{}
+
+	sm.lock.RLock()
+	defer sm.lock.RUnlock()
+
+	for k := range sm.managers {
+		shardIDList = append(shardIDList, k)
+	}
+
+	return shardIDList
 }

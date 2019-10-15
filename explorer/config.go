@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/phoreproject/synapse/beacon/module"
+	beaconModule "github.com/phoreproject/synapse/beacon/module"
 	"github.com/phoreproject/synapse/p2p"
+	shardConfig "github.com/phoreproject/synapse/shard/config"
 )
 
 // Config is the explorer config
@@ -24,10 +25,14 @@ type Config struct {
 	DataDir     string `json:"datadir,omitempty"`
 	Connect     string `json:"connect,omitempty"`
 	Listen      string `json:"listen,omitempty"`
+	RPCListen   string `json:"rpclisten,omitempty"`
+
+	ShardListen string `json:"shardlisten,omitempty"`
 
 	Level string `json:"level,omitempty"`
 
-	appConfig *module.Config
+	beaconConfig *beaconModule.Config
+	shardConfig  *shardConfig.Options
 }
 
 func newConfig() *Config {
@@ -62,6 +67,8 @@ func loadConfigFromCommandLine(config *Config) {
 	datadir := flag.String("datadir", "", "location to store blockchain data")
 	connect := flag.String("connect", "", "comma separated multiaddrs")
 	listen := flag.String("listen", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
+	rpcListen := flag.String("rpclisten", "/ip4/0.0.0.0/tcp/11781", "specifies the address to RPC listen on")
+	shardListen := flag.String("shardlisten", "/ip4/0.0.0.0/tcp/11781", "specifies the address to listen on")
 
 	level := flag.String("level", "info", "log level")
 	flag.Parse()
@@ -78,7 +85,10 @@ func loadConfigFromCommandLine(config *Config) {
 	config.DataDir = *datadir
 	config.Connect = *connect
 	config.Listen = *listen
+	config.RPCListen = *rpcListen
 	config.Level = *level
+
+	config.ShardListen = *shardListen
 }
 
 func isFlagPassed(name string) bool {
@@ -155,7 +165,7 @@ func prepareConfig(config *Config) {
 		panic(err)
 	}
 
-	appConfig, err := module.ReadChainFileToConfig(f)
+	beaconConfig, err := beaconModule.ReadChainFileToConfig(f)
 	if err != nil {
 		panic(err)
 	}
@@ -165,15 +175,20 @@ func prepareConfig(config *Config) {
 		panic(err)
 	}
 
-	appConfig.DataDirectory = config.DataDir
-	appConfig.Resync = config.Resync
-	appConfig.ListeningAddress = config.Listen
+	beaconConfig.DataDirectory = config.DataDir
+	beaconConfig.Resync = config.Resync
+	beaconConfig.ListeningAddress = config.Listen
 
 	initialPeers, err := p2p.ParseInitialConnections(strings.Split(config.Connect, ","))
 	if err != nil {
 		panic(err)
 	}
-	appConfig.DiscoveryOptions.PeerAddresses = append(appConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
+	beaconConfig.DiscoveryOptions.PeerAddresses = append(beaconConfig.DiscoveryOptions.PeerAddresses, initialPeers...)
 
-	config.appConfig = appConfig
+	config.beaconConfig = beaconConfig
+
+	config.shardConfig = &shardConfig.Options{
+		RPCListen: config.ShardListen,
+		BeaconRPC: config.RPCListen,
+	}
 }

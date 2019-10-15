@@ -85,6 +85,16 @@ type Epoch struct {
 	Committees []Assignment
 }
 
+// Shard is the shard information
+type Shard struct {
+	gorm.Model
+
+	ShardID       uint64
+	RootBlockHash []byte `gorm:"size:32"`
+	RootSlot      uint64
+	GenesisTime   uint64
+}
+
 // Database is the database used to store information about the blockchain.
 type Database struct {
 	database *gorm.DB
@@ -116,6 +126,10 @@ func NewDatabase(db *gorm.DB) *Database {
 		panic(err)
 	}
 	if err := db.AutoMigrate(&Epoch{}).Error; err != nil {
+		panic(err)
+	}
+
+	if err := db.AutoMigrate(&Shard{}).Error; err != nil {
 		panic(err)
 	}
 

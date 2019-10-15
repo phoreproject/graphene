@@ -21,7 +21,9 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/module"
+	beaconModule "github.com/phoreproject/synapse/beacon/module"
+	shardChain "github.com/phoreproject/synapse/shard/chain"
+	shardModule "github.com/phoreproject/synapse/shard/module"
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -30,7 +32,8 @@ import (
 // and then keeps track of its own blockchain so that it can access more
 // info like forking.
 type Explorer struct {
-	app *module.BeaconApp
+	beaconApp *beaconModule.BeaconApp
+	shardApp  *shardModule.ShardApp
 
 	config *Config
 
@@ -86,20 +89,26 @@ func NewExplorer(c *Config) (*Explorer, error) {
 	beaconConfig.Resync = c.Resync
 	beaconConfig.ChainCFG = c.ChainConfig
 	beaconConfig.DataDir = c.DataDir
-	beaconConfig.GenesisTime = strconv.FormatUint(c.appConfig.GenesisTime, 10)
+	beaconConfig.GenesisTime = strconv.FormatUint(c.beaconConfig.GenesisTime, 10)
 	beaconConfig.InitialConnections = strings.Split(c.Connect, ",")
 	beaconConfig.P2PListen = c.Listen
 	beaconConfig.RPCListen = c.Listen
-	app, err := module.NewBeaconApp(beaconConfig)
+	beaconApp, err := beaconModule.NewBeaconApp(beaconConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	shardApp, err := shardModule.NewShardApp(*c.shardConfig)
 	if err != nil {
 		panic(err)
 	}
 
 	ex := &Explorer{
-		app:      app,
-		db:       db,
-		database: NewDatabase(db),
-		config:   c,
+		beaconApp: beaconApp,
+		shardApp:  shardApp,
+		db:        db,
+		database:  NewDatabase(db),
+		config:    c,
 	}
 	lvl, err := logger.ParseLevel(c.Level)
 	if err != nil {
@@ -112,7 +121,7 @@ func NewExplorer(c *Config) (*Explorer, error) {
 // WaitForConnections waits until beacon app is connected
 func (ex *Explorer) WaitForConnections(numConnections int) {
 	for {
-		if ex.app.GetHostNode().PeersConnected() >= numConnections {
+		if ex.beaconApp.GetHostNode().PeersConnected() >= numConnections {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -185,7 +194,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	var epochCount int
 
-	epochLength := ex.config.appConfig.NetworkConfig.EpochLength
+	epochLength := ex.config.beaconConfig.NetworkConfig.EpochLength
 	//epochStart := state.Slot - (state.Slot % epochLength)
 	epochStart := state.EpochIndex * epochLength
 
@@ -195,7 +204,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		var assignments []Assignment
 
 		for i := epochStart; i < epochStart+epochLength; i++ {
-			assignmentForSlot, err := state.GetShardCommitteesAtSlot(i, ex.config.appConfig.NetworkConfig)
+			assignmentForSlot, err := state.GetShardCommitteesAtSlot(i, ex.config.beaconConfig.NetworkConfig)
 			if err != nil {
 				logger.Errorf("%v epochStart=%d", err, epochStart)
 				continue
@@ -233,7 +242,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		logger.Errorf("%v", err)
 	}
 
-	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, ex.config.appConfig.NetworkConfig)
+	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, ex.config.beaconConfig.NetworkConfig)
 	if err != nil {
 		logger.Errorf("%v", err)
 	}
@@ -257,7 +266,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	// Update attestations
 	for _, att := range block.BlockBody.Attestations {
-		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.appConfig.NetworkConfig)
+		participants, err := state.GetAttestationParticipants(att.Data, att.ParticipationBitfield, ex.config.beaconConfig.NetworkConfig)
 		if err != nil {
 			logger.Errorf("%v", err)
 			continue
@@ -291,8 +300,44 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	}
 }
 
+func (ex *Explorer) doProcessSingleShard(shardManager *shardChain.ShardManager) {
+	var shardCount int
+	ex.database.database.Model(&Shard{}).Where(&Shard{ShardID: shardManager.ShardID}).Count(&shardCount)
+	if shardCount == 0 {
+		ex.database.database.Create(&Shard{
+			ShardID:       shardManager.ShardID,
+			RootBlockHash: shardManager.InitializationParameters.RootBlockHash.CloneBytes(),
+			RootSlot:      shardManager.InitializationParameters.RootSlot,
+			GenesisTime:   shardManager.InitializationParameters.GenesisTime,
+		})
+	}
+}
+
+func (ex *Explorer) doProcessShards() {
+	mux := ex.shardApp.Mux
+	if mux == nil {
+		return
+	}
+
+	shardIDList := mux.GetShardIDList()
+	for _, shardID := range shardIDList {
+		shardManager, _ := mux.GetManager(shardID)
+		if shardManager == nil {
+			continue
+		}
+		ex.doProcessSingleShard(shardManager)
+	}
+}
+
+func (ex *Explorer) processShards() {
+	for {
+		ex.doProcessShards()
+		time.Sleep(5)
+	}
+}
+
 func (ex *Explorer) exit() {
-	ex.app.Exit()
+	ex.beaconApp.Exit()
 
 	os.Exit(0)
 }
@@ -310,11 +355,14 @@ func (ex *Explorer) StartExplorer() error {
 		ex.exit()
 	}()
 
-	ex.app.GetSyncManager().RegisterPostProcessHook(ex.postProcessHook)
+	ex.beaconApp.GetSyncManager().RegisterPostProcessHook(ex.postProcessHook)
 
-	logger.Info("Ready to run.")
+	go ex.processShards()
 
-	ex.app.Run()
+	logger.Info("Start shard chains.")
+	ex.shardApp.Run()
+	logger.Info("Start Beacon chain.")
+	ex.beaconApp.Run()
 
 	return nil
 }

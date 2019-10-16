@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const BlockController = require('./controllers/blockcontroller').BlockController;
 const TransactionController = require('./controllers/transactioncontroller').TransactionController;
 const ValidatorController = require('./controllers/validatorcontroller').ValidatorController;
+const ShardController = require('./controllers/shardcontroller').ShardController;
 
 function initializeRoutes(application) {
 	const _c = function(controllerClass, functionName) {
@@ -28,6 +29,10 @@ function initializeRoutes(application) {
 		response.render('pages/validators', { title: 'Validator page' });
 	});
 	
+	express.get('/shards', (request, response) => {
+		response.render('pages/shards', { title: 'Shard page' });
+	});
+	
 	express.get('/block', _c(BlockController, 'viewBlockDetail'));
 
 	express.get('/api/blocks', _c(BlockController, 'getBlocks'));
@@ -38,6 +43,8 @@ function initializeRoutes(application) {
 
 	express.get('/api/validators', _c(ValidatorController, 'getValidators'));
 	express.get('/api/validators/:hash', _c(ValidatorController, 'getValidator'));
+	
+	express.get('/api/shards', _c(ShardController, 'getShards'));
 }
 
 module.exports = { initializeRoutes: initializeRoutes };

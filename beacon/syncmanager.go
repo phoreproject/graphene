@@ -1,17 +1,18 @@
 package beacon
 
 import (
+	"bytes"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/prysmaticlabs/go-ssz"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,6 +37,27 @@ type SyncManager struct {
 	protocol *p2p.ProtocolHandler
 }
 
+const syncVersion = 0
+
+// PeerConnected is called when a peer connects.
+func (s *SyncManager) PeerConnected(id peer.ID, dir network.Direction) {
+	if dir == network.DirInbound {
+		genesisHash := s.blockchain.GenesisHash()
+
+		err := s.protocol.SendMessage(id, &pb.BeaconVersionMessage{
+			Version:     syncVersion,
+			GenesisHash: genesisHash[:],
+			Height:      s.blockchain.Height(),
+		})
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+}
+
+// PeerDisconnected is called when a peer disconnects.
+func (s *SyncManager) PeerDisconnected(peer.ID) {}
+
 // NewSyncManager creates a new sync manager
 func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain, mempool *Mempool) (*SyncManager, error) {
 	sm := &SyncManager{
@@ -55,93 +77,128 @@ func NewSyncManager(hostNode *p2p.HostNode, blockchain *Blockchain, mempool *Mem
 	return sm, nil
 }
 
-// Connected returns whether the client should be considered connected to the
+// IsConnected returns whether the client should be considered connected to the
 // network.
-func (s SyncManager) Connected() bool {
+func (s *SyncManager) IsConnected() bool {
 	return s.hostNode.IsConnected()
+}
+
+func (s *SyncManager) onMessageVersion(id peer.ID, message proto.Message) error {
+
+	versionMessage := message.(*pb.BeaconVersionMessage)
+
+	genesisHash := s.blockchain.GenesisHash()
+
+	ourHeight := s.blockchain.Height()
+	theirHeight := versionMessage.Height
+
+	if s.hostNode.GetPeerDirection(id) == network.DirOutbound {
+		err := s.protocol.SendMessage(id, &pb.BeaconVersionMessage{
+			Version:     syncVersion,
+			GenesisHash: genesisHash[:],
+			Height:      ourHeight,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if theirHeight > ourHeight {
+		err := s.protocol.SendMessage(id, &pb.GetBlocksMessage{
+			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+			HashStop:      zeroHash[:],
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 const limitBlocksToSend = 500
 
-func (s SyncManager) onMessageGetBlock(peer peer.ID, message proto.Message) error {
-	//getBlockMesssage := message.(*pb.GetBlockMessage)
-	//
-	//stopHash, err := chainhash.NewHash(getBlockMesssage.HashStop)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//firstCommonBlock := s.blockchain.View.Chain.Genesis()
-	//
-	//if len(getBlockMesssage.LocatorHashes) == 0 {
-	//	// TODO: ban peer
-	//	return nil
-	//}
-	//
-	//if !bytes.Equal(firstCommonBlock.Hash[:], getBlockMesssage.LocatorHashes[len(getBlockMesssage.LocatorHashes)-1]) {
-	//	// TODO: ban peer
-	//	return nil
-	//}
-	//
-	//// find the first block that the peer has in our main chain
-	//for _, h := range getBlockMesssage.LocatorHashes {
-	//	blockHash, err := chainhash.NewHash(h)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	blockNode := s.blockchain.View.Index.GetBlockNodeByHash(*blockHash)
-	//	if blockNode != nil {
-	//		if s.blockchain.View.Chain.Contains(blockNode) {
-	//			firstCommonBlock = blockNode
-	//			break
-	//		}
-	//
-	//		tip := s.blockchain.View.Chain.Tip()
-	//		if blockNode.GetAncestorAtHeight(s.blockchain.Height()) == tip {
-	//			firstCommonBlock = tip
-	//		}
-	//	}
-	//}
-	//
-	//currentBlockNode := s.blockchain.View.Chain.Next(firstCommonBlock)
-	//if currentBlockNode != nil {
-	//	logger.WithField("common", currentBlockNode.Hash).Debug("found first common block")
-	//} else {
-	//	logger.Debug("first common block is tip")
-	//	return nil
-	//}
-	//toSend := make([]string, 0, limitBlocksToSend)
-	//
-	//for currentBlockNode != nil && len(toSend) < limitBlocksToSend {
-	//	s.ipfsAPI.Object().Data()
-	//
-	//	toSend = append(toSend, currentBlockNode.Hash[:])
-	//
-	//	if currentBlockNode.Hash.IsEqual(stopHash) {
-	//		break
-	//	}
-	//
-	//	currentBlockNode = s.blockchain.View.Chain.Next(currentBlockNode)
-	//}
-	//
-	//if len(toSend) > 0 {
-	//	logger.WithFields(logger.Fields{
-	//		"from": firstCommonBlock.Slot,
-	//		"to":   int(firstCommonBlock.Slot) + len(toSend),
-	//	}).Debug("sending blocks to peer")
-	//}
-	//
-	//tipHash := s.blockchain.View.Chain.Tip()
-	//
-	//blockMessage := &pb.BlockMessage{
-	//	BlockPaths:          toSend,
-	//	LatestBlockHash: tipHash.Hash[:],
-	//}
-	//
-	//peer.SendMessage(blockMessage)
-	//
-	return nil
+func (s *SyncManager) onMessageGetBlocks(peer peer.ID, message proto.Message) error {
+	getBlockMesssage := message.(*pb.GetBlocksMessage)
+
+	fmt.Println("on get blocks")
+
+	stopHash, err := chainhash.NewHash(getBlockMesssage.HashStop)
+	if err != nil {
+		return err
+	}
+
+	firstCommonBlock := s.blockchain.View.Chain.Genesis()
+
+	if len(getBlockMesssage.LocatorHashes) == 0 {
+		// TODO: ban peer
+		return nil
+	}
+
+	if !bytes.Equal(firstCommonBlock.Hash[:], getBlockMesssage.LocatorHashes[len(getBlockMesssage.LocatorHashes)-1]) {
+		// TODO: ban peer
+		return nil
+	}
+
+	// find the first block that the peer has in our main chain
+	for _, h := range getBlockMesssage.LocatorHashes {
+		blockHash, err := chainhash.NewHash(h)
+		if err != nil {
+			return err
+		}
+
+		blockNode := s.blockchain.View.Index.GetBlockNodeByHash(*blockHash)
+		if blockNode != nil {
+			if s.blockchain.View.Chain.Contains(blockNode) {
+				firstCommonBlock = blockNode
+				break
+			}
+
+			tip := s.blockchain.View.Chain.Tip()
+			if blockNode.GetAncestorAtHeight(s.blockchain.Height()) == tip {
+				firstCommonBlock = tip
+			}
+		}
+	}
+
+	currentBlockNode := s.blockchain.View.Chain.Next(firstCommonBlock)
+	if currentBlockNode != nil {
+		logrus.WithField("common", currentBlockNode.Hash).Debug("found first common block")
+	} else {
+		logrus.Debug("first common block is tip")
+		return nil
+	}
+	toSend := make([]*pb.Block, 0, limitBlocksToSend)
+
+	for currentBlockNode != nil && len(toSend) < limitBlocksToSend {
+		blockToSend, err := s.blockchain.GetBlockByHash(currentBlockNode.Hash)
+		if err != nil {
+			return err
+		}
+
+		toSend = append(toSend, blockToSend.ToProto())
+
+		if currentBlockNode.Hash.IsEqual(stopHash) {
+			break
+		}
+
+		currentBlockNode = s.blockchain.View.Chain.Next(currentBlockNode)
+	}
+
+	if len(toSend) > 0 {
+		logrus.WithFields(logrus.Fields{
+			"from": firstCommonBlock.Slot,
+			"to":   int(firstCommonBlock.Slot) + len(toSend),
+		}).Debug("sending blocks to peer")
+	}
+
+	tipHash := s.blockchain.View.Chain.Tip()
+
+	blockMessage := &pb.BeaconBlockMessage{
+		Blocks:               toSend,
+		LatestBlockHash:      tipHash.Hash[:],
+	}
+
+	return s.protocol.SendMessage(peer, blockMessage)
 }
 
 // BlockFilter is a filter for block hashes that returns whether the block hash
@@ -204,52 +261,38 @@ func splitIncomingBlocksIntoChunks(blocks []*primitives.Block, c *config.Config,
 	return epochBlockChunks, nil
 }
 
-func (s SyncManager) onMessageBlock(peer *peer.ID, message proto.Message) error {
+func (s *SyncManager) onMessageBlock(peer peer.ID, message proto.Message) error {
 	// TODO: limits for this and only should receive blocks if requested
+	blockMessage := message.(*pb.BeaconBlockMessage)
 
-	//blockMessage := message.(*pb.BlockMessage)
+	logrus.WithFields(logrus.Fields{
+		"from":   blockMessage.Blocks[0].Header.SlotNumber,
+		"to":     blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
+		"number": len(blockMessage.Blocks),
+	}).Debug("received blocks from sync")
 
-	//ctx := context.Background()
-	//
-	//for p := blockMessage.BlockPaths {
-	//	blockPath, err := path.ParsePath(p)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	n, err := s.ipfsAPI.Block().Get(ctx, blockPath)
-	//}
-	//
-	//logger.WithFields(logger.Fields{
-	//	"from":   blockMessage.Blocks[0].Header.SlotNumber,
-	//	"to":     blockMessage.Blocks[len(blockMessage.Blocks)-1].Header.SlotNumber,
-	//	"number": len(blockMessage.Blocks),
-	//}).Debug("received blocks from sync")
-	//
-	//logger.Debug("checking signatures")
-	//
-	//peer.ProcessingRequest = true
-	//
-	//if len(blockMessage.Blocks) == 0 {
-	//	// TODO: handle error of peer sending no blocks
-	//	return nil
-	//}
-	//
-	//blocks := make([]*primitives.Block, len(blockMessage.Blocks))
-	//for i := range blockMessage.Blocks {
-	//	b, err := primitives.BlockFromProto(blockMessage.Blocks[i])
-	//	if err != nil {
-	//		return err
-	//	}
-	//	blocks[i] = b
-	//}
-	//
-	//for _, b := range blocks {
-	//	err := s.handleReceivedBlock(b, peer, true)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
+	logrus.Debug("checking signatures")
+
+	if len(blockMessage.Blocks) == 0 {
+		// TODO: handle error of peer sending no blocks
+		return nil
+	}
+
+	blocks := make([]*primitives.Block, len(blockMessage.Blocks))
+	for i := range blockMessage.Blocks {
+		b, err := primitives.BlockFromProto(blockMessage.Blocks[i])
+		if err != nil {
+			return err
+		}
+		blocks[i] = b
+	}
+
+	for _, b := range blocks {
+		err := s.handleReceivedBlock(b, peer, true)
+		if err != nil {
+			return err
+		}
+	}
 
 	//epochBlockChunks, err := splitIncomingBlocksIntoChunks(blocks, s.blockchain.config, s.blockchain.View.Index)
 	//if err != nil {
@@ -403,26 +446,27 @@ func (s SyncManager) onMessageBlock(peer *peer.ID, message proto.Message) error 
 	//	}
 	//
 	//	for _, b := range chunk {
-	//
+	//		block
 	//	}
 	//}
 
-	//lastBlockHash, err := ssz.HashTreeRoot(blockMessage.Blocks[len(blockMessage.Blocks)-1])
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if !bytes.Equal(lastBlockHash[:], blockMessage.LatestBlockHash) && !bytes.Equal(blockMessage.LatestBlockHash, zeroHash[:]) {
-	//	logger.Infof("continuing sync to block %x", blockMessage.LatestBlockHash)
-	//
-	//	// request all blocks up to this block
-	//	peer.SendMessage(&pb.GetBlockMessage{
-	//		LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-	//		HashStop:      blockMessage.LatestBlockHash,
-	//	})
-	//}
-	//
-	//peer.ProcessingRequest = false
+	lastBlockHash, err := ssz.HashTreeRoot(blockMessage.Blocks[len(blockMessage.Blocks)-1])
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(lastBlockHash[:], blockMessage.LatestBlockHash) && !bytes.Equal(blockMessage.LatestBlockHash, zeroHash[:]) {
+		logrus.Infof("continuing sync to block %x", blockMessage.LatestBlockHash)
+
+		// request all blocks up to this block
+		err := s.protocol.SendMessage(peer, &pb.GetBlocksMessage{
+			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+			HashStop:      blockMessage.LatestBlockHash,
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -470,7 +514,7 @@ func (s *SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom peer
 
 // ListenForBlocks listens for new blocks over the pub-sub network
 // being broadcast as a result of finding them.
-func (s SyncManager) ListenForBlocks() error {
+func (s *SyncManager) ListenForBlocks() error {
 	_, err := s.hostNode.SubscribeMessage("block", func(data []byte, from peer.ID) {
 		blockProto := new(pb.Block)
 
@@ -500,7 +544,7 @@ func (s SyncManager) ListenForBlocks() error {
 }
 
 // ListenForAttestations listens for new attestations over the pub-sub network.
-func (s SyncManager) ListenForAttestations() error {
+func (s *SyncManager) ListenForAttestations() error {
 	_, err := s.hostNode.SubscribeMessage("attestation", func(data []byte, from peer.ID) {
 		attestationProto := new(pb.Attestation)
 
@@ -538,18 +582,18 @@ const maxSyncPeers = 16
 const minSyncPeers = 8
 
 // registerHandlers registers handlers with the host node.
-func (s SyncManager) registerHandlers() (*p2p.ProtocolHandler, error) {
+func (s *SyncManager) registerHandlers() (*p2p.ProtocolHandler, error) {
 	handler, err := s.hostNode.RegisterProtocolHandler(beaconSyncProtocol, maxSyncPeers, minSyncPeers)
 	if err != nil {
 		return nil, err
 	}
 
-	err = handler.RegisterHandler("pb.GetBlockMessage", s.onMessageGetBlock)
+	err = handler.RegisterHandler("pb.GetBlocksMessage", s.onMessageGetBlocks)
 	if err != nil {
 		return nil, err
 	}
 
-	err = handler.RegisterHandler("pb.BlockMessage", s.onMessageGetBlock)
+	err = handler.RegisterHandler("pb.BeaconBlockMessage", s.onMessageBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -564,52 +608,17 @@ func (s SyncManager) registerHandlers() (*p2p.ProtocolHandler, error) {
 		return nil, err
 	}
 
+	err = handler.RegisterHandler("pb.BeaconVersionMessage", s.onMessageVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	handler.Notify(s)
+
 	return handler, nil
 }
 
-// TryInitialSync tries to select a peer to sync with and
-// start downloading blocks.
-func (s SyncManager) TryInitialSync() {
-	peers := s.hostNode.GetPeerList()
-	if len(peers) == 0 {
-		return
-	}
-
-	if !s.syncStarted {
-		s.syncStarted = true
-
-		bestPeer := peers[0]
-		bestPeerOutbound := s.hostNode.GetPeerDirection(peers[0]) == network.DirOutbound
-
-		for _, p := range peers[1:] {
-			outbound := s.hostNode.GetPeerDirection(p) == network.DirOutbound
-
-			if outbound && !bestPeerOutbound {
-				bestPeer = p
-				bestPeerOutbound = outbound
-			}
-		}
-
-		getBlockMessage := &pb.GetBlocksMessage{
-			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-			HashStop:      zeroHash[:],
-		}
-
-		err := s.protocol.SendMessage(bestPeer, getBlockMessage)
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-
-		if s.mempool != nil {
-			attestationsMessage := s.mempool.AttestationMempool.GetMempoolSummary()
-
-			err = s.protocol.SendMessage(bestPeer, &attestationsMessage)
-		}
-	}
-}
-
-func (s SyncManager) onMessageMempool(peer peer.ID, message proto.Message) error {
+func (s *SyncManager) onMessageMempool(peer peer.ID, message proto.Message) error {
 	if s.mempool == nil {
 		return nil
 	}
@@ -622,6 +631,8 @@ func (s SyncManager) onMessageMempool(peer peer.ID, message proto.Message) error
 			return err
 		}
 
+		fmt.Println("from message")
+
 		err = s.mempool.ProcessNewAttestation(*a)
 		if err != nil {
 			return err
@@ -631,7 +642,7 @@ func (s SyncManager) onMessageMempool(peer peer.ID, message proto.Message) error
 	return nil
 }
 
-func (s SyncManager) onMessageGetMempool(peer peer.ID, message proto.Message) error {
+func (s *SyncManager) onMessageGetMempool(peer peer.ID, message proto.Message) error {
 	//if s.mempool == nil {
 	//	return nil
 	//}

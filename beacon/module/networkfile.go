@@ -79,7 +79,7 @@ func GenerateConfigFromChainConfig(chainConfig ChainConfig) (*Config, error) {
 
 	c.GenesisTime = chainConfig.GenesisTime
 
-	c.DiscoveryOptions = p2p.NewDiscoveryOptions()
+	c.DiscoveryOptions = p2p.NewConnectionManagerOptions()
 
 	c.DiscoveryOptions.BootstrapAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
 

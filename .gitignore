@@ -6,6 +6,7 @@ dist
 
 # binaries
 synapse
+synapseshard
 synapsebeacon
 synapsevalidator
 synapsep2p

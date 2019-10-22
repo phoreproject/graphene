@@ -1,5 +1,5 @@
 export GO111MODULE=on
-BINARY_NAME=synapsevalidator synapsebeacon synapsekey synapseexplorer synapse synapserelayer
+BINARY_NAME=synapseshard synapsevalidator synapsebeacon synapsekey synapseexplorer synapse synapserelayer
 SRC=$(shell find . -name "*.go")
 
 # The stupid "go build" can't append the .exe on Windows when using -o, let's do it manually
@@ -17,6 +17,9 @@ install:
 	go install cmd/keygen/synapsekey.go
 	go install cmd/synapse/synapse.go
 	go install cmd/relayer/synapserelayer.go
+
+synapseshard: $(SRC)
+	go build cmd/shard/synapseshard.go
 
 synapsebeacon: $(SRC)
 	go build cmd/beacon/synapsebeacon.go

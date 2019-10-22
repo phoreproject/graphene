@@ -205,18 +205,16 @@ func (node *HostNode) OpenStreams(id peer.ID, protocols... protocol.ID) error {
 		protoStrings[i] = string(protocols[i])
 	}
 
-	protosSupported, err := node.host.Peerstore().SupportsProtocols(id, protoStrings...)
-	if err != nil {
-		return err
-	}
-
-	for _, p := range protosSupported {
-		_, err := node.host.NewStream(node.ctx, id, protocol.ID(p))
+	for _, p := range protoStrings {
+		stream, err := node.host.NewStream(node.ctx, id, protocol.ID(p))
 		if err != nil {
 			return err
 		}
 
-		// TODO: we may need to manually call the handleStream func, but I'm not sure.
+		err = node.discovery.HandleOutgoing(protocol.ID(p), stream)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

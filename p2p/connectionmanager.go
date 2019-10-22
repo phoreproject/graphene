@@ -33,8 +33,8 @@ type ConnectionManagerOptions struct {
 
 var activeDiscoveryNS = "synapse"
 
-// NewDiscoveryOptions creates a ConnectionManagerOptions with default values
-func NewDiscoveryOptions() ConnectionManagerOptions {
+// NewConnectionManagerOptions creates a ConnectionManagerOptions with default values
+func NewConnectionManagerOptions() ConnectionManagerOptions {
 	return ConnectionManagerOptions{
 		MDNS: MDNSOptions{
 			Enabled:  false,
@@ -117,6 +117,19 @@ func (cm *ConnectionManager) GetProtocols() []protocol.ID {
 		protos = append(protos, p)
 	}
 	return protos
+}
+
+func (cm *ConnectionManager) HandleOutgoing(id protocol.ID, s network.Stream) error {
+	cm.protocolConfigurationLock.RLock()
+	ph, found := cm.protocolConfiguration[id]
+	cm.protocolConfigurationLock.RUnlock()
+
+	if !found {
+		return fmt.Errorf("not tracking protocol %s", id)
+	}
+
+	ph.handleStream(s)
+	return nil
 }
 
 // Listen is called when we start listening on a multiaddr.

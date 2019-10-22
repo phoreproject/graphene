@@ -48,6 +48,15 @@ type ProtocolHandler struct {
 	outgoingMessagesLock sync.RWMutex
 
 	ctx context.Context
+
+	notifees []ConnectionManagerNotifee
+	notifeeLock sync.Mutex
+}
+
+// ConnectionManagerNotifee is a notifee for the connection manager.
+type ConnectionManagerNotifee interface {
+	PeerConnected(peer.ID, network.Direction)
+	PeerDisconnected(peer.ID)
 }
 
 // newProtocolHandler constructs a new protocol handler for a specific protocol ID.
@@ -62,6 +71,7 @@ func newProtocolHandler(ctx context.Context, id protocol.ID, maxPeers int, minPe
 		outgoingMessages: make(map[peer.ID]chan proto.Message),
 		connManager: connManager,
 		ctx: ctx,
+		notifees: make([]ConnectionManagerNotifee, 0),
 	}
 
 	host.setStreamHandler(id, ph.handleStream)
@@ -138,6 +148,7 @@ func (p *ProtocolHandler) findPeers() {
 func (p *ProtocolHandler) receiveMessages(id peer.ID, r io.Reader) {
 	err := processMessages(p.ctx, r, func(message proto.Message) error {
 		name := proto.MessageName(message)
+		logrus.WithField("messageName", name).Debug("received message")
 		p.messageHandlersLock.RLock()
 		if handler, found := p.messageHandlers[name]; found {
 			p.messageHandlersLock.RUnlock()
@@ -151,6 +162,11 @@ func (p *ProtocolHandler) receiveMessages(id peer.ID, r io.Reader) {
 		return nil
 	})
 	if err != nil {
+		p.notifeeLock.Lock()
+		for _, n := range p.notifees {
+			n.PeerDisconnected(id)
+		}
+		p.notifeeLock.Unlock()
 		logrus.Error(err)
 	}
 }
@@ -162,19 +178,34 @@ func (p *ProtocolHandler) sendMessages(id peer.ID, w io.Writer) {
 	p.outgoingMessages[id] = msgChan
 	p.outgoingMessagesLock.Unlock()
 
-	for msg := range msgChan {
-		err := writeMessage(msg, w)
-		if err != nil {
-			logrus.Error(err)
-			_ = p.host.DisconnectPeer(id)
+	go func() {
+		for msg := range msgChan {
+			err := writeMessage(msg, w)
+			if err != nil {
+				logrus.Error(err)
+
+				p.notifeeLock.Lock()
+				for _, n := range p.notifees {
+					n.PeerDisconnected(id)
+				}
+				p.notifeeLock.Unlock()
+
+				_ = p.host.DisconnectPeer(id)
+			}
 		}
-	}
+	}()
 }
 
 func (p *ProtocolHandler) handleStream(s network.Stream) {
 	go p.receiveMessages(s.Conn().RemotePeer(), s)
 
-	go p.sendMessages(s.Conn().RemotePeer(), s)
+	p.sendMessages(s.Conn().RemotePeer(), s)
+
+	p.notifeeLock.Lock()
+	for _, n := range p.notifees {
+		n.PeerConnected(s.Conn().RemotePeer(), s.Stat().Direction)
+	}
+	p.notifeeLock.Unlock()
 }
 
 // SendMessage writes a message to a peer.
@@ -197,7 +228,7 @@ func (p *ProtocolHandler) Listen(network.Network, multiaddr.Multiaddr) {}
 func (p *ProtocolHandler) ListenClose(network.Network, multiaddr.Multiaddr) {}
 
 // Connected is called when we connect to a peer.
-func (p *ProtocolHandler) Connected(network.Network, network.Conn) {}
+func (p *ProtocolHandler) Connected(net network.Network, conn network.Conn) {}
 
 // Disconnected is called when we disconnect to a peer.
 func (p *ProtocolHandler) Disconnected(net network.Network, conn network.Conn) {
@@ -218,3 +249,26 @@ func (p *ProtocolHandler) OpenedStream(network.Network, network.Stream) {}
 
 // ClosedStream is called when we close a stream to a peer.
 func (p *ProtocolHandler) ClosedStream(network.Network, network.Stream) {}
+
+// Notify notifies a specific notifier when certain events happen.
+func (p *ProtocolHandler) Notify(n ConnectionManagerNotifee) {
+	p.notifeeLock.Lock()
+	p.notifees = append(p.notifees, n)
+	p.notifeeLock.Unlock()
+}
+
+// StopNotify stops notifying a certain notifee about certain events.
+func (p *ProtocolHandler) StopNotify(n ConnectionManagerNotifee) {
+	p.notifeeLock.Lock()
+	found := -1
+	for i, notif := range p.notifees {
+		if notif == n {
+			found = i
+			break
+		}
+	}
+	if found != -1 {
+		p.notifees = append(p.notifees[:found], p.notifees[found+1:]...)
+	}
+	p.notifeeLock.Unlock()
+}

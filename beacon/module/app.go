@@ -62,7 +62,7 @@ func NewConfig() Config {
 		MinPeerCountToWait:     1,
 		HeartBeatInterval:      8 * time.Second,
 		TimeOutInterval:        16 * time.Second,
-		DiscoveryOptions:       p2p.NewDiscoveryOptions(),
+		DiscoveryOptions:       p2p.NewConnectionManagerOptions(),
 		MaxPeers:               16,
 	}
 }
@@ -375,8 +375,6 @@ func (app *BeaconApp) WaitForConnections(numConnections int) {
 func (app *BeaconApp) runMainLoop() error {
 	go func() {
 		app.WaitForConnections(app.config.MinPeerCountToWait)
-
-		go app.syncManager.TryInitialSync()
 
 		go func() {
 			err := app.syncManager.ListenForBlocks()

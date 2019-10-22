@@ -391,8 +391,6 @@ func (ex *Explorer) StartExplorer() error {
 
 	ex.WaitForConnections(1)
 
-	go ex.syncManager.TryInitialSync()
-
 	go func() {
 		err := ex.syncManager.ListenForBlocks()
 		if err != nil {

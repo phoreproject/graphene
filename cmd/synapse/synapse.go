@@ -113,6 +113,10 @@ func main() {
 	}
 	logger.SetLevel(lvl)
 
+	logger.StandardLogger().SetFormatter(&logger.TextFormatter{
+		ForceColors: globalConfig.ForceColors,
+	})
+
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {
 		logger.Fatal(err)

@@ -72,7 +72,6 @@ func (m *Mempool) ProcessNewAttestation(att primitives.Attestation) error {
 		for _, a := range atts {
 			for i, b := range a.ParticipationBitfield {
 				if b&att.ParticipationBitfield[i] != 0 {
-					logrus.Debug("duplicate attestation, ignoring")
 					return nil
 				}
 			}

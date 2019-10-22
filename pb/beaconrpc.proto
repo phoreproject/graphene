@@ -33,6 +33,18 @@ service BlockchainRPC {
     rpc GetMempool(MempoolRequest) returns (BlockBody);
 
     rpc GetValidatorInformation(GetValidatorRequest) returns (Validator);
+
+    rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
+
+    rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
+}
+
+message ConnectMessage {
+    string Address = 1;
+}
+
+message ListeningAddressesResponse {
+    repeated string Addresses = 1;
 }
 
 message GetShardProposerRequest {
@@ -115,6 +127,7 @@ message SubmitBlockResponse {
 message SlotNumberResponse {
     uint64 SlotNumber = 1;
     bytes BlockHash = 2;
+    uint64 TipSlot = 3;
 }
 
 message GetBlockHashRequest {

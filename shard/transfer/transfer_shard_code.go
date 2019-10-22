@@ -213,7 +213,7 @@ var _escData = map[string]*_escFile{
 		name:    "transfer_shard.wasm",
 		local:   "transfer_shard.wasm",
 		size:    231452,
-		modtime: 1569540694,
+		modtime: 1571084675,
 		compressed: `
 H4sIAAAAAAAC/+y8eZydRZU3/q161nuf+/R9ek0nnZC6t7PcrN2d7vSSBfppyEYCAYQQ1qSTNCQ3SSfp
 dCIgpBuIIQJCUNCAiEFgRByUUXQigjYQJOwBcUBGFHEBRce8gwqKP/h9TtWz3U5Q3/nMvH9N/Ni3qs6p

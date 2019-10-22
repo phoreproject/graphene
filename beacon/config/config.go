@@ -9,6 +9,7 @@ type Options struct {
 	GenesisTime        string   `yaml:"genesis_time" cli:"genesistime"`
 	InitialConnections []string `yaml:"initial_connections" cli:"connect"`
 	P2PListen          string   `yaml:"p2p_listen_addr" cli:"listen"`
+	Regtest            bool     `yaml:"regtest" cli:"regtest"`
 }
 
 // Config is the config for the blockchain.

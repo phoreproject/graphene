@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/prysmaticlabs/go-ssz"
 	"net"
 
@@ -30,6 +32,52 @@ type server struct {
 }
 
 var _ pb.BlockchainRPCServer = &server{}
+
+// GetListeningAddresses gets the addresses we're listening on.
+func (s *server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
+	addrs := s.p2p.GetHost().Addrs()
+
+	info := peer.AddrInfo{
+		ID: s.p2p.GetHost().ID(),
+		Addrs: addrs,
+	}
+
+	p2paddrs, err := peer.AddrInfoToP2pAddrs(&info)
+	if err != nil {
+		return nil, err
+	}
+
+	addrStrings := make([]string, len(p2paddrs))
+	for i := range p2paddrs {
+		addrStrings[i] = p2paddrs[i].String()
+	}
+
+	return &pb.ListeningAddressesResponse{
+		Addresses:            addrStrings,
+	}, nil
+}
+
+// Connect attempts to connect to a node.
+func (s *server) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*empty.Empty, error) {
+	addr := connectMsg.Address
+
+	ma, err := multiaddr.NewMultiaddr(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	pi, err := peer.AddrInfoFromP2pAddr(ma)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.p2p.Connect(ctx, *pi)
+	if err != nil {
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
+}
 
 // GetShardProposerForSlot gets the shard proposer ID and public key for a certain slot on a certain shard.
 func (s *server) GetShardProposerForSlot(ctx context.Context, req *pb.GetShardProposerRequest) (*pb.ShardProposerResponse, error) {
@@ -137,7 +185,7 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block.Hash[:]}, nil
+	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block.Hash[:], TipSlot: block.Slot}, nil
 }
 
 // GetBlockHash gets the block hash for a certain slot in the main chain.

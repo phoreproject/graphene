@@ -4,6 +4,7 @@ class Application {
 	constructor() {
 		this.expressClass = require('express');
 		this.express = this.expressClass();
+		this.lang = require("i18n");
 		this.config = require('config');
 
 		this.frontEndPath = __dirname + '/../../frontend';
@@ -51,6 +52,10 @@ class Application {
 		return this.frontEndPath + '/views' + path;
 	}
 
+	getLang() {
+		return this.lang;
+	}
+
 	initialize() {
 		this.doInitializeDatabase();
 		this.doInitializeTemplateEngine();
@@ -86,6 +91,15 @@ class Application {
 			layoutsDir: viewDirName + '/layouts/',
 			partialsDir: viewDirName + '/partials/'
 		}));
+
+		this.lang.configure({
+			// default to en
+			locales: [ 'en', 'de' ],
+			cookie: 'synapselocals',
+			directory: __dirname + '/locales'
+		});
+		this.express.use(require('cookie-parser')());
+		this.express.use(this.lang.init);
 
 		require('./templatehelpers').initializeTemplateHelpers(this);
 	}

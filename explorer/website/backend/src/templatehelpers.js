@@ -21,6 +21,7 @@ function registerHelpers(application)
 	Handlebars.registerHelper("url", function(url) {
 		return url;
 	});
+	Handlebars.registerHelper("__", application.getLang().__);
 }
 
 function initializeTemplateHelpers(application)

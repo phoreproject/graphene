@@ -45,6 +45,10 @@ function initializeRoutes(application) {
 	express.get('/api/validators/:hash', _c(ValidatorController, 'getValidator'));
 	
 	express.get('/api/shards', _c(ShardController, 'getShards'));
+
+	express.get('/test', function (req, res) {
+		res.send(res.__('test'));
+	});	
 }
 
 module.exports = { initializeRoutes: initializeRoutes };

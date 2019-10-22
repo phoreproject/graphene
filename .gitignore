@@ -14,7 +14,6 @@ synapserelayer
 synapsekey
 synapseexplorer
 integration_tests
-integration
 *.exe
 /.vscode
 

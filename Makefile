@@ -1,6 +1,7 @@
 export GO111MODULE=on
 BINARY_NAME=synapseshard synapsevalidator synapsebeacon synapsekey synapseexplorer synapse synapserelayer
 SRC=$(shell find . -name "*.go")
+TESTS=$(shell find integration/phore/tests -name "*.py" | sed "s/.*\//integration_test_/" | sed "s/\.py//")
 
 # The stupid "go build" can't append the .exe on Windows when using -o, let's do it manually
 ifeq ($(OS),Windows_NT)
@@ -46,7 +47,10 @@ unittest:
 
 src_depend: $(SRC)
 
-integrationtests: src_depend
+integrationtests: $(TESTS)
+
+integration_test_%: integration/phore/tests/%.py
+	PYTHONPATH=integration python3 $<
 
 clean:
 	go clean

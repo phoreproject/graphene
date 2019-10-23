@@ -95,6 +95,17 @@ type Shard struct {
 	GenesisTime   uint64
 }
 
+// ShardBlock is the shard block information
+type ShardBlock struct {
+	gorm.Model
+
+	ShardID       uint64
+	BlockHash     []byte `gorm:"size:32"`
+	StateRootHash []byte `gorm:"size:32"`
+	Slot          uint64
+	Height        uint64
+}
+
 // Database is the database used to store information about the blockchain.
 type Database struct {
 	database *gorm.DB
@@ -130,6 +141,10 @@ func NewDatabase(db *gorm.DB) *Database {
 	}
 
 	if err := db.AutoMigrate(&Shard{}).Error; err != nil {
+		panic(err)
+	}
+
+	if err := db.AutoMigrate(&ShardBlock{}).Error; err != nil {
 		panic(err)
 	}
 

@@ -300,6 +300,36 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	}
 }
 
+func (ex *Explorer) doProcessShardBlocks(shardManager *shardChain.ShardManager) {
+	chain := shardManager.Chain
+	tip, _ := chain.Tip()
+	if tip == nil {
+		return
+	}
+	currentSlot := tip.Slot
+	for {
+		var foundSlotCount int
+		ex.database.database.Model(&ShardBlock{}).Where(&ShardBlock{ShardID: shardManager.ShardID, Slot: currentSlot}).Count(&foundSlotCount)
+		if foundSlotCount != 0 {
+			break
+		}
+
+		block, _ := chain.GetNodeBySlot(currentSlot)
+		if block == nil {
+			break
+		}
+		ex.database.database.Create(&ShardBlock{
+			ShardID:       shardManager.ShardID,
+			BlockHash:     block.BlockHash[:],
+			StateRootHash: block.StateRoot[:],
+			Slot:          block.Slot,
+			Height:        block.Height,
+		})
+
+		currentSlot--
+	}
+}
+
 func (ex *Explorer) doProcessSingleShard(shardManager *shardChain.ShardManager) {
 	var shardCount int
 	ex.database.database.Model(&Shard{}).Where(&Shard{ShardID: shardManager.ShardID}).Count(&shardCount)
@@ -311,6 +341,8 @@ func (ex *Explorer) doProcessSingleShard(shardManager *shardChain.ShardManager) 
 			GenesisTime:   shardManager.InitializationParameters.GenesisTime,
 		})
 	}
+
+	ex.doProcessShardBlocks(shardManager)
 }
 
 func (ex *Explorer) doProcessShards() {

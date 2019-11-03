@@ -11,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
+	logger "github.com/sirupsen/logrus"
 )
 
 type stateDerivedFromBlock struct {
@@ -125,7 +126,11 @@ func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uin
 		return nil, nil, fmt.Errorf("could not find state for block %s", blockHash)
 	}
 
-	return derivedState.deriveState(slot, view, c)
+	receipts, state, err := derivedState.deriveState(slot, view, c)
+
+	logger.Debugf("derivedState.lastSlotReceipts length: %d for block: %s\n", len(derivedState.lastSlotReceipts), blockHash.String())
+
+	return receipts, state, err
 }
 
 // SetBlockState sets the state for a certain block. This SHOULD ONLY

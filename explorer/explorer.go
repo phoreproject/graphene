@@ -393,6 +393,14 @@ func (ex *Explorer) StartExplorer() error {
 
 	logger.Info("Start shard chains.")
 	ex.shardApp.Run()
+
+	// temp
+	rootHash, _ := chainhash.NewHashFromStr("4b511a3448fd23a25f81eecfde8d0ef9747e3f4d183cba6a16ec4bd893930d60")
+	ex.shardApp.Mux.StartManaging(1, shardChain.ShardChainInitializationParameters{
+		RootBlockHash: *rootHash,
+		RootSlot:      1,
+	})
+
 	logger.Info("Start Beacon chain.")
 	ex.beaconApp.Run()
 

@@ -19,7 +19,7 @@ type stateDerivedFromBlock struct {
 
 	lastSlot         uint64
 	lastSlotState    *primitives.State
-	lastSlotReceipts []primitives.Receipt
+	lastSlotOutput primitives.EpochTransitionOutput
 
 	lock *sync.Mutex
 }
@@ -34,38 +34,39 @@ func newStateDerivedFromBlock(stateAfterProcessingBlock *primitives.State) *stat
 	}
 }
 
-func (s *stateDerivedFromBlock) deriveState(slot uint64, view primitives.BlockView, c *config.Config) ([]primitives.Receipt, *primitives.State, error) {
+func (s *stateDerivedFromBlock) deriveState(slot uint64, view primitives.BlockView, c *config.Config) (*primitives.EpochTransitionOutput, *primitives.State, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	if slot == s.lastSlot {
-		return s.lastSlotReceipts, s.lastSlotState, nil
+		return &s.lastSlotOutput, s.lastSlotState, nil
 	}
 
 	if slot < s.lastSlot {
 		derivedState := s.firstSlotState.Copy()
 
-		receipts, err := derivedState.ProcessSlots(slot, view, c)
+		output, err := derivedState.ProcessSlots(slot, view, c)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		view.SetTipSlot(slot)
 
-		return receipts, &derivedState, nil
+		return output, &derivedState, nil
 	}
 
 	view.SetTipSlot(s.lastSlot)
 
-	receipts, err := s.lastSlotState.ProcessSlots(slot, view, c)
+	output, err := s.lastSlotState.ProcessSlots(slot, view, c)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	s.lastSlot = slot
-	s.lastSlotReceipts = append(s.lastSlotReceipts, receipts...)
+	s.lastSlotOutput.Receipts = append(s.lastSlotOutput.Receipts, output.Receipts...)
+	s.lastSlotOutput.Crosslinks = append(s.lastSlotOutput.Crosslinks, output.Crosslinks...)
 
-	return s.lastSlotReceipts, s.lastSlotState, nil
+	return &s.lastSlotOutput, s.lastSlotState, nil
 }
 
 // StateManager handles all state transitions, storing of states for different forks,
@@ -117,7 +118,7 @@ func (sm *StateManager) GetStateForHash(blockHash chainhash.Hash) (*primitives.S
 
 // GetStateForHashAtSlot gets the state derived from a certain block Hash at a given
 // slot.
-func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uint64, view primitives.BlockView, c *config.Config) ([]primitives.Receipt, *primitives.State, error) {
+func (sm *StateManager) GetStateForHashAtSlot(blockHash chainhash.Hash, slot uint64, view primitives.BlockView, c *config.Config) (*primitives.EpochTransitionOutput, *primitives.State, error) {
 	sm.stateMapLock.RLock()
 	derivedState, found := sm.stateMap[blockHash]
 	sm.stateMapLock.RUnlock()
@@ -140,7 +141,7 @@ func (sm *StateManager) SetBlockState(blockHash chainhash.Hash, state *primitive
 }
 
 // AddBlockToStateMap processes the block and adds it to the state map.
-func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) ([]primitives.Receipt, *primitives.State, error) {
+func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.EpochTransitionOutput, *primitives.State, error) {
 	lastBlockHash := block.BlockHeader.ParentRoot
 
 	view, err := sm.blockchain.GetSubView(lastBlockHash)
@@ -148,7 +149,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, nil, err
 	}
 
-	receipts, lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
+	output, lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -170,7 +171,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 		return nil, nil, err
 	}
 
-	return receipts, &newState, nil
+	return output, &newState, nil
 }
 
 // DeleteStateBeforeFinalizedSlot deletes any states before the current finalized slot.

@@ -382,6 +382,19 @@ func (s *server) GetValidatorInformation(ctx context.Context, in *pb.GetValidato
 	return validator.ToProto(), nil
 }
 
+// CrosslinkStream creates a crosslink stream.
+func (s *server) CrosslinkStream(req *pb.CrosslinkStreamRequest, res pb.BlockchainRPC_CrosslinkStreamServer) error {
+	cs := NewCrosslinkStream(req.ShardID, func(c *primitives.Crosslink) {
+		_ = res.Send(&pb.CrosslinkMessage{
+			BlockHash: c.ShardBlockHash[:],
+		})
+	})
+	s.chain.RegisterNotifee(cs)
+	<- res.Context().Done()
+	s.chain.UnregisterNotifee(cs)
+	return nil
+}
+
 // Serve serves the RPC server
 func Serve(proto string, listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {
 	lis, err := net.Listen(proto, listenAddr)

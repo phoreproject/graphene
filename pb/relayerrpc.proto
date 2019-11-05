@@ -1,5 +1,10 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+import "common.proto";
+
 package pb;
 
-service RelayerRPC {}
+service RelayerRPC {
+    rpc SubmitTransaction(ShardTransaction) returns (google.protobuf.Empty);
+}

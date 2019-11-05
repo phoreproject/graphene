@@ -2,6 +2,7 @@ package mempool_test
 
 import (
 	"bytes"
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/relayer/mempool"
 	"github.com/phoreproject/synapse/shard/execution"
@@ -29,7 +30,7 @@ func TestShardMempoolAddNormal(t *testing.T) {
 		ShardID: 0,
 	}
 
-	sm := mempool.NewShardMempool(stateDB, shardInfo)
+	sm := mempool.NewShardMempool(stateDB, 0, chainhash.Hash{}, shardInfo)
 
 	premineTx := RedeemPremine(premineKey, 0)
 
@@ -60,7 +61,7 @@ func TestShardMempoolAddInvalid(t *testing.T) {
 		ShardID: 0,
 	}
 
-	sm := mempool.NewShardMempool(stateDB, shardInfo)
+	sm := mempool.NewShardMempool(stateDB, 0, chainhash.Hash{}, shardInfo)
 
 	premineTx := transfer.RedeemTransaction{
 		ToPubkeyHash: [20]byte{},
@@ -92,7 +93,7 @@ func TestShardMempoolAddConflicting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sm := mempool.NewShardMempool(stateDB, shardInfo)
+	sm := mempool.NewShardMempool(stateDB, 0, chainhash.Hash{}, shardInfo)
 
 	to1, err := keystore.GenerateRandomKeypair()
 	if err != nil {
@@ -156,7 +157,7 @@ func TestShardMempoolWitnesses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sm := mempool.NewShardMempool(stateDB, shardInfo)
+	sm := mempool.NewShardMempool(stateDB, 0, chainhash.Hash{}, shardInfo)
 
 	to, err := keystore.GenerateRandomKeypair()
 	if err != nil {

@@ -50,6 +50,7 @@ require (
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/net v0.0.0-20190918130420-a8b05e9114ab
 	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
+	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610
 	google.golang.org/grpc v1.23.1
 	gopkg.in/yaml.v2 v2.2.2
 	gotest.tools/gotestsum v0.3.4 // indirect

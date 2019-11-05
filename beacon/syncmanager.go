@@ -499,13 +499,13 @@ func (s *SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom peer
 
 	} else {
 		logrus.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
-		receipts, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)
+		output, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)
 		if err != nil {
 			return err
 		}
 
 		if s.postProcessHook != nil && newState != nil {
-			s.postProcessHook(block, newState, receipts)
+			s.postProcessHook(block, newState, output.Receipts)
 		}
 	}
 

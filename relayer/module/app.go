@@ -56,5 +56,6 @@ func (r *RelayerModule) createRPCServer() error {
 
 // Run runs the relayer module.
 func (r *RelayerModule) Run() error {
+
 	return nil
 }

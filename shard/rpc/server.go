@@ -18,6 +18,24 @@ type ShardRPCServer struct {
 	sm *chain.ShardMux
 }
 
+// GetActionStream gets an action stream.
+func (s *ShardRPCServer) GetActionStream(req *pb.ShardActionStreamRequest, res pb.ShardRPC_GetActionStreamServer) error {
+	manager, err := s.sm.GetManager(req.ShardID)
+	if err != nil {
+		return err
+	}
+
+	n := NewActionStreamGenerator(func(action *pb.ShardChainAction) {
+		_ = res.Send(action)
+	})
+
+	manager.RegisterNotifee(n)
+	<- res.Context().Done()
+	manager.UnregisterNotifee(n)
+
+	return nil
+}
+
 // GetStateKey gets a key from the current state.
 func (s *ShardRPCServer) GetStateKey(ctx context.Context, req *pb.GetStateKeyRequest) (*pb.GetStateKeyResponse, error) {
 	manager, err := s.sm.GetManager(req.ShardID)

@@ -24,6 +24,222 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type ShardActionStreamRequest struct {
+	ShardID              uint64   `protobuf:"varint,1,opt,name=ShardID,proto3" json:"ShardID,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ShardActionStreamRequest) Reset()         { *m = ShardActionStreamRequest{} }
+func (m *ShardActionStreamRequest) String() string { return proto.CompactTextString(m) }
+func (*ShardActionStreamRequest) ProtoMessage()    {}
+func (*ShardActionStreamRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{0}
+}
+func (m *ShardActionStreamRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShardActionStreamRequest.Unmarshal(m, b)
+}
+func (m *ShardActionStreamRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShardActionStreamRequest.Marshal(b, m, deterministic)
+}
+func (dst *ShardActionStreamRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardActionStreamRequest.Merge(dst, src)
+}
+func (m *ShardActionStreamRequest) XXX_Size() int {
+	return xxx_messageInfo_ShardActionStreamRequest.Size(m)
+}
+func (m *ShardActionStreamRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardActionStreamRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShardActionStreamRequest proto.InternalMessageInfo
+
+func (m *ShardActionStreamRequest) GetShardID() uint64 {
+	if m != nil {
+		return m.ShardID
+	}
+	return 0
+}
+
+// This message is used to signal a change in the shard chain. This will signify the latest block if Finalized is false
+// and signify a finalized block if Finalized is true.
+type ShardChainAction struct {
+	AddBlockAction       *ActionAddBlock      `protobuf:"bytes,1,opt,name=AddBlockAction,proto3" json:"AddBlockAction,omitempty"`
+	FinalizeBlockAction  *ActionFinalizeBlock `protobuf:"bytes,2,opt,name=FinalizeBlockAction,proto3" json:"FinalizeBlockAction,omitempty"`
+	UpdateTip            *ActionUpdateTip     `protobuf:"bytes,3,opt,name=UpdateTip,proto3" json:"UpdateTip,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *ShardChainAction) Reset()         { *m = ShardChainAction{} }
+func (m *ShardChainAction) String() string { return proto.CompactTextString(m) }
+func (*ShardChainAction) ProtoMessage()    {}
+func (*ShardChainAction) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{1}
+}
+func (m *ShardChainAction) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ShardChainAction.Unmarshal(m, b)
+}
+func (m *ShardChainAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ShardChainAction.Marshal(b, m, deterministic)
+}
+func (dst *ShardChainAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardChainAction.Merge(dst, src)
+}
+func (m *ShardChainAction) XXX_Size() int {
+	return xxx_messageInfo_ShardChainAction.Size(m)
+}
+func (m *ShardChainAction) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardChainAction.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShardChainAction proto.InternalMessageInfo
+
+func (m *ShardChainAction) GetAddBlockAction() *ActionAddBlock {
+	if m != nil {
+		return m.AddBlockAction
+	}
+	return nil
+}
+
+func (m *ShardChainAction) GetFinalizeBlockAction() *ActionFinalizeBlock {
+	if m != nil {
+		return m.FinalizeBlockAction
+	}
+	return nil
+}
+
+func (m *ShardChainAction) GetUpdateTip() *ActionUpdateTip {
+	if m != nil {
+		return m.UpdateTip
+	}
+	return nil
+}
+
+type ActionAddBlock struct {
+	Block                *ShardBlock `protobuf:"bytes,2,opt,name=Block,proto3" json:"Block,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *ActionAddBlock) Reset()         { *m = ActionAddBlock{} }
+func (m *ActionAddBlock) String() string { return proto.CompactTextString(m) }
+func (*ActionAddBlock) ProtoMessage()    {}
+func (*ActionAddBlock) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{2}
+}
+func (m *ActionAddBlock) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ActionAddBlock.Unmarshal(m, b)
+}
+func (m *ActionAddBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ActionAddBlock.Marshal(b, m, deterministic)
+}
+func (dst *ActionAddBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActionAddBlock.Merge(dst, src)
+}
+func (m *ActionAddBlock) XXX_Size() int {
+	return xxx_messageInfo_ActionAddBlock.Size(m)
+}
+func (m *ActionAddBlock) XXX_DiscardUnknown() {
+	xxx_messageInfo_ActionAddBlock.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ActionAddBlock proto.InternalMessageInfo
+
+func (m *ActionAddBlock) GetBlock() *ShardBlock {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+type ActionFinalizeBlock struct {
+	Hash                 []byte   `protobuf:"bytes,1,opt,name=Hash,proto3" json:"Hash,omitempty"`
+	Slot                 uint64   `protobuf:"varint,2,opt,name=Slot,proto3" json:"Slot,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ActionFinalizeBlock) Reset()         { *m = ActionFinalizeBlock{} }
+func (m *ActionFinalizeBlock) String() string { return proto.CompactTextString(m) }
+func (*ActionFinalizeBlock) ProtoMessage()    {}
+func (*ActionFinalizeBlock) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{3}
+}
+func (m *ActionFinalizeBlock) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ActionFinalizeBlock.Unmarshal(m, b)
+}
+func (m *ActionFinalizeBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ActionFinalizeBlock.Marshal(b, m, deterministic)
+}
+func (dst *ActionFinalizeBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActionFinalizeBlock.Merge(dst, src)
+}
+func (m *ActionFinalizeBlock) XXX_Size() int {
+	return xxx_messageInfo_ActionFinalizeBlock.Size(m)
+}
+func (m *ActionFinalizeBlock) XXX_DiscardUnknown() {
+	xxx_messageInfo_ActionFinalizeBlock.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ActionFinalizeBlock proto.InternalMessageInfo
+
+func (m *ActionFinalizeBlock) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *ActionFinalizeBlock) GetSlot() uint64 {
+	if m != nil {
+		return m.Slot
+	}
+	return 0
+}
+
+type ActionUpdateTip struct {
+	Hash                 []byte   `protobuf:"bytes,2,opt,name=Hash,proto3" json:"Hash,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ActionUpdateTip) Reset()         { *m = ActionUpdateTip{} }
+func (m *ActionUpdateTip) String() string { return proto.CompactTextString(m) }
+func (*ActionUpdateTip) ProtoMessage()    {}
+func (*ActionUpdateTip) Descriptor() ([]byte, []int) {
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{4}
+}
+func (m *ActionUpdateTip) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ActionUpdateTip.Unmarshal(m, b)
+}
+func (m *ActionUpdateTip) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ActionUpdateTip.Marshal(b, m, deterministic)
+}
+func (dst *ActionUpdateTip) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActionUpdateTip.Merge(dst, src)
+}
+func (m *ActionUpdateTip) XXX_Size() int {
+	return xxx_messageInfo_ActionUpdateTip.Size(m)
+}
+func (m *ActionUpdateTip) XXX_DiscardUnknown() {
+	xxx_messageInfo_ActionUpdateTip.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ActionUpdateTip proto.InternalMessageInfo
+
+func (m *ActionUpdateTip) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
 type GetStateKeyRequest struct {
 	Key                  []byte   `protobuf:"bytes,1,opt,name=Key,proto3" json:"Key,omitempty"`
 	ShardID              uint64   `protobuf:"varint,2,opt,name=ShardID,proto3" json:"ShardID,omitempty"`
@@ -36,7 +252,7 @@ func (m *GetStateKeyRequest) Reset()         { *m = GetStateKeyRequest{} }
 func (m *GetStateKeyRequest) String() string { return proto.CompactTextString(m) }
 func (*GetStateKeyRequest) ProtoMessage()    {}
 func (*GetStateKeyRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{0}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{5}
 }
 func (m *GetStateKeyRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetStateKeyRequest.Unmarshal(m, b)
@@ -81,7 +297,7 @@ func (m *GetStateKeyResponse) Reset()         { *m = GetStateKeyResponse{} }
 func (m *GetStateKeyResponse) String() string { return proto.CompactTextString(m) }
 func (*GetStateKeyResponse) ProtoMessage()    {}
 func (*GetStateKeyResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{1}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{6}
 }
 func (m *GetStateKeyResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetStateKeyResponse.Unmarshal(m, b)
@@ -119,7 +335,7 @@ func (m *BlockHashResponse) Reset()         { *m = BlockHashResponse{} }
 func (m *BlockHashResponse) String() string { return proto.CompactTextString(m) }
 func (*BlockHashResponse) ProtoMessage()    {}
 func (*BlockHashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{2}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{7}
 }
 func (m *BlockHashResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockHashResponse.Unmarshal(m, b)
@@ -158,7 +374,7 @@ func (m *SlotRequest) Reset()         { *m = SlotRequest{} }
 func (m *SlotRequest) String() string { return proto.CompactTextString(m) }
 func (*SlotRequest) ProtoMessage()    {}
 func (*SlotRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{3}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{8}
 }
 func (m *SlotRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SlotRequest.Unmarshal(m, b)
@@ -205,7 +421,7 @@ func (m *BlockGenerationRequest) Reset()         { *m = BlockGenerationRequest{}
 func (m *BlockGenerationRequest) String() string { return proto.CompactTextString(m) }
 func (*BlockGenerationRequest) ProtoMessage()    {}
 func (*BlockGenerationRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{4}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{9}
 }
 func (m *BlockGenerationRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockGenerationRequest.Unmarshal(m, b)
@@ -258,7 +474,7 @@ func (m *ShardBlockSubmission) Reset()         { *m = ShardBlockSubmission{} }
 func (m *ShardBlockSubmission) String() string { return proto.CompactTextString(m) }
 func (*ShardBlockSubmission) ProtoMessage()    {}
 func (*ShardBlockSubmission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{5}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{10}
 }
 func (m *ShardBlockSubmission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardBlockSubmission.Unmarshal(m, b)
@@ -306,7 +522,7 @@ func (m *ShardSubscribeRequest) Reset()         { *m = ShardSubscribeRequest{} }
 func (m *ShardSubscribeRequest) String() string { return proto.CompactTextString(m) }
 func (*ShardSubscribeRequest) ProtoMessage()    {}
 func (*ShardSubscribeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{6}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{11}
 }
 func (m *ShardSubscribeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardSubscribeRequest.Unmarshal(m, b)
@@ -365,7 +581,7 @@ func (m *ShardUnsubscribeRequest) Reset()         { *m = ShardUnsubscribeRequest
 func (m *ShardUnsubscribeRequest) String() string { return proto.CompactTextString(m) }
 func (*ShardUnsubscribeRequest) ProtoMessage()    {}
 func (*ShardUnsubscribeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{7}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{12}
 }
 func (m *ShardUnsubscribeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardUnsubscribeRequest.Unmarshal(m, b)
@@ -404,7 +620,7 @@ func (m *ShardTransactionSubmission) Reset()         { *m = ShardTransactionSubm
 func (m *ShardTransactionSubmission) String() string { return proto.CompactTextString(m) }
 func (*ShardTransactionSubmission) ProtoMessage()    {}
 func (*ShardTransactionSubmission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_76de8ea78acbb041, []int{8}
+	return fileDescriptor_shardrpc_b91027e25e5ef7e0, []int{13}
 }
 func (m *ShardTransactionSubmission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardTransactionSubmission.Unmarshal(m, b)
@@ -439,6 +655,11 @@ func (m *ShardTransactionSubmission) GetTransaction() *ShardTransaction {
 }
 
 func init() {
+	proto.RegisterType((*ShardActionStreamRequest)(nil), "pb.ShardActionStreamRequest")
+	proto.RegisterType((*ShardChainAction)(nil), "pb.ShardChainAction")
+	proto.RegisterType((*ActionAddBlock)(nil), "pb.ActionAddBlock")
+	proto.RegisterType((*ActionFinalizeBlock)(nil), "pb.ActionFinalizeBlock")
+	proto.RegisterType((*ActionUpdateTip)(nil), "pb.ActionUpdateTip")
 	proto.RegisterType((*GetStateKeyRequest)(nil), "pb.GetStateKeyRequest")
 	proto.RegisterType((*GetStateKeyResponse)(nil), "pb.GetStateKeyResponse")
 	proto.RegisterType((*BlockHashResponse)(nil), "pb.BlockHashResponse")
@@ -468,6 +689,7 @@ type ShardRPCClient interface {
 	SubmitBlock(ctx context.Context, in *ShardBlockSubmission, opts ...grpc.CallOption) (*empty.Empty, error)
 	SubmitTransaction(ctx context.Context, in *ShardTransactionSubmission, opts ...grpc.CallOption) (*empty.Empty, error)
 	GetStateKey(ctx context.Context, in *GetStateKeyRequest, opts ...grpc.CallOption) (*GetStateKeyResponse, error)
+	GetActionStream(ctx context.Context, in *ShardActionStreamRequest, opts ...grpc.CallOption) (ShardRPC_GetActionStreamClient, error)
 }
 
 type shardRPCClient struct {
@@ -532,6 +754,38 @@ func (c *shardRPCClient) GetStateKey(ctx context.Context, in *GetStateKeyRequest
 	return out, nil
 }
 
+func (c *shardRPCClient) GetActionStream(ctx context.Context, in *ShardActionStreamRequest, opts ...grpc.CallOption) (ShardRPC_GetActionStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ShardRPC_serviceDesc.Streams[0], "/pb.ShardRPC/GetActionStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &shardRPCGetActionStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ShardRPC_GetActionStreamClient interface {
+	Recv() (*ShardChainAction, error)
+	grpc.ClientStream
+}
+
+type shardRPCGetActionStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *shardRPCGetActionStreamClient) Recv() (*ShardChainAction, error) {
+	m := new(ShardChainAction)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ShardRPCServer is the server API for ShardRPC service.
 type ShardRPCServer interface {
 	SubscribeToShard(context.Context, *ShardSubscribeRequest) (*empty.Empty, error)
@@ -540,6 +794,7 @@ type ShardRPCServer interface {
 	SubmitBlock(context.Context, *ShardBlockSubmission) (*empty.Empty, error)
 	SubmitTransaction(context.Context, *ShardTransactionSubmission) (*empty.Empty, error)
 	GetStateKey(context.Context, *GetStateKeyRequest) (*GetStateKeyResponse, error)
+	GetActionStream(*ShardActionStreamRequest, ShardRPC_GetActionStreamServer) error
 }
 
 func RegisterShardRPCServer(s *grpc.Server, srv ShardRPCServer) {
@@ -654,6 +909,27 @@ func _ShardRPC_GetStateKey_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ShardRPC_GetActionStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ShardActionStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ShardRPCServer).GetActionStream(m, &shardRPCGetActionStreamServer{stream})
+}
+
+type ShardRPC_GetActionStreamServer interface {
+	Send(*ShardChainAction) error
+	grpc.ServerStream
+}
+
+type shardRPCGetActionStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *shardRPCGetActionStreamServer) Send(m *ShardChainAction) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _ShardRPC_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.ShardRPC",
 	HandlerType: (*ShardRPCServer)(nil),
@@ -683,45 +959,59 @@ var _ShardRPC_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ShardRPC_GetStateKey_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetActionStream",
+			Handler:       _ShardRPC_GetActionStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "shardrpc.proto",
 }
 
-func init() { proto.RegisterFile("shardrpc.proto", fileDescriptor_shardrpc_76de8ea78acbb041) }
+func init() { proto.RegisterFile("shardrpc.proto", fileDescriptor_shardrpc_b91027e25e5ef7e0) }
 
-var fileDescriptor_shardrpc_76de8ea78acbb041 = []byte{
-	// 520 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0xdd, 0x6e, 0xd3, 0x4c,
-	0x10, 0x95, 0xf3, 0xf3, 0x7d, 0x30, 0x2e, 0xa5, 0xdd, 0x26, 0x69, 0x30, 0x08, 0x55, 0x56, 0x2f,
-	0x2a, 0x21, 0xb9, 0x90, 0x4a, 0x70, 0x83, 0xf8, 0x69, 0x28, 0x05, 0xe5, 0x06, 0xd9, 0x29, 0xf7,
-	0x6b, 0x77, 0x68, 0xad, 0xda, 0xbb, 0xc6, 0xbb, 0xbe, 0x08, 0xaf, 0xc1, 0x1b, 0xf0, 0xa4, 0xc8,
-	0xb3, 0x89, 0x7f, 0x92, 0x56, 0x2a, 0x77, 0xbb, 0x33, 0x67, 0xcf, 0x9c, 0x39, 0x3b, 0xbb, 0xb0,
-	0xad, 0xae, 0x79, 0x7e, 0x99, 0x67, 0x91, 0x97, 0xe5, 0x52, 0x4b, 0xd6, 0xc9, 0x42, 0xe7, 0xe9,
-	0x95, 0x94, 0x57, 0x09, 0x1e, 0x53, 0x24, 0x2c, 0x7e, 0x1c, 0x63, 0x9a, 0xe9, 0x85, 0x01, 0x38,
-	0x5b, 0x91, 0x4c, 0x53, 0x29, 0xcc, 0xce, 0xfd, 0x00, 0xec, 0x1c, 0x75, 0xa0, 0xb9, 0xc6, 0x19,
-	0x2e, 0x7c, 0xfc, 0x59, 0xa0, 0xd2, 0x6c, 0x07, 0xba, 0x33, 0x5c, 0x8c, 0xad, 0x03, 0xeb, 0x68,
-	0xcb, 0x2f, 0x97, 0x6c, 0x0c, 0xff, 0x07, 0x65, 0xa1, 0xaf, 0x9f, 0xc6, 0x9d, 0x03, 0xeb, 0xa8,
-	0xe7, 0xaf, 0xb6, 0xee, 0x0b, 0xd8, 0x6b, 0x31, 0xa8, 0x4c, 0x0a, 0x85, 0x6c, 0x00, 0xfd, 0xef,
-	0x3c, 0x29, 0x70, 0x49, 0x62, 0x36, 0xee, 0x2b, 0xd8, 0x3d, 0x4d, 0x64, 0x74, 0xf3, 0x85, 0xab,
-	0xeb, 0x0a, 0xfa, 0x0c, 0x1e, 0x56, 0xc1, 0x25, 0xbc, 0x0e, 0xb8, 0x6f, 0xc0, 0x0e, 0x12, 0xa9,
-	0x57, 0xd2, 0x06, 0xd0, 0xa7, 0xca, 0x04, 0xec, 0xf9, 0x66, 0xc3, 0x18, 0xf4, 0x4a, 0xd0, 0x52,
-	0x1b, 0xad, 0x5d, 0x0d, 0x23, 0x62, 0x39, 0x47, 0x81, 0x39, 0xd7, 0xb1, 0x14, 0xff, 0xcc, 0xc1,
-	0x5e, 0xc2, 0xde, 0xe7, 0x58, 0xf0, 0x24, 0xfe, 0x85, 0x97, 0xa7, 0xc8, 0x23, 0x29, 0x48, 0x64,
-	0x97, 0x44, 0xde, 0x96, 0x72, 0x7d, 0x18, 0x10, 0x1d, 0x95, 0x0e, 0x8a, 0x30, 0x8d, 0x95, 0x8a,
-	0xa5, 0x60, 0x87, 0xd0, 0xa7, 0x10, 0xd5, 0xb4, 0x27, 0xdb, 0x5e, 0x16, 0x7a, 0x35, 0xd0, 0x37,
-	0xc9, 0x5a, 0x59, 0xa7, 0xa1, 0xcc, 0xfd, 0x6d, 0xc1, 0x90, 0x56, 0x41, 0x11, 0xaa, 0x28, 0x8f,
-	0x43, 0x5c, 0x75, 0xd2, 0xb8, 0x16, 0xab, 0x75, 0x2d, 0xec, 0x10, 0x1e, 0x4d, 0x73, 0xa9, 0x54,
-	0x12, 0x8b, 0x9b, 0x46, 0x5b, 0xed, 0x60, 0xdb, 0xfa, 0xee, 0x9a, 0xf5, 0x65, 0xf6, 0x42, 0xe8,
-	0x38, 0xa1, 0xf3, 0x3d, 0x3a, 0x5f, 0x07, 0xdc, 0x13, 0xd8, 0xa7, 0x62, 0x17, 0x42, 0xdd, 0x5b,
-	0x96, 0x2b, 0xc0, 0xa1, 0xe5, 0x3c, 0xe7, 0x42, 0xf1, 0xa8, 0xbc, 0x95, 0x86, 0x49, 0x77, 0xb7,
-	0xf3, 0x1a, 0xec, 0xc6, 0x11, 0x6a, 0xc6, 0x9e, 0x0c, 0x2a, 0x13, 0x1b, 0x39, 0xbf, 0x09, 0x9c,
-	0xfc, 0xe9, 0xc2, 0x03, 0x42, 0xf8, 0xdf, 0xa6, 0xec, 0x0c, 0x76, 0x2a, 0x07, 0xe7, 0xd2, 0xdc,
-	0xfa, 0x93, 0x8a, 0x63, 0xdd, 0x5c, 0x67, 0xe4, 0x99, 0x77, 0xe4, 0xad, 0xde, 0x91, 0x77, 0x56,
-	0xbe, 0x23, 0xf6, 0x96, 0xde, 0x4c, 0x65, 0xd3, 0x47, 0x4d, 0x56, 0x3e, 0x26, 0xa2, 0x7a, 0x52,
-	0x9d, 0x61, 0x19, 0xd8, 0x9c, 0xf6, 0x29, 0x0c, 0x97, 0x13, 0x89, 0x94, 0x9c, 0x63, 0x9a, 0x25,
-	0x5c, 0x23, 0x73, 0x2a, 0xfc, 0xc6, 0xc4, 0x3a, 0x6b, 0xe3, 0xc2, 0xde, 0x83, 0x4d, 0xb6, 0x19,
-	0x15, 0x6c, 0xdc, 0x4e, 0xd7, 0x8e, 0xde, 0xd9, 0xc3, 0x0c, 0x76, 0x0d, 0x41, 0xc3, 0x2c, 0xf6,
-	0xfc, 0x36, 0x3f, 0xef, 0x41, 0xf6, 0x0e, 0xec, 0xc6, 0x17, 0xc0, 0x46, 0x25, 0xcd, 0xe6, 0xaf,
-	0xe2, 0xec, 0x6f, 0xc4, 0x8d, 0x25, 0xe1, 0x7f, 0xc4, 0x77, 0xf2, 0x37, 0x00, 0x00, 0xff, 0xff,
-	0x47, 0x57, 0xac, 0x7d, 0xcc, 0x04, 0x00, 0x00,
+var fileDescriptor_shardrpc_b91027e25e5ef7e0 = []byte{
+	// 656 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xdd, 0x6e, 0xd3, 0x30,
+	0x14, 0x56, 0x7f, 0x06, 0xec, 0x74, 0x74, 0x9b, 0xdb, 0x6d, 0x25, 0x4c, 0x08, 0x59, 0x43, 0x42,
+	0x42, 0xea, 0xfe, 0xd0, 0x90, 0x10, 0x7f, 0x5b, 0x19, 0x65, 0xda, 0x0d, 0x4a, 0x3b, 0xee, 0x9d,
+	0xd6, 0x6c, 0xd1, 0x52, 0x3b, 0xc4, 0xee, 0xc5, 0x78, 0x0d, 0x5e, 0x8b, 0x37, 0xe1, 0x25, 0x90,
+	0x8f, 0xd3, 0x38, 0x69, 0x33, 0x18, 0x77, 0x27, 0xe7, 0xe7, 0xf3, 0x77, 0xbe, 0x73, 0xec, 0x40,
+	0x53, 0x5d, 0xb1, 0x64, 0x9c, 0xc4, 0xa3, 0x6e, 0x9c, 0x48, 0x2d, 0x49, 0x35, 0x0e, 0xbc, 0xc7,
+	0x97, 0x52, 0x5e, 0x46, 0x7c, 0x17, 0x3d, 0xc1, 0xf4, 0xdb, 0x2e, 0x9f, 0xc4, 0xfa, 0xc6, 0x26,
+	0x78, 0x2b, 0x23, 0x39, 0x99, 0x48, 0x61, 0xbf, 0xe8, 0x4b, 0xe8, 0x0c, 0x0c, 0xc0, 0xf1, 0x48,
+	0x87, 0x52, 0x0c, 0x74, 0xc2, 0xd9, 0xc4, 0xe7, 0xdf, 0xa7, 0x5c, 0x69, 0xd2, 0x81, 0xfb, 0x18,
+	0x3b, 0xfb, 0xd8, 0xa9, 0x3c, 0xad, 0x3c, 0xaf, 0xfb, 0xb3, 0x4f, 0xfa, 0xab, 0x02, 0x6b, 0x68,
+	0xf7, 0xae, 0x58, 0x28, 0x6c, 0x2d, 0x79, 0x0d, 0xcd, 0xe3, 0xf1, 0xf8, 0x24, 0x92, 0xa3, 0x6b,
+	0xeb, 0xc1, 0xaa, 0xc6, 0x01, 0xe9, 0xc6, 0x41, 0xd7, 0x7a, 0x66, 0x71, 0x7f, 0x2e, 0x93, 0x9c,
+	0x41, 0xeb, 0x53, 0x28, 0x58, 0x14, 0xfe, 0xe0, 0x79, 0x80, 0x2a, 0x02, 0x6c, 0x39, 0x80, 0x42,
+	0x92, 0x5f, 0x56, 0x43, 0xf6, 0x61, 0xf9, 0x22, 0x1e, 0x33, 0xcd, 0x87, 0x61, 0xdc, 0xa9, 0x21,
+	0x40, 0xcb, 0x01, 0x64, 0x21, 0xdf, 0x65, 0xd1, 0x23, 0x68, 0x16, 0xf9, 0x91, 0x1d, 0x58, 0x42,
+	0x23, 0x65, 0xd0, 0x34, 0x00, 0xd8, 0xb0, 0x3d, 0xd8, 0x06, 0xe9, 0x5b, 0x68, 0x95, 0xd0, 0x22,
+	0x04, 0xea, 0x9f, 0x99, 0xba, 0xc2, 0xf6, 0x57, 0x7c, 0xb4, 0x8d, 0x6f, 0x10, 0x49, 0x8d, 0x78,
+	0x75, 0x1f, 0x6d, 0xfa, 0x0c, 0x56, 0xe7, 0x48, 0x65, 0xa5, 0x55, 0x57, 0x4a, 0x3f, 0x00, 0xe9,
+	0x73, 0x3d, 0xd0, 0x4c, 0xf3, 0x73, 0x7e, 0x33, 0x1b, 0xce, 0x1a, 0xd4, 0xce, 0xf9, 0x4d, 0x7a,
+	0x86, 0x31, 0xf3, 0xe3, 0xaa, 0x16, 0xc7, 0xf5, 0x02, 0x5a, 0x05, 0x04, 0x15, 0x4b, 0xa1, 0x38,
+	0x69, 0xc3, 0xd2, 0x57, 0x16, 0x4d, 0x79, 0x0a, 0x62, 0x3f, 0xe8, 0x3e, 0xac, 0x63, 0x1b, 0xe6,
+	0xec, 0x2c, 0x75, 0x1b, 0x96, 0x33, 0x67, 0x9a, 0xee, 0x1c, 0xf4, 0x15, 0x34, 0x4c, 0x43, 0x33,
+	0x6a, 0x6d, 0x58, 0xc2, 0x93, 0xd3, 0xad, 0xb1, 0x1f, 0xa5, 0x0a, 0x68, 0xd8, 0x44, 0x94, 0x3e,
+	0x17, 0x3c, 0x61, 0x46, 0x8a, 0xff, 0xc6, 0x20, 0x7b, 0x6e, 0x75, 0xc6, 0x27, 0x9c, 0x8d, 0xa4,
+	0x40, 0x92, 0x35, 0x24, 0x59, 0x16, 0xa2, 0x3e, 0xb4, 0xdd, 0x2c, 0x07, 0xd3, 0x60, 0x12, 0x2a,
+	0x65, 0x36, 0x27, 0x1b, 0x7a, 0xe5, 0x2f, 0x43, 0x77, 0xcc, 0xaa, 0x39, 0x66, 0xf4, 0x67, 0x05,
+	0x36, 0xd0, 0x1a, 0x4c, 0x03, 0x35, 0x4a, 0xc2, 0x80, 0xff, 0xf3, 0x16, 0x91, 0x1d, 0x78, 0xd8,
+	0x4b, 0xa4, 0x52, 0x51, 0x28, 0xae, 0x73, 0x6d, 0x15, 0x9d, 0x45, 0xe9, 0x6b, 0x73, 0xd2, 0x9b,
+	0xe8, 0x85, 0xd0, 0x61, 0x84, 0xf5, 0x75, 0xac, 0x77, 0x0e, 0x7a, 0x08, 0x5b, 0x78, 0xd8, 0x85,
+	0x50, 0x77, 0xa6, 0x45, 0x05, 0x78, 0x68, 0x0e, 0x13, 0x26, 0x14, 0xb3, 0xef, 0x82, 0x13, 0xe9,
+	0xf6, 0x76, 0x8e, 0xa0, 0x91, 0x2b, 0x49, 0x6f, 0x4e, 0x3b, 0x13, 0x31, 0x17, 0xf3, 0xf3, 0x89,
+	0x07, 0xbf, 0x6b, 0xf0, 0x00, 0x33, 0xfc, 0x2f, 0x3d, 0x72, 0x0a, 0x6b, 0x99, 0x82, 0x43, 0x69,
+	0xa7, 0xfe, 0x28, 0xc3, 0x98, 0x17, 0xd7, 0xdb, 0xec, 0xda, 0xa7, 0xae, 0x3b, 0x7b, 0xea, 0xba,
+	0xa7, 0xe6, 0xa9, 0x23, 0x6f, 0xf0, 0xce, 0x64, 0x32, 0x1d, 0x6b, 0x94, 0x72, 0x15, 0x81, 0xdc,
+	0xa6, 0x7a, 0x1b, 0xc6, 0xb1, 0xb8, 0xed, 0x3d, 0xd8, 0x48, 0x37, 0xd2, 0xde, 0xe8, 0x21, 0x9f,
+	0xc4, 0x11, 0xd3, 0x9c, 0x78, 0x59, 0xfe, 0xc2, 0xc6, 0x7a, 0x73, 0xeb, 0x42, 0xde, 0x43, 0x03,
+	0x65, 0xb3, 0x2c, 0x48, 0xa7, 0x18, 0x76, 0x8a, 0xde, 0xda, 0xc3, 0x39, 0xac, 0x5b, 0x80, 0x9c,
+	0x58, 0xe4, 0x49, 0x99, 0x9e, 0x77, 0x00, 0x7b, 0x07, 0x8d, 0xdc, 0x13, 0x40, 0x36, 0x0d, 0xcc,
+	0xe2, 0xab, 0xe2, 0x6d, 0x2d, 0xf8, 0x53, 0x49, 0xfa, 0xb0, 0xda, 0xe7, 0x3a, 0xff, 0x97, 0x20,
+	0xdb, 0x19, 0x95, 0x92, 0x9f, 0x87, 0xe7, 0x06, 0x9f, 0xfb, 0x47, 0xec, 0x55, 0x82, 0x7b, 0x48,
+	0xec, 0xf0, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x7e, 0x9c, 0x39, 0x01, 0xb8, 0x06, 0x00, 0x00,
 }

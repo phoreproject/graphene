@@ -21,6 +21,9 @@ type Mempool struct {
 	blockchain         *Blockchain
 }
 
+// CrosslinkCreated implements the blockchain.Notifee interface and does nothing.
+func (m *Mempool) CrosslinkCreated(crosslink *primitives.Crosslink, shardID uint64) {}
+
 // NewMempool creates a new mempool.
 func NewMempool(blockchain *Blockchain) *Mempool {
 	m := &Mempool{

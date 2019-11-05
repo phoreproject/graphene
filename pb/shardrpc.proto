@@ -7,16 +7,37 @@ import "common.proto";
 
 service ShardRPC {
     rpc SubscribeToShard (ShardSubscribeRequest) returns (google.protobuf.Empty);
-
     rpc GetBlockHashAtSlot (SlotRequest) returns (BlockHashResponse);
-
     rpc GenerateBlockTemplate (BlockGenerationRequest) returns (ShardBlock);
-
     rpc SubmitBlock (ShardBlockSubmission) returns (google.protobuf.Empty);
-
     rpc SubmitTransaction (ShardTransactionSubmission) returns (google.protobuf.Empty);
-
     rpc GetStateKey (GetStateKeyRequest) returns (GetStateKeyResponse);
+    rpc GetActionStream (ShardActionStreamRequest) returns (stream ShardChainAction);
+}
+
+message ShardActionStreamRequest {
+    uint64 ShardID = 1;
+}
+
+// This message is used to signal a change in the shard chain. This will signify the latest block if Finalized is false
+// and signify a finalized block if Finalized is true.
+message ShardChainAction {
+    ActionAddBlock AddBlockAction = 1;
+    ActionFinalizeBlock FinalizeBlockAction = 2;
+    ActionUpdateTip UpdateTip = 3;
+}
+
+message ActionAddBlock {
+    ShardBlock Block = 2;
+}
+
+message ActionFinalizeBlock {
+    bytes Hash = 1;
+    uint64 Slot = 2;
+}
+
+message ActionUpdateTip {
+    bytes Hash = 2;
 }
 
 message GetStateKeyRequest {

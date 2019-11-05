@@ -307,10 +307,22 @@ func (s *State) getAttestingValidatorIndices(shardComittee ShardAndCommittee, sh
 	return out, nil
 }
 
+// CrosslinkForShardID is a crosslink and the shard ID for which the crosslink was created.
+type CrosslinkForShardID struct {
+	Crosslink Crosslink
+	ShardID uint64
+}
+
+// EpochTransitionOutput is the auxillary output of an epoch transition.
+type EpochTransitionOutput struct {
+	Receipts   []Receipt
+	Crosslinks []CrosslinkForShardID
+}
+
 // ProcessEpochTransition processes an epoch transition and modifies state. This shouldn't usually
 // be used as ProcessSlots is generally a better way to update state, but sometimes it's required to
 // validate/generate attestations for the next epoch.
-func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
+func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput, error) {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
 
@@ -443,6 +455,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 	}
 
 	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
+	newCrosslinks := make([]CrosslinkForShardID, 0)
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
@@ -470,6 +483,13 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 					Slot:           s.Slot,
 					ShardBlockHash: *bestRoot,
 				}
+				newCrosslinks = append(newCrosslinks, CrosslinkForShardID{
+					Crosslink: Crosslink{
+						Slot:           s.Slot,
+						ShardBlockHash: *bestRoot,
+					},
+					ShardID: shardCommittee.Shard,
+				})
 				//logrus.WithFields(logrus.Fields{
 				//	"slot":             s.Slot,
 				//	"shardBlockHash":   bestRoot.String(),
@@ -846,5 +866,8 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 
 	s.CurrentEpochAttestations = make([]PendingAttestation, 0)
 
-	return receipts, nil
+	return &EpochTransitionOutput{
+		Receipts:   receipts,
+		Crosslinks: newCrosslinks,
+	}, nil
 }

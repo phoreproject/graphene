@@ -15,6 +15,8 @@ import (
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
+	"github.com/sirupsen/logrus"
+	"sync"
 )
 
 // ShardChainInitializationParameters are the initialization parameters from the crosslink.
@@ -22,6 +24,11 @@ type ShardChainInitializationParameters struct {
 	RootBlockHash chainhash.Hash
 	RootSlot      uint64
 	GenesisTime   uint64
+}
+
+type ShardChainActionNotifee interface {
+	AddBlock(block *primitives.ShardBlock, newTip bool)
+	FinalizeBlockHash(blockHash chainhash.Hash)
 }
 
 // ShardManager represents part of the blockchain on a specific shard (starting from a specific crosslinked block hash),
@@ -36,6 +43,9 @@ type ShardManager struct {
 	Mempool                  *mempool.ShardMempool
 	stateDB                  csmt.TreeDatabase
 	shardInfo                execution.ShardInfo
+
+	notifees []ShardChainActionNotifee
+	notifeesLock sync.Mutex
 }
 
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
@@ -49,16 +59,69 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		ShardID:     0,
 	}
 
-	return &ShardManager{
+	genesisBlockHash, _ := ssz.HashTreeRoot(genesisBlock)
+
+	sm := &ShardManager{
 		ShardID:                  shardID,
 		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
-		Mempool:                  mempool.NewShardMempool(stateDB, shardInfo),
+		Mempool:                  mempool.NewShardMempool(stateDB, 0, genesisBlockHash, shardInfo),
 		shardInfo: shardInfo,
 		stateDB: stateDB,
+		notifees: []ShardChainActionNotifee{},
 	}
+
+	sm.ListenForNewCrosslinks()
+
+	return sm
+}
+
+// RegisterNotifee registers a notifee for shard actions
+func (sm *ShardManager) RegisterNotifee(n ShardChainActionNotifee) {
+	sm.notifees = append(sm.notifees, n)
+}
+
+// UnregisterNotifee unregisters a notifee for shard actions
+func (sm *ShardManager) UnregisterNotifee(n ShardChainActionNotifee) {
+	for i, other := range sm.notifees {
+		if other == n {
+			sm.notifees = append(sm.notifees[:i], sm.notifees[i+1:]...)
+		}
+	}
+}
+
+// ListenForNewCrosslinks listens for new crosslinks.
+func (sm *ShardManager) ListenForNewCrosslinks() {
+	go func() {
+		stream, err := sm.BeaconClient.CrosslinkStream(context.Background(), &pb.CrosslinkStreamRequest{
+			ShardID: uint64(sm.shardInfo.ShardID),
+		})
+		if err != nil {
+			logrus.Error(err)
+		}
+
+		for {
+			newCrosslink, err := stream.Recv()
+			if err != nil {
+				logrus.Error(err)
+				break
+			}
+
+			crosslinkHash, err := chainhash.NewHash(newCrosslink.BlockHash)
+			if err != nil {
+				logrus.Error(err)
+				break
+			}
+
+			for _, n := range sm.notifees {
+				n.FinalizeBlockHash(*crosslinkHash)
+			}
+
+			// TODO: also update fork choice with new crosslink
+		}
+	}()
 }
 
 // SubmitTransaction submits a transaction to the shard.
@@ -185,10 +248,17 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 		return err
 	}
 
+	newTip := false
 	if node.Height > tipNode.Height || (node.Height == tipNode.Height && node.Slot > tipNode.Slot) {
 		sm.Chain.SetTip(node)
 
+		newTip = true
+
 		sm.Mempool.RemoveTransactionsFromBlock(&block)
+	}
+
+	for _, n := range sm.notifees {
+		n.AddBlock(&block, newTip)
 	}
 
 	return nil

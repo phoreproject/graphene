@@ -17,13 +17,14 @@ type RelayerSyncManager struct {
 	shardNumber uint64
 
 	protocol *p2p.ProtocolHandler
-	mempool mempool.ShardMempool
+	mempool *mempool.ShardMempool
 }
 
 // NewRelayerSyncManager constructs a new relayer sync manager.
-func NewRelayerSyncManager(hostNode *p2p.HostNode, shardNumber uint64) (*RelayerSyncManager, error) {
+func NewRelayerSyncManager(hostNode *p2p.HostNode, mempool *mempool.ShardMempool, shardNumber uint64) (*RelayerSyncManager, error) {
 	r := &RelayerSyncManager{
 		hostNode: hostNode,
+		mempool: mempool,
 		shardNumber: shardNumber,
 	}
 	if err := r.registerP2P(); err != nil {

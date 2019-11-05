@@ -31,7 +31,12 @@ type server struct {
 	mempool *beacon.Mempool
 }
 
-var _ pb.BlockchainRPCServer = &server{}
+func (s *server) GetGenesisTime(context.Context, *empty.Empty) (*pb.GenesisTimeResponse, error) {
+	return &pb.GenesisTimeResponse{
+		GenesisTime: s.chain.GetGenesisTime(),
+	}, nil
+}
+
 
 // GetListeningAddresses gets the addresses we're listening on.
 func (s *server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
@@ -387,6 +392,7 @@ func (s *server) CrosslinkStream(req *pb.CrosslinkStreamRequest, res pb.Blockcha
 	cs := NewCrosslinkStream(req.ShardID, func(c *primitives.Crosslink) {
 		_ = res.Send(&pb.CrosslinkMessage{
 			BlockHash: c.ShardBlockHash[:],
+			Slot: c.Slot,
 		})
 	})
 	s.chain.RegisterNotifee(cs)
@@ -394,6 +400,8 @@ func (s *server) CrosslinkStream(req *pb.CrosslinkStreamRequest, res pb.Blockcha
 	s.chain.UnregisterNotifee(cs)
 	return nil
 }
+
+var _ pb.BlockchainRPCServer = &server{}
 
 // Serve serves the RPC server
 func Serve(proto string, listenAddr string, b *beacon.Blockchain, hostNode *p2p.HostNode, mempool *beacon.Mempool) error {

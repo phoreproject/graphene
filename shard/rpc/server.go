@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
@@ -16,6 +17,7 @@ import (
 // ShardRPCServer handles incoming commands for the shard module.
 type ShardRPCServer struct {
 	sm *chain.ShardMux
+	config *config.Config
 }
 
 // GetActionStream gets an action stream.
@@ -27,8 +29,7 @@ func (s *ShardRPCServer) GetActionStream(req *pb.ShardActionStreamRequest, res p
 
 	n := NewActionStreamGenerator(func(action *pb.ShardChainAction) {
 		_ = res.Send(action)
-	})
-
+	}, s.config)
 	manager.RegisterNotifee(n)
 	<- res.Context().Done()
 	manager.UnregisterNotifee(n)
@@ -190,13 +191,13 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 var _ pb.ShardRPCServer = &ShardRPCServer{}
 
 // Serve serves the RPC server
-func Serve(proto string, listenAddr string, mux *chain.ShardMux) error {
+func Serve(proto string, listenAddr string, mux *chain.ShardMux, c *config.Config) error {
 	lis, err := net.Listen(proto, listenAddr)
 	if err != nil {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterShardRPCServer(s, &ShardRPCServer{mux})
+	pb.RegisterShardRPCServer(s, &ShardRPCServer{mux, c})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	err = s.Serve(lis)

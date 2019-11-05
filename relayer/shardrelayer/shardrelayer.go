@@ -18,14 +18,14 @@ type ShardRelayer struct {
 
 // NewShardRelayer creates a new shard relayer.
 func NewShardRelayer(shardID uint64, shardRPC pb.ShardRPCClient, mempool *mempool.ShardMempool, syncManager *p2p.RelayerSyncManager) *ShardRelayer {
-
-
-	return &ShardRelayer{
+	sr := &ShardRelayer{
 		mempool: mempool,
 		shardID: shardID,
 		rpc: shardRPC,
 		syncManager:syncManager,
 	}
+
+	return sr
 }
 
 // ListenForActions listens for incoming actions and relays them to the mempool.

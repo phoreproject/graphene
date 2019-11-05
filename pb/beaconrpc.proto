@@ -23,6 +23,11 @@ service BlockchainRPC {
     rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
     rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
     rpc CrosslinkStream(CrosslinkStreamRequest) returns (stream CrosslinkMessage);
+    rpc GetGenesisTime(google.protobuf.Empty) returns (GenesisTimeResponse);
+}
+
+message GenesisTimeResponse {
+    uint64 GenesisTime = 1;
 }
 
 message CrosslinkStreamRequest {
@@ -31,6 +36,7 @@ message CrosslinkStreamRequest {
 
 message CrosslinkMessage {
     bytes BlockHash = 1;
+    uint64 Slot = 2;
 }
 
 message ConnectMessage {

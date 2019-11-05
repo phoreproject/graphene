@@ -13,6 +13,8 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+import common_pb2 as common__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
@@ -20,8 +22,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='pb',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x10relayerrpc.proto\x12\x02pb2\x0c\n\nRelayerRPCb\x06proto3')
-)
+  serialized_pb=_b('\n\x10relayerrpc.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x0c\x63ommon.proto2O\n\nRelayerRPC\x12\x41\n\x11SubmitTransaction\x12\x14.pb.ShardTransaction\x1a\x16.google.protobuf.Emptyb\x06proto3')
+  ,
+  dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,common__pb2.DESCRIPTOR,])
 
 
 
@@ -35,9 +38,18 @@ _RELAYERRPC = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=24,
-  serialized_end=36,
+  serialized_start=67,
+  serialized_end=146,
   methods=[
+  _descriptor.MethodDescriptor(
+    name='SubmitTransaction',
+    full_name='pb.RelayerRPC.SubmitTransaction',
+    index=0,
+    containing_service=None,
+    input_type=common__pb2._SHARDTRANSACTION,
+    output_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
+    serialized_options=None,
+  ),
 ])
 _sym_db.RegisterServiceDescriptor(_RELAYERRPC)
 

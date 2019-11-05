@@ -46,6 +46,11 @@ class ShardRPCStub(object):
         request_serializer=shardrpc__pb2.GetStateKeyRequest.SerializeToString,
         response_deserializer=shardrpc__pb2.GetStateKeyResponse.FromString,
         )
+    self.GetActionStream = channel.unary_stream(
+        '/pb.ShardRPC/GetActionStream',
+        request_serializer=shardrpc__pb2.ShardActionStreamRequest.SerializeToString,
+        response_deserializer=shardrpc__pb2.ShardChainAction.FromString,
+        )
 
 
 class ShardRPCServicer(object):
@@ -94,6 +99,13 @@ class ShardRPCServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def GetActionStream(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_ShardRPCServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -126,6 +138,11 @@ def add_ShardRPCServicer_to_server(servicer, server):
           servicer.GetStateKey,
           request_deserializer=shardrpc__pb2.GetStateKeyRequest.FromString,
           response_serializer=shardrpc__pb2.GetStateKeyResponse.SerializeToString,
+      ),
+      'GetActionStream': grpc.unary_stream_rpc_method_handler(
+          servicer.GetActionStream,
+          request_deserializer=shardrpc__pb2.ShardActionStreamRequest.FromString,
+          response_serializer=shardrpc__pb2.ShardChainAction.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

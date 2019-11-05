@@ -9,10 +9,9 @@ import (
 	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/prysmaticlabs/go-ssz"
+	"github.com/sirupsen/logrus"
 	"sync"
-
-	logger "github.com/sirupsen/logrus"
-)
+	)
 
 type shardMempoolItem struct {
 	tx []byte
@@ -87,7 +86,7 @@ func (s *ShardMempool) Add(tx []byte) error {
 	s.mempoolLock.Lock()
 	defer s.mempoolLock.Unlock()
 	if _, found := s.mempool[txHash]; found {
-		logger.WithField("hash", txHash).Debug("transaction already exists")
+		logrus.WithField("hash", txHash).Debug("transaction already exists")
 
 		// don't do anything if it already exists
 		return nil
@@ -134,10 +133,8 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 			return err
 		}
 
-		blockHash, err := ssz.HashTreeRoot(blockToAdd)
-		if err != nil {
-			return err
-		}
+		blockHash, _ := ssz.HashTreeRoot(blockToAdd)
+		logrus.WithField("block hash", chainhash.Hash(blockHash)).Info("add block action")
 
 		previousTree, found := s.stateMap[blockToAdd.Header.PreviousBlockHash]
 		if !found {
@@ -171,8 +168,13 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 			return err
 		}
 
+		logrus.WithField("block hash", toFinalizeHash).Info("finalize block action")
+
 		// first, let's start at the tip and commit everything
-		finalizeNode := s.stateMap[*toFinalizeHash]
+		finalizeNode, found := s.stateMap[*toFinalizeHash]
+		if !found {
+			return fmt.Errorf("could not find block to finalize %s", toFinalizeHash)
+		}
 		memCache, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
 		for isCache {
 			if err := memCache.Flush(); err != nil {
@@ -205,6 +207,8 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 		if err != nil {
 			return err
 		}
+
+		logrus.WithField("block hash", newTipHash).Info("new tip block action")
 
 		newTip, found := s.stateMap[*newTipHash]
 		if !found {

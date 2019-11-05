@@ -26,9 +26,10 @@ type ShardChainInitializationParameters struct {
 	GenesisTime   uint64
 }
 
+// ShardChainActionNotifee is a notifee for any shard chain actions.
 type ShardChainActionNotifee interface {
 	AddBlock(block *primitives.ShardBlock, newTip bool)
-	FinalizeBlockHash(blockHash chainhash.Hash)
+	FinalizeBlockHash(blockHash chainhash.Hash, slot uint64)
 }
 
 // ShardManager represents part of the blockchain on a specific shard (starting from a specific crosslinked block hash),
@@ -56,7 +57,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 	stateDB := csmt.NewInMemoryTreeDB()
 	shardInfo := execution.ShardInfo{
 		CurrentCode: transfer.Code, // TODO: this should be loaded dynamically instead of directly from the filesystem
-		ShardID:     0,
+		ShardID:     uint32(shardID),
 	}
 
 	genesisBlockHash, _ := ssz.HashTreeRoot(genesisBlock)
@@ -80,11 +81,15 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 
 // RegisterNotifee registers a notifee for shard actions
 func (sm *ShardManager) RegisterNotifee(n ShardChainActionNotifee) {
+	sm.notifeesLock.Lock()
+	defer sm.notifeesLock.Unlock()
 	sm.notifees = append(sm.notifees, n)
 }
 
 // UnregisterNotifee unregisters a notifee for shard actions
 func (sm *ShardManager) UnregisterNotifee(n ShardChainActionNotifee) {
+	sm.notifeesLock.Lock()
+	defer sm.notifeesLock.Unlock()
 	for i, other := range sm.notifees {
 		if other == n {
 			sm.notifees = append(sm.notifees[:i], sm.notifees[i+1:]...)
@@ -116,7 +121,7 @@ func (sm *ShardManager) ListenForNewCrosslinks() {
 			}
 
 			for _, n := range sm.notifees {
-				n.FinalizeBlockHash(*crosslinkHash)
+				n.FinalizeBlockHash(*crosslinkHash, newCrosslink.Slot)
 			}
 
 			// TODO: also update fork choice with new crosslink

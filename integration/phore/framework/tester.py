@@ -1,4 +1,4 @@
-from phore.framework import beaconnode, shardnode
+from phore.framework import beaconnode, shardnode, relayernode
 from phore.framework import validatornode
 
 import tempfile
@@ -17,6 +17,8 @@ class Tester:
         self._current_beacon_rpc_port = 17000
         self._current_validator_rpc_port = 18000
         self._current_shard_rpc_port = 19000
+        self._current_relayer_rpc_port = 20000
+        self._current_relayer_p2p_port = 21000
 
         self._beacon_index = 1
         self._validator_index = 1
@@ -69,6 +71,21 @@ class Tester:
         self._current_shard_rpc_port += 1
 
         node = shardnode.ShardNode(config)
+
+        self._node_list.append(node)
+
+        return node
+
+    def create_relayer_node(self, config: relayernode.RelayerConfig) -> relayernode.RelayerNode:
+        config.index = self._relayer_index
+        config.p2p_port = self._current_relayer_p2p_port
+        config.rpc_port = self._current_relayer_rpc_port
+
+        self._relayer_index += 1
+        self._current_relayer_p2p_port += 1
+        self._current_relayer_rpc_port += 1
+
+        node = relayernode.RelayerNode(config)
 
         self._node_list.append(node)
 

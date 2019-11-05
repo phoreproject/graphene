@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
@@ -11,12 +12,14 @@ import (
 // ActionStreamGenerator listens for block actions and relays them to the callback.
 type ActionStreamGenerator struct {
 	cb func(action *pb.ShardChainAction)
+	config *config.Config
 }
 
 // NewActionStreamGenerator creates a new action stream generator to use as a notifee to blockchain.
-func NewActionStreamGenerator(cb func(action *pb.ShardChainAction)) *ActionStreamGenerator {
+func NewActionStreamGenerator(cb func(action *pb.ShardChainAction), config *config.Config) *ActionStreamGenerator {
 	return &ActionStreamGenerator{
 		cb: cb,
+		config: config,
 	}
 }
 
@@ -38,10 +41,16 @@ func (a *ActionStreamGenerator) AddBlock(block *primitives.ShardBlock, newTip bo
 }
 
 // FinalizeBlockHash is called when a block is finalized.
-func (a *ActionStreamGenerator) FinalizeBlockHash(blockHash chainhash.Hash) {
+func (a *ActionStreamGenerator) FinalizeBlockHash(blockHash chainhash.Hash, slot uint64) {
+	lastEpochSlot := slot - (slot % a.config.EpochLength)
+
+	if lastEpochSlot >= a.config.EpochLength {
+		lastEpochSlot = lastEpochSlot - a.config.EpochLength
+	}
 	a.cb(&pb.ShardChainAction{
 		FinalizeBlockAction: &pb.ActionFinalizeBlock{
 			Hash: blockHash[:],
+			Slot: lastEpochSlot,
 		},
 	})
 }

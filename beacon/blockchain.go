@@ -194,3 +194,8 @@ func (b *Blockchain) GetCurrentSlot() uint64 {
 func (b *Blockchain) GenesisHash() chainhash.Hash {
 	return b.View.Chain.GetBlockByHeight(0).Hash
 }
+
+// GetGenesisTime gets the genesis time for this blockchain.
+func (b *Blockchain) GetGenesisTime() uint64 {
+	return b.stateManager.GetGenesisTime()
+}

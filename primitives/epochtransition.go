@@ -225,24 +225,24 @@ func (s *State) GetRecentBlockHash(slotToGet uint64, c *config.Config) (*chainha
 }
 
 // findWinningRoot finds the shard block hash with the most balance voting for it.
-func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, error) {
+func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, uint64, error) {
 	// find all possible hashes for the winning root
-	possibleHashes := map[chainhash.Hash]struct{}{}
+	possibleHashes := map[chainhash.Hash]uint64{}
 	for _, a := range s.CurrentEpochAttestations {
 		if a.Data.Shard != shardCommittee.Shard {
 			continue
 		}
-		possibleHashes[a.Data.ShardBlockHash] = struct{}{}
+		possibleHashes[a.Data.ShardBlockHash] = a.Data.Slot
 	}
 	for _, a := range s.PreviousEpochAttestations {
 		if a.Data.Shard != shardCommittee.Shard {
 			continue
 		}
-		possibleHashes[a.Data.ShardBlockHash] = struct{}{}
+		possibleHashes[a.Data.ShardBlockHash] = a.Data.Slot
 	}
 
 	if len(possibleHashes) == 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	// find the top balance
@@ -252,7 +252,7 @@ func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Conf
 	for b := range possibleHashes {
 		validatorIndices, err := s.getAttestingValidatorIndices(shardCommittee, b)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		sumBalance := s.GetTotalBalance(validatorIndices, c)
@@ -270,9 +270,9 @@ func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Conf
 		}
 	}
 	if topBalance == 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
-	return &topHash, nil
+	return &topHash, possibleHashes[topHash], nil
 }
 
 // getAttestingValidatorIndices gets the attesters in a certain committee who attested to a certain shard block hash.
@@ -459,7 +459,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
-			bestRoot, err := s.findWinningRoot(shardCommittee, c)
+			bestRoot, bestSlot, err := s.findWinningRoot(shardCommittee, c)
 			if err != nil {
 				return nil, err
 			}
@@ -480,12 +480,12 @@ func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput
 
 			if 3*totalAttestingBalance >= 2*totalBalance {
 				s.LatestCrosslinks[shardCommittee.Shard] = Crosslink{
-					Slot:           s.Slot,
+					Slot:           bestSlot,
 					ShardBlockHash: *bestRoot,
 				}
 				newCrosslinks = append(newCrosslinks, CrosslinkForShardID{
 					Crosslink: Crosslink{
-						Slot:           s.Slot,
+						Slot:           bestSlot,
 						ShardBlockHash: *bestRoot,
 					},
 					ShardID: shardCommittee.Shard,

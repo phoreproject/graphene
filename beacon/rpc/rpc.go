@@ -1,9 +1,11 @@
 package rpc
 
 import (
+	"errors"
 	"fmt"
-	"github.com/prysmaticlabs/go-ssz"
 	"net"
+
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
@@ -175,6 +177,10 @@ func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStat
 func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformationRequest) (*pb.EpochInformationResponse, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
+
+	if in.EpochIndex < s.chain.GetCurrentSlot()/s.chain.GetConfig().EpochLength-3 {
+		return nil, errors.New("Epoch is too old")
+	}
 
 	requestedEpochSlot := uint64(in.EpochIndex) * s.chain.GetConfig().EpochLength
 

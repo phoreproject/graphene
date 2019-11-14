@@ -2,6 +2,20 @@ syntax = "proto3";
 
 package pb;
 
+message SlotNumberResponse {
+    uint64 SlotNumber = 1;
+    bytes BlockHash = 2;
+    uint64 TipSlot = 3;
+}
+
+message ConnectMessage {
+    string Address = 1;
+}
+
+message ListeningAddressesResponse {
+    repeated string Addresses = 1;
+}
+
 message ProposalSignedData {
     uint64 Slot = 1;
     uint64 Shard = 2;

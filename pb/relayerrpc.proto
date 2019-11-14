@@ -7,4 +7,6 @@ package pb;
 
 service RelayerRPC {
     rpc SubmitTransaction(ShardTransaction) returns (google.protobuf.Empty);
+    rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
+    rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
 }

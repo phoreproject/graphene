@@ -1,6 +1,7 @@
 modules:
   - type: "shard"
     listen_addr: "/ip4/127.0.0.1/tcp/11783"
+    p2p_addr: "/ip4/127.0.0.1/tcp/11787"
     beacon_addr: "/ip4/127.0.0.1/tcp/11782"
     log_level: "info"
     track_shards:

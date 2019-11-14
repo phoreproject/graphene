@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='pb',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\tp2p.proto\x12\x02pb\x1a\x0c\x63ommon.proto\"L\n\x14\x42\x65\x61\x63onVersionMessage\x12\x0f\n\x07Version\x18\x01 \x01(\x04\x12\x13\n\x0bGenesisHash\x18\x02 \x01(\x0c\x12\x0e\n\x06Height\x18\x03 \x01(\x04\"X\n\x13ShardVersionMessage\x12\x0f\n\x07Version\x18\x01 \x01(\x04\x12\x0e\n\x06Height\x18\x02 \x01(\x04\x12\x0e\n\x06PeerID\x18\x03 \x01(\x0c\x12\x10\n\x08PeerInfo\x18\x04 \x01(\x0c\"\\\n\x15RelayerVersionMessage\x12\x0f\n\x07Version\x18\x01 \x01(\x04\x12\x10\n\x08Provider\x18\x02 \x01(\x08\x12\x0e\n\x06PeerID\x18\x03 \x01(\x0c\x12\x10\n\x08PeerInfo\x18\x04 \x01(\x0c\"\x1c\n\x0bPingMessage\x12\r\n\x05Nonce\x18\x01 \x01(\x04\"\x1c\n\x0bPongMessage\x12\r\n\x05Nonce\x18\x01 \x01(\x04\" \n\rRejectMessage\x12\x0f\n\x07Message\x18\x01 \x01(\t\"H\n\x16\x41ttestationMempoolItem\x12\x17\n\x0f\x41ttestationHash\x18\x01 \x01(\x0c\x12\x15\n\rParticipation\x18\x02 \x01(\x0c\"P\n\x1cGetAttestationMempoolMessage\x12\x30\n\x0c\x41ttestations\x18\x01 \x03(\x0b\x32\x1a.pb.AttestationMempoolItem\"B\n\x19\x41ttestationMempoolMessage\x12%\n\x0c\x41ttestations\x18\x01 \x03(\x0b\x32\x0f.pb.Attestation\";\n\x10GetBlocksMessage\x12\x15\n\rLocatorHashes\x18\x01 \x03(\x0c\x12\x10\n\x08HashStop\x18\x02 \x01(\x0c\"H\n\x12\x42\x65\x61\x63onBlockMessage\x12\x19\n\x06\x42locks\x18\x01 \x03(\x0b\x32\t.pb.Block\x12\x17\n\x0fLatestBlockHash\x18\x02 \x01(\x0c\"S\n\x15GetShardBlocksMessage\x12\x11\n\tStartHash\x18\x01 \x01(\x0c\x12\x15\n\rLocatorHashes\x18\x02 \x03(\x0c\x12\x10\n\x08HashStop\x18\x03 \x01(\x0c\"L\n\x11ShardBlockMessage\x12\x1e\n\x06\x42locks\x18\x01 \x03(\x0b\x32\x0e.pb.ShardBlock\x12\x17\n\x0fLatestBlockHash\x18\x02 \x01(\x0c\"*\n\x12GetPackagesMessage\x12\x14\n\x0cTipStateRoot\x18\x01 \x01(\x0c\"9\n\x0ePackageMessage\x12\'\n\x07Package\x18\x01 \x01(\x0b\x32\x16.pb.TransactionPackage\">\n\x11SubmitTransaction\x12)\n\x0bTransaction\x18\x01 \x01(\x0b\x32\x14.pb.ShardTransactionb\x06proto3')
+  serialized_pb=_b('\n\tp2p.proto\x12\x02pb\x1a\x0c\x63ommon.proto\"L\n\x14\x42\x65\x61\x63onVersionMessage\x12\x0f\n\x07Version\x18\x01 \x01(\x04\x12\x13\n\x0bGenesisHash\x18\x02 \x01(\x0c\x12\x0e\n\x06Height\x18\x03 \x01(\x04\"6\n\x13ShardVersionMessage\x12\x0f\n\x07Version\x18\x01 \x01(\x04\x12\x0e\n\x06Height\x18\x02 \x01(\x04\"\\\n\x15RelayerVersionMessage\x12\x0f\n\x07Version\x18\x01 \x01(\x04\x12\x10\n\x08Provider\x18\x02 \x01(\x08\x12\x0e\n\x06PeerID\x18\x03 \x01(\x0c\x12\x10\n\x08PeerInfo\x18\x04 \x01(\x0c\"\x1c\n\x0bPingMessage\x12\r\n\x05Nonce\x18\x01 \x01(\x04\"\x1c\n\x0bPongMessage\x12\r\n\x05Nonce\x18\x01 \x01(\x04\" \n\rRejectMessage\x12\x0f\n\x07Message\x18\x01 \x01(\t\"H\n\x16\x41ttestationMempoolItem\x12\x17\n\x0f\x41ttestationHash\x18\x01 \x01(\x0c\x12\x15\n\rParticipation\x18\x02 \x01(\x0c\"P\n\x1cGetAttestationMempoolMessage\x12\x30\n\x0c\x41ttestations\x18\x01 \x03(\x0b\x32\x1a.pb.AttestationMempoolItem\"B\n\x19\x41ttestationMempoolMessage\x12%\n\x0c\x41ttestations\x18\x01 \x03(\x0b\x32\x0f.pb.Attestation\";\n\x10GetBlocksMessage\x12\x15\n\rLocatorHashes\x18\x01 \x03(\x0c\x12\x10\n\x08HashStop\x18\x02 \x01(\x0c\"H\n\x12\x42\x65\x61\x63onBlockMessage\x12\x19\n\x06\x42locks\x18\x01 \x03(\x0b\x32\t.pb.Block\x12\x17\n\x0fLatestBlockHash\x18\x02 \x01(\x0c\"S\n\x15GetShardBlocksMessage\x12\x11\n\tStartHash\x18\x01 \x01(\x0c\x12\x15\n\rLocatorHashes\x18\x02 \x03(\x0c\x12\x10\n\x08HashStop\x18\x03 \x01(\x0c\"L\n\x11ShardBlockMessage\x12\x1e\n\x06\x42locks\x18\x01 \x03(\x0b\x32\x0e.pb.ShardBlock\x12\x17\n\x0fLatestBlockHash\x18\x02 \x01(\x0c\"*\n\x12GetPackagesMessage\x12\x14\n\x0cTipStateRoot\x18\x01 \x01(\x0c\"9\n\x0ePackageMessage\x12\'\n\x07Package\x18\x01 \x01(\x0b\x32\x16.pb.TransactionPackage\">\n\x11SubmitTransaction\x12)\n\x0bTransaction\x18\x01 \x01(\x0b\x32\x14.pb.ShardTransactionb\x06proto3')
   ,
   dependencies=[common__pb2.DESCRIPTOR,])
 
@@ -94,20 +94,6 @@ _SHARDVERSIONMESSAGE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='PeerID', full_name='pb.ShardVersionMessage.PeerID', index=2,
-      number=3, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='PeerInfo', full_name='pb.ShardVersionMessage.PeerInfo', index=3,
-      number=4, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -121,7 +107,7 @@ _SHARDVERSIONMESSAGE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=109,
-  serialized_end=197,
+  serialized_end=163,
 )
 
 
@@ -172,8 +158,8 @@ _RELAYERVERSIONMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=199,
-  serialized_end=291,
+  serialized_start=165,
+  serialized_end=257,
 )
 
 
@@ -203,8 +189,8 @@ _PINGMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=293,
-  serialized_end=321,
+  serialized_start=259,
+  serialized_end=287,
 )
 
 
@@ -234,8 +220,8 @@ _PONGMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=323,
-  serialized_end=351,
+  serialized_start=289,
+  serialized_end=317,
 )
 
 
@@ -265,8 +251,8 @@ _REJECTMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=353,
-  serialized_end=385,
+  serialized_start=319,
+  serialized_end=351,
 )
 
 
@@ -303,8 +289,8 @@ _ATTESTATIONMEMPOOLITEM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=387,
-  serialized_end=459,
+  serialized_start=353,
+  serialized_end=425,
 )
 
 
@@ -334,8 +320,8 @@ _GETATTESTATIONMEMPOOLMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=461,
-  serialized_end=541,
+  serialized_start=427,
+  serialized_end=507,
 )
 
 
@@ -365,8 +351,8 @@ _ATTESTATIONMEMPOOLMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=543,
-  serialized_end=609,
+  serialized_start=509,
+  serialized_end=575,
 )
 
 
@@ -403,8 +389,8 @@ _GETBLOCKSMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=611,
-  serialized_end=670,
+  serialized_start=577,
+  serialized_end=636,
 )
 
 
@@ -441,8 +427,8 @@ _BEACONBLOCKMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=672,
-  serialized_end=744,
+  serialized_start=638,
+  serialized_end=710,
 )
 
 
@@ -486,8 +472,8 @@ _GETSHARDBLOCKSMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=746,
-  serialized_end=829,
+  serialized_start=712,
+  serialized_end=795,
 )
 
 
@@ -524,8 +510,8 @@ _SHARDBLOCKMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=831,
-  serialized_end=907,
+  serialized_start=797,
+  serialized_end=873,
 )
 
 
@@ -555,8 +541,8 @@ _GETPACKAGESMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=909,
-  serialized_end=951,
+  serialized_start=875,
+  serialized_end=917,
 )
 
 
@@ -586,8 +572,8 @@ _PACKAGEMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=953,
-  serialized_end=1010,
+  serialized_start=919,
+  serialized_end=976,
 )
 
 
@@ -617,8 +603,8 @@ _SUBMITTRANSACTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1012,
-  serialized_end=1074,
+  serialized_start=978,
+  serialized_end=1040,
 )
 
 _GETATTESTATIONMEMPOOLMESSAGE.fields_by_name['Attestations'].message_type = _ATTESTATIONMEMPOOLITEM

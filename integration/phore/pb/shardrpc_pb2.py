@@ -22,11 +22,42 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='pb',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0eshardrpc.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x0c\x63ommon.proto\"+\n\x18ShardActionStreamRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"\x9c\x01\n\x10ShardChainAction\x12*\n\x0e\x41\x64\x64\x42lockAction\x18\x01 \x01(\x0b\x32\x12.pb.ActionAddBlock\x12\x34\n\x13\x46inalizeBlockAction\x18\x02 \x01(\x0b\x32\x17.pb.ActionFinalizeBlock\x12&\n\tUpdateTip\x18\x03 \x01(\x0b\x32\x13.pb.ActionUpdateTip\"/\n\x0e\x41\x63tionAddBlock\x12\x1d\n\x05\x42lock\x18\x02 \x01(\x0b\x32\x0e.pb.ShardBlock\"1\n\x13\x41\x63tionFinalizeBlock\x12\x0c\n\x04Hash\x18\x01 \x01(\x0c\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"\x1f\n\x0f\x41\x63tionUpdateTip\x12\x0c\n\x04Hash\x18\x02 \x01(\x0c\"2\n\x12GetStateKeyRequest\x12\x0b\n\x03Key\x18\x01 \x01(\x0c\x12\x0f\n\x07ShardID\x18\x02 \x01(\x04\"$\n\x13GetStateKeyResponse\x12\r\n\x05Value\x18\x01 \x01(\x0c\"&\n\x11\x42lockHashResponse\x12\x11\n\tBlockHash\x18\x01 \x01(\x0c\"*\n\x0bSlotRequest\x12\r\n\x05Shard\x18\x01 \x01(\x04\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"R\n\x16\x42lockGenerationRequest\x12\r\n\x05Shard\x18\x01 \x01(\x04\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\x12\x1b\n\x13\x46inalizedBeaconHash\x18\x03 \x01(\x0c\"D\n\x14ShardBlockSubmission\x12\x1d\n\x05\x42lock\x18\x01 \x01(\x0b\x32\x0e.pb.ShardBlock\x12\r\n\x05Shard\x18\x02 \x01(\x04\"e\n\x15ShardSubscribeRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\x12\x15\n\rCrosslinkSlot\x18\x02 \x01(\x04\x12\x11\n\tBlockHash\x18\x03 \x01(\x0c\x12\x11\n\tUntilSlot\x18\x04 \x01(\x04\"*\n\x17ShardUnsubscribeRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"X\n\x1aShardTransactionSubmission\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\x12)\n\x0bTransaction\x18\x02 \x01(\x0b\x32\x14.pb.ShardTransaction2\xeb\x03\n\x08ShardRPC\x12\x45\n\x10SubscribeToShard\x12\x19.pb.ShardSubscribeRequest\x1a\x16.google.protobuf.Empty\x12<\n\x12GetBlockHashAtSlot\x12\x0f.pb.SlotRequest\x1a\x15.pb.BlockHashResponse\x12\x43\n\x15GenerateBlockTemplate\x12\x1a.pb.BlockGenerationRequest\x1a\x0e.pb.ShardBlock\x12?\n\x0bSubmitBlock\x12\x18.pb.ShardBlockSubmission\x1a\x16.google.protobuf.Empty\x12K\n\x11SubmitTransaction\x12\x1e.pb.ShardTransactionSubmission\x1a\x16.google.protobuf.Empty\x12>\n\x0bGetStateKey\x12\x16.pb.GetStateKeyRequest\x1a\x17.pb.GetStateKeyResponse\x12G\n\x0fGetActionStream\x12\x1c.pb.ShardActionStreamRequest\x1a\x14.pb.ShardChainAction0\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0eshardrpc.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x0c\x63ommon.proto\"$\n\x11SlotNumberRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"+\n\x18ShardActionStreamRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"\x9c\x01\n\x10ShardChainAction\x12*\n\x0e\x41\x64\x64\x42lockAction\x18\x01 \x01(\x0b\x32\x12.pb.ActionAddBlock\x12\x34\n\x13\x46inalizeBlockAction\x18\x02 \x01(\x0b\x32\x17.pb.ActionFinalizeBlock\x12&\n\tUpdateTip\x18\x03 \x01(\x0b\x32\x13.pb.ActionUpdateTip\"/\n\x0e\x41\x63tionAddBlock\x12\x1d\n\x05\x42lock\x18\x02 \x01(\x0b\x32\x0e.pb.ShardBlock\"1\n\x13\x41\x63tionFinalizeBlock\x12\x0c\n\x04Hash\x18\x01 \x01(\x0c\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"\x1f\n\x0f\x41\x63tionUpdateTip\x12\x0c\n\x04Hash\x18\x02 \x01(\x0c\"2\n\x12GetStateKeyRequest\x12\x0b\n\x03Key\x18\x01 \x01(\x0c\x12\x0f\n\x07ShardID\x18\x02 \x01(\x04\"$\n\x13GetStateKeyResponse\x12\r\n\x05Value\x18\x01 \x01(\x0c\"&\n\x11\x42lockHashResponse\x12\x11\n\tBlockHash\x18\x01 \x01(\x0c\"*\n\x0bSlotRequest\x12\r\n\x05Shard\x18\x01 \x01(\x04\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"R\n\x16\x42lockGenerationRequest\x12\r\n\x05Shard\x18\x01 \x01(\x04\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\x12\x1b\n\x13\x46inalizedBeaconHash\x18\x03 \x01(\x0c\"D\n\x14ShardBlockSubmission\x12\x1d\n\x05\x42lock\x18\x01 \x01(\x0b\x32\x0e.pb.ShardBlock\x12\r\n\x05Shard\x18\x02 \x01(\x04\"e\n\x15ShardSubscribeRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\x12\x15\n\rCrosslinkSlot\x18\x02 \x01(\x04\x12\x11\n\tBlockHash\x18\x03 \x01(\x0c\x12\x11\n\tUntilSlot\x18\x04 \x01(\x04\"*\n\x17ShardUnsubscribeRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"X\n\x1aShardTransactionSubmission\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\x12)\n\x0bTransaction\x18\x02 \x01(\x0b\x32\x14.pb.ShardTransaction2\xb3\x05\n\x08ShardRPC\x12\x45\n\x10SubscribeToShard\x12\x19.pb.ShardSubscribeRequest\x1a\x16.google.protobuf.Empty\x12<\n\x12GetBlockHashAtSlot\x12\x0f.pb.SlotRequest\x1a\x15.pb.BlockHashResponse\x12\x43\n\x15GenerateBlockTemplate\x12\x1a.pb.BlockGenerationRequest\x1a\x0e.pb.ShardBlock\x12?\n\x0bSubmitBlock\x12\x18.pb.ShardBlockSubmission\x1a\x16.google.protobuf.Empty\x12K\n\x11SubmitTransaction\x12\x1e.pb.ShardTransactionSubmission\x1a\x16.google.protobuf.Empty\x12>\n\x0bGetStateKey\x12\x16.pb.GetStateKeyRequest\x1a\x17.pb.GetStateKeyResponse\x12G\n\x0fGetActionStream\x12\x1c.pb.ShardActionStreamRequest\x1a\x14.pb.ShardChainAction0\x01\x12O\n\x15GetListeningAddresses\x12\x16.google.protobuf.Empty\x1a\x1e.pb.ListeningAddressesResponse\x12\x35\n\x07\x43onnect\x12\x12.pb.ConnectMessage\x1a\x16.google.protobuf.Empty\x12>\n\rGetSlotNumber\x12\x15.pb.SlotNumberRequest\x1a\x16.pb.SlotNumberResponseb\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,common__pb2.DESCRIPTOR,])
 
 
+
+
+_SLOTNUMBERREQUEST = _descriptor.Descriptor(
+  name='SlotNumberRequest',
+  full_name='pb.SlotNumberRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='ShardID', full_name='pb.SlotNumberRequest.ShardID', index=0,
+      number=1, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=65,
+  serialized_end=101,
+)
 
 
 _SHARDACTIONSTREAMREQUEST = _descriptor.Descriptor(
@@ -55,8 +86,8 @@ _SHARDACTIONSTREAMREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=65,
-  serialized_end=108,
+  serialized_start=103,
+  serialized_end=146,
 )
 
 
@@ -100,8 +131,8 @@ _SHARDCHAINACTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=111,
-  serialized_end=267,
+  serialized_start=149,
+  serialized_end=305,
 )
 
 
@@ -131,8 +162,8 @@ _ACTIONADDBLOCK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=269,
-  serialized_end=316,
+  serialized_start=307,
+  serialized_end=354,
 )
 
 
@@ -169,8 +200,8 @@ _ACTIONFINALIZEBLOCK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=318,
-  serialized_end=367,
+  serialized_start=356,
+  serialized_end=405,
 )
 
 
@@ -200,8 +231,8 @@ _ACTIONUPDATETIP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=369,
-  serialized_end=400,
+  serialized_start=407,
+  serialized_end=438,
 )
 
 
@@ -238,8 +269,8 @@ _GETSTATEKEYREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=402,
-  serialized_end=452,
+  serialized_start=440,
+  serialized_end=490,
 )
 
 
@@ -269,8 +300,8 @@ _GETSTATEKEYRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=454,
-  serialized_end=490,
+  serialized_start=492,
+  serialized_end=528,
 )
 
 
@@ -300,8 +331,8 @@ _BLOCKHASHRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=492,
-  serialized_end=530,
+  serialized_start=530,
+  serialized_end=568,
 )
 
 
@@ -338,8 +369,8 @@ _SLOTREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=532,
-  serialized_end=574,
+  serialized_start=570,
+  serialized_end=612,
 )
 
 
@@ -383,8 +414,8 @@ _BLOCKGENERATIONREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=576,
-  serialized_end=658,
+  serialized_start=614,
+  serialized_end=696,
 )
 
 
@@ -421,8 +452,8 @@ _SHARDBLOCKSUBMISSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=660,
-  serialized_end=728,
+  serialized_start=698,
+  serialized_end=766,
 )
 
 
@@ -473,8 +504,8 @@ _SHARDSUBSCRIBEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=730,
-  serialized_end=831,
+  serialized_start=768,
+  serialized_end=869,
 )
 
 
@@ -504,8 +535,8 @@ _SHARDUNSUBSCRIBEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=833,
-  serialized_end=875,
+  serialized_start=871,
+  serialized_end=913,
 )
 
 
@@ -542,8 +573,8 @@ _SHARDTRANSACTIONSUBMISSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=877,
-  serialized_end=965,
+  serialized_start=915,
+  serialized_end=1003,
 )
 
 _SHARDCHAINACTION.fields_by_name['AddBlockAction'].message_type = _ACTIONADDBLOCK
@@ -552,6 +583,7 @@ _SHARDCHAINACTION.fields_by_name['UpdateTip'].message_type = _ACTIONUPDATETIP
 _ACTIONADDBLOCK.fields_by_name['Block'].message_type = common__pb2._SHARDBLOCK
 _SHARDBLOCKSUBMISSION.fields_by_name['Block'].message_type = common__pb2._SHARDBLOCK
 _SHARDTRANSACTIONSUBMISSION.fields_by_name['Transaction'].message_type = common__pb2._SHARDTRANSACTION
+DESCRIPTOR.message_types_by_name['SlotNumberRequest'] = _SLOTNUMBERREQUEST
 DESCRIPTOR.message_types_by_name['ShardActionStreamRequest'] = _SHARDACTIONSTREAMREQUEST
 DESCRIPTOR.message_types_by_name['ShardChainAction'] = _SHARDCHAINACTION
 DESCRIPTOR.message_types_by_name['ActionAddBlock'] = _ACTIONADDBLOCK
@@ -567,6 +599,13 @@ DESCRIPTOR.message_types_by_name['ShardSubscribeRequest'] = _SHARDSUBSCRIBEREQUE
 DESCRIPTOR.message_types_by_name['ShardUnsubscribeRequest'] = _SHARDUNSUBSCRIBEREQUEST
 DESCRIPTOR.message_types_by_name['ShardTransactionSubmission'] = _SHARDTRANSACTIONSUBMISSION
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+SlotNumberRequest = _reflection.GeneratedProtocolMessageType('SlotNumberRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SLOTNUMBERREQUEST,
+  '__module__' : 'shardrpc_pb2'
+  # @@protoc_insertion_point(class_scope:pb.SlotNumberRequest)
+  })
+_sym_db.RegisterMessage(SlotNumberRequest)
 
 ShardActionStreamRequest = _reflection.GeneratedProtocolMessageType('ShardActionStreamRequest', (_message.Message,), {
   'DESCRIPTOR' : _SHARDACTIONSTREAMREQUEST,
@@ -674,8 +713,8 @@ _SHARDRPC = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=968,
-  serialized_end=1459,
+  serialized_start=1006,
+  serialized_end=1697,
   methods=[
   _descriptor.MethodDescriptor(
     name='SubscribeToShard',
@@ -738,6 +777,33 @@ _SHARDRPC = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_SHARDACTIONSTREAMREQUEST,
     output_type=_SHARDCHAINACTION,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='GetListeningAddresses',
+    full_name='pb.ShardRPC.GetListeningAddresses',
+    index=7,
+    containing_service=None,
+    input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
+    output_type=common__pb2._LISTENINGADDRESSESRESPONSE,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Connect',
+    full_name='pb.ShardRPC.Connect',
+    index=8,
+    containing_service=None,
+    input_type=common__pb2._CONNECTMESSAGE,
+    output_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='GetSlotNumber',
+    full_name='pb.ShardRPC.GetSlotNumber',
+    index=9,
+    containing_service=None,
+    input_type=_SLOTNUMBERREQUEST,
+    output_type=common__pb2._SLOTNUMBERRESPONSE,
     serialized_options=None,
   ),
 ])

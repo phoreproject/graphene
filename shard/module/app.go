@@ -2,10 +2,13 @@ package module
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
@@ -16,6 +19,7 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"time"
 )
 
 const shardExecutionVersion = "0.0.1"
@@ -26,6 +30,7 @@ type ShardApp struct {
 	RPC       rpc.ShardRPCServer
 	beaconRPC pb.BlockchainRPCClient
 	shardMux  *chain.ShardMux
+	hostnode *p2p.HostNode
 }
 
 // NewShardApp creates a new shard app given a config.
@@ -55,13 +60,41 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 		RPCProtocol: addr.Network(),
 		RPCAddress:  addr.String(),
 		TrackShards: options.TrackShards,
+		P2PListen: options.P2PListen,
 	}
 
 	a := &ShardApp{Config: c}
 
 	a.beaconRPC = pb.NewBlockchainRPCClient(a.Config.BeaconConn)
 
-	a.shardMux = chain.NewShardMux(a.beaconRPC)
+	priv, _, err := crypto.GenerateEd25519Key(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	p2pAddr, err := multiaddr.NewMultiaddr(c.P2PListen)
+	if err != nil {
+		return nil, err
+	}
+
+
+	hn, err := p2p.NewHostNode(context.TODO(), p2p.HostNodeOptions{
+		ListenAddresses:    []multiaddr.Multiaddr{p2pAddr},
+		PrivateKey:         priv,
+		ConnManagerOptions: p2p.ConnectionManagerOptions{
+			BootstrapAddresses: nil,
+			MDNS:               p2p.MDNSOptions{},
+		},
+		Timeout:            60 * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	a.shardMux = chain.NewShardMux(a.beaconRPC, hn)
+
+
+	a.hostnode = hn
 
 	genesisTime, err := a.beaconRPC.GetGenesisTime(context.Background(), &empty.Empty{})
 
@@ -75,11 +108,14 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 
 		shardGenesisHash, _ := ssz.HashTreeRoot(shardGenesis)
 
-		a.shardMux.StartManaging(uint64(shard), chain.ShardChainInitializationParameters{
+		err := a.shardMux.StartManaging(uint64(shard), chain.ShardChainInitializationParameters{
 			RootBlockHash: shardGenesisHash,
 			RootSlot:      0,
 			GenesisTime:   genesisTime.GenesisTime,
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	networkConfig, found := beaconconfig.NetworkIDs[options.NetworkID]
@@ -88,7 +124,7 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 	}
 
 	go func() {
-		err := rpc.Serve(a.Config.RPCProtocol, a.Config.RPCAddress, a.shardMux, &networkConfig)
+		err := rpc.Serve(a.Config.RPCProtocol, a.Config.RPCAddress, a.shardMux, &networkConfig, hn)
 		if err != nil {
 			logrus.Error(err)
 		}

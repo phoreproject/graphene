@@ -13,6 +13,13 @@ service ShardRPC {
     rpc SubmitTransaction (ShardTransactionSubmission) returns (google.protobuf.Empty);
     rpc GetStateKey (GetStateKeyRequest) returns (GetStateKeyResponse);
     rpc GetActionStream (ShardActionStreamRequest) returns (stream ShardChainAction);
+    rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
+    rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
+    rpc GetSlotNumber(SlotNumberRequest) returns (SlotNumberResponse);
+}
+
+message SlotNumberRequest {
+    uint64 ShardID = 1;
 }
 
 message ShardActionStreamRequest {

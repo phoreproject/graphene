@@ -51,6 +51,21 @@ class ShardRPCStub(object):
         request_serializer=shardrpc__pb2.ShardActionStreamRequest.SerializeToString,
         response_deserializer=shardrpc__pb2.ShardChainAction.FromString,
         )
+    self.GetListeningAddresses = channel.unary_unary(
+        '/pb.ShardRPC/GetListeningAddresses',
+        request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+        response_deserializer=common__pb2.ListeningAddressesResponse.FromString,
+        )
+    self.Connect = channel.unary_unary(
+        '/pb.ShardRPC/Connect',
+        request_serializer=common__pb2.ConnectMessage.SerializeToString,
+        response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+        )
+    self.GetSlotNumber = channel.unary_unary(
+        '/pb.ShardRPC/GetSlotNumber',
+        request_serializer=shardrpc__pb2.SlotNumberRequest.SerializeToString,
+        response_deserializer=common__pb2.SlotNumberResponse.FromString,
+        )
 
 
 class ShardRPCServicer(object):
@@ -106,6 +121,27 @@ class ShardRPCServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def GetListeningAddresses(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
+  def Connect(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
+  def GetSlotNumber(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_ShardRPCServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -143,6 +179,21 @@ def add_ShardRPCServicer_to_server(servicer, server):
           servicer.GetActionStream,
           request_deserializer=shardrpc__pb2.ShardActionStreamRequest.FromString,
           response_serializer=shardrpc__pb2.ShardChainAction.SerializeToString,
+      ),
+      'GetListeningAddresses': grpc.unary_unary_rpc_method_handler(
+          servicer.GetListeningAddresses,
+          request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+          response_serializer=common__pb2.ListeningAddressesResponse.SerializeToString,
+      ),
+      'Connect': grpc.unary_unary_rpc_method_handler(
+          servicer.Connect,
+          request_deserializer=common__pb2.ConnectMessage.FromString,
+          response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+      ),
+      'GetSlotNumber': grpc.unary_unary_rpc_method_handler(
+          servicer.GetSlotNumber,
+          request_deserializer=shardrpc__pb2.SlotNumberRequest.FromString,
+          response_serializer=common__pb2.SlotNumberResponse.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

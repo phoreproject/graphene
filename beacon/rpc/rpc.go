@@ -147,7 +147,7 @@ func (s *server) GetMempool(ctx context.Context, req *pb.MempoolRequest) (*pb.Bl
 	return bb.ToProto(), nil
 }
 
-// SubmitBlock submits a block to the network after verifying it
+// ProcessBlock submits a block to the network after verifying it
 func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*pb.SubmitBlockResponse, error) {
 	b, err := primitives.BlockFromProto(in.Block)
 	if err != nil {

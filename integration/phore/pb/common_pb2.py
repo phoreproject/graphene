@@ -20,10 +20,117 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='pb',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0c\x63ommon.proto\x12\x02pb\"D\n\x12ProposalSignedData\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\r\n\x05Shard\x18\x02 \x01(\x04\x12\x11\n\tBlockHash\x18\x03 \x01(\x0c\"\xbf\x01\n\x10ProposerSlashing\x12\x15\n\rProposerIndex\x18\x01 \x01(\r\x12-\n\rProposalData1\x18\x02 \x01(\x0b\x32\x16.pb.ProposalSignedData\x12\x1a\n\x12ProposalSignature1\x18\x03 \x01(\x0c\x12-\n\rProposalData2\x18\x04 \x01(\x0b\x32\x16.pb.ProposalSignedData\x12\x1a\n\x12ProposalSignature2\x18\x05 \x01(\x0c\"\xa0\x01\n\x11SlashableVoteData\x12%\n\x1d\x41ggregateSignaturePoC0Indices\x18\x01 \x03(\r\x12%\n\x1d\x41ggregateSignaturePoC1Indices\x18\x02 \x03(\r\x12!\n\x04\x44\x61ta\x18\x03 \x01(\x0b\x32\x13.pb.AttestationData\x12\x1a\n\x12\x41ggregateSignature\x18\x04 \x01(\x0c\"\\\n\x0e\x43\x61sperSlashing\x12$\n\x05Vote0\x18\x01 \x01(\x0b\x32\x15.pb.SlashableVoteData\x12$\n\x05Vote1\x18\x02 \x01(\x0b\x32\x15.pb.SlashableVoteData\"\xce\x01\n\x0f\x41ttestationData\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x17\n\x0f\x42\x65\x61\x63onBlockHash\x18\x02 \x01(\x0c\x12\x13\n\x0bTargetEpoch\x18\x03 \x01(\x04\x12\x12\n\nTargetHash\x18\x04 \x01(\x0c\x12\x13\n\x0bSourceEpoch\x18\x05 \x01(\x04\x12\x12\n\nSourceHash\x18\x06 \x01(\x0c\x12\x16\n\x0eShardBlockHash\x18\x07 \x01(\x0c\x12\r\n\x05Shard\x18\x08 \x01(\x04\x12\x1b\n\x13LatestCrosslinkHash\x18\t \x01(\x0c\"Q\n\x1c\x41ttestationDataAndCustodyBit\x12!\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x13.pb.AttestationData\x12\x0e\n\x06PoCBit\x18\x02 \x01(\x08\"~\n\x0b\x41ttestation\x12!\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x13.pb.AttestationData\x12\x1d\n\x15ParticipationBitfield\x18\x02 \x01(\x0c\x12\x17\n\x0f\x43ustodyBitfield\x18\x03 \x01(\x0c\x12\x14\n\x0c\x41ggregateSig\x18\x04 \x01(\x0c\"`\n\x11\x44\x65positParameters\x12\x11\n\tPublicKey\x18\x01 \x01(\x0c\x12\x19\n\x11ProofOfPossession\x18\x02 \x01(\x0c\x12\x1d\n\x15WithdrawalCredentials\x18\x03 \x01(\x0c\"4\n\x07\x44\x65posit\x12)\n\nParameters\x18\x01 \x01(\x0b\x32\x15.pb.DepositParameters\"?\n\x04\x45xit\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x16\n\x0eValidatorIndex\x18\x02 \x01(\x04\x12\x11\n\tSignature\x18\x03 \x01(\x0c\"E\n\x05\x42lock\x12\x1f\n\x06Header\x18\x01 \x01(\x0b\x32\x0f.pb.BlockHeader\x12\x1b\n\x04\x42ody\x18\x02 \x01(\x0b\x32\r.pb.BlockBody\"q\n\x0b\x42lockHeader\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\x12\x12\n\nParentRoot\x18\x02 \x01(\x0c\x12\x11\n\tStateRoot\x18\x03 \x01(\x0c\x12\x14\n\x0cRandaoReveal\x18\x04 \x01(\x0c\x12\x11\n\tSignature\x18\x05 \x01(\x0c\"\xeb\x01\n\tBlockBody\x12%\n\x0c\x41ttestations\x18\x01 \x03(\x0b\x32\x0f.pb.Attestation\x12/\n\x11ProposerSlashings\x18\x02 \x03(\x0b\x32\x14.pb.ProposerSlashing\x12+\n\x0f\x43\x61sperSlashings\x18\x03 \x03(\x0b\x32\x12.pb.CasperSlashing\x12\x1d\n\x08\x44\x65posits\x18\x04 \x03(\x0b\x32\x0b.pb.Deposit\x12\x17\n\x05\x45xits\x18\x05 \x03(\x0b\x32\x08.pb.Exit\x12!\n\x05Votes\x18\x06 \x03(\x0b\x32\x12.pb.AggregatedVote\"M\n\x08\x46orkData\x12\x16\n\x0ePreForkVersion\x18\x01 \x01(\x04\x12\x17\n\x0fPostForkVersion\x18\x02 \x01(\x04\x12\x10\n\x08\x46orkSlot\x18\x03 \x01(\x04\"\xb9\x01\n\tValidator\x12\x0e\n\x06Pubkey\x18\x01 \x01(\x0c\x12\x1d\n\x15WithdrawalCredentials\x18\x02 \x01(\x0c\x12\x0e\n\x06Status\x18\x04 \x01(\x04\x12\x1e\n\x16LatestStatusChangeSlot\x18\x05 \x01(\x04\x12\x11\n\tExitCount\x18\x06 \x01(\x04\x12\x19\n\x11LastPoCChangeSlot\x18\x07 \x01(\x04\x12\x1f\n\x17SecondLastPoCChangeSlot\x18\x08 \x01(\x04\"O\n\x0eShardCommittee\x12\r\n\x05Shard\x18\x01 \x01(\x04\x12\x11\n\tCommittee\x18\x02 \x03(\r\x12\x1b\n\x13TotalValidatorCount\x18\x03 \x01(\x04\"@\n\x16ShardCommitteesForSlot\x12&\n\nCommittees\x18\x01 \x03(\x0b\x32\x12.pb.ShardCommittee\":\n\x1bPersistentCommitteesForSlot\x12\x1b\n\x13PersistentCommittee\x18\x01 \x03(\r\"I\n\tCrosslink\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x16\n\x0eShardBlockHash\x18\x02 \x01(\x0c\x12\x16\n\x0eShardStateHash\x18\x03 \x01(\x0c\"\x9e\x01\n\x12PendingAttestation\x12!\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x13.pb.AttestationData\x12\x1d\n\x15ParticipationBitfield\x18\x02 \x01(\x0c\x12\x17\n\x0f\x43ustodyBitfield\x18\x03 \x01(\x0c\x12\x16\n\x0eInclusionDelay\x18\x04 \x01(\x04\x12\x15\n\rProposerIndex\x18\x05 \x01(\r\"\xd0\x06\n\x05State\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x12\n\nEpochIndex\x18\x02 \x01(\x04\x12\x13\n\x0bGenesisTime\x18\x03 \x01(\x04\x12\x1e\n\x08\x46orkData\x18\x04 \x01(\x0b\x32\x0c.pb.ForkData\x12(\n\x11ValidatorRegistry\x18\x05 \x03(\x0b\x32\r.pb.Validator\x12\x19\n\x11ValidatorBalances\x18\x06 \x03(\x04\x12*\n\"ValidatorRegistryLatestChangeEpoch\x18\x07 \x01(\x04\x12\"\n\x1aValidatorRegistryExitCount\x18\x08 \x01(\x04\x12&\n\x1eValidatorRegistryDeltaChainTip\x18\t \x01(\x0c\x12\x11\n\tRandaoMix\x18\n \x01(\x0c\x12\x15\n\rNextRandaoMix\x18\x0b \x01(\x0c\x12\x33\n\x0fShardCommittees\x18\x0c \x03(\x0b\x32\x1a.pb.ShardCommitteesForSlot\x12\x1e\n\x16PreviousJustifiedEpoch\x18\r \x01(\x04\x12\x16\n\x0eJustifiedEpoch\x18\x0e \x01(\x04\x12\x1d\n\x15JustificationBitField\x18\x0f \x01(\x04\x12\x16\n\x0e\x46inalizedEpoch\x18\x10 \x01(\x04\x12\'\n\x10LatestCrosslinks\x18\x11 \x03(\x0b\x32\r.pb.Crosslink\x12)\n\x12PreviousCrosslinks\x18\x12 \x03(\x0b\x32\r.pb.Crosslink\x12\x15\n\rShardRegistry\x18\x13 \x03(\x0c\x12\x19\n\x11LatestBlockHashes\x18\x14 \x03(\x0c\x12\x38\n\x18\x43urrentEpochAttestations\x18\x15 \x03(\x0b\x32\x16.pb.PendingAttestation\x12\x39\n\x19PreviousEpochAttestations\x18\x16 \x03(\x0b\x32\x16.pb.PendingAttestation\x12\x19\n\x11\x42\x61tchedBlockRoots\x18\x17 \x03(\x0c\x12%\n\tProposals\x18\x18 \x03(\x0b\x32\x12.pb.ActiveProposal\x12(\n\x0cPendingVotes\x18\x19 \x03(\x0b\x32\x12.pb.AggregatedVote\"t\n\x1bValidatorRegistryDeltaBlock\x12\x1f\n\x17LatestRegistryDeltaRoot\x18\x01 \x01(\x0c\x12\x16\n\x0eValidatorIndex\x18\x02 \x01(\r\x12\x0e\n\x06Pubkey\x18\x03 \x01(\x0c\x12\x0c\n\x04\x46lag\x18\x04 \x01(\x04\"3\n\x12\x41ttestationRequest\x12\x1d\n\x15ParticipationBitfield\x18\x01 \x01(\x0c\"N\n\x08VoteData\x12\x0c\n\x04Type\x18\x01 \x01(\r\x12\x0e\n\x06Shards\x18\x02 \x03(\r\x12\x12\n\nActionHash\x18\x03 \x01(\x0c\x12\x10\n\x08Proposer\x18\x04 \x01(\r\"V\n\x0e\x41ggregatedVote\x12\x1a\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x0c.pb.VoteData\x12\x11\n\tSignature\x18\x02 \x01(\x0c\x12\x15\n\rParticipation\x18\x03 \x01(\x0c\"g\n\x0e\x41\x63tiveProposal\x12\x1a\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x0c.pb.VoteData\x12\x15\n\rParticipation\x18\x02 \x01(\x0c\x12\x12\n\nStartEpoch\x18\x03 \x01(\x04\x12\x0e\n\x06Queued\x18\x04 \x01(\x08\"T\n\nShardBlock\x12$\n\x06Header\x18\x01 \x01(\x0b\x32\x14.pb.ShardBlockHeader\x12 \n\x04\x42ody\x18\x02 \x01(\x0b\x32\x12.pb.ShardBlockBody\"\x97\x01\n\x10ShardBlockHeader\x12\x19\n\x11PreviousBlockHash\x18\x01 \x01(\x0c\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\x12\x11\n\tSignature\x18\x03 \x01(\x0c\x12\x11\n\tStateRoot\x18\x04 \x01(\x0c\x12\x17\n\x0fTransactionRoot\x18\x05 \x01(\x0c\x12\x1b\n\x13\x46inalizedBeaconHash\x18\x06 \x01(\x0c\"<\n\x0eShardBlockBody\x12*\n\x0cTransactions\x18\x01 \x03(\x0b\x32\x14.pb.ShardTransaction\"+\n\x10ShardTransaction\x12\x17\n\x0fTransactionData\x18\x01 \x01(\x0c\"t\n\x13VerificationWitness\x12\x0b\n\x03Key\x18\x01 \x01(\x0c\x12\r\n\x05Value\x18\x02 \x01(\x0c\x12\x17\n\x0fWitnessBitfield\x18\x03 \x01(\x0c\x12\x15\n\rWitnessHashes\x18\x04 \x03(\x0c\x12\x11\n\tLastLevel\x18\x05 \x01(\r\"\x83\x01\n\rUpdateWitness\x12\x0b\n\x03Key\x18\x01 \x01(\x0c\x12\x10\n\x08OldValue\x18\x02 \x01(\x0c\x12\x10\n\x08NewValue\x18\x03 \x01(\x0c\x12\x17\n\x0fWitnessBitfield\x18\x04 \x01(\x0c\x12\x15\n\rWitnessHashes\x18\x05 \x03(\x0c\x12\x11\n\tLastLevel\x18\x06 \x01(\r\"\xc8\x01\n\x12TransactionPackage\x12\x36\n\x15VerificationWitnesses\x18\x01 \x03(\x0b\x32\x17.pb.VerificationWitness\x12*\n\x0fUpdateWitnesses\x18\x02 \x03(\x0b\x32\x11.pb.UpdateWitness\x12*\n\x0cTransactions\x18\x03 \x03(\x0b\x32\x14.pb.ShardTransaction\x12\x11\n\tStartRoot\x18\x04 \x01(\x0c\x12\x0f\n\x07\x45ndRoot\x18\x05 \x01(\x0c\x62\x06proto3')
+  serialized_pb=_b('\n\x0c\x63ommon.proto\x12\x02pb\"L\n\x12SlotNumberResponse\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\x12\x11\n\tBlockHash\x18\x02 \x01(\x0c\x12\x0f\n\x07TipSlot\x18\x03 \x01(\x04\"!\n\x0e\x43onnectMessage\x12\x0f\n\x07\x41\x64\x64ress\x18\x01 \x01(\t\"/\n\x1aListeningAddressesResponse\x12\x11\n\tAddresses\x18\x01 \x03(\t\"D\n\x12ProposalSignedData\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\r\n\x05Shard\x18\x02 \x01(\x04\x12\x11\n\tBlockHash\x18\x03 \x01(\x0c\"\xbf\x01\n\x10ProposerSlashing\x12\x15\n\rProposerIndex\x18\x01 \x01(\r\x12-\n\rProposalData1\x18\x02 \x01(\x0b\x32\x16.pb.ProposalSignedData\x12\x1a\n\x12ProposalSignature1\x18\x03 \x01(\x0c\x12-\n\rProposalData2\x18\x04 \x01(\x0b\x32\x16.pb.ProposalSignedData\x12\x1a\n\x12ProposalSignature2\x18\x05 \x01(\x0c\"\xa0\x01\n\x11SlashableVoteData\x12%\n\x1d\x41ggregateSignaturePoC0Indices\x18\x01 \x03(\r\x12%\n\x1d\x41ggregateSignaturePoC1Indices\x18\x02 \x03(\r\x12!\n\x04\x44\x61ta\x18\x03 \x01(\x0b\x32\x13.pb.AttestationData\x12\x1a\n\x12\x41ggregateSignature\x18\x04 \x01(\x0c\"\\\n\x0e\x43\x61sperSlashing\x12$\n\x05Vote0\x18\x01 \x01(\x0b\x32\x15.pb.SlashableVoteData\x12$\n\x05Vote1\x18\x02 \x01(\x0b\x32\x15.pb.SlashableVoteData\"\xce\x01\n\x0f\x41ttestationData\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x17\n\x0f\x42\x65\x61\x63onBlockHash\x18\x02 \x01(\x0c\x12\x13\n\x0bTargetEpoch\x18\x03 \x01(\x04\x12\x12\n\nTargetHash\x18\x04 \x01(\x0c\x12\x13\n\x0bSourceEpoch\x18\x05 \x01(\x04\x12\x12\n\nSourceHash\x18\x06 \x01(\x0c\x12\x16\n\x0eShardBlockHash\x18\x07 \x01(\x0c\x12\r\n\x05Shard\x18\x08 \x01(\x04\x12\x1b\n\x13LatestCrosslinkHash\x18\t \x01(\x0c\"Q\n\x1c\x41ttestationDataAndCustodyBit\x12!\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x13.pb.AttestationData\x12\x0e\n\x06PoCBit\x18\x02 \x01(\x08\"~\n\x0b\x41ttestation\x12!\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x13.pb.AttestationData\x12\x1d\n\x15ParticipationBitfield\x18\x02 \x01(\x0c\x12\x17\n\x0f\x43ustodyBitfield\x18\x03 \x01(\x0c\x12\x14\n\x0c\x41ggregateSig\x18\x04 \x01(\x0c\"`\n\x11\x44\x65positParameters\x12\x11\n\tPublicKey\x18\x01 \x01(\x0c\x12\x19\n\x11ProofOfPossession\x18\x02 \x01(\x0c\x12\x1d\n\x15WithdrawalCredentials\x18\x03 \x01(\x0c\"4\n\x07\x44\x65posit\x12)\n\nParameters\x18\x01 \x01(\x0b\x32\x15.pb.DepositParameters\"?\n\x04\x45xit\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x16\n\x0eValidatorIndex\x18\x02 \x01(\x04\x12\x11\n\tSignature\x18\x03 \x01(\x0c\"E\n\x05\x42lock\x12\x1f\n\x06Header\x18\x01 \x01(\x0b\x32\x0f.pb.BlockHeader\x12\x1b\n\x04\x42ody\x18\x02 \x01(\x0b\x32\r.pb.BlockBody\"q\n\x0b\x42lockHeader\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\x12\x12\n\nParentRoot\x18\x02 \x01(\x0c\x12\x11\n\tStateRoot\x18\x03 \x01(\x0c\x12\x14\n\x0cRandaoReveal\x18\x04 \x01(\x0c\x12\x11\n\tSignature\x18\x05 \x01(\x0c\"\xeb\x01\n\tBlockBody\x12%\n\x0c\x41ttestations\x18\x01 \x03(\x0b\x32\x0f.pb.Attestation\x12/\n\x11ProposerSlashings\x18\x02 \x03(\x0b\x32\x14.pb.ProposerSlashing\x12+\n\x0f\x43\x61sperSlashings\x18\x03 \x03(\x0b\x32\x12.pb.CasperSlashing\x12\x1d\n\x08\x44\x65posits\x18\x04 \x03(\x0b\x32\x0b.pb.Deposit\x12\x17\n\x05\x45xits\x18\x05 \x03(\x0b\x32\x08.pb.Exit\x12!\n\x05Votes\x18\x06 \x03(\x0b\x32\x12.pb.AggregatedVote\"M\n\x08\x46orkData\x12\x16\n\x0ePreForkVersion\x18\x01 \x01(\x04\x12\x17\n\x0fPostForkVersion\x18\x02 \x01(\x04\x12\x10\n\x08\x46orkSlot\x18\x03 \x01(\x04\"\xb9\x01\n\tValidator\x12\x0e\n\x06Pubkey\x18\x01 \x01(\x0c\x12\x1d\n\x15WithdrawalCredentials\x18\x02 \x01(\x0c\x12\x0e\n\x06Status\x18\x04 \x01(\x04\x12\x1e\n\x16LatestStatusChangeSlot\x18\x05 \x01(\x04\x12\x11\n\tExitCount\x18\x06 \x01(\x04\x12\x19\n\x11LastPoCChangeSlot\x18\x07 \x01(\x04\x12\x1f\n\x17SecondLastPoCChangeSlot\x18\x08 \x01(\x04\"O\n\x0eShardCommittee\x12\r\n\x05Shard\x18\x01 \x01(\x04\x12\x11\n\tCommittee\x18\x02 \x03(\r\x12\x1b\n\x13TotalValidatorCount\x18\x03 \x01(\x04\"@\n\x16ShardCommitteesForSlot\x12&\n\nCommittees\x18\x01 \x03(\x0b\x32\x12.pb.ShardCommittee\":\n\x1bPersistentCommitteesForSlot\x12\x1b\n\x13PersistentCommittee\x18\x01 \x03(\r\"I\n\tCrosslink\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x16\n\x0eShardBlockHash\x18\x02 \x01(\x0c\x12\x16\n\x0eShardStateHash\x18\x03 \x01(\x0c\"\x9e\x01\n\x12PendingAttestation\x12!\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x13.pb.AttestationData\x12\x1d\n\x15ParticipationBitfield\x18\x02 \x01(\x0c\x12\x17\n\x0f\x43ustodyBitfield\x18\x03 \x01(\x0c\x12\x16\n\x0eInclusionDelay\x18\x04 \x01(\x04\x12\x15\n\rProposerIndex\x18\x05 \x01(\r\"\xd0\x06\n\x05State\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\x12\x12\n\nEpochIndex\x18\x02 \x01(\x04\x12\x13\n\x0bGenesisTime\x18\x03 \x01(\x04\x12\x1e\n\x08\x46orkData\x18\x04 \x01(\x0b\x32\x0c.pb.ForkData\x12(\n\x11ValidatorRegistry\x18\x05 \x03(\x0b\x32\r.pb.Validator\x12\x19\n\x11ValidatorBalances\x18\x06 \x03(\x04\x12*\n\"ValidatorRegistryLatestChangeEpoch\x18\x07 \x01(\x04\x12\"\n\x1aValidatorRegistryExitCount\x18\x08 \x01(\x04\x12&\n\x1eValidatorRegistryDeltaChainTip\x18\t \x01(\x0c\x12\x11\n\tRandaoMix\x18\n \x01(\x0c\x12\x15\n\rNextRandaoMix\x18\x0b \x01(\x0c\x12\x33\n\x0fShardCommittees\x18\x0c \x03(\x0b\x32\x1a.pb.ShardCommitteesForSlot\x12\x1e\n\x16PreviousJustifiedEpoch\x18\r \x01(\x04\x12\x16\n\x0eJustifiedEpoch\x18\x0e \x01(\x04\x12\x1d\n\x15JustificationBitField\x18\x0f \x01(\x04\x12\x16\n\x0e\x46inalizedEpoch\x18\x10 \x01(\x04\x12\'\n\x10LatestCrosslinks\x18\x11 \x03(\x0b\x32\r.pb.Crosslink\x12)\n\x12PreviousCrosslinks\x18\x12 \x03(\x0b\x32\r.pb.Crosslink\x12\x15\n\rShardRegistry\x18\x13 \x03(\x0c\x12\x19\n\x11LatestBlockHashes\x18\x14 \x03(\x0c\x12\x38\n\x18\x43urrentEpochAttestations\x18\x15 \x03(\x0b\x32\x16.pb.PendingAttestation\x12\x39\n\x19PreviousEpochAttestations\x18\x16 \x03(\x0b\x32\x16.pb.PendingAttestation\x12\x19\n\x11\x42\x61tchedBlockRoots\x18\x17 \x03(\x0c\x12%\n\tProposals\x18\x18 \x03(\x0b\x32\x12.pb.ActiveProposal\x12(\n\x0cPendingVotes\x18\x19 \x03(\x0b\x32\x12.pb.AggregatedVote\"t\n\x1bValidatorRegistryDeltaBlock\x12\x1f\n\x17LatestRegistryDeltaRoot\x18\x01 \x01(\x0c\x12\x16\n\x0eValidatorIndex\x18\x02 \x01(\r\x12\x0e\n\x06Pubkey\x18\x03 \x01(\x0c\x12\x0c\n\x04\x46lag\x18\x04 \x01(\x04\"3\n\x12\x41ttestationRequest\x12\x1d\n\x15ParticipationBitfield\x18\x01 \x01(\x0c\"N\n\x08VoteData\x12\x0c\n\x04Type\x18\x01 \x01(\r\x12\x0e\n\x06Shards\x18\x02 \x03(\r\x12\x12\n\nActionHash\x18\x03 \x01(\x0c\x12\x10\n\x08Proposer\x18\x04 \x01(\r\"V\n\x0e\x41ggregatedVote\x12\x1a\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x0c.pb.VoteData\x12\x11\n\tSignature\x18\x02 \x01(\x0c\x12\x15\n\rParticipation\x18\x03 \x01(\x0c\"g\n\x0e\x41\x63tiveProposal\x12\x1a\n\x04\x44\x61ta\x18\x01 \x01(\x0b\x32\x0c.pb.VoteData\x12\x15\n\rParticipation\x18\x02 \x01(\x0c\x12\x12\n\nStartEpoch\x18\x03 \x01(\x04\x12\x0e\n\x06Queued\x18\x04 \x01(\x08\"T\n\nShardBlock\x12$\n\x06Header\x18\x01 \x01(\x0b\x32\x14.pb.ShardBlockHeader\x12 \n\x04\x42ody\x18\x02 \x01(\x0b\x32\x12.pb.ShardBlockBody\"\x97\x01\n\x10ShardBlockHeader\x12\x19\n\x11PreviousBlockHash\x18\x01 \x01(\x0c\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\x12\x11\n\tSignature\x18\x03 \x01(\x0c\x12\x11\n\tStateRoot\x18\x04 \x01(\x0c\x12\x17\n\x0fTransactionRoot\x18\x05 \x01(\x0c\x12\x1b\n\x13\x46inalizedBeaconHash\x18\x06 \x01(\x0c\"<\n\x0eShardBlockBody\x12*\n\x0cTransactions\x18\x01 \x03(\x0b\x32\x14.pb.ShardTransaction\"+\n\x10ShardTransaction\x12\x17\n\x0fTransactionData\x18\x01 \x01(\x0c\"t\n\x13VerificationWitness\x12\x0b\n\x03Key\x18\x01 \x01(\x0c\x12\r\n\x05Value\x18\x02 \x01(\x0c\x12\x17\n\x0fWitnessBitfield\x18\x03 \x01(\x0c\x12\x15\n\rWitnessHashes\x18\x04 \x03(\x0c\x12\x11\n\tLastLevel\x18\x05 \x01(\r\"\x83\x01\n\rUpdateWitness\x12\x0b\n\x03Key\x18\x01 \x01(\x0c\x12\x10\n\x08OldValue\x18\x02 \x01(\x0c\x12\x10\n\x08NewValue\x18\x03 \x01(\x0c\x12\x17\n\x0fWitnessBitfield\x18\x04 \x01(\x0c\x12\x15\n\rWitnessHashes\x18\x05 \x03(\x0c\x12\x11\n\tLastLevel\x18\x06 \x01(\r\"\xc8\x01\n\x12TransactionPackage\x12\x36\n\x15VerificationWitnesses\x18\x01 \x03(\x0b\x32\x17.pb.VerificationWitness\x12*\n\x0fUpdateWitnesses\x18\x02 \x03(\x0b\x32\x11.pb.UpdateWitness\x12*\n\x0cTransactions\x18\x03 \x03(\x0b\x32\x14.pb.ShardTransaction\x12\x11\n\tStartRoot\x18\x04 \x01(\x0c\x12\x0f\n\x07\x45ndRoot\x18\x05 \x01(\x0c\x62\x06proto3')
 )
 
 
+
+
+_SLOTNUMBERRESPONSE = _descriptor.Descriptor(
+  name='SlotNumberResponse',
+  full_name='pb.SlotNumberResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='SlotNumber', full_name='pb.SlotNumberResponse.SlotNumber', index=0,
+      number=1, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='BlockHash', full_name='pb.SlotNumberResponse.BlockHash', index=1,
+      number=2, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b(""),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='TipSlot', full_name='pb.SlotNumberResponse.TipSlot', index=2,
+      number=3, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=20,
+  serialized_end=96,
+)
+
+
+_CONNECTMESSAGE = _descriptor.Descriptor(
+  name='ConnectMessage',
+  full_name='pb.ConnectMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Address', full_name='pb.ConnectMessage.Address', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=98,
+  serialized_end=131,
+)
+
+
+_LISTENINGADDRESSESRESPONSE = _descriptor.Descriptor(
+  name='ListeningAddressesResponse',
+  full_name='pb.ListeningAddressesResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='Addresses', full_name='pb.ListeningAddressesResponse.Addresses', index=0,
+      number=1, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=133,
+  serialized_end=180,
+)
 
 
 _PROPOSALSIGNEDDATA = _descriptor.Descriptor(
@@ -66,8 +173,8 @@ _PROPOSALSIGNEDDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=20,
-  serialized_end=88,
+  serialized_start=182,
+  serialized_end=250,
 )
 
 
@@ -125,8 +232,8 @@ _PROPOSERSLASHING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=91,
-  serialized_end=282,
+  serialized_start=253,
+  serialized_end=444,
 )
 
 
@@ -177,8 +284,8 @@ _SLASHABLEVOTEDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=285,
-  serialized_end=445,
+  serialized_start=447,
+  serialized_end=607,
 )
 
 
@@ -215,8 +322,8 @@ _CASPERSLASHING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=447,
-  serialized_end=539,
+  serialized_start=609,
+  serialized_end=701,
 )
 
 
@@ -302,8 +409,8 @@ _ATTESTATIONDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=542,
-  serialized_end=748,
+  serialized_start=704,
+  serialized_end=910,
 )
 
 
@@ -340,8 +447,8 @@ _ATTESTATIONDATAANDCUSTODYBIT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=750,
-  serialized_end=831,
+  serialized_start=912,
+  serialized_end=993,
 )
 
 
@@ -392,8 +499,8 @@ _ATTESTATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=833,
-  serialized_end=959,
+  serialized_start=995,
+  serialized_end=1121,
 )
 
 
@@ -437,8 +544,8 @@ _DEPOSITPARAMETERS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=961,
-  serialized_end=1057,
+  serialized_start=1123,
+  serialized_end=1219,
 )
 
 
@@ -468,8 +575,8 @@ _DEPOSIT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1059,
-  serialized_end=1111,
+  serialized_start=1221,
+  serialized_end=1273,
 )
 
 
@@ -513,8 +620,8 @@ _EXIT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1113,
-  serialized_end=1176,
+  serialized_start=1275,
+  serialized_end=1338,
 )
 
 
@@ -551,8 +658,8 @@ _BLOCK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1178,
-  serialized_end=1247,
+  serialized_start=1340,
+  serialized_end=1409,
 )
 
 
@@ -610,8 +717,8 @@ _BLOCKHEADER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1249,
-  serialized_end=1362,
+  serialized_start=1411,
+  serialized_end=1524,
 )
 
 
@@ -676,8 +783,8 @@ _BLOCKBODY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1365,
-  serialized_end=1600,
+  serialized_start=1527,
+  serialized_end=1762,
 )
 
 
@@ -721,8 +828,8 @@ _FORKDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1602,
-  serialized_end=1679,
+  serialized_start=1764,
+  serialized_end=1841,
 )
 
 
@@ -794,8 +901,8 @@ _VALIDATOR = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1682,
-  serialized_end=1867,
+  serialized_start=1844,
+  serialized_end=2029,
 )
 
 
@@ -839,8 +946,8 @@ _SHARDCOMMITTEE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1869,
-  serialized_end=1948,
+  serialized_start=2031,
+  serialized_end=2110,
 )
 
 
@@ -870,8 +977,8 @@ _SHARDCOMMITTEESFORSLOT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1950,
-  serialized_end=2014,
+  serialized_start=2112,
+  serialized_end=2176,
 )
 
 
@@ -901,8 +1008,8 @@ _PERSISTENTCOMMITTEESFORSLOT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2016,
-  serialized_end=2074,
+  serialized_start=2178,
+  serialized_end=2236,
 )
 
 
@@ -946,8 +1053,8 @@ _CROSSLINK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2076,
-  serialized_end=2149,
+  serialized_start=2238,
+  serialized_end=2311,
 )
 
 
@@ -1005,8 +1112,8 @@ _PENDINGATTESTATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2152,
-  serialized_end=2310,
+  serialized_start=2314,
+  serialized_end=2472,
 )
 
 
@@ -1204,8 +1311,8 @@ _STATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2313,
-  serialized_end=3161,
+  serialized_start=2475,
+  serialized_end=3323,
 )
 
 
@@ -1256,8 +1363,8 @@ _VALIDATORREGISTRYDELTABLOCK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3163,
-  serialized_end=3279,
+  serialized_start=3325,
+  serialized_end=3441,
 )
 
 
@@ -1287,8 +1394,8 @@ _ATTESTATIONREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3281,
-  serialized_end=3332,
+  serialized_start=3443,
+  serialized_end=3494,
 )
 
 
@@ -1339,8 +1446,8 @@ _VOTEDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3334,
-  serialized_end=3412,
+  serialized_start=3496,
+  serialized_end=3574,
 )
 
 
@@ -1384,8 +1491,8 @@ _AGGREGATEDVOTE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3414,
-  serialized_end=3500,
+  serialized_start=3576,
+  serialized_end=3662,
 )
 
 
@@ -1436,8 +1543,8 @@ _ACTIVEPROPOSAL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3502,
-  serialized_end=3605,
+  serialized_start=3664,
+  serialized_end=3767,
 )
 
 
@@ -1474,8 +1581,8 @@ _SHARDBLOCK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3607,
-  serialized_end=3691,
+  serialized_start=3769,
+  serialized_end=3853,
 )
 
 
@@ -1540,8 +1647,8 @@ _SHARDBLOCKHEADER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3694,
-  serialized_end=3845,
+  serialized_start=3856,
+  serialized_end=4007,
 )
 
 
@@ -1571,8 +1678,8 @@ _SHARDBLOCKBODY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3847,
-  serialized_end=3907,
+  serialized_start=4009,
+  serialized_end=4069,
 )
 
 
@@ -1602,8 +1709,8 @@ _SHARDTRANSACTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3909,
-  serialized_end=3952,
+  serialized_start=4071,
+  serialized_end=4114,
 )
 
 
@@ -1661,8 +1768,8 @@ _VERIFICATIONWITNESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3954,
-  serialized_end=4070,
+  serialized_start=4116,
+  serialized_end=4232,
 )
 
 
@@ -1727,8 +1834,8 @@ _UPDATEWITNESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4073,
-  serialized_end=4204,
+  serialized_start=4235,
+  serialized_end=4366,
 )
 
 
@@ -1786,8 +1893,8 @@ _TRANSACTIONPACKAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=4207,
-  serialized_end=4407,
+  serialized_start=4369,
+  serialized_end=4569,
 )
 
 _PROPOSERSLASHING.fields_by_name['ProposalData1'].message_type = _PROPOSALSIGNEDDATA
@@ -1825,6 +1932,9 @@ _SHARDBLOCKBODY.fields_by_name['Transactions'].message_type = _SHARDTRANSACTION
 _TRANSACTIONPACKAGE.fields_by_name['VerificationWitnesses'].message_type = _VERIFICATIONWITNESS
 _TRANSACTIONPACKAGE.fields_by_name['UpdateWitnesses'].message_type = _UPDATEWITNESS
 _TRANSACTIONPACKAGE.fields_by_name['Transactions'].message_type = _SHARDTRANSACTION
+DESCRIPTOR.message_types_by_name['SlotNumberResponse'] = _SLOTNUMBERRESPONSE
+DESCRIPTOR.message_types_by_name['ConnectMessage'] = _CONNECTMESSAGE
+DESCRIPTOR.message_types_by_name['ListeningAddressesResponse'] = _LISTENINGADDRESSESRESPONSE
 DESCRIPTOR.message_types_by_name['ProposalSignedData'] = _PROPOSALSIGNEDDATA
 DESCRIPTOR.message_types_by_name['ProposerSlashing'] = _PROPOSERSLASHING
 DESCRIPTOR.message_types_by_name['SlashableVoteData'] = _SLASHABLEVOTEDATA
@@ -1859,6 +1969,27 @@ DESCRIPTOR.message_types_by_name['VerificationWitness'] = _VERIFICATIONWITNESS
 DESCRIPTOR.message_types_by_name['UpdateWitness'] = _UPDATEWITNESS
 DESCRIPTOR.message_types_by_name['TransactionPackage'] = _TRANSACTIONPACKAGE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+SlotNumberResponse = _reflection.GeneratedProtocolMessageType('SlotNumberResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SLOTNUMBERRESPONSE,
+  '__module__' : 'common_pb2'
+  # @@protoc_insertion_point(class_scope:pb.SlotNumberResponse)
+  })
+_sym_db.RegisterMessage(SlotNumberResponse)
+
+ConnectMessage = _reflection.GeneratedProtocolMessageType('ConnectMessage', (_message.Message,), {
+  'DESCRIPTOR' : _CONNECTMESSAGE,
+  '__module__' : 'common_pb2'
+  # @@protoc_insertion_point(class_scope:pb.ConnectMessage)
+  })
+_sym_db.RegisterMessage(ConnectMessage)
+
+ListeningAddressesResponse = _reflection.GeneratedProtocolMessageType('ListeningAddressesResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTENINGADDRESSESRESPONSE,
+  '__module__' : 'common_pb2'
+  # @@protoc_insertion_point(class_scope:pb.ListeningAddressesResponse)
+  })
+_sym_db.RegisterMessage(ListeningAddressesResponse)
 
 ProposalSignedData = _reflection.GeneratedProtocolMessageType('ProposalSignedData', (_message.Message,), {
   'DESCRIPTOR' : _PROPOSALSIGNEDDATA,

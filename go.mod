@@ -14,6 +14,7 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/go-interpreter/wagon v0.6.0
 	github.com/go-test/deep v1.0.4
+	github.com/gogo/protobuf v1.3.0
 	github.com/golang/protobuf v1.3.2
 	github.com/hsanjuan/go-libp2p-http v0.0.2 // indirect
 	github.com/ipfs/dir-index-html v1.0.3 // indirect

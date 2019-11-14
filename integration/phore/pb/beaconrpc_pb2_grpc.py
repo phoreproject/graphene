@@ -24,7 +24,7 @@ class BlockchainRPCStub(object):
     self.GetSlotNumber = channel.unary_unary(
         '/pb.BlockchainRPC/GetSlotNumber',
         request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-        response_deserializer=beaconrpc__pb2.SlotNumberResponse.FromString,
+        response_deserializer=common__pb2.SlotNumberResponse.FromString,
         )
     self.GetBlockHash = channel.unary_unary(
         '/pb.BlockchainRPC/GetBlockHash',
@@ -89,17 +89,22 @@ class BlockchainRPCStub(object):
     self.GetListeningAddresses = channel.unary_unary(
         '/pb.BlockchainRPC/GetListeningAddresses',
         request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-        response_deserializer=beaconrpc__pb2.ListeningAddressesResponse.FromString,
+        response_deserializer=common__pb2.ListeningAddressesResponse.FromString,
         )
     self.Connect = channel.unary_unary(
         '/pb.BlockchainRPC/Connect',
-        request_serializer=beaconrpc__pb2.ConnectMessage.SerializeToString,
+        request_serializer=common__pb2.ConnectMessage.SerializeToString,
         response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
         )
     self.CrosslinkStream = channel.unary_stream(
         '/pb.BlockchainRPC/CrosslinkStream',
         request_serializer=beaconrpc__pb2.CrosslinkStreamRequest.SerializeToString,
         response_deserializer=beaconrpc__pb2.CrosslinkMessage.FromString,
+        )
+    self.GetGenesisTime = channel.unary_unary(
+        '/pb.BlockchainRPC/GetGenesisTime',
+        request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+        response_deserializer=beaconrpc__pb2.GenesisTimeResponse.FromString,
         )
 
 
@@ -226,6 +231,13 @@ class BlockchainRPCServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def GetGenesisTime(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_BlockchainRPCServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -237,7 +249,7 @@ def add_BlockchainRPCServicer_to_server(servicer, server):
       'GetSlotNumber': grpc.unary_unary_rpc_method_handler(
           servicer.GetSlotNumber,
           request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-          response_serializer=beaconrpc__pb2.SlotNumberResponse.SerializeToString,
+          response_serializer=common__pb2.SlotNumberResponse.SerializeToString,
       ),
       'GetBlockHash': grpc.unary_unary_rpc_method_handler(
           servicer.GetBlockHash,
@@ -302,17 +314,22 @@ def add_BlockchainRPCServicer_to_server(servicer, server):
       'GetListeningAddresses': grpc.unary_unary_rpc_method_handler(
           servicer.GetListeningAddresses,
           request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-          response_serializer=beaconrpc__pb2.ListeningAddressesResponse.SerializeToString,
+          response_serializer=common__pb2.ListeningAddressesResponse.SerializeToString,
       ),
       'Connect': grpc.unary_unary_rpc_method_handler(
           servicer.Connect,
-          request_deserializer=beaconrpc__pb2.ConnectMessage.FromString,
+          request_deserializer=common__pb2.ConnectMessage.FromString,
           response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
       ),
       'CrosslinkStream': grpc.unary_stream_rpc_method_handler(
           servicer.CrosslinkStream,
           request_deserializer=beaconrpc__pb2.CrosslinkStreamRequest.FromString,
           response_serializer=beaconrpc__pb2.CrosslinkMessage.SerializeToString,
+      ),
+      'GetGenesisTime': grpc.unary_unary_rpc_method_handler(
+          servicer.GetGenesisTime,
+          request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+          response_serializer=beaconrpc__pb2.GenesisTimeResponse.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

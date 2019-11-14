@@ -5,6 +5,7 @@ import select
 import sys
 import time
 import queue
+import logging
 
 
 _sentinel = object()
@@ -54,14 +55,12 @@ class Process(threading.Thread):
                     if descriptor == process.stdout.fileno():
                         read = process.stdout.readline()
                         if read:
-                            sys.stdout.write("{}: {}".format(self.process_name, read))
-                        sys.stdout.flush()
+                            logging.info("{}: {}".format(self.process_name, read.strip()))
 
                     if descriptor == process.stderr.fileno():
                         read = process.stderr.readline()
                         if read:
-                            sys.stdout.write("{}: {}".format(self.process_name, read))
-                        sys.stdout.flush()
+                            logging.info("{}: {}".format(self.process_name, read.strip()))
 
             if process.poll() is not None:
                 break

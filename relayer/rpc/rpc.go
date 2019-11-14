@@ -13,6 +13,14 @@ type server struct {
 
 }
 
+func (server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
+	panic("implement me")
+}
+
+func (server) Connect(context.Context, *pb.ConnectMessage) (*empty.Empty, error) {
+	panic("implement me")
+}
+
 func (server) SubmitTransaction(context.Context, *pb.ShardTransaction) (*empty.Empty, error) {
 	return nil, nil
 }

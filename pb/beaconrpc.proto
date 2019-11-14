@@ -39,14 +39,6 @@ message CrosslinkMessage {
     uint64 Slot = 2;
 }
 
-message ConnectMessage {
-    string Address = 1;
-}
-
-message ListeningAddressesResponse {
-    repeated string Addresses = 1;
-}
-
 message GetShardProposerRequest {
     uint64 ShardID = 1;
     uint64 Slot = 2;
@@ -122,12 +114,6 @@ message SubmitBlockRequest {
 
 message SubmitBlockResponse {
     bytes BlockHash = 1;
-}
-
-message SlotNumberResponse {
-    uint64 SlotNumber = 1;
-    bytes BlockHash = 2;
-    uint64 TipSlot = 3;
 }
 
 message GetBlockHashRequest {

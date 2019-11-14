@@ -6,12 +6,10 @@ from phore.framework import process
 from phore.framework import tester
 
 import os
-import pathlib
 import typing
-import sys
 import logging
 
-from phore.pb import beaconrpc_pb2_grpc, beaconrpc_pb2
+from phore.pb import beaconrpc_pb2_grpc, common_pb2
 from google.protobuf import empty_pb2
 
 
@@ -118,7 +116,7 @@ class BeaconNode:
 
     def wait_for_slot(self, slot_to_wait: int):
         while True:
-            slot_number_response: beaconrpc_pb2.SlotNumberResponse = self._rpc.GetSlotNumber(empty_pb2.Empty())
+            slot_number_response: common_pb2.SlotNumberResponse = self._rpc.GetSlotNumber(empty_pb2.Empty())
             if slot_number_response.TipSlot >= slot_to_wait:
                 break
             time.sleep(1)

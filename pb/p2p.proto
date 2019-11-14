@@ -14,8 +14,6 @@ message BeaconVersionMessage {
 message ShardVersionMessage {
     uint64 Version = 1;
     uint64 Height = 2;
-    bytes PeerID = 3;
-    bytes PeerInfo = 4;
 }
 
 message RelayerVersionMessage {

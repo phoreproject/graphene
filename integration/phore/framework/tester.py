@@ -11,12 +11,15 @@ import time
 
 class Tester:
     def __init__(self):
+        logging.getLogger().setLevel(logging.INFO)
+
         self._node_list = []
 
         self._current_beacon_p2p_port = 16000
         self._current_beacon_rpc_port = 17000
         self._current_validator_rpc_port = 18000
         self._current_shard_rpc_port = 19000
+        self._current_shard_p2p_port = 22000
         self._current_relayer_rpc_port = 20000
         self._current_relayer_p2p_port = 21000
 
@@ -66,9 +69,11 @@ class Tester:
     def create_shard_node(self, config: shardnode.ShardConfig) -> shardnode.ShardNode:
         config.index = self._shard_index
         config.rpc_port = self._current_shard_rpc_port
+        config.p2p_port = self._current_shard_p2p_port
 
         self._shard_index += 1
         self._current_shard_rpc_port += 1
+        self._current_shard_p2p_port += 1
 
         node = shardnode.ShardNode(config)
 

@@ -22,11 +22,42 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='pb',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0f\x62\x65\x61\x63onrpc.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x0c\x63ommon.proto\")\n\x16\x43rosslinkStreamRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"%\n\x10\x43rosslinkMessage\x12\x11\n\tBlockHash\x18\x01 \x01(\x0c\"!\n\x0e\x43onnectMessage\x12\x0f\n\x07\x41\x64\x64ress\x18\x01 \x01(\t\"/\n\x1aListeningAddressesResponse\x12\x11\n\tAddresses\x18\x01 \x03(\t\"8\n\x17GetShardProposerRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"D\n\x15ShardProposerResponse\x12\x10\n\x08Proposer\x18\x01 \x01(\r\x12\x19\n\x11ProposerPublicKey\x18\x02 \x01(\x0c\"\'\n\x0eMempoolRequest\x12\x15\n\rLastBlockHash\x18\x01 \x01(\x0c\"!\n\x13GetValidatorRequest\x12\n\n\x02ID\x18\x01 \x01(\r\"\x1f\n\x0fGetBlockRequest\x12\x0c\n\x04Hash\x18\x01 \x01(\x0c\",\n\x10GetBlockResponse\x12\x18\n\x05\x42lock\x18\x01 \x01(\x0b\x32\t.pb.Block\")\n\x19GetProposerForSlotRequest\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\".\n\x1aGetProposerForSlotResponse\x12\x10\n\x08Proposer\x18\x01 \x01(\r\"-\n\x17\x45pochInformationRequest\x12\x12\n\nEpochIndex\x18\x01 \x01(\x04\"b\n\x18\x45pochInformationResponse\x12\x1b\n\x13HasEpochInformation\x18\x01 \x01(\x08\x12)\n\x0bInformation\x18\x02 \x01(\x0b\x32\x14.pb.EpochInformation\"\x90\x03\n\x10\x45pochInformation\x12;\n\x17ShardCommitteesForSlots\x18\x01 \x03(\x0b\x32\x1a.pb.ShardCommitteesForSlot\x12\x0c\n\x04Slot\x18\x02 \x01(\x03\x12\'\n\x10LatestCrosslinks\x18\x03 \x03(\x0b\x32\r.pb.Crosslink\x12\x16\n\x0eJustifiedEpoch\x18\x04 \x01(\x04\x12\x15\n\rJustifiedHash\x18\x05 \x01(\x0c\x12\x12\n\nTargetHash\x18\x06 \x01(\x0c\x12\x1a\n\x12PreviousTargetHash\x18\x07 \x01(\x0c\x12\x1e\n\x16PreviousJustifiedEpoch\x18\x08 \x01(\x04\x12\x1d\n\x15PreviousJustifiedHash\x18\t \x01(\x0c\x12)\n\x12PreviousCrosslinks\x18\n \x03(\x0b\x32\r.pb.Crosslink\x12?\n\x1bShardCommitteesForNextEpoch\x18\x0b \x03(\x0b\x32\x1a.pb.ShardCommitteesForSlot\"%\n\x12\x44isconnectResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\"+\n\x1bGetCommitteesForSlotRequest\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\"7\n GetSlotAndShardAssignmentRequest\x12\x13\n\x0bValidatorID\x18\x01 \x01(\r\".\n\x12SubmitBlockRequest\x12\x18\n\x05\x42lock\x18\x01 \x01(\x0b\x32\t.pb.Block\"(\n\x13SubmitBlockResponse\x12\x11\n\tBlockHash\x18\x01 \x01(\x0c\"L\n\x12SlotNumberResponse\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\x12\x11\n\tBlockHash\x18\x02 \x01(\x0c\x12\x0f\n\x07TipSlot\x18\x03 \x01(\x04\")\n\x13GetBlockHashRequest\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\"$\n\x14GetBlockHashResponse\x12\x0c\n\x04Hash\x18\x01 \x01(\x0c\"+\n\x1aGetValidatorAtIndexRequest\x12\r\n\x05Index\x18\x01 \x01(\r\"?\n\x1bGetValidatorAtIndexResponse\x12 \n\tValidator\x18\x01 \x01(\x0b\x32\r.pb.Validator\"B\n\x1dGetCommitteeValidatorsRequest\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\x12\r\n\x05Shard\x18\x02 \x01(\r\",\n\x10GetStateResponse\x12\x18\n\x05state\x18\x01 \x01(\x0b\x32\t.pb.State\")\n\x14GetStateRootResponse\x12\x11\n\tStateRoot\x18\x01 \x01(\x0c\"C\n\x1eGetCommitteeValidatorsResponse\x12!\n\nValidators\x18\x01 \x03(\x0b\x32\r.pb.Validator\":\n$GetCommitteeValidatorIndicesResponse\x12\x12\n\nValidators\x18\x01 \x03(\r2\xfc\x08\n\rBlockchainRPC\x12>\n\x0bSubmitBlock\x12\x16.pb.SubmitBlockRequest\x1a\x17.pb.SubmitBlockResponse\x12?\n\rGetSlotNumber\x12\x16.google.protobuf.Empty\x1a\x16.pb.SlotNumberResponse\x12\x41\n\x0cGetBlockHash\x12\x17.pb.GetBlockHashRequest\x1a\x18.pb.GetBlockHashResponse\x12\x44\n\x10GetLastBlockHash\x12\x16.google.protobuf.Empty\x1a\x18.pb.GetBlockHashResponse\x12\x38\n\x08GetState\x12\x16.google.protobuf.Empty\x1a\x14.pb.GetStateResponse\x12@\n\x0cGetStateRoot\x12\x16.google.protobuf.Empty\x1a\x18.pb.GetStateRootResponse\x12P\n\x13GetEpochInformation\x12\x1b.pb.EpochInformationRequest\x1a\x1c.pb.EpochInformationResponse\x12\x33\n\x0bGetForkData\x12\x16.google.protobuf.Empty\x1a\x0c.pb.ForkData\x12S\n\x12GetProposerForSlot\x12\x1d.pb.GetProposerForSlotRequest\x1a\x1e.pb.GetProposerForSlotResponse\x12Q\n\x17GetShardProposerForSlot\x12\x1b.pb.GetShardProposerRequest\x1a\x19.pb.ShardProposerResponse\x12\x35\n\x08GetBlock\x12\x13.pb.GetBlockRequest\x1a\x14.pb.GetBlockResponse\x12<\n\x11SubmitAttestation\x12\x0f.pb.Attestation\x1a\x16.google.protobuf.Empty\x12/\n\nGetMempool\x12\x12.pb.MempoolRequest\x1a\r.pb.BlockBody\x12\x41\n\x17GetValidatorInformation\x12\x17.pb.GetValidatorRequest\x1a\r.pb.Validator\x12O\n\x15GetListeningAddresses\x12\x16.google.protobuf.Empty\x1a\x1e.pb.ListeningAddressesResponse\x12\x35\n\x07\x43onnect\x12\x12.pb.ConnectMessage\x1a\x16.google.protobuf.Empty\x12\x45\n\x0f\x43rosslinkStream\x12\x1a.pb.CrosslinkStreamRequest\x1a\x14.pb.CrosslinkMessage0\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0f\x62\x65\x61\x63onrpc.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x0c\x63ommon.proto\"*\n\x13GenesisTimeResponse\x12\x13\n\x0bGenesisTime\x18\x01 \x01(\x04\")\n\x16\x43rosslinkStreamRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\"3\n\x10\x43rosslinkMessage\x12\x11\n\tBlockHash\x18\x01 \x01(\x0c\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"8\n\x17GetShardProposerRequest\x12\x0f\n\x07ShardID\x18\x01 \x01(\x04\x12\x0c\n\x04Slot\x18\x02 \x01(\x04\"D\n\x15ShardProposerResponse\x12\x10\n\x08Proposer\x18\x01 \x01(\r\x12\x19\n\x11ProposerPublicKey\x18\x02 \x01(\x0c\"\'\n\x0eMempoolRequest\x12\x15\n\rLastBlockHash\x18\x01 \x01(\x0c\"!\n\x13GetValidatorRequest\x12\n\n\x02ID\x18\x01 \x01(\r\"\x1f\n\x0fGetBlockRequest\x12\x0c\n\x04Hash\x18\x01 \x01(\x0c\",\n\x10GetBlockResponse\x12\x18\n\x05\x42lock\x18\x01 \x01(\x0b\x32\t.pb.Block\")\n\x19GetProposerForSlotRequest\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\".\n\x1aGetProposerForSlotResponse\x12\x10\n\x08Proposer\x18\x01 \x01(\r\"-\n\x17\x45pochInformationRequest\x12\x12\n\nEpochIndex\x18\x01 \x01(\x04\"b\n\x18\x45pochInformationResponse\x12\x1b\n\x13HasEpochInformation\x18\x01 \x01(\x08\x12)\n\x0bInformation\x18\x02 \x01(\x0b\x32\x14.pb.EpochInformation\"\x90\x03\n\x10\x45pochInformation\x12;\n\x17ShardCommitteesForSlots\x18\x01 \x03(\x0b\x32\x1a.pb.ShardCommitteesForSlot\x12\x0c\n\x04Slot\x18\x02 \x01(\x03\x12\'\n\x10LatestCrosslinks\x18\x03 \x03(\x0b\x32\r.pb.Crosslink\x12\x16\n\x0eJustifiedEpoch\x18\x04 \x01(\x04\x12\x15\n\rJustifiedHash\x18\x05 \x01(\x0c\x12\x12\n\nTargetHash\x18\x06 \x01(\x0c\x12\x1a\n\x12PreviousTargetHash\x18\x07 \x01(\x0c\x12\x1e\n\x16PreviousJustifiedEpoch\x18\x08 \x01(\x04\x12\x1d\n\x15PreviousJustifiedHash\x18\t \x01(\x0c\x12)\n\x12PreviousCrosslinks\x18\n \x03(\x0b\x32\r.pb.Crosslink\x12?\n\x1bShardCommitteesForNextEpoch\x18\x0b \x03(\x0b\x32\x1a.pb.ShardCommitteesForSlot\"%\n\x12\x44isconnectResponse\x12\x0f\n\x07Success\x18\x01 \x01(\x08\"+\n\x1bGetCommitteesForSlotRequest\x12\x0c\n\x04Slot\x18\x01 \x01(\x04\"7\n GetSlotAndShardAssignmentRequest\x12\x13\n\x0bValidatorID\x18\x01 \x01(\r\".\n\x12SubmitBlockRequest\x12\x18\n\x05\x42lock\x18\x01 \x01(\x0b\x32\t.pb.Block\"(\n\x13SubmitBlockResponse\x12\x11\n\tBlockHash\x18\x01 \x01(\x0c\")\n\x13GetBlockHashRequest\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\"$\n\x14GetBlockHashResponse\x12\x0c\n\x04Hash\x18\x01 \x01(\x0c\"+\n\x1aGetValidatorAtIndexRequest\x12\r\n\x05Index\x18\x01 \x01(\r\"?\n\x1bGetValidatorAtIndexResponse\x12 \n\tValidator\x18\x01 \x01(\x0b\x32\r.pb.Validator\"B\n\x1dGetCommitteeValidatorsRequest\x12\x12\n\nSlotNumber\x18\x01 \x01(\x04\x12\r\n\x05Shard\x18\x02 \x01(\r\",\n\x10GetStateResponse\x12\x18\n\x05state\x18\x01 \x01(\x0b\x32\t.pb.State\")\n\x14GetStateRootResponse\x12\x11\n\tStateRoot\x18\x01 \x01(\x0c\"C\n\x1eGetCommitteeValidatorsResponse\x12!\n\nValidators\x18\x01 \x03(\x0b\x32\r.pb.Validator\":\n$GetCommitteeValidatorIndicesResponse\x12\x12\n\nValidators\x18\x01 \x03(\r2\xbf\t\n\rBlockchainRPC\x12>\n\x0bSubmitBlock\x12\x16.pb.SubmitBlockRequest\x1a\x17.pb.SubmitBlockResponse\x12?\n\rGetSlotNumber\x12\x16.google.protobuf.Empty\x1a\x16.pb.SlotNumberResponse\x12\x41\n\x0cGetBlockHash\x12\x17.pb.GetBlockHashRequest\x1a\x18.pb.GetBlockHashResponse\x12\x44\n\x10GetLastBlockHash\x12\x16.google.protobuf.Empty\x1a\x18.pb.GetBlockHashResponse\x12\x38\n\x08GetState\x12\x16.google.protobuf.Empty\x1a\x14.pb.GetStateResponse\x12@\n\x0cGetStateRoot\x12\x16.google.protobuf.Empty\x1a\x18.pb.GetStateRootResponse\x12P\n\x13GetEpochInformation\x12\x1b.pb.EpochInformationRequest\x1a\x1c.pb.EpochInformationResponse\x12\x33\n\x0bGetForkData\x12\x16.google.protobuf.Empty\x1a\x0c.pb.ForkData\x12S\n\x12GetProposerForSlot\x12\x1d.pb.GetProposerForSlotRequest\x1a\x1e.pb.GetProposerForSlotResponse\x12Q\n\x17GetShardProposerForSlot\x12\x1b.pb.GetShardProposerRequest\x1a\x19.pb.ShardProposerResponse\x12\x35\n\x08GetBlock\x12\x13.pb.GetBlockRequest\x1a\x14.pb.GetBlockResponse\x12<\n\x11SubmitAttestation\x12\x0f.pb.Attestation\x1a\x16.google.protobuf.Empty\x12/\n\nGetMempool\x12\x12.pb.MempoolRequest\x1a\r.pb.BlockBody\x12\x41\n\x17GetValidatorInformation\x12\x17.pb.GetValidatorRequest\x1a\r.pb.Validator\x12O\n\x15GetListeningAddresses\x12\x16.google.protobuf.Empty\x1a\x1e.pb.ListeningAddressesResponse\x12\x35\n\x07\x43onnect\x12\x12.pb.ConnectMessage\x1a\x16.google.protobuf.Empty\x12\x45\n\x0f\x43rosslinkStream\x12\x1a.pb.CrosslinkStreamRequest\x1a\x14.pb.CrosslinkMessage0\x01\x12\x41\n\x0eGetGenesisTime\x12\x16.google.protobuf.Empty\x1a\x17.pb.GenesisTimeResponseb\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,common__pb2.DESCRIPTOR,])
 
 
+
+
+_GENESISTIMERESPONSE = _descriptor.Descriptor(
+  name='GenesisTimeResponse',
+  full_name='pb.GenesisTimeResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='GenesisTime', full_name='pb.GenesisTimeResponse.GenesisTime', index=0,
+      number=1, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=66,
+  serialized_end=108,
+)
 
 
 _CROSSLINKSTREAMREQUEST = _descriptor.Descriptor(
@@ -55,8 +86,8 @@ _CROSSLINKSTREAMREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=66,
-  serialized_end=107,
+  serialized_start=110,
+  serialized_end=151,
 )
 
 
@@ -74,34 +105,10 @@ _CROSSLINKMESSAGE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=109,
-  serialized_end=146,
-)
-
-
-_CONNECTMESSAGE = _descriptor.Descriptor(
-  name='ConnectMessage',
-  full_name='pb.ConnectMessage',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
     _descriptor.FieldDescriptor(
-      name='Address', full_name='pb.ConnectMessage.Address', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
+      name='Slot', full_name='pb.CrosslinkMessage.Slot', index=1,
+      number=2, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
@@ -117,39 +124,8 @@ _CONNECTMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=148,
-  serialized_end=181,
-)
-
-
-_LISTENINGADDRESSESRESPONSE = _descriptor.Descriptor(
-  name='ListeningAddressesResponse',
-  full_name='pb.ListeningAddressesResponse',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='Addresses', full_name='pb.ListeningAddressesResponse.Addresses', index=0,
-      number=1, type=9, cpp_type=9, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=183,
-  serialized_end=230,
+  serialized_start=153,
+  serialized_end=204,
 )
 
 
@@ -186,8 +162,8 @@ _GETSHARDPROPOSERREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=232,
-  serialized_end=288,
+  serialized_start=206,
+  serialized_end=262,
 )
 
 
@@ -224,8 +200,8 @@ _SHARDPROPOSERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=290,
-  serialized_end=358,
+  serialized_start=264,
+  serialized_end=332,
 )
 
 
@@ -255,8 +231,8 @@ _MEMPOOLREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=360,
-  serialized_end=399,
+  serialized_start=334,
+  serialized_end=373,
 )
 
 
@@ -286,8 +262,8 @@ _GETVALIDATORREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=401,
-  serialized_end=434,
+  serialized_start=375,
+  serialized_end=408,
 )
 
 
@@ -317,8 +293,8 @@ _GETBLOCKREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=436,
-  serialized_end=467,
+  serialized_start=410,
+  serialized_end=441,
 )
 
 
@@ -348,8 +324,8 @@ _GETBLOCKRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=469,
-  serialized_end=513,
+  serialized_start=443,
+  serialized_end=487,
 )
 
 
@@ -379,8 +355,8 @@ _GETPROPOSERFORSLOTREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=515,
-  serialized_end=556,
+  serialized_start=489,
+  serialized_end=530,
 )
 
 
@@ -410,8 +386,8 @@ _GETPROPOSERFORSLOTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=558,
-  serialized_end=604,
+  serialized_start=532,
+  serialized_end=578,
 )
 
 
@@ -441,8 +417,8 @@ _EPOCHINFORMATIONREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=606,
-  serialized_end=651,
+  serialized_start=580,
+  serialized_end=625,
 )
 
 
@@ -479,8 +455,8 @@ _EPOCHINFORMATIONRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=653,
-  serialized_end=751,
+  serialized_start=627,
+  serialized_end=725,
 )
 
 
@@ -580,8 +556,8 @@ _EPOCHINFORMATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=754,
-  serialized_end=1154,
+  serialized_start=728,
+  serialized_end=1128,
 )
 
 
@@ -611,8 +587,8 @@ _DISCONNECTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1156,
-  serialized_end=1193,
+  serialized_start=1130,
+  serialized_end=1167,
 )
 
 
@@ -642,8 +618,8 @@ _GETCOMMITTEESFORSLOTREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1195,
-  serialized_end=1238,
+  serialized_start=1169,
+  serialized_end=1212,
 )
 
 
@@ -673,8 +649,8 @@ _GETSLOTANDSHARDASSIGNMENTREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1240,
-  serialized_end=1295,
+  serialized_start=1214,
+  serialized_end=1269,
 )
 
 
@@ -704,8 +680,8 @@ _SUBMITBLOCKREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1297,
-  serialized_end=1343,
+  serialized_start=1271,
+  serialized_end=1317,
 )
 
 
@@ -735,53 +711,8 @@ _SUBMITBLOCKRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1345,
-  serialized_end=1385,
-)
-
-
-_SLOTNUMBERRESPONSE = _descriptor.Descriptor(
-  name='SlotNumberResponse',
-  full_name='pb.SlotNumberResponse',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='SlotNumber', full_name='pb.SlotNumberResponse.SlotNumber', index=0,
-      number=1, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='BlockHash', full_name='pb.SlotNumberResponse.BlockHash', index=1,
-      number=2, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b(""),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='TipSlot', full_name='pb.SlotNumberResponse.TipSlot', index=2,
-      number=3, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=1387,
-  serialized_end=1463,
+  serialized_start=1319,
+  serialized_end=1359,
 )
 
 
@@ -811,8 +742,8 @@ _GETBLOCKHASHREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1465,
-  serialized_end=1506,
+  serialized_start=1361,
+  serialized_end=1402,
 )
 
 
@@ -842,8 +773,8 @@ _GETBLOCKHASHRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1508,
-  serialized_end=1544,
+  serialized_start=1404,
+  serialized_end=1440,
 )
 
 
@@ -873,8 +804,8 @@ _GETVALIDATORATINDEXREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1546,
-  serialized_end=1589,
+  serialized_start=1442,
+  serialized_end=1485,
 )
 
 
@@ -904,8 +835,8 @@ _GETVALIDATORATINDEXRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1591,
-  serialized_end=1654,
+  serialized_start=1487,
+  serialized_end=1550,
 )
 
 
@@ -942,8 +873,8 @@ _GETCOMMITTEEVALIDATORSREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1656,
-  serialized_end=1722,
+  serialized_start=1552,
+  serialized_end=1618,
 )
 
 
@@ -973,8 +904,8 @@ _GETSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1724,
-  serialized_end=1768,
+  serialized_start=1620,
+  serialized_end=1664,
 )
 
 
@@ -1004,8 +935,8 @@ _GETSTATEROOTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1770,
-  serialized_end=1811,
+  serialized_start=1666,
+  serialized_end=1707,
 )
 
 
@@ -1035,8 +966,8 @@ _GETCOMMITTEEVALIDATORSRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1813,
-  serialized_end=1880,
+  serialized_start=1709,
+  serialized_end=1776,
 )
 
 
@@ -1066,8 +997,8 @@ _GETCOMMITTEEVALIDATORINDICESRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1882,
-  serialized_end=1940,
+  serialized_start=1778,
+  serialized_end=1836,
 )
 
 _GETBLOCKRESPONSE.fields_by_name['Block'].message_type = common__pb2._BLOCK
@@ -1080,10 +1011,9 @@ _SUBMITBLOCKREQUEST.fields_by_name['Block'].message_type = common__pb2._BLOCK
 _GETVALIDATORATINDEXRESPONSE.fields_by_name['Validator'].message_type = common__pb2._VALIDATOR
 _GETSTATERESPONSE.fields_by_name['state'].message_type = common__pb2._STATE
 _GETCOMMITTEEVALIDATORSRESPONSE.fields_by_name['Validators'].message_type = common__pb2._VALIDATOR
+DESCRIPTOR.message_types_by_name['GenesisTimeResponse'] = _GENESISTIMERESPONSE
 DESCRIPTOR.message_types_by_name['CrosslinkStreamRequest'] = _CROSSLINKSTREAMREQUEST
 DESCRIPTOR.message_types_by_name['CrosslinkMessage'] = _CROSSLINKMESSAGE
-DESCRIPTOR.message_types_by_name['ConnectMessage'] = _CONNECTMESSAGE
-DESCRIPTOR.message_types_by_name['ListeningAddressesResponse'] = _LISTENINGADDRESSESRESPONSE
 DESCRIPTOR.message_types_by_name['GetShardProposerRequest'] = _GETSHARDPROPOSERREQUEST
 DESCRIPTOR.message_types_by_name['ShardProposerResponse'] = _SHARDPROPOSERRESPONSE
 DESCRIPTOR.message_types_by_name['MempoolRequest'] = _MEMPOOLREQUEST
@@ -1100,7 +1030,6 @@ DESCRIPTOR.message_types_by_name['GetCommitteesForSlotRequest'] = _GETCOMMITTEES
 DESCRIPTOR.message_types_by_name['GetSlotAndShardAssignmentRequest'] = _GETSLOTANDSHARDASSIGNMENTREQUEST
 DESCRIPTOR.message_types_by_name['SubmitBlockRequest'] = _SUBMITBLOCKREQUEST
 DESCRIPTOR.message_types_by_name['SubmitBlockResponse'] = _SUBMITBLOCKRESPONSE
-DESCRIPTOR.message_types_by_name['SlotNumberResponse'] = _SLOTNUMBERRESPONSE
 DESCRIPTOR.message_types_by_name['GetBlockHashRequest'] = _GETBLOCKHASHREQUEST
 DESCRIPTOR.message_types_by_name['GetBlockHashResponse'] = _GETBLOCKHASHRESPONSE
 DESCRIPTOR.message_types_by_name['GetValidatorAtIndexRequest'] = _GETVALIDATORATINDEXREQUEST
@@ -1111,6 +1040,13 @@ DESCRIPTOR.message_types_by_name['GetStateRootResponse'] = _GETSTATEROOTRESPONSE
 DESCRIPTOR.message_types_by_name['GetCommitteeValidatorsResponse'] = _GETCOMMITTEEVALIDATORSRESPONSE
 DESCRIPTOR.message_types_by_name['GetCommitteeValidatorIndicesResponse'] = _GETCOMMITTEEVALIDATORINDICESRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+GenesisTimeResponse = _reflection.GeneratedProtocolMessageType('GenesisTimeResponse', (_message.Message,), {
+  'DESCRIPTOR' : _GENESISTIMERESPONSE,
+  '__module__' : 'beaconrpc_pb2'
+  # @@protoc_insertion_point(class_scope:pb.GenesisTimeResponse)
+  })
+_sym_db.RegisterMessage(GenesisTimeResponse)
 
 CrosslinkStreamRequest = _reflection.GeneratedProtocolMessageType('CrosslinkStreamRequest', (_message.Message,), {
   'DESCRIPTOR' : _CROSSLINKSTREAMREQUEST,
@@ -1125,20 +1061,6 @@ CrosslinkMessage = _reflection.GeneratedProtocolMessageType('CrosslinkMessage', 
   # @@protoc_insertion_point(class_scope:pb.CrosslinkMessage)
   })
 _sym_db.RegisterMessage(CrosslinkMessage)
-
-ConnectMessage = _reflection.GeneratedProtocolMessageType('ConnectMessage', (_message.Message,), {
-  'DESCRIPTOR' : _CONNECTMESSAGE,
-  '__module__' : 'beaconrpc_pb2'
-  # @@protoc_insertion_point(class_scope:pb.ConnectMessage)
-  })
-_sym_db.RegisterMessage(ConnectMessage)
-
-ListeningAddressesResponse = _reflection.GeneratedProtocolMessageType('ListeningAddressesResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTENINGADDRESSESRESPONSE,
-  '__module__' : 'beaconrpc_pb2'
-  # @@protoc_insertion_point(class_scope:pb.ListeningAddressesResponse)
-  })
-_sym_db.RegisterMessage(ListeningAddressesResponse)
 
 GetShardProposerRequest = _reflection.GeneratedProtocolMessageType('GetShardProposerRequest', (_message.Message,), {
   'DESCRIPTOR' : _GETSHARDPROPOSERREQUEST,
@@ -1252,13 +1174,6 @@ SubmitBlockResponse = _reflection.GeneratedProtocolMessageType('SubmitBlockRespo
   })
 _sym_db.RegisterMessage(SubmitBlockResponse)
 
-SlotNumberResponse = _reflection.GeneratedProtocolMessageType('SlotNumberResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SLOTNUMBERRESPONSE,
-  '__module__' : 'beaconrpc_pb2'
-  # @@protoc_insertion_point(class_scope:pb.SlotNumberResponse)
-  })
-_sym_db.RegisterMessage(SlotNumberResponse)
-
 GetBlockHashRequest = _reflection.GeneratedProtocolMessageType('GetBlockHashRequest', (_message.Message,), {
   'DESCRIPTOR' : _GETBLOCKHASHREQUEST,
   '__module__' : 'beaconrpc_pb2'
@@ -1330,8 +1245,8 @@ _BLOCKCHAINRPC = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1943,
-  serialized_end=3091,
+  serialized_start=1839,
+  serialized_end=3054,
   methods=[
   _descriptor.MethodDescriptor(
     name='SubmitBlock',
@@ -1348,7 +1263,7 @@ _BLOCKCHAINRPC = _descriptor.ServiceDescriptor(
     index=1,
     containing_service=None,
     input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
-    output_type=_SLOTNUMBERRESPONSE,
+    output_type=common__pb2._SLOTNUMBERRESPONSE,
     serialized_options=None,
   ),
   _descriptor.MethodDescriptor(
@@ -1465,7 +1380,7 @@ _BLOCKCHAINRPC = _descriptor.ServiceDescriptor(
     index=14,
     containing_service=None,
     input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
-    output_type=_LISTENINGADDRESSESRESPONSE,
+    output_type=common__pb2._LISTENINGADDRESSESRESPONSE,
     serialized_options=None,
   ),
   _descriptor.MethodDescriptor(
@@ -1473,7 +1388,7 @@ _BLOCKCHAINRPC = _descriptor.ServiceDescriptor(
     full_name='pb.BlockchainRPC.Connect',
     index=15,
     containing_service=None,
-    input_type=_CONNECTMESSAGE,
+    input_type=common__pb2._CONNECTMESSAGE,
     output_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
     serialized_options=None,
   ),
@@ -1484,6 +1399,15 @@ _BLOCKCHAINRPC = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_CROSSLINKSTREAMREQUEST,
     output_type=_CROSSLINKMESSAGE,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='GetGenesisTime',
+    full_name='pb.BlockchainRPC.GetGenesisTime',
+    index=17,
+    containing_service=None,
+    input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
+    output_type=_GENESISTIMERESPONSE,
     serialized_options=None,
   ),
 ])

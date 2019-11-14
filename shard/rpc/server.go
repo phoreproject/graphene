@@ -2,9 +2,14 @@ package rpc
 
 import (
 	"context"
+	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
@@ -17,7 +22,73 @@ import (
 // ShardRPCServer handles incoming commands for the shard module.
 type ShardRPCServer struct {
 	sm *chain.ShardMux
+	hn *p2p.HostNode
 	config *config.Config
+}
+
+// GetListeningAddresses gets listening addresses for the shard module.
+func (s *ShardRPCServer) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
+	addrs := s.hn.GetHost().Addrs()
+
+	info := peer.AddrInfo{
+		ID: s.hn.GetHost().ID(),
+		Addrs: addrs,
+	}
+
+	p2paddrs, err := peer.AddrInfoToP2pAddrs(&info)
+	if err != nil {
+		return nil, err
+	}
+
+	addrStrings := make([]string, len(p2paddrs))
+	for i := range p2paddrs {
+		addrStrings[i] = p2paddrs[i].String()
+	}
+
+	return &pb.ListeningAddressesResponse{
+		Addresses:            addrStrings,
+	}, nil
+}
+
+// Connect connects to a peer
+func (s *ShardRPCServer) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*empty.Empty, error) {
+	addr := connectMsg.Address
+
+	ma, err := multiaddr.NewMultiaddr(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	pi, err := peer.AddrInfoFromP2pAddr(ma)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.hn.Connect(ctx, *pi)
+	if err != nil {
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// GetSlotNumber gets the current tip slot and hash.
+func (s *ShardRPCServer) GetSlotNumber(ctx context.Context, req *pb.SlotNumberRequest) (*pb.SlotNumberResponse, error) {
+	mgr, err := s.sm.GetManager(req.ShardID)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := mgr.Chain.Tip()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add calculated slot here in addition to tip slot
+	return &pb.SlotNumberResponse{
+		BlockHash: node.BlockHash[:],
+		TipSlot: node.Slot,
+	}, nil
 }
 
 // GetActionStream gets an action stream.
@@ -78,10 +149,13 @@ func (s *ShardRPCServer) SubscribeToShard(ctx context.Context, req *pb.ShardSubs
 	}
 
 	if !s.sm.IsManaging(req.ShardID) {
-		s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
+		err := s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
 			RootBlockHash: *blockHash,
 			RootSlot:      req.CrosslinkSlot,
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &empty.Empty{}, nil
@@ -180,7 +254,17 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 		return nil, err
 	}
 
-	err = manager.SubmitBlock(*block)
+	err = manager.ProcessBlock(*block)
+	if err != nil {
+		return nil, err
+	}
+
+	blockBytes, err := proto.Marshal(req.Block)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.hn.Broadcast(fmt.Sprintf("shard %d blocks", req.Shard), blockBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -191,13 +275,13 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 var _ pb.ShardRPCServer = &ShardRPCServer{}
 
 // Serve serves the RPC server
-func Serve(proto string, listenAddr string, mux *chain.ShardMux, c *config.Config) error {
+func Serve(proto string, listenAddr string, mux *chain.ShardMux, c *config.Config, node *p2p.HostNode) error {
 	lis, err := net.Listen(proto, listenAddr)
 	if err != nil {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterShardRPCServer(s, &ShardRPCServer{mux, c})
+	pb.RegisterShardRPCServer(s, &ShardRPCServer{mux, node, c})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	err = s.Serve(lis)

@@ -32,6 +32,21 @@ func (node *ShardBlockNode) GetAncestorAtSlot(slot uint64) *ShardBlockNode {
 	return current
 }
 
+// GetAncestorAtHeight gets the first block node that occurred at a certain height.
+func (node *ShardBlockNode) GetAncestorAtHeight(height uint64) *ShardBlockNode {
+	if node.Height < height {
+		return nil
+	}
+
+	current := node
+
+	for current != nil && height < current.Height {
+		current = current.Parent
+	}
+
+	return current
+}
+
 // ShardBlockIndex keeps a map of block hash to block.
 type ShardBlockIndex struct {
 	Lock  *sync.RWMutex

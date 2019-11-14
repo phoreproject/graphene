@@ -33,7 +33,8 @@ func NewRelayerSyncManager(hostNode *p2p.HostNode, mempool *mempool.ShardMempool
 	return r, nil
 }
 
-func relayerSyncProtocol(shardNumber uint64, version uint64) protocol.ID {
+// RelayerSyncProtocol is the relayer sync protocol for a specific version and shard.
+func RelayerSyncProtocol(shardNumber uint64, version uint64) protocol.ID {
 	return protocol.ID(fmt.Sprintf("/phore/relayer/%d/v%d", shardNumber, version))
 }
 
@@ -60,9 +61,15 @@ func (r *RelayerSyncManager) onGetPackagesMessage(id peer.ID, msg proto.Message)
 	})
 }
 
+func (r *RelayerSyncManager) onSubmitTransaction(id peer.ID, msg proto.Message) error {
+	submitTxMessage := msg.(*pb.SubmitTransaction)
+
+	return r.mempool.Add(submitTxMessage.Transaction.TransactionData)
+}
+
 
 func (r *RelayerSyncManager) registerP2P() error {
-	handler, err := r.hostNode.RegisterProtocolHandler(relayerSyncProtocol(r.shardNumber, 1), 16, 8)
+	handler, err := r.hostNode.RegisterProtocolHandler(RelayerSyncProtocol(r.shardNumber, 1), 16, 8)
 	if err != nil {
 		return err
 	}
@@ -70,6 +77,11 @@ func (r *RelayerSyncManager) registerP2P() error {
 	r.protocol = handler
 
 	err = r.protocol.RegisterHandler("pb.GetPackagesMessage", r.onGetPackagesMessage)
+	if err != nil {
+		return err
+	}
+
+	err = r.protocol.RegisterHandler("pb.SubmitTransaction", r.onSubmitTransaction)
 	if err != nil {
 		return err
 	}

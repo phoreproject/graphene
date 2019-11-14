@@ -1,5 +1,5 @@
 from phore.framework import tester, validatornode, shardnode
-from phore.pb import beaconrpc_pb2
+from phore.pb import beaconrpc_pb2, common_pb2
 
 import time
 
@@ -31,7 +31,7 @@ class Example(tester.Tester):
 
         beacon_nodes[0].wait_for_slot(4)
 
-        beacon_nodes[1].connect(beaconrpc_pb2.ConnectMessage(Address=addrs[0]))
+        beacon_nodes[1].connect(common_pb2.ConnectMessage(Address=addrs[0]))
 
         beacon_nodes[1].wait_for_slot(8)
 

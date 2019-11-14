@@ -8,9 +8,11 @@ import (
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/relayer/mempool"
+	"github.com/phoreproject/synapse/shard/db"
 	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
@@ -42,6 +44,9 @@ type ShardManager struct {
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
 	Mempool                  *mempool.ShardMempool
+	BlockDB db.ShardBlockDatabase
+	SyncManager *ShardSyncManager
+
 	stateDB                  csmt.TreeDatabase
 	shardInfo                execution.ShardInfo
 
@@ -50,7 +55,7 @@ type ShardManager struct {
 }
 
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
-func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient) *ShardManager {
+func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient, hn *p2p.HostNode) (*ShardManager, error) {
 
 	genesisBlock := primitives.GetGenesisBlockForShard(shardID)
 
@@ -72,11 +77,19 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		shardInfo: shardInfo,
 		stateDB: stateDB,
 		notifees: []ShardChainActionNotifee{},
+		BlockDB: db.NewMemoryBlockDB(),
 	}
+
+	syncManager, err := NewShardSyncManager(hn, sm, shardID)
+	if err != nil {
+		return nil, err
+	}
+
+	sm.SyncManager = syncManager
 
 	sm.ListenForNewCrosslinks()
 
-	return sm
+	return sm, nil
 }
 
 // RegisterNotifee registers a notifee for shard actions
@@ -151,8 +164,16 @@ func (sm *ShardManager) GetKey(key chainhash.Hash) (*chainhash.Hash, error) {
 	return out, nil
 }
 
-// SubmitBlock submits a block to the chain for processing.
-func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
+// ProcessBlock submits a block to the chain for processing.
+func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
+	h, _ := ssz.HashTreeRoot(block)
+
+	logrus.WithFields(logrus.Fields{
+		"slot": block.Header.Slot,
+		"hash": chainhash.Hash(h),
+		"shardID": sm.ShardID,
+	}).Debug("processing block")
+
 	// first, let's make sure we have the parent block
 	hasParent := sm.Index.HasBlock(block.Header.PreviousBlockHash)
 	if !hasParent {
@@ -244,6 +265,10 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 
 	node, err := sm.Index.AddToIndex(block)
 	if err != nil {
+		return err
+	}
+
+	if err := sm.BlockDB.SetBlock(&block); err != nil {
 		return err
 	}
 

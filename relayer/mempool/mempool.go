@@ -11,16 +11,16 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"sync"
-	)
+)
 
 type shardMempoolItem struct {
 	tx []byte
 }
 
 type stateInfo struct {
-	db csmt.TreeDatabase
+	db     csmt.TreeDatabase
 	parent *stateInfo
-	slot uint64
+	slot   uint64
 }
 
 // ShardMempool keeps track of shard transactions
@@ -35,29 +35,29 @@ type ShardMempool struct {
 	// each of these TreeDatabase's is a TreeMemoryCache except for the finalized block which is the regular state DB.
 	// When finalizing a block, we commit the hash of the finalized block and recurse through each parent until we reach
 	// the previously justified block (which should be a real DB, not a cache).
-	finalizedDB   *stateInfo
-	stateMap map[chainhash.Hash]*stateInfo
-	tipDB *stateInfo
+	finalizedDB *stateInfo
+	stateMap    map[chainhash.Hash]*stateInfo
+	tipDB       *stateInfo
 }
 
 // NewShardMempool constructs a new shard mempool. This needs to keep track of fork choice and a state tree. Changes
 // should be written to disk once finalized.
 func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash chainhash.Hash, info execution.ShardInfo) *ShardMempool {
 	tip := &stateInfo{
-		db: stateDB,
+		db:   stateDB,
 		slot: stateSlot,
 	}
 	return &ShardMempool{
 		mempool:      make(map[chainhash.Hash]*shardMempoolItem),
 		mempoolOrder: nil,
 		mempoolLock:  new(sync.RWMutex),
-		finalizedDB: tip,
-		tipDB: tip,
+		finalizedDB:  tip,
+		tipDB:        tip,
 		stateMap: map[chainhash.Hash]*stateInfo{
 			tipBlockHash: tip,
 		},
 		stateLock: new(sync.RWMutex),
-		shardInfo:    info,
+		shardInfo: info,
 	}
 }
 
@@ -116,7 +116,7 @@ func executeBlockTransactions(a csmt.TreeTransactionAccess, b primitives.ShardBl
 	return nil
 }
 
-// AcceptBlock updates the current state with all of the
+// AcceptAction updates the current state with all of the
 func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 	// We have 3 types of actions:
 	// 1. AddBlockAction - adds a block and executes it, adding the result to the state map
@@ -155,9 +155,9 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 		}
 
 		s.stateMap[blockHash] = &stateInfo{
-			db: newCache,
+			db:     newCache,
 			parent: previousTree,
-			slot: blockToAdd.Header.Slot,
+			slot:   blockToAdd.Header.Slot,
 		}
 	} else if action.FinalizeBlockAction != nil {
 		s.stateLock.Lock()
@@ -183,6 +183,8 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 			prevBlock := finalizeNode.parent
 			// if this is null, that means something went wrong because there is no underlying store.
 			memCache, isCache = prevBlock.db.(*csmt.TreeMemoryCache)
+
+			finalizeNode = prevBlock
 		}
 
 		// after we've flushed all of that, we should clean up any states with slots before that.

@@ -24,6 +24,7 @@ class Process(threading.Thread):
         self.stop_lock.acquire()
         self.process_name = process_name
         self._queue = queue.Queue()
+        self.logger = logging.getLogger(self.process_name)
         threading.Thread.__init__(self, name=process_name.title())
 
     def signal_stop(self):
@@ -55,12 +56,12 @@ class Process(threading.Thread):
                     if descriptor == process.stdout.fileno():
                         read = process.stdout.readline()
                         if read:
-                            logging.info("{}: {}".format(self.process_name, read.strip()))
+                            self.logger.info(read.strip())
 
                     if descriptor == process.stderr.fileno():
                         read = process.stderr.readline()
                         if read:
-                            logging.info("{}: {}".format(self.process_name, read.strip()))
+                            self.logger.info(read.strip())
 
             if process.poll() is not None:
                 break

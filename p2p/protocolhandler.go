@@ -129,18 +129,25 @@ func (p *ProtocolHandler) findPeers() {
 
 		// wait for either the parent to finish (meaning we should stop accepting new peers) or the cycle to end
 		// meaning we should find more peers
-		select {
-		case pi := <- peers:
-			if len(pi.Addrs) > 0 && p.shouldConnectOutgoing() {
-				err := p.connManager.Connect(pi)
-				if err != nil {
-					logrus.Error(err)
+		peerLoop:
+		for {
+			select {
+			case pi, ok := <-peers:
+				if !ok {
+					time.Sleep(time.Second * 5)
+					break peerLoop
 				}
+				if len(pi.Addrs) > 0 && p.shouldConnectOutgoing() {
+					err := p.connManager.Connect(pi)
+					if err != nil {
+						logrus.Error(err)
+					}
+				}
+			case <-p.ctx.Done():
+				return
+			case <-findPeerCtx.Done():
+				break peerLoop
 			}
-		case <-p.ctx.Done():
-			return
-		case <-findPeerCtx.Done():
-			continue
 		}
 	}
 }

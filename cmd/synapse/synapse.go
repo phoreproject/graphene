@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 	logger "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	"log"
+	"net/http"
 	"reflect"
 	"strings"
 
@@ -21,6 +23,8 @@ import (
 	relayerconfig "github.com/phoreproject/synapse/relayer/config"
 	relayermodule "github.com/phoreproject/synapse/relayer/module"
 )
+
+import _ "net/http/pprof"
 
 // SynapseOptions are the options for all module configs.
 type SynapseOptions struct {
@@ -105,6 +109,10 @@ func (a *AnyModuleConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 var _ yaml.Unmarshaler = &AnyModuleConfig{}
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	moduleConfigs := SynapseOptions{}
 	globalConfig := cfg.GlobalOptions{}
 	err := cfg.LoadFlags(&moduleConfigs, &globalConfig)

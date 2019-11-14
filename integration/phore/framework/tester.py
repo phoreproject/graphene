@@ -11,7 +11,13 @@ import time
 
 class Tester:
     def __init__(self):
-        logging.getLogger().setLevel(logging.INFO)
+        sh = logging.StreamHandler()
+        sh.setFormatter(logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s'))
+
+        defaultLogger = logging.getLogger()
+        defaultLogger.handlers = []
+        defaultLogger.addHandler(sh)
+        defaultLogger.setLevel(logging.DEBUG)
 
         self._node_list = []
 

@@ -263,7 +263,7 @@ func (s *ShardSyncManager) processBlock(blockBytes []byte, id peer.ID) {
 	blockHash, _ := ssz.HashTreeRoot(block)
 
 	if s.manager.Index.HasBlock(blockHash) {
-		// we already have this blockp
+		// we already have this blockpbl
 		return
 	}
 

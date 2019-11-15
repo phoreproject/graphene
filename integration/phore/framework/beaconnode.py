@@ -112,8 +112,6 @@ class BeaconNode:
 
             self._rpc = beaconrpc_pb2_grpc.BlockchainRPCStub(chan)
 
-    _rpc: beaconrpc_pb2_grpc.BlockchainRPCStub
-
     def wait_for_slot(self, slot_to_wait: int):
         while True:
             slot_number_response: common_pb2.SlotNumberResponse = self._rpc.GetSlotNumber(empty_pb2.Empty())

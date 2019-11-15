@@ -109,8 +109,6 @@ class RelayerNode:
 
             self._rpc = relayerrpc_pb2_grpc.RelayerRPCStub(chan)
 
-    _rpc: relayerrpc_pb2_grpc.RelayerRPCStub
-
     def __getattr__(self, item):
         rpc_call = snake_to_camel(item)
         possible_call = getattr(self._rpc, rpc_call, None)

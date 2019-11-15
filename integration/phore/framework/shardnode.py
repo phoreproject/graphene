@@ -108,8 +108,6 @@ class ShardNode:
 
             self._rpc = shardrpc_pb2_grpc.ShardRPCStub(chan)
 
-    _rpc: shardrpc_pb2_grpc.ShardRPCStub
-
     def wait_for_slot(self, slot_to_wait: int, shard_id: int):
         while True:
             slot_number_response: common_pb2.SlotNumberResponse = self._rpc.GetSlotNumber(shardrpc_pb2.SlotNumberRequest(ShardID=shard_id))

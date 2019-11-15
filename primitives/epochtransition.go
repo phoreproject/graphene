@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/prysmaticlabs/go-ssz"
 	"math"
 

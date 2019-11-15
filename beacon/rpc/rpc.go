@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"errors"
 	"fmt"
 	"net"
 
@@ -178,8 +177,11 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
 
-	if in.EpochIndex < s.chain.GetCurrentSlot()/s.chain.GetConfig().EpochLength-3 {
-		return nil, errors.New("Epoch is too old")
+	if in.EpochIndex > s.chain.GetCurrentSlot()/s.chain.GetConfig().EpochLength-3 {
+		return &pb.EpochInformationResponse{
+			HasEpochInformation: false,
+			Information:         nil,
+		}, nil
 	}
 
 	requestedEpochSlot := uint64(in.EpochIndex) * s.chain.GetConfig().EpochLength

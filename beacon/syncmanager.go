@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -192,8 +191,8 @@ func (s *SyncManager) onMessageGetBlocks(peer peer.ID, message proto.Message) er
 	tipHash := s.blockchain.View.Chain.Tip()
 
 	blockMessage := &pb.BeaconBlockMessage{
-		Blocks:               toSend,
-		LatestBlockHash:      tipHash.Hash[:],
+		Blocks:          toSend,
+		LatestBlockHash: tipHash.Hash[:],
 	}
 
 	return s.protocol.SendMessage(peer, blockMessage)

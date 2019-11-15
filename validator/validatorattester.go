@@ -8,7 +8,7 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 )
 
-func getAttestation(information attestationAssignment, blockHash chainhash.Hash) (*primitives.AttestationData, [32]byte, error) {
+func getAttestation(information attestationAssignment, blockHash chainhash.Hash, stateHash chainhash.Hash) (*primitives.AttestationData, [32]byte, error) {
 	a := primitives.AttestationData{
 		Slot:                information.slot,
 		BeaconBlockHash:     information.beaconBlockHash,
@@ -18,6 +18,7 @@ func getAttestation(information attestationAssignment, blockHash chainhash.Hash)
 		TargetEpoch:         information.targetEpoch,
 		Shard:               information.shard,
 		ShardBlockHash:      blockHash,
+		ShardStateHash:      stateHash,
 		LatestCrosslinkHash: information.latestCrosslinks[information.shard].ShardBlockHash,
 	}
 
@@ -54,6 +55,7 @@ func (v *Validator) attestBlock(information attestationAssignment) (*primitives.
 	lastEpochSlot := information.slot - (information.slot % v.config.EpochLength)
 
 	var shardBlockHash *chainhash.Hash
+	var shardStateHash *chainhash.Hash
 
 	if lastEpochSlot >= v.config.EpochLength {
 		shardBlockSlot := lastEpochSlot - v.config.EpochLength
@@ -71,6 +73,11 @@ func (v *Validator) attestBlock(information attestationAssignment) (*primitives.
 		if err != nil {
 			return nil, err
 		}
+
+		shardStateHash, err = chainhash.NewHash(shardBlockHashResponse.StateHash)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		shardBlock := primitives.GetGenesisBlockForShard(information.shard)
 		genesisHash, err := ssz.HashTreeRoot(shardBlock)
@@ -79,10 +86,12 @@ func (v *Validator) attestBlock(information attestationAssignment) (*primitives.
 		}
 
 		shardBlockHash = (*chainhash.Hash)(&genesisHash)
+
+		shardStateHash = (*chainhash.Hash)(&primitives.EmptyTree)
 	}
 
 	// create attestation
-	attData, hash, err := getAttestation(information, *shardBlockHash)
+	attData, hash, err := getAttestation(information, *shardBlockHash, *shardStateHash)
 	if err != nil {
 		return nil, err
 	}

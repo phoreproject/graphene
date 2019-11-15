@@ -108,7 +108,7 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 
 		shardGenesisHash, _ := ssz.HashTreeRoot(shardGenesis)
 
-		err := a.shardMux.StartManaging(uint64(shard), chain.ShardChainInitializationParameters{
+		_, err := a.shardMux.StartManaging(uint64(shard), chain.ShardChainInitializationParameters{
 			RootBlockHash: shardGenesisHash,
 			RootSlot:      0,
 			GenesisTime:   genesisTime.GenesisTime,

@@ -28,6 +28,8 @@ type ShardSyncManager struct {
 	manager   *ShardManager
 	protocols shardProtocols
 	shardID   uint64
+
+	bestProposal *ProposalInformation
 }
 
 // PeerConnected is called when a peer connects to the shard module.
@@ -43,6 +45,48 @@ func (s *ShardSyncManager) PeerConnected(id peer.ID, dir network.Direction) {
 			return
 		}
 	}
+}
+
+// ProposalAnnounced registers a slot to be proposed.
+func (s *ShardSyncManager) ProposalAnnounced(proposalSlot uint64, startState chainhash.Hash, startSlot uint64) {
+	// worst case, we propose an empty block
+	s.bestProposal = &ProposalInformation{
+		TransactionPackage: primitives.TransactionPackage{
+			StartRoot:     startState,
+			EndRoot:       startState,
+			Updates:       nil,
+			Verifications: nil,
+			Transactions:  nil,
+		},
+		startSlot: startSlot,
+		endSlot:   proposalSlot,
+	}
+}
+
+// ProposalInformation is information about how a validator should propose a block.
+type ProposalInformation struct {
+	TransactionPackage primitives.TransactionPackage
+	startSlot          uint64
+	endSlot            uint64
+}
+
+func (p *ProposalInformation) isBetter(p2 *ProposalInformation) bool {
+	if p2.startSlot > p.startSlot {
+		return true
+	}
+
+	// TODO: better heuristic for which package of transactions is better
+	if len(p2.TransactionPackage.Transactions) > len(p.TransactionPackage.Transactions) {
+		return true
+	}
+
+	return false
+}
+
+// GetProposalInformation gets the proposal information including the package.
+func (s *ShardSyncManager) GetProposalInformation() *ProposalInformation {
+	// TODO: cleanup subscriptions here
+	return s.bestProposal
 }
 
 // PeerDisconnected is called when a peer disconnects from the shard module.
@@ -90,8 +134,8 @@ func (s *ShardSyncManager) onMessageVersion(id peer.ID, msg proto.Message) error
 			return err
 		}
 		err = s.protocols.shard.SendMessage(id, &pb.GetShardBlocksMessage{
-			LocatorHashes:        locatorHashes,
-			HashStop:             zeroHash[:],
+			LocatorHashes: locatorHashes,
+			HashStop:      zeroHash[:],
 		})
 		if err != nil {
 			return err
@@ -268,10 +312,9 @@ func (s *ShardSyncManager) processBlock(blockBytes []byte, id peer.ID) {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"slot": block.Header.Slot,
-		"hash": chainhash.Hash(blockHash),
+		"slot":  block.Header.Slot,
+		"hash":  chainhash.Hash(blockHash),
 		"shard": s.shardID,
-
 	}).Debug("got new block from broadcast")
 
 	if err := s.handleReceivedBlock(block, id); err != nil {

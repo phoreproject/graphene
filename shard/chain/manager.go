@@ -11,7 +11,6 @@ import (
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/relayer/mempool"
 	"github.com/phoreproject/synapse/shard/db"
 	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/transfer"
@@ -43,7 +42,6 @@ type ShardManager struct {
 	InitializationParameters ShardChainInitializationParameters
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
-	Mempool                  *mempool.ShardMempool
 	BlockDB db.ShardBlockDatabase
 	SyncManager *ShardSyncManager
 
@@ -65,7 +63,6 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		ShardID:     uint32(shardID),
 	}
 
-	genesisBlockHash, _ := ssz.HashTreeRoot(genesisBlock)
 
 	sm := &ShardManager{
 		ShardID:                  shardID,
@@ -73,7 +70,6 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
-		Mempool:                  mempool.NewShardMempool(stateDB, 0, genesisBlockHash, shardInfo),
 		shardInfo: shardInfo,
 		stateDB: stateDB,
 		notifees: []ShardChainActionNotifee{},
@@ -140,11 +136,6 @@ func (sm *ShardManager) ListenForNewCrosslinks() {
 			// TODO: also update fork choice with new crosslink
 		}
 	}()
-}
-
-// SubmitTransaction submits a transaction to the shard.
-func (sm *ShardManager) SubmitTransaction(transaction []byte) error {
-	return sm.Mempool.Add(transaction)
 }
 
 // GetKey gets a key from the current state.
@@ -283,8 +274,6 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 		sm.Chain.SetTip(node)
 
 		newTip = true
-
-		sm.Mempool.RemoveTransactionsFromBlock(&block)
 	}
 
 	for _, n := range sm.notifees {

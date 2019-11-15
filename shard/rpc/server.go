@@ -130,33 +130,42 @@ func (s *ShardRPCServer) GetStateKey(ctx context.Context, req *pb.GetStateKeyReq
 	}, nil
 }
 
-// SubmitTransaction submits a transaction to a certain shard.
-func (s *ShardRPCServer) SubmitTransaction(ctx context.Context, tx *pb.ShardTransactionSubmission) (*empty.Empty, error) {
-	manager, err := s.sm.GetManager(tx.ShardID)
-	if err != nil {
-		return nil, err
-	}
 
-	return &empty.Empty{}, manager.SubmitTransaction(tx.Transaction.TransactionData)
-}
-
-// SubscribeToShard instructs the shard module to subscribe to a specific shard and start downloading blocks. This is a
+// AnnounceProposal instructs the shard module to subscribe to a specific shard and start downloading blocks. This is a
 // no-op until we implement the P2P network.
-func (s *ShardRPCServer) SubscribeToShard(ctx context.Context, req *pb.ShardSubscribeRequest) (*empty.Empty, error) {
+func (s *ShardRPCServer) AnnounceProposal(ctx context.Context, req *pb.ProposalAnnouncement) (*empty.Empty, error) {
 	blockHash, err := chainhash.NewHash(req.BlockHash)
 	if err != nil {
 		return nil, err
 	}
 
+	var mgr *chain.ShardManager
+
 	if !s.sm.IsManaging(req.ShardID) {
-		err := s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
+		manager, err := s.sm.StartManaging(req.ShardID, chain.ShardChainInitializationParameters{
 			RootBlockHash: *blockHash,
 			RootSlot:      req.CrosslinkSlot,
 		})
 		if err != nil {
 			return nil, err
 		}
+
+		mgr = manager
+	} else {
+		manager, err := s.sm.GetManager(req.ShardID)
+		if err != nil {
+			return nil, err
+		}
+
+		mgr = manager
 	}
+
+	stateHash, err := chainhash.NewHash(req.StateHash)
+	if err != nil {
+		return nil, err
+	}
+
+	mgr.SyncManager.ProposalAnnounced(req.ProposalSlot, *stateHash, req.CrosslinkSlot)
 
 	return &empty.Empty{}, nil
 }
@@ -181,6 +190,7 @@ func (s *ShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *pb.SlotReq
 
 		return &pb.BlockHashResponse{
 			BlockHash: genesisHash[:],
+			StateHash: primitives.EmptyTree[:],
 		}, nil
 	}
 
@@ -196,6 +206,7 @@ func (s *ShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *pb.SlotReq
 
 	return &pb.BlockHashResponse{
 		BlockHash: blockNode.BlockHash[:],
+		StateHash: blockNode.StateRoot[:],
 	}, nil
 }
 
@@ -217,10 +228,9 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		return nil, err
 	}
 
-	txPackage, err := manager.Mempool.GetTransactions(-1)
-	if err != nil {
-		return nil, err
-	}
+	proposalInfo := manager.SyncManager.GetProposalInformation()
+
+	txPackage := proposalInfo.TransactionPackage
 
 	transactionRoot, _ := ssz.HashTreeRoot(txPackage.Transactions)
 

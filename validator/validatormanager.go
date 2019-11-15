@@ -241,10 +241,11 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 		}
 
 		for shardID := range shardsToSubscribe {
-			_, err := vm.shardRPC.SubscribeToShard(context.Background(), &pb.ShardSubscribeRequest{
+			_, err := vm.shardRPC.AnnounceProposal(context.Background(), &pb.ProposalAnnouncement{
 				ShardID:       shardID,
 				CrosslinkSlot: ei.latestCrosslinks[shardID].Slot,
 				BlockHash:     ei.latestCrosslinks[shardID].ShardBlockHash[:],
+				StateHash:     ei.latestCrosslinks[shardID].ShardStateHash[:],
 			})
 			if err != nil {
 				return err

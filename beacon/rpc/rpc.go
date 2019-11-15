@@ -31,6 +31,7 @@ type server struct {
 	mempool *beacon.Mempool
 }
 
+// GetGenesisTime gets the genesis time.
 func (s *server) GetGenesisTime(context.Context, *empty.Empty) (*pb.GenesisTimeResponse, error) {
 	return &pb.GenesisTimeResponse{
 		GenesisTime: s.chain.GetGenesisTime(),
@@ -147,7 +148,7 @@ func (s *server) GetMempool(ctx context.Context, req *pb.MempoolRequest) (*pb.Bl
 	return bb.ToProto(), nil
 }
 
-// ProcessBlock submits a block to the network after verifying it
+// SubmitBlock submits a block to the network after verifying it
 func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*pb.SubmitBlockResponse, error) {
 	b, err := primitives.BlockFromProto(in.Block)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/prysmaticlabs/go-ssz"
 	"math"
 
@@ -225,24 +226,24 @@ func (s *State) GetRecentBlockHash(slotToGet uint64, c *config.Config) (*chainha
 }
 
 // findWinningRoot finds the shard block hash with the most balance voting for it.
-func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, uint64, error) {
+func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, *AttestationData, error) {
 	// find all possible hashes for the winning root
-	possibleHashes := map[chainhash.Hash]uint64{}
+	possibleHashes := map[chainhash.Hash]AttestationData{}
 	for _, a := range s.CurrentEpochAttestations {
 		if a.Data.Shard != shardCommittee.Shard {
 			continue
 		}
-		possibleHashes[a.Data.ShardBlockHash] = a.Data.Slot
+		possibleHashes[a.Data.ShardBlockHash] = a.Data
 	}
 	for _, a := range s.PreviousEpochAttestations {
 		if a.Data.Shard != shardCommittee.Shard {
 			continue
 		}
-		possibleHashes[a.Data.ShardBlockHash] = a.Data.Slot
+		possibleHashes[a.Data.ShardBlockHash] = a.Data
 	}
 
 	if len(possibleHashes) == 0 {
-		return nil, 0, nil
+		return nil, nil, nil
 	}
 
 	// find the top balance
@@ -252,7 +253,7 @@ func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Conf
 	for b := range possibleHashes {
 		validatorIndices, err := s.getAttestingValidatorIndices(shardCommittee, b)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, err
 		}
 
 		sumBalance := s.GetTotalBalance(validatorIndices, c)
@@ -270,9 +271,11 @@ func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Conf
 		}
 	}
 	if topBalance == 0 {
-		return nil, 0, nil
+		return nil, nil, nil
 	}
-	return &topHash, possibleHashes[topHash], nil
+	data := possibleHashes[topHash]
+
+	return &topHash, &data, nil
 }
 
 // getAttestingValidatorIndices gets the attesters in a certain committee who attested to a certain shard block hash.
@@ -459,7 +462,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
-			bestRoot, bestSlot, err := s.findWinningRoot(shardCommittee, c)
+			bestRoot, bestData, err := s.findWinningRoot(shardCommittee, c)
 			if err != nil {
 				return nil, err
 			}
@@ -480,12 +483,14 @@ func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput
 
 			if 3*totalAttestingBalance >= 2*totalBalance {
 				s.LatestCrosslinks[shardCommittee.Shard] = Crosslink{
-					Slot:           bestSlot,
+					Slot:           bestData.Slot,
+					ShardStateHash: bestData.ShardStateHash,
 					ShardBlockHash: *bestRoot,
 				}
 				newCrosslinks = append(newCrosslinks, CrosslinkForShardID{
 					Crosslink: Crosslink{
-						Slot:           bestSlot,
+						Slot:           bestData.Slot,
+						ShardStateHash: bestData.ShardStateHash,
 						ShardBlockHash: *bestRoot,
 					},
 					ShardID: shardCommittee.Shard,

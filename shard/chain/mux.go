@@ -35,15 +35,15 @@ func (sm *ShardMux) IsManaging(shardID uint64) bool {
 }
 
 // StartManaging starts managing a certain shard.
-func (sm *ShardMux) StartManaging(shardID uint64, init ShardChainInitializationParameters) error {
+func (sm *ShardMux) StartManaging(shardID uint64, init ShardChainInitializationParameters) (*ShardManager, error) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 	shardManager, err := NewShardManager(shardID, init, sm.beaconClient, sm.hn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sm.managers[shardID] = shardManager
-	return nil
+	return shardManager, nil
 }
 
 // StopManaging stops managing a certain shard.

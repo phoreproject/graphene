@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/phoreproject/synapse/cfg"
 	"github.com/phoreproject/synapse/shard/config"
 	"github.com/phoreproject/synapse/shard/module"
@@ -44,9 +43,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-
-	fmt.Println("started shard")
-
+	
 	err = sa.Run()
 	if err != nil {
 		logger.Fatal(err)

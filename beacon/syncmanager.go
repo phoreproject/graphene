@@ -120,8 +120,6 @@ const limitBlocksToSend = 500
 func (s *SyncManager) onMessageGetBlocks(peer peer.ID, message proto.Message) error {
 	getBlockMesssage := message.(*pb.GetBlocksMessage)
 
-	fmt.Println("on get blocks")
-
 	stopHash, err := chainhash.NewHash(getBlockMesssage.HashStop)
 	if err != nil {
 		return err
@@ -630,8 +628,6 @@ func (s *SyncManager) onMessageMempool(peer peer.ID, message proto.Message) erro
 		if err != nil {
 			return err
 		}
-
-		fmt.Println("from message")
 
 		err = s.mempool.ProcessNewAttestation(*a)
 		if err != nil {

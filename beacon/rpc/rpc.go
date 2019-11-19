@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/phoreproject/synapse/primitives"
@@ -340,6 +341,13 @@ func (s *server) GetValidatorInformation(ctx context.Context, in *pb.GetValidato
 	validator := state.ValidatorRegistry[in.ID]
 
 	return validator.ToProto(), nil
+}
+
+// GetConfigHash gets the config hash
+func (s *server) GetConfigHash(ctx context.Context, in *empty.Empty) (*pb.GetConfigHashResponse, error) {
+	return &pb.GetConfigHashResponse{
+		Hash: config.HashConfig(s.chain.GetConfig()),
+	}, nil
 }
 
 // Serve serves the RPC server

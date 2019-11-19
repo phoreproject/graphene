@@ -33,6 +33,8 @@ service BlockchainRPC {
     rpc GetMempool(MempoolRequest) returns (BlockBody);
 
     rpc GetValidatorInformation(GetValidatorRequest) returns (Validator);
+
+    rpc GetConfigHash(google.protobuf.Empty) returns (GetConfigHashResponse);
 }
 
 message GetShardProposerRequest {
@@ -153,3 +155,8 @@ message GetCommitteeValidatorsResponse {
 message GetCommitteeValidatorIndicesResponse {
     repeated uint32 Validators = 1;
 }
+
+message GetConfigHashResponse {
+    bytes Hash = 1;
+}
+

@@ -1,5 +1,10 @@
 package config
 
+import (
+	"crypto/sha256"
+	"encoding/json"
+)
+
 // Options are bare options passed to the beacon app.
 type Options struct {
 	RPCListen          string   `yaml:"rpc_listen_addr" cli:"rpclisten"`
@@ -188,4 +193,16 @@ var NetworkIDs = map[string]Config{
 	"localnet": LocalnetConfig,
 	"regtest":  RegtestConfig,
 	"testnet":  MainNetConfig,
+}
+
+// HashConfig computes the hash of the config
+func HashConfig(config *Config) []byte {
+	// Use JSON marshal instead of ssz.HashTreeRoot because ssz doesn't support type 'int'.
+	b, err := json.Marshal(config)
+	if err != nil {
+		// We should allow failed hash here, let's panic and exit
+		panic(err)
+	}
+	h := sha256.Sum256(b)
+	return h[:]
 }

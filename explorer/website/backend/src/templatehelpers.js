@@ -14,6 +14,7 @@ function registerPartials(application)
 	doRegisterPartial(application.getFrontEndViewsPath('/partials/test.hbs'));
 	doRegisterPartial(application.getFrontEndViewsPath('/partials/blocktable.hbs'));
 	doRegisterPartial(application.getFrontEndViewsPath('/partials/blockdetail.hbs'));
+	doRegisterPartial(application.getFrontEndViewsPath('/partials/maintabs.hbs'));
 }
 
 function registerHelpers(application)

@@ -27,6 +27,9 @@
 		"datatables.net": "^1.10.19",
 		"datatables.net-dt": "^1.10.19",
 		"datatables.net-zf": "^1.10.20",
+		"foundation-sites": "^6.5.3",
+		"motion-ui": "^2.0.3",
+		"what-input": "^5.1.2",
 		"sprintf-js": "^1.1.2"
 	}
 }

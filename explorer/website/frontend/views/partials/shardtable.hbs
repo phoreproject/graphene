@@ -1,6 +1,4 @@
-<div class="container">
-
-<table id="shardTable" class="table table-striped table-bordered w-100">
+<table id="shardTable" class="" style="width:100%">
     <thead>
         <tr>
             <th>ID</th>
@@ -12,23 +10,15 @@
     </thead>
 </table>
 
-</div>
-
 <script>
 function initShardTable()
 {
-	$('#shardTable').DataTable({
+	$('#shardTable').DataTable(createTableOptions({
 		serverSide : false,
 		ajax : {
 				url: "{{ url '/api/shards' }}",
 				dataSrc: '',
 		},
-		responsive: true,
-		fixedHeader: {
-			header: true,
-		},
-		lengthMenu: [ [ 25, 50, 100 ], [ 25, 50, 100 ] ],
-		pageLength: 25,
 		columns : [
 			{
 				data : 'id'
@@ -53,8 +43,7 @@ function initShardTable()
 			{ responsivePriority: 1, targets: 0 },
 			{ responsivePriority: 2, targets: 1 },
 		],
-		info: false
-	});
+	}));
 }
 
 $(initShardTable);

@@ -11,22 +11,84 @@
 
     <meta charset="UTF-8">
 
-	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/foundation-sites@6.5.3/dist/css/foundation.min.css" integrity="sha256-GSio8qamaXapM8Fq9JYdGNTvk/dgs+cMLgPeevOYEx0= sha384-wAweiGTn38CY2DSwAaEffed6iMeflc0FMiuptanbN4J+ib+342gKGpvYRWubPd/+ sha512-QHEb6jOC8SaGTmYmGU19u2FhIfeG+t/hSacIWPpDzOp5yygnthL3JwnilM7LM1dOAbJv62R+/FICfsrKUqv4Gg==" crossorigin="anonymous">
-	<script src="https://cdn.jsdelivr.net/npm/foundation-sites@6.5.3/dist/js/foundation.min.js" integrity="sha256-mRYlCu5EG+ouD07WxLF8v4ZAZYCA6WrmdIXyn1Bv9Vk= sha384-KzKofw4qqetd3kvuQ5AdapWPqV1ZI+CnfyfEwZQgPk8poOLWaabfgJOfmW7uI+AV sha512-0gHfaMkY+Do568TgjJC2iMAV0dQlY4NqbeZ4pr9lVUTXQzKu8qceyd6wg/3Uql9qA2+3X5NHv3IMb05wb387rA==" crossorigin="anonymous"></script>
 
 	<script src="{{ url 'js/app.js' }}"></script>
 	<link href="{{ url 'css/app.css' }} " rel="stylesheet" type="text/css">
+
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/foundation-sites@6.5.3/dist/css/foundation.min.css" crossorigin="anonymous">
+	<script src="https://cdn.jsdelivr.net/npm/foundation-sites@6.5.3/dist/js/foundation.min.js"></script>
 
     <title>{{ title }}</title>
 </head>
 <body>
 
+<header class="top-bar-container">
+	<div class="grid-x grid-padding-x align-middle">
+		<div class="cell auto">
+			<h1>Synapse</h1>
+			<small>Block Explorer</small>
+		</div>
+		<div class="cell medium-8">
+			<div class="grid-container">
+			<div class="grid-x grid-padding-x">
+			<div class="large-12 cell">
+            <input class="header-search" type="search" placeholder="Search address, block, transaction, tag…">
+			</div>
+			</div>
+			</div>  
+		</div>
+		<div class="cell auto">
+			<ul class="menu align-right">
+			<li><a href="#">Api</a></li>
+			<li><a href="#">About</a></li>
+			</ul>
+		</div>
+	</div>
+</header>
+
+
 {{{body}}}
+
+<footer>
+    <div class="grid-x grid-padding-x align-top">
+         <div class="cell shrink">
+                  <h4>Synapse</h4>
+                  <ul class="menu vertical">
+                      <li><a href="#">About</a></li>
+                      <li><a href="#">Business</a></li>
+                    </ul>
+                </div>
+                <div class="cell shrink">
+                    <h4>Services</h4>
+                    <ul class="menu vertical">
+                        <li><a href="#">Explorer</a></li>
+                        <li><a href="#">Nodes</a></li>
+                        <li><a href="#">Devnet</a></li>
+                      </ul>
+                  </div>
+                  <div class="cell shrink">
+                      <h4>Statistics</h4>
+                      <ul class="menu vertical">
+                          <li><a href="#">Richlist</a></li>
+                          <li><a href="#">Distribution</a></li>
+                        </ul>
+                    </div>
+                    <div class="cell auto">
+                        <ul class="menu align-right">
+                            <li><a href="#">English</a></li>
+                            <li><a href="#">Deutsch</a></li>
+                            <li><a href="#">French</a></li>
+                            <li><a href="#">Spanish</a></li>
+                            <li><a href="#">Portuguese</a></li>
+                            <li><a href="#">Japanese</a></li>
+                            <li><a href="#">Chinese</a></li>
+                            
+                          </ul>
+                      </div>
+      </div>
+</footer>
+
 
 </body>
 </html>

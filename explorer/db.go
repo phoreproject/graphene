@@ -48,14 +48,20 @@ type Attestation struct {
 type Block struct {
 	gorm.Model
 
-	Proposer        []byte `gorm:"size:32"`
-	ParentBlockHash []byte `gorm:"size:32"`
-	StateRoot       []byte `gorm:"size:32"`
-	RandaoReveal    []byte `gorm:"size:48"`
-	Signature       []byte `gorm:"size:48"`
-	Hash            []byte `gorm:"size:32"`
-	Height          uint64
-	Slot            uint64
+	Proposer          []byte `gorm:"size:32"`
+	ParentBlockHash   []byte `gorm:"size:32"`
+	StateRoot         []byte `gorm:"size:32"`
+	RandaoReveal      []byte `gorm:"size:48"`
+	Signature         []byte `gorm:"size:48"`
+	Hash              []byte `gorm:"size:32"`
+	Height            uint64
+	Slot              uint64
+	Attestations      uint32
+	ProposerSlashings uint32
+	CasperSlashings   uint32
+	Deposits          uint32
+	Exits             uint32
+	Votes             uint32
 }
 
 // Transaction is a slashing or reward on the beacon chain.

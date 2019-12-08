@@ -1,11 +1,13 @@
 <table id="blockTable" class="" style="width:100%">
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Height</th>
             <th>Slot</th>
-            <th>Hash</th>
-            <th>Parent</th>
+            <th>Proposer</th>
+            <th>Randao</th>
+            <th>Attestations</th>
+            <th>Slashings</th>
+            <th>Exits</th>
+            <th>Deposits</th>
         </tr>
     </thead>
 </table>
@@ -21,27 +23,34 @@ function initBlockTable()
 		},
 		columns : [
 			{
-				data : 'id'
-			},
-			{
-				data : 'height',
-			},
-			{
 				data : 'slot',
 			},
 			{
-				data : 'hash',
+				data : 'proposer',
 				render : function(data, type, row, meta) {
 					if(type !== 'display') return data;
-					return sprintf('<a href="/block?hash=%s">%s</a>', data, data);
+					var text = util.shortenStringWithEllipsis(data);
+					return sprintf('<a href="/block?hash=%s">%s</a>', row.hash, text);
 				}
 			},
 			{
-				data : 'parent_block_hash',
+				data : 'randao_reveal',
 				render : function(data, type, row, meta) {
 					if(type !== 'display') return data;
 					return util.shortenStringWithEllipsis(data);
 				}
+			},
+			{
+				data : 'attestations',
+			},
+			{
+				data : 'proposer_slashings',
+			},
+			{
+				data : 'exits',
+			},
+			{
+				data : 'deposits',
 			},
 		],
 		columnDefs: [

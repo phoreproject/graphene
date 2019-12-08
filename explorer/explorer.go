@@ -253,13 +253,19 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 	proposerHash := chainhash.HashH(pubAndID)
 
 	blockDB := &Block{
-		ParentBlockHash: block.BlockHeader.ParentRoot[:],
-		StateRoot:       block.BlockHeader.StateRoot[:],
-		RandaoReveal:    block.BlockHeader.RandaoReveal[:],
-		Signature:       block.BlockHeader.Signature[:],
-		Hash:            blockHash[:],
-		Slot:            block.BlockHeader.SlotNumber,
-		Proposer:        proposerHash[:],
+		ParentBlockHash:   block.BlockHeader.ParentRoot[:],
+		StateRoot:         block.BlockHeader.StateRoot[:],
+		RandaoReveal:      block.BlockHeader.RandaoReveal[:],
+		Signature:         block.BlockHeader.Signature[:],
+		Hash:              blockHash[:],
+		Slot:              block.BlockHeader.SlotNumber,
+		Proposer:          proposerHash[:],
+		Attestations:      uint32(len(block.BlockBody.Attestations)),
+		ProposerSlashings: uint32(len(block.BlockBody.ProposerSlashings)),
+		CasperSlashings:   uint32(len(block.BlockBody.CasperSlashings)),
+		Deposits:          uint32(len(block.BlockBody.Deposits)),
+		Exits:             uint32(len(block.BlockBody.Exits)),
+		Votes:             uint32(len(block.BlockBody.Votes)),
 	}
 
 	ex.database.database.Create(blockDB)

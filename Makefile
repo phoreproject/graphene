@@ -47,9 +47,9 @@ unittest:
 
 src_depend: $(SRC)
 
-integrationtests: $(TESTS) $(BINARY_NAME)
+integrationtests: $(TESTS)
 
-integration_test_%: integration/phore/tests/%.py
+integration_test_%: $(BINARY_NAME) integration/phore/tests/%.py
 	PYTHONPATH=integration python3 $<
 
 clean:

@@ -143,4 +143,4 @@ class Tester:
 def get_phore_path(*d):
     path = pathlib.Path(__file__)
     path = path.parent.parent.parent.parent.joinpath(*d)
-    return path
+    return str(path)

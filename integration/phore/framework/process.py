@@ -34,8 +34,7 @@ class Process(threading.Thread):
             universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            bufsize=0,
-            errors='ignore',
+            bufsize=0
         )
 
         while True:

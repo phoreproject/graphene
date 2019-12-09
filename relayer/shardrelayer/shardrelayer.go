@@ -10,22 +10,27 @@ import (
 
 // ShardRelayer handles state mempool and execution for a single shard.
 type ShardRelayer struct {
-	mempool *mempool.ShardMempool
-	rpc pb.ShardRPCClient
+	mempool     *mempool.ShardMempool
+	rpc         pb.ShardRPCClient
 	syncManager *p2p.RelayerSyncManager
-	shardID uint64
+	shardID     uint64
 }
 
 // NewShardRelayer creates a new shard relayer.
 func NewShardRelayer(shardID uint64, shardRPC pb.ShardRPCClient, mempool *mempool.ShardMempool, syncManager *p2p.RelayerSyncManager) *ShardRelayer {
 	sr := &ShardRelayer{
-		mempool: mempool,
-		shardID: shardID,
-		rpc: shardRPC,
-		syncManager:syncManager,
+		mempool:     mempool,
+		shardID:     shardID,
+		rpc:         shardRPC,
+		syncManager: syncManager,
 	}
 
 	return sr
+}
+
+// GetMempool gets the mempool for this relayer.
+func (sr *ShardRelayer) GetMempool() *mempool.ShardMempool {
+	return sr.mempool
 }
 
 // ListenForActions listens for incoming actions and relays them to the mempool.
@@ -53,4 +58,9 @@ func (sr *ShardRelayer) ListenForActions() {
 			}
 		}
 	}()
+}
+
+// GetShardID returns the shard ID of this relayer.
+func (sr *ShardRelayer) GetShardID() uint64 {
+	return sr.shardID
 }

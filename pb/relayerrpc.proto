@@ -6,7 +6,12 @@ import "common.proto";
 package pb;
 
 service RelayerRPC {
-    rpc SubmitTransaction(ShardTransaction) returns (google.protobuf.Empty);
-    rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
-    rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
+    rpc SubmitTransaction (SubmitTransactionRequest) returns (google.protobuf.Empty);
+    rpc GetListeningAddresses (google.protobuf.Empty) returns (ListeningAddressesResponse);
+    rpc Connect (ConnectMessage) returns (google.protobuf.Empty);
+}
+
+message SubmitTransactionRequest {
+    ShardTransaction Transaction = 1;
+    uint64 ShardID = 2;
 }

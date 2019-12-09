@@ -24,10 +24,10 @@ import (
 
 // RelayerModule is a module that handles processing and packaging transactions into packages.
 type RelayerModule struct {
-	Options config.Options
+	Options   config.Options
 	RPCServer pb.RelayerRPCServer
-	hostnode *p2p.HostNode
-	relayers []*shardrelayer.ShardRelayer
+	hostnode  *p2p.HostNode
+	relayers  []*shardrelayer.ShardRelayer
 }
 
 // NewRelayerModule creates a new relayer module.
@@ -54,8 +54,13 @@ func (r *RelayerModule) createRPCServer() error {
 		return err
 	}
 
+	mempools := make(map[uint64]*mempool.ShardMempool)
+	for _, r := range r.relayers {
+		mempools[r.GetShardID()] = r.GetMempool()
+	}
+
 	go func() {
-		err := rpc.Serve(rpcListenAddr.Network(), rpcListenAddr.String())
+		err := rpc.Serve(rpcListenAddr.Network(), rpcListenAddr.String(), mempools)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -86,7 +91,7 @@ func (r *RelayerModule) Run() error {
 	}
 
 	hn, err := p2p.NewHostNode(context.Background(), p2p.HostNodeOptions{
-		ListenAddresses:    []ma.Multiaddr{
+		ListenAddresses: []ma.Multiaddr{
 			addr,
 		},
 		PrivateKey:         nil,
@@ -123,7 +128,7 @@ func (r *RelayerModule) Run() error {
 		relayer.ListenForActions()
 	}
 
-	<- make(chan struct{})
+	<-make(chan struct{})
 
 	return nil
 }

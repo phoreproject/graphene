@@ -8,6 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	mdnsdiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -41,15 +42,15 @@ type ProtocolHandler struct {
 
 	discovery discovery.Discovery
 
-	messageHandlers map[string]MessageHandler
+	messageHandlers     map[string]MessageHandler
 	messageHandlersLock sync.RWMutex
 
-	outgoingMessages map[peer.ID]chan proto.Message
+	outgoingMessages     map[peer.ID]chan proto.Message
 	outgoingMessagesLock sync.RWMutex
 
 	ctx context.Context
 
-	notifees []ConnectionManagerNotifee
+	notifees    []ConnectionManagerNotifee
 	notifeeLock sync.Mutex
 }
 
@@ -62,16 +63,16 @@ type ConnectionManagerNotifee interface {
 // newProtocolHandler constructs a new protocol handler for a specific protocol ID.
 func newProtocolHandler(ctx context.Context, id protocol.ID, maxPeers int, minPeers int, host *HostNode, connManager *ConnectionManager, disc discovery.Discovery) *ProtocolHandler {
 	ph := &ProtocolHandler{
-		ID:              id,
-		MaximumPeers:    maxPeers,
-		MinimumPeers:    minPeers,
-		discovery:       disc,
-		host:            host,
-		messageHandlers: make(map[string]MessageHandler),
+		ID:               id,
+		MaximumPeers:     maxPeers,
+		MinimumPeers:     minPeers,
+		discovery:        disc,
+		host:             host,
+		messageHandlers:  make(map[string]MessageHandler),
 		outgoingMessages: make(map[peer.ID]chan proto.Message),
-		connManager: connManager,
-		ctx: ctx,
-		notifees: make([]ConnectionManagerNotifee, 0),
+		connManager:      connManager,
+		ctx:              ctx,
+		notifees:         make([]ConnectionManagerNotifee, 0),
 	}
 
 	host.setStreamHandler(id, ph.handleStream)
@@ -114,8 +115,28 @@ func (p *ProtocolHandler) RegisterHandler(messageName string, handler MessageHan
 
 const findPeerCycle = 300 * time.Second
 
+// HandlePeerFound handles any discovered peers.
+func (p *ProtocolHandler) HandlePeerFound(pi peer.AddrInfo) {
+	if pi.ID == p.host.GetHost().ID() {
+		return
+	}
+	if len(pi.Addrs) > 0 && p.shouldConnectOutgoing() {
+		err := p.connManager.Connect(pi)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+}
+
 // findPeers looks for peers advertising our protocol ID and connects to them if needed.
 func (p *ProtocolHandler) findPeers() {
+	service, err := mdnsdiscovery.NewMdnsService(p.ctx, p.host.GetHost(), time.Minute*3, fmt.Sprintf("phore-%s-discovery._udp", p.ID))
+	if err != nil {
+		logrus.Warn(err)
+	}
+
+	service.RegisterNotifee(p)
+
 	for {
 		findPeerCtx, cancel := context.WithTimeout(p.ctx, findPeerCycle)
 
@@ -129,7 +150,7 @@ func (p *ProtocolHandler) findPeers() {
 
 		// wait for either the parent to finish (meaning we should stop accepting new peers) or the cycle to end
 		// meaning we should find more peers
-		peerLoop:
+	peerLoop:
 		for {
 			select {
 			case pi, ok := <-peers:
@@ -137,12 +158,7 @@ func (p *ProtocolHandler) findPeers() {
 					time.Sleep(time.Second * 5)
 					break peerLoop
 				}
-				if len(pi.Addrs) > 0 && p.shouldConnectOutgoing() {
-					err := p.connManager.Connect(pi)
-					if err != nil {
-						logrus.Error(err)
-					}
-				}
+				p.HandlePeerFound(pi)
 			case <-p.ctx.Done():
 				return
 			case <-findPeerCtx.Done():

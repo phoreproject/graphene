@@ -2,6 +2,7 @@ package chain
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -12,8 +13,12 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	relayerp2p "github.com/phoreproject/synapse/relayer/p2p"
+	"github.com/phoreproject/synapse/shard/execution"
+	"github.com/phoreproject/synapse/shard/state"
+	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
+	"sync"
 )
 
 type shardProtocols struct {
@@ -29,7 +34,8 @@ type ShardSyncManager struct {
 	protocols shardProtocols
 	shardID   uint64
 
-	bestProposal *ProposalInformation
+	bestProposal     *ProposalInformation
+	bestProposalLock sync.RWMutex
 }
 
 // PeerConnected is called when a peer connects to the shard module.
@@ -50,6 +56,8 @@ func (s *ShardSyncManager) PeerConnected(id peer.ID, dir network.Direction) {
 // ProposalAnnounced registers a slot to be proposed.
 func (s *ShardSyncManager) ProposalAnnounced(proposalSlot uint64, startState chainhash.Hash, startSlot uint64) {
 	// worst case, we propose an empty block
+	s.bestProposalLock.Lock()
+	defer s.bestProposalLock.Unlock()
 	s.bestProposal = &ProposalInformation{
 		TransactionPackage: primitives.TransactionPackage{
 			StartRoot:     startState,
@@ -59,7 +67,21 @@ func (s *ShardSyncManager) ProposalAnnounced(proposalSlot uint64, startState cha
 			Transactions:  nil,
 		},
 		startSlot: startSlot,
-		endSlot:   proposalSlot,
+	}
+
+	msg := pb.GetPackagesMessage{
+		TipStateRoot: startState[:],
+	}
+
+	msgBytes, err := proto.Marshal(&msg)
+	if err != nil {
+		logrus.Warn(err)
+		return
+	}
+
+	err = s.hostNode.Broadcast(fmt.Sprintf("/packageRequests/%d", s.shardID), msgBytes)
+	if err != nil {
+		logrus.Warn(err)
 	}
 }
 
@@ -67,25 +89,26 @@ func (s *ShardSyncManager) ProposalAnnounced(proposalSlot uint64, startState cha
 type ProposalInformation struct {
 	TransactionPackage primitives.TransactionPackage
 	startSlot          uint64
-	endSlot            uint64
 }
 
-func (p *ProposalInformation) isBetter(p2 *ProposalInformation) bool {
+func (p *ProposalInformation) isBetterThan(p2 *ProposalInformation) bool {
 	if p2.startSlot > p.startSlot {
-		return true
+		return false
 	}
 
 	// TODO: better heuristic for which package of transactions is better
 	if len(p2.TransactionPackage.Transactions) > len(p.TransactionPackage.Transactions) {
-		return true
+		return false
 	}
 
-	return false
+	return true
 }
 
 // GetProposalInformation gets the proposal information including the package.
 func (s *ShardSyncManager) GetProposalInformation() *ProposalInformation {
 	// TODO: cleanup subscriptions here
+	s.bestProposalLock.Lock()
+	defer s.bestProposalLock.Unlock()
 	return s.bestProposal
 }
 
@@ -141,6 +164,55 @@ func (s *ShardSyncManager) onMessageVersion(id peer.ID, msg proto.Message) error
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error {
+	packageMessage := msg.(*pb.PackageMessage)
+
+	transactionPackage, err := primitives.TransactionPackageFromProto(packageMessage.Package)
+	if err != nil {
+		return err
+	}
+
+	slotRoot, err := s.manager.Chain.GetNodeBySlot(packageMessage.StartSlot)
+	if err != nil {
+		return err
+	}
+
+	if !slotRoot.StateRoot.IsEqual(&transactionPackage.StartRoot) {
+		return errors.New("start root doesn't match package")
+	}
+
+	p := ProposalInformation{
+		TransactionPackage: *transactionPackage,
+		startSlot:          packageMessage.StartSlot,
+	}
+
+	witnessStateProvider := state.NewPartialShardState(transactionPackage.StartRoot, transactionPackage.Verifications, transactionPackage.Updates)
+
+	currentRoot := &transactionPackage.StartRoot
+	for _, tx := range transactionPackage.Transactions {
+		newRoot, err := execution.Transition(witnessStateProvider, tx.TransactionData, execution.ShardInfo{
+			CurrentCode: transfer.Code,
+			ShardID:     uint32(s.shardID),
+		})
+		if err != nil {
+			return err
+		}
+		currentRoot = newRoot
+	}
+
+	if !currentRoot.IsEqual(&transactionPackage.EndRoot) {
+		return fmt.Errorf("end root (%s) does not match expected end root (%s)", currentRoot, transactionPackage.EndRoot)
+	}
+
+	s.bestProposalLock.Lock()
+	if p.isBetterThan(s.bestProposal) {
+		s.bestProposal = &p
+	}
+	defer s.bestProposalLock.Unlock()
 
 	return nil
 }
@@ -391,6 +463,11 @@ func (s *ShardSyncManager) registerP2P() error {
 	}
 
 	err = shardBlocks.RegisterHandler("pb.ShardBlockMessage", s.onMessageBlock)
+	if err != nil {
+		return err
+	}
+
+	err = relayer.RegisterHandler("pb.PackageMessage", s.onMessagePackage)
 	if err != nil {
 		return err
 	}

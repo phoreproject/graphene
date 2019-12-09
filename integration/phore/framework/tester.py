@@ -14,10 +14,10 @@ class Tester:
         sh = logging.StreamHandler()
         sh.setFormatter(logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s'))
 
-        defaultLogger = logging.getLogger()
-        defaultLogger.handlers = []
-        defaultLogger.addHandler(sh)
-        defaultLogger.setLevel(logging.DEBUG)
+        default_logger = logging.getLogger()
+        default_logger.handlers = []
+        default_logger.addHandler(sh)
+        default_logger.setLevel(logging.DEBUG)
 
         self._node_list = []
 
@@ -117,7 +117,6 @@ class Tester:
             self._do_run()
         finally:
             self.cleanup()
-
 
     def stop_all_nodes(self):
         for node in self._node_list:

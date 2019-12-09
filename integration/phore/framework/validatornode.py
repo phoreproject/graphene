@@ -1,7 +1,3 @@
-import time
-
-import grpc
-
 from phore.framework import beaconnode
 from phore.framework import shardnode
 from phore.framework import tester
@@ -69,7 +65,7 @@ class ValidatorNode:
         self._process = process.Process(
             "validator {}".format(self._config.index),
             self._config.validator_executable,
-            *self._config.get_args(),
+            *self._config.get_args()
         )
         self._process.start()
         self.started = True

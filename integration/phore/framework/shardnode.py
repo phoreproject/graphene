@@ -10,7 +10,7 @@ import typing
 import logging
 
 from phore.google.protobuf import empty_pb2
-from phore.pb import common_pb2, shardrpc_pb2_grpc, shardrpc_pb2
+from phore.pb import shardrpc_pb2_grpc, shardrpc_pb2
 
 
 class ShardConfig:
@@ -110,7 +110,7 @@ class ShardNode:
 
     def wait_for_slot(self, slot_to_wait: int, shard_id: int):
         while True:
-            slot_number_response: common_pb2.SlotNumberResponse = self._rpc.GetSlotNumber(shardrpc_pb2.SlotNumberRequest(ShardID=shard_id))
+            slot_number_response = self._rpc.GetSlotNumber(shardrpc_pb2.SlotNumberRequest(ShardID=shard_id))
             if slot_number_response.TipSlot >= slot_to_wait:
                 break
             time.sleep(1)

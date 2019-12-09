@@ -8,7 +8,7 @@ from phore.framework import tester
 import typing
 import logging
 
-from phore.pb import relayerrpc_pb2_grpc, relayerrpc_pb2
+from phore.pb import relayerrpc_pb2_grpc
 from google.protobuf import empty_pb2
 
 

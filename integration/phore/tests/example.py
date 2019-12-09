@@ -1,7 +1,5 @@
 from phore.framework import tester, validatornode, shardnode
 
-import time
-
 
 class Example(tester.Tester):
     def __init__(self):
@@ -23,7 +21,6 @@ class Example(tester.Tester):
         validator_node.wait_for_rpc()
 
         beacon_nodes[0].wait_for_slot(17)
-
 
 
 ex = Example()

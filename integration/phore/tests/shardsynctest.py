@@ -1,7 +1,7 @@
 import logging
 
 from phore.framework import tester, validatornode, shardnode
-from phore.pb import beaconrpc_pb2, common_pb2
+from phore.pb import common_pb2
 
 
 class ShardSyncTest(tester.Tester):
@@ -11,13 +11,13 @@ class ShardSyncTest(tester.Tester):
         super().__init__()
 
     def _do_run(self):
-        beacon_nodes = [self.create_beacon_node() for i in range(1)]
+        beacon_nodes = [self.create_beacon_node() for _ in range(1)]
 
         beacon_nodes[0].start()
 
         beacon_nodes[0].wait_for_rpc()
 
-        shard_node_configs = [shardnode.ShardConfig.from_beacon(beacon_nodes[0]) for i in range(2)]
+        shard_node_configs = [shardnode.ShardConfig.from_beacon(beacon_nodes[0]) for _ in range(2)]
         shard_nodes = []
         for c in shard_node_configs:
             c.initial_shards = ['1']

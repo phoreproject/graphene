@@ -1,7 +1,5 @@
 from phore.framework import tester, validatornode, shardnode
-from phore.pb import beaconrpc_pb2, common_pb2
-
-import time
+from phore.pb import common_pb2
 
 
 class Example(tester.Tester):
@@ -9,7 +7,7 @@ class Example(tester.Tester):
         super().__init__()
 
     def _do_run(self):
-        beacon_nodes = [self.create_beacon_node() for i in range(2)]
+        beacon_nodes = [self.create_beacon_node() for _ in range(2)]
 
         beacon_nodes[0].start()
         beacon_nodes[1].start()
@@ -36,7 +34,6 @@ class Example(tester.Tester):
         beacon_nodes[1].wait_for_slot(8)
 
         self.reset()
-
 
 
 ex = Example()

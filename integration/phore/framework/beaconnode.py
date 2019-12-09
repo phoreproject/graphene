@@ -9,7 +9,7 @@ import os
 import typing
 import logging
 
-from phore.pb import beaconrpc_pb2_grpc, common_pb2
+from phore.pb import beaconrpc_pb2_grpc
 from google.protobuf import empty_pb2
 
 
@@ -62,6 +62,7 @@ def snake_to_camel(snake_case: str) -> str:
     components = snake_case.split('_')
     return ''.join([c.title() for c in components])
 
+
 class BeaconNode:
     TYPE = "beacon"
 
@@ -103,7 +104,7 @@ class BeaconNode:
 
         ready = grpc.channel_ready_future(chan)
         while not ready.done():
-            def test(conn):
+            def test(_):
                 pass
 
             chan.subscribe(test, True)
@@ -114,7 +115,7 @@ class BeaconNode:
 
     def wait_for_slot(self, slot_to_wait: int):
         while True:
-            slot_number_response: common_pb2.SlotNumberResponse = self._rpc.GetSlotNumber(empty_pb2.Empty())
+            slot_number_response = self._rpc.GetSlotNumber(empty_pb2.Empty())
             if slot_number_response.TipSlot >= slot_to_wait:
                 break
             time.sleep(1)

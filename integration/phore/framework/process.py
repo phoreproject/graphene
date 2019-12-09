@@ -1,8 +1,6 @@
 import subprocess
 import threading
-import queue
 import select
-import sys
 import time
 import queue
 import logging
@@ -15,7 +13,7 @@ class Process(threading.Thread):
     output_stdout = 1
     output_pipe = 2
 
-    def __init__(self, process_name = "none", *args):
+    def __init__(self, process_name="none", *args):
         self.stdout = None
         self.stderr = None
         self.stop_queue = queue.Queue()
@@ -67,5 +65,3 @@ class Process(threading.Thread):
                 break
 
             time.sleep(0.1)
-
-    _process: subprocess.Popen

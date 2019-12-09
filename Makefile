@@ -49,7 +49,7 @@ src_depend: $(SRC)
 
 integrationtests: $(TESTS)
 
-integration_test_%: $(BINARY_NAME) integration/phore/tests/%.py
+integration_test_%: integration/phore/tests/%.py $(BINARY_NAME) 
 	PYTHONPATH=integration python3 $<
 
 clean:

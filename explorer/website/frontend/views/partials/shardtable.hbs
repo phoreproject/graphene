@@ -14,10 +14,10 @@
 function initShardTable()
 {
 	$('#shardTable').DataTable(createTableOptions({
-		serverSide : false,
+		serverSide : true,
+		ordering: false,
 		ajax : {
-				url: "{{ url '/api/shards' }}",
-				dataSrc: '',
+			url: "{{ url '/api/shards' }}",
 		},
 		columns : [
 			{

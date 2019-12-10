@@ -13,10 +13,10 @@
 function initValidatorTable()
 {
 	$('#validatorTable').DataTable(createTableOptions({
-		serverSide : false,
+		serverSide : true,
+		ordering: false,
 		ajax : {
-				url: "{{ url '/api/validators' }}",
-				dataSrc: '',
+			url: "{{ url '/api/validators' }}",
 		},
 		columns : [
 			{

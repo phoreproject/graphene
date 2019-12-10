@@ -40,6 +40,6 @@ var defaultTableOptions = {
 };
 
 window.createTableOptions = function(options) {
-	return Object.assign({}, options, defaultTableOptions)
+	return Object.assign({}, defaultTableOptions, options)
 };
 

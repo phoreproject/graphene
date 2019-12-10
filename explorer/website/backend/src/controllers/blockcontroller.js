@@ -23,14 +23,23 @@ class BlockController extends Controller {
 	getBlocks(request, response) {
 		let urlQueries = request.query;
 		let query = this.getDatabase().select().from('blocks');
-		if(urlQueries.i) {
-			query = query.offset(parseInt(urlQueries.i));
+		if(urlQueries.start > 0) {
+			query = query.offset(parseInt(urlQueries.start));
 		}
-		if(urlQueries.c) {
-			query = query.limit(parseInt(urlQueries.c));
+		if(urlQueries.length) {
+			query = query.limit(parseInt(urlQueries.length));
 		}
-		query.then(function(blockList) {
-			response.json(util.bufferFieldsToHex(blockList));
+		query.then((blockList) => {
+			this.getDatabase().count('id as C').from('blocks').then(function(total) {
+				let count = total[0].C;
+				let returnData = {
+					draw: query.draw ^ 0,
+					recordsTotal: count,
+					recordsFiltered: count,
+					data: util.bufferFieldsToHex(blockList),
+				};
+				response.json(returnData);
+			});
 		});
 	}
 

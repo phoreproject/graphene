@@ -16,10 +16,10 @@
 function initBlockTable()
 {
 	$('#blockTable').DataTable(createTableOptions({
-		serverSide : false,
+		serverSide : true,
+		ordering: false,
 		ajax : {
-				url: "{{ url '/api/blocks' }}",
-				dataSrc: '',
+			url: "{{ url '/api/blocks' }}",
 		},
 		columns : [
 			{
@@ -54,7 +54,7 @@ function initBlockTable()
 			},
 		],
 		columnDefs: [
-			{ orderable: false, targets: 0 },
+			{ orderable: false, targets: [ 0, 1, 2, 3, 4, 5, 6 ] },
 			{ className: "dt-right", targets: [ 0, 1, 2 ] },
 			//{ className: "dt-left", targets: 1 },
 			{ responsivePriority: 1, targets: 0 },

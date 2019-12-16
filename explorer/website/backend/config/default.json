@@ -1,5 +1,6 @@
 {
-	"database" : {
+	"databaseMysql" : {
+		"comment" : "This is the MySQL driver, it's useful for test if there is no postgres installed. To make it work, rename the postgres driver key name to 'databasePostgres', and rename 'databaseMysql' to 'database'",
 		"driver" : "mysql2",
 		"host" : "localhost",
 		"port" : 3306,
@@ -8,8 +9,17 @@
 		"database" : "synapse"
 	},
 
+	"database" : {
+		"driver" : "postgres",
+		"host" : "localhost",
+		"port" : 5432,
+		"user" : "test",
+		"password" : "test",
+		"database" : "synapse"
+	},
+
 	"server" : {
-		"comment" : "the port the web server listens on",
+		"comment" : "The port the web server listens on",
 		"port" : 3000
 	}
 }

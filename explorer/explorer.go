@@ -68,7 +68,7 @@ func createDb(c *Config) *gorm.DB {
 		db, err = gorm.Open(
 			"postgres",
 			fmt.Sprintf(
-				"host=%s port=5432 user=%s dbname=%s password=%s",
+				"host=%s port=5432 user=%s dbname=%s password=%s sslmode=disable",
 				c.DbHost,
 				c.DbUser,
 				c.DbDatabase,

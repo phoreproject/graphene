@@ -53,6 +53,9 @@ type ConnectionManager struct {
 
 	protocolConfiguration map[protocol.ID]*ProtocolHandler
 	protocolConfigurationLock sync.RWMutex
+
+	lastConnect map[peer.ID]time.Time
+	lastConnectLock sync.RWMutex
 }
 
 // DHTProtocolID is the protocol ID used for DHT for Phore.
@@ -80,15 +83,24 @@ func NewConnectionManager(ctx context.Context, host *HostNode, discoveryOptions 
 		options:      discoveryOptions,
 		p2pDiscovery: routingdiscovery.NewRoutingDiscovery(routing),
 		protocolConfiguration: make(map[protocol.ID]*ProtocolHandler),
+		lastConnect: make(map[peer.ID]time.Time),
 	}, nil
 }
 
 const connectionTimeout = 10 * time.Second
+const connectionCooldown = 60 * time.Second
 
 // Connect connects to a peer.
 func (cm *ConnectionManager) Connect(pi peer.AddrInfo) error {
-	ctx, _ := context.WithTimeout(context.Background(), connectionTimeout)
-	return cm.host.Connect(ctx, pi)
+	cm.lastConnectLock.Lock()
+	defer cm.lastConnectLock.Unlock()
+	lastConnect, found := cm.lastConnect[pi.ID]
+	if !found || time.Since(lastConnect) > connectionCooldown {
+		cm.lastConnect[pi.ID] = time.Now()
+		ctx, _ := context.WithTimeout(context.Background(), connectionTimeout)
+		return cm.host.Connect(ctx, pi)
+	}
+	return nil
 }
 
 // RegisterProtocolHandler registers a protocol handler.

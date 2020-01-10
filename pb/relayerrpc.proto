@@ -9,6 +9,26 @@ service RelayerRPC {
     rpc SubmitTransaction (SubmitTransactionRequest) returns (google.protobuf.Empty);
     rpc GetListeningAddresses (google.protobuf.Empty) returns (ListeningAddressesResponse);
     rpc Connect (ConnectMessage) returns (google.protobuf.Empty);
+    rpc GetStateKey (GetStateKeyRequest) returns (StateKey);
+    rpc GetStateKeys (GetStateKeysRequest) returns (StateKeys);
+}
+
+message GetStateKeyRequest {
+    uint64 ShardID = 1;
+    bytes Key = 2;
+}
+
+message GetStateKeysRequest {
+    uint64 ShardID = 1;
+    repeated bytes Key = 2;
+}
+
+message StateKey {
+    bytes Value = 1;
+}
+
+message StateKeys {
+    repeated bytes Values = 2;
 }
 
 message SubmitTransactionRequest {

@@ -19,11 +19,110 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"sync"
+	"time"
 )
 
 type shardProtocols struct {
 	shard   *p2p.ProtocolHandler
 	relayer *p2p.ProtocolHandler
+}
+
+// SlotProposalManager keeps track of proposals for a specific slot.
+type SlotProposalManager struct {
+	proposalSlot uint64
+
+	bestProposal *ProposalInformation
+	lock         sync.Mutex
+	mgr          *ShardSyncManager
+	requested    bool
+}
+
+// NewSlotProposalManager creates a new manager to keep track of proposals for this slot.
+func NewSlotProposalManager(slot uint64, epochState chainhash.Hash, epochSlot uint64, mgr *ShardSyncManager) *SlotProposalManager {
+	return &SlotProposalManager{
+		proposalSlot: slot,
+		bestProposal: &ProposalInformation{
+			TransactionPackage: primitives.TransactionPackage{
+				StartRoot:     epochState,
+				EndRoot:       epochState,
+				Updates:       nil,
+				Verifications: nil,
+				Transactions:  nil,
+			},
+			startSlot: epochSlot,
+		},
+		mgr:       mgr,
+		requested: false,
+	}
+}
+
+// RequestPackages requests packages if needed
+func (s *SlotProposalManager) RequestPackages(stateRoot chainhash.Hash) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.requestPackages(stateRoot)
+}
+
+func (s *SlotProposalManager) requestPackages(stateRoot chainhash.Hash) {
+	if s.requested {
+		return
+	}
+	logrus.WithField("slot", s.proposalSlot).Debug("requesting for slot")
+
+	s.requested = true
+
+	msg := pb.GetPackagesMessage{
+		TipStateRoot: stateRoot[:],
+	}
+
+	msgBytes, err := proto.Marshal(&msg)
+	if err != nil {
+		logrus.Warn(err)
+		return
+	}
+
+	err = s.mgr.hostNode.Broadcast(fmt.Sprintf("/packageRequests/%d", s.mgr.shardID), msgBytes)
+	if err != nil {
+		logrus.Warn(err)
+	}
+}
+
+func (s *SlotProposalManager) requestPackagesAtSlotBoundary() {
+	waitUntil := uint64(s.mgr.manager.Config.SlotDuration)*s.proposalSlot + s.mgr.manager.InitializationParameters.GenesisTime
+	time.Sleep(time.Until(time.Unix(int64(waitUntil), 0)))
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	startState, err := s.mgr.manager.Chain.GetNodeBySlot(s.proposalSlot - 1)
+	if err != nil {
+		logrus.Warn(err)
+	}
+
+	fmt.Println("requesting at slot boundary for slot", s.proposalSlot)
+
+	s.requestPackages(startState.StateRoot)
+}
+
+func (s *SlotProposalManager) getProposal() *ProposalInformation {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.bestProposal
+}
+
+func (s *SlotProposalManager) processIncomingProposal(p *ProposalInformation) {
+	logrus.WithField("startSlot", p.startSlot).Debug("got proposal")
+
+	if p.startSlot >= s.proposalSlot {
+		return
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if p.isBetterThan(s.bestProposal) {
+		s.bestProposal = p
+	}
 }
 
 // ShardSyncManager is a manager to help sync up the shard chain.
@@ -34,9 +133,29 @@ type ShardSyncManager struct {
 	protocols shardProtocols
 	shardID   uint64
 
-	bestProposal     *ProposalInformation
-	bestProposalLock sync.RWMutex
+	slotProposals map[uint64]*SlotProposalManager
 }
+
+// AddBlock is a notifee from the manager when a block is added.
+func (s *ShardSyncManager) AddBlock(block *primitives.ShardBlock, newTip bool) {
+	slot := block.Header.Slot
+
+	if !newTip {
+		return
+	}
+
+	for proposalSlot, mgr := range s.slotProposals {
+		if slot >= proposalSlot-1 {
+			// TODO: improve?
+			time.Sleep(200 * time.Millisecond)
+
+			mgr.RequestPackages(block.Header.StateRoot)
+		}
+	}
+}
+
+// FinalizeBlockHash is an unused notifee from the manager when a block is finalized.
+func (s *ShardSyncManager) FinalizeBlockHash(blockHash chainhash.Hash, slot uint64) {}
 
 // PeerConnected is called when a peer connects to the shard module.
 func (s *ShardSyncManager) PeerConnected(id peer.ID, dir network.Direction) {
@@ -54,34 +173,12 @@ func (s *ShardSyncManager) PeerConnected(id peer.ID, dir network.Direction) {
 }
 
 // ProposalAnnounced registers a slot to be proposed.
-func (s *ShardSyncManager) ProposalAnnounced(proposalSlot uint64, startState chainhash.Hash, startSlot uint64) {
+func (s *ShardSyncManager) ProposalAnnounced(shardProposals []uint64, startState chainhash.Hash, startSlot uint64) {
 	// worst case, we propose an empty block
-	s.bestProposalLock.Lock()
-	defer s.bestProposalLock.Unlock()
-	s.bestProposal = &ProposalInformation{
-		TransactionPackage: primitives.TransactionPackage{
-			StartRoot:     startState,
-			EndRoot:       startState,
-			Updates:       nil,
-			Verifications: nil,
-			Transactions:  nil,
-		},
-		startSlot: startSlot,
-	}
+	s.slotProposals = make(map[uint64]*SlotProposalManager)
 
-	msg := pb.GetPackagesMessage{
-		TipStateRoot: startState[:],
-	}
-
-	msgBytes, err := proto.Marshal(&msg)
-	if err != nil {
-		logrus.Warn(err)
-		return
-	}
-
-	err = s.hostNode.Broadcast(fmt.Sprintf("/packageRequests/%d", s.shardID), msgBytes)
-	if err != nil {
-		logrus.Warn(err)
+	for _, slot := range shardProposals {
+		s.slotProposals[slot] = NewSlotProposalManager(slot, startState, startSlot, s)
 	}
 }
 
@@ -105,11 +202,9 @@ func (p *ProposalInformation) isBetterThan(p2 *ProposalInformation) bool {
 }
 
 // GetProposalInformation gets the proposal information including the package.
-func (s *ShardSyncManager) GetProposalInformation() *ProposalInformation {
+func (s *ShardSyncManager) GetProposalInformation(forSlot uint64) *ProposalInformation {
 	// TODO: cleanup subscriptions here
-	s.bestProposalLock.Lock()
-	defer s.bestProposalLock.Unlock()
-	return s.bestProposal
+	return s.slotProposals[forSlot].getProposal()
 }
 
 // PeerDisconnected is called when a peer disconnects from the shard module.
@@ -123,6 +218,8 @@ func NewShardSyncManager(hn *p2p.HostNode, manager *ShardManager, shardID uint64
 		manager:  manager,
 		shardID:  shardID,
 	}
+
+	manager.RegisterNotifee(sm)
 
 	if err := sm.registerP2P(); err != nil {
 		return nil, err
@@ -207,12 +304,9 @@ func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error
 	if !currentRoot.IsEqual(&transactionPackage.EndRoot) {
 		return fmt.Errorf("end root (%s) does not match expected end root (%s)", currentRoot, transactionPackage.EndRoot)
 	}
-
-	s.bestProposalLock.Lock()
-	if p.isBetterThan(s.bestProposal) {
-		s.bestProposal = &p
+	for _, slotManager := range s.slotProposals {
+		slotManager.processIncomingProposal(&p)
 	}
-	defer s.bestProposalLock.Unlock()
 
 	return nil
 }

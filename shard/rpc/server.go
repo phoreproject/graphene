@@ -108,29 +108,6 @@ func (s *ShardRPCServer) GetActionStream(req *pb.ShardActionStreamRequest, res p
 	return nil
 }
 
-// GetStateKey gets a key from the current state.
-func (s *ShardRPCServer) GetStateKey(ctx context.Context, req *pb.GetStateKeyRequest) (*pb.GetStateKeyResponse, error) {
-	manager, err := s.sm.GetManager(req.ShardID)
-	if err != nil {
-		return nil, err
-	}
-
-	keyH, err := chainhash.NewHash(req.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	val, err := manager.GetKey(*keyH)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.GetStateKeyResponse{
-		Value: val[:],
-	}, nil
-}
-
-
 // AnnounceProposal instructs the shard module to subscribe to a specific shard and start downloading blocks. This is a
 // no-op until we implement the P2P network.
 func (s *ShardRPCServer) AnnounceProposal(ctx context.Context, req *pb.ProposalAnnouncement) (*empty.Empty, error) {
@@ -165,7 +142,7 @@ func (s *ShardRPCServer) AnnounceProposal(ctx context.Context, req *pb.ProposalA
 		return nil, err
 	}
 
-	mgr.SyncManager.ProposalAnnounced(req.ProposalSlot, *stateHash, req.CrosslinkSlot)
+	mgr.SyncManager.ProposalAnnounced(req.ProposalSlots, *stateHash, req.CrosslinkSlot)
 
 	return &empty.Empty{}, nil
 }
@@ -228,7 +205,7 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 		return nil, err
 	}
 
-	proposalInfo := manager.SyncManager.GetProposalInformation()
+	proposalInfo := manager.SyncManager.GetProposalInformation(req.Slot)
 
 	txPackage := proposalInfo.TransactionPackage
 

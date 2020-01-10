@@ -18,9 +18,9 @@ type WalletRPC struct {
 }
 
 // NewWalletRPC creates a new WalletRPC for handling wallet RPC commands.
-func NewWalletRPC(shardConn *grpc.ClientConn, out color.Color, errOut color.Color) *WalletRPC {
+func NewWalletRPC(relayerConn *grpc.ClientConn, out color.Color, errOut color.Color) *WalletRPC {
 	return &WalletRPC{
-		w:        wallet.NewWallet(shardConn),
+		w:        wallet.NewWallet(relayerConn),
 		ExitChan: make(chan struct{}),
 		out:      out,
 		errOut:   errOut,

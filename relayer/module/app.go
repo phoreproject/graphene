@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"fmt"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/csmt"
@@ -36,10 +37,6 @@ func NewRelayerModule(o config.Options) (*RelayerModule, error) {
 		Options: o,
 	}
 
-	if err := r.createRPCServer(); err != nil {
-		return nil, err
-	}
-
 	return r, nil
 }
 
@@ -54,13 +51,15 @@ func (r *RelayerModule) createRPCServer() error {
 		return err
 	}
 
-	mempools := make(map[uint64]*mempool.ShardMempool)
+	relayers := make(map[uint64]*shardrelayer.ShardRelayer)
 	for _, r := range r.relayers {
-		mempools[r.GetShardID()] = r.GetMempool()
+		relayers[r.GetShardID()] = r
 	}
 
+	fmt.Println(len(relayers))
+
 	go func() {
-		err := rpc.Serve(rpcListenAddr.Network(), rpcListenAddr.String(), mempools)
+		err := rpc.Serve(rpcListenAddr.Network(), rpcListenAddr.String(), relayers)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -122,6 +121,10 @@ func (r *RelayerModule) Run() error {
 		}
 
 		r.relayers[i] = shardrelayer.NewShardRelayer(uint64(s), shardRPC, m, relayerP2P)
+	}
+
+	if err := r.createRPCServer(); err != nil {
+		return 	err
 	}
 
 	for _, relayer := range r.relayers {

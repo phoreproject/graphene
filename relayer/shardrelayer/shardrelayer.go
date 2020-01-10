@@ -2,6 +2,8 @@ package shardrelayer
 
 import (
 	"context"
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/relayer/mempool"
 	"github.com/phoreproject/synapse/relayer/p2p"
@@ -64,3 +66,34 @@ func (sr *ShardRelayer) ListenForActions() {
 func (sr *ShardRelayer) GetShardID() uint64 {
 	return sr.shardID
 }
+
+// GetStateKey gets a key from state.
+func (sr *ShardRelayer) GetStateKey(key chainhash.Hash) (chainhash.Hash, error) {
+	var val chainhash.Hash
+	err := sr.mempool.GetTipState().View(func(tx csmt.TreeDatabaseTransaction) error {
+		v, err := tx.Get(key)
+		if err != nil {
+			return err
+		}
+		val = *v
+		return nil
+	})
+	return val, err
+}
+
+// GetStateKeys gets keys from state.
+func (sr *ShardRelayer) GetStateKeys(keys []chainhash.Hash) ([]chainhash.Hash, error) {
+	vals := make([]chainhash.Hash, len(keys))
+	err := sr.mempool.GetTipState().View(func(tx csmt.TreeDatabaseTransaction) error {
+		for i, k := range keys {
+			v, err := tx.Get(k)
+			if err != nil {
+				return err
+			}
+			vals[i] = *v
+		}
+		return nil
+	})
+	return vals, err
+}
+

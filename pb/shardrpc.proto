@@ -10,7 +10,6 @@ service ShardRPC {
     rpc GetBlockHashAtSlot (SlotRequest) returns (BlockHashResponse);
     rpc GenerateBlockTemplate (BlockGenerationRequest) returns (ShardBlock);
     rpc SubmitBlock (ShardBlockSubmission) returns (google.protobuf.Empty);
-    rpc GetStateKey (GetStateKeyRequest) returns (GetStateKeyResponse);
     rpc GetActionStream (ShardActionStreamRequest) returns (stream ShardChainAction);
     rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
     rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
@@ -46,15 +45,6 @@ message ActionUpdateTip {
     bytes Hash = 2;
 }
 
-message GetStateKeyRequest {
-    bytes Key = 1;
-    uint64 ShardID = 2;
-}
-
-message GetStateKeyResponse {
-    bytes Value = 1;
-}
-
 message BlockHashResponse {
     bytes BlockHash = 1;
     bytes StateHash = 2;
@@ -81,7 +71,7 @@ message ProposalAnnouncement {
     uint64 CrosslinkSlot = 2;
     bytes BlockHash = 3;
     bytes StateHash = 4;
-    uint64 ProposalSlot = 5;
+    repeated uint64 ProposalSlots = 5;
 }
 
 message ShardUnsubscribeRequest {

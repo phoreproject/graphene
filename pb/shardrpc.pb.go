@@ -3,14 +3,15 @@
 
 package pb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import empty "github.com/golang/protobuf/ptypes/empty"
-
 import (
-	context "golang.org/x/net/context"
+	context "context"
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,7 +23,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type SlotNumberRequest struct {
 	ShardID              uint64   `protobuf:"varint,1,opt,name=ShardID,proto3" json:"ShardID,omitempty"`
@@ -35,16 +36,17 @@ func (m *SlotNumberRequest) Reset()         { *m = SlotNumberRequest{} }
 func (m *SlotNumberRequest) String() string { return proto.CompactTextString(m) }
 func (*SlotNumberRequest) ProtoMessage()    {}
 func (*SlotNumberRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{0}
+	return fileDescriptor_0aefcd34784e5c0e, []int{0}
 }
+
 func (m *SlotNumberRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SlotNumberRequest.Unmarshal(m, b)
 }
 func (m *SlotNumberRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SlotNumberRequest.Marshal(b, m, deterministic)
 }
-func (dst *SlotNumberRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SlotNumberRequest.Merge(dst, src)
+func (m *SlotNumberRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SlotNumberRequest.Merge(m, src)
 }
 func (m *SlotNumberRequest) XXX_Size() int {
 	return xxx_messageInfo_SlotNumberRequest.Size(m)
@@ -73,16 +75,17 @@ func (m *ShardActionStreamRequest) Reset()         { *m = ShardActionStreamReque
 func (m *ShardActionStreamRequest) String() string { return proto.CompactTextString(m) }
 func (*ShardActionStreamRequest) ProtoMessage()    {}
 func (*ShardActionStreamRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{1}
+	return fileDescriptor_0aefcd34784e5c0e, []int{1}
 }
+
 func (m *ShardActionStreamRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardActionStreamRequest.Unmarshal(m, b)
 }
 func (m *ShardActionStreamRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShardActionStreamRequest.Marshal(b, m, deterministic)
 }
-func (dst *ShardActionStreamRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardActionStreamRequest.Merge(dst, src)
+func (m *ShardActionStreamRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardActionStreamRequest.Merge(m, src)
 }
 func (m *ShardActionStreamRequest) XXX_Size() int {
 	return xxx_messageInfo_ShardActionStreamRequest.Size(m)
@@ -115,16 +118,17 @@ func (m *ShardChainAction) Reset()         { *m = ShardChainAction{} }
 func (m *ShardChainAction) String() string { return proto.CompactTextString(m) }
 func (*ShardChainAction) ProtoMessage()    {}
 func (*ShardChainAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{2}
+	return fileDescriptor_0aefcd34784e5c0e, []int{2}
 }
+
 func (m *ShardChainAction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardChainAction.Unmarshal(m, b)
 }
 func (m *ShardChainAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShardChainAction.Marshal(b, m, deterministic)
 }
-func (dst *ShardChainAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardChainAction.Merge(dst, src)
+func (m *ShardChainAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardChainAction.Merge(m, src)
 }
 func (m *ShardChainAction) XXX_Size() int {
 	return xxx_messageInfo_ShardChainAction.Size(m)
@@ -167,16 +171,17 @@ func (m *ActionAddBlock) Reset()         { *m = ActionAddBlock{} }
 func (m *ActionAddBlock) String() string { return proto.CompactTextString(m) }
 func (*ActionAddBlock) ProtoMessage()    {}
 func (*ActionAddBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{3}
+	return fileDescriptor_0aefcd34784e5c0e, []int{3}
 }
+
 func (m *ActionAddBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ActionAddBlock.Unmarshal(m, b)
 }
 func (m *ActionAddBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ActionAddBlock.Marshal(b, m, deterministic)
 }
-func (dst *ActionAddBlock) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ActionAddBlock.Merge(dst, src)
+func (m *ActionAddBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActionAddBlock.Merge(m, src)
 }
 func (m *ActionAddBlock) XXX_Size() int {
 	return xxx_messageInfo_ActionAddBlock.Size(m)
@@ -206,16 +211,17 @@ func (m *ActionFinalizeBlock) Reset()         { *m = ActionFinalizeBlock{} }
 func (m *ActionFinalizeBlock) String() string { return proto.CompactTextString(m) }
 func (*ActionFinalizeBlock) ProtoMessage()    {}
 func (*ActionFinalizeBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{4}
+	return fileDescriptor_0aefcd34784e5c0e, []int{4}
 }
+
 func (m *ActionFinalizeBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ActionFinalizeBlock.Unmarshal(m, b)
 }
 func (m *ActionFinalizeBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ActionFinalizeBlock.Marshal(b, m, deterministic)
 }
-func (dst *ActionFinalizeBlock) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ActionFinalizeBlock.Merge(dst, src)
+func (m *ActionFinalizeBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActionFinalizeBlock.Merge(m, src)
 }
 func (m *ActionFinalizeBlock) XXX_Size() int {
 	return xxx_messageInfo_ActionFinalizeBlock.Size(m)
@@ -251,16 +257,17 @@ func (m *ActionUpdateTip) Reset()         { *m = ActionUpdateTip{} }
 func (m *ActionUpdateTip) String() string { return proto.CompactTextString(m) }
 func (*ActionUpdateTip) ProtoMessage()    {}
 func (*ActionUpdateTip) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{5}
+	return fileDescriptor_0aefcd34784e5c0e, []int{5}
 }
+
 func (m *ActionUpdateTip) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ActionUpdateTip.Unmarshal(m, b)
 }
 func (m *ActionUpdateTip) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ActionUpdateTip.Marshal(b, m, deterministic)
 }
-func (dst *ActionUpdateTip) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ActionUpdateTip.Merge(dst, src)
+func (m *ActionUpdateTip) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActionUpdateTip.Merge(m, src)
 }
 func (m *ActionUpdateTip) XXX_Size() int {
 	return xxx_messageInfo_ActionUpdateTip.Size(m)
@@ -278,90 +285,6 @@ func (m *ActionUpdateTip) GetHash() []byte {
 	return nil
 }
 
-type GetStateKeyRequest struct {
-	Key                  []byte   `protobuf:"bytes,1,opt,name=Key,proto3" json:"Key,omitempty"`
-	ShardID              uint64   `protobuf:"varint,2,opt,name=ShardID,proto3" json:"ShardID,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetStateKeyRequest) Reset()         { *m = GetStateKeyRequest{} }
-func (m *GetStateKeyRequest) String() string { return proto.CompactTextString(m) }
-func (*GetStateKeyRequest) ProtoMessage()    {}
-func (*GetStateKeyRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{6}
-}
-func (m *GetStateKeyRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetStateKeyRequest.Unmarshal(m, b)
-}
-func (m *GetStateKeyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetStateKeyRequest.Marshal(b, m, deterministic)
-}
-func (dst *GetStateKeyRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetStateKeyRequest.Merge(dst, src)
-}
-func (m *GetStateKeyRequest) XXX_Size() int {
-	return xxx_messageInfo_GetStateKeyRequest.Size(m)
-}
-func (m *GetStateKeyRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetStateKeyRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetStateKeyRequest proto.InternalMessageInfo
-
-func (m *GetStateKeyRequest) GetKey() []byte {
-	if m != nil {
-		return m.Key
-	}
-	return nil
-}
-
-func (m *GetStateKeyRequest) GetShardID() uint64 {
-	if m != nil {
-		return m.ShardID
-	}
-	return 0
-}
-
-type GetStateKeyResponse struct {
-	Value                []byte   `protobuf:"bytes,1,opt,name=Value,proto3" json:"Value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetStateKeyResponse) Reset()         { *m = GetStateKeyResponse{} }
-func (m *GetStateKeyResponse) String() string { return proto.CompactTextString(m) }
-func (*GetStateKeyResponse) ProtoMessage()    {}
-func (*GetStateKeyResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{7}
-}
-func (m *GetStateKeyResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetStateKeyResponse.Unmarshal(m, b)
-}
-func (m *GetStateKeyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetStateKeyResponse.Marshal(b, m, deterministic)
-}
-func (dst *GetStateKeyResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetStateKeyResponse.Merge(dst, src)
-}
-func (m *GetStateKeyResponse) XXX_Size() int {
-	return xxx_messageInfo_GetStateKeyResponse.Size(m)
-}
-func (m *GetStateKeyResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetStateKeyResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetStateKeyResponse proto.InternalMessageInfo
-
-func (m *GetStateKeyResponse) GetValue() []byte {
-	if m != nil {
-		return m.Value
-	}
-	return nil
-}
-
 type BlockHashResponse struct {
 	BlockHash            []byte   `protobuf:"bytes,1,opt,name=BlockHash,proto3" json:"BlockHash,omitempty"`
 	StateHash            []byte   `protobuf:"bytes,2,opt,name=StateHash,proto3" json:"StateHash,omitempty"`
@@ -374,16 +297,17 @@ func (m *BlockHashResponse) Reset()         { *m = BlockHashResponse{} }
 func (m *BlockHashResponse) String() string { return proto.CompactTextString(m) }
 func (*BlockHashResponse) ProtoMessage()    {}
 func (*BlockHashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{8}
+	return fileDescriptor_0aefcd34784e5c0e, []int{6}
 }
+
 func (m *BlockHashResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockHashResponse.Unmarshal(m, b)
 }
 func (m *BlockHashResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BlockHashResponse.Marshal(b, m, deterministic)
 }
-func (dst *BlockHashResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockHashResponse.Merge(dst, src)
+func (m *BlockHashResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockHashResponse.Merge(m, src)
 }
 func (m *BlockHashResponse) XXX_Size() int {
 	return xxx_messageInfo_BlockHashResponse.Size(m)
@@ -420,16 +344,17 @@ func (m *SlotRequest) Reset()         { *m = SlotRequest{} }
 func (m *SlotRequest) String() string { return proto.CompactTextString(m) }
 func (*SlotRequest) ProtoMessage()    {}
 func (*SlotRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{9}
+	return fileDescriptor_0aefcd34784e5c0e, []int{7}
 }
+
 func (m *SlotRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SlotRequest.Unmarshal(m, b)
 }
 func (m *SlotRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SlotRequest.Marshal(b, m, deterministic)
 }
-func (dst *SlotRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SlotRequest.Merge(dst, src)
+func (m *SlotRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SlotRequest.Merge(m, src)
 }
 func (m *SlotRequest) XXX_Size() int {
 	return xxx_messageInfo_SlotRequest.Size(m)
@@ -467,16 +392,17 @@ func (m *BlockGenerationRequest) Reset()         { *m = BlockGenerationRequest{}
 func (m *BlockGenerationRequest) String() string { return proto.CompactTextString(m) }
 func (*BlockGenerationRequest) ProtoMessage()    {}
 func (*BlockGenerationRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{10}
+	return fileDescriptor_0aefcd34784e5c0e, []int{8}
 }
+
 func (m *BlockGenerationRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockGenerationRequest.Unmarshal(m, b)
 }
 func (m *BlockGenerationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BlockGenerationRequest.Marshal(b, m, deterministic)
 }
-func (dst *BlockGenerationRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockGenerationRequest.Merge(dst, src)
+func (m *BlockGenerationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockGenerationRequest.Merge(m, src)
 }
 func (m *BlockGenerationRequest) XXX_Size() int {
 	return xxx_messageInfo_BlockGenerationRequest.Size(m)
@@ -520,16 +446,17 @@ func (m *ShardBlockSubmission) Reset()         { *m = ShardBlockSubmission{} }
 func (m *ShardBlockSubmission) String() string { return proto.CompactTextString(m) }
 func (*ShardBlockSubmission) ProtoMessage()    {}
 func (*ShardBlockSubmission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{11}
+	return fileDescriptor_0aefcd34784e5c0e, []int{9}
 }
+
 func (m *ShardBlockSubmission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardBlockSubmission.Unmarshal(m, b)
 }
 func (m *ShardBlockSubmission) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShardBlockSubmission.Marshal(b, m, deterministic)
 }
-func (dst *ShardBlockSubmission) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardBlockSubmission.Merge(dst, src)
+func (m *ShardBlockSubmission) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardBlockSubmission.Merge(m, src)
 }
 func (m *ShardBlockSubmission) XXX_Size() int {
 	return xxx_messageInfo_ShardBlockSubmission.Size(m)
@@ -559,7 +486,7 @@ type ProposalAnnouncement struct {
 	CrosslinkSlot        uint64   `protobuf:"varint,2,opt,name=CrosslinkSlot,proto3" json:"CrosslinkSlot,omitempty"`
 	BlockHash            []byte   `protobuf:"bytes,3,opt,name=BlockHash,proto3" json:"BlockHash,omitempty"`
 	StateHash            []byte   `protobuf:"bytes,4,opt,name=StateHash,proto3" json:"StateHash,omitempty"`
-	ProposalSlot         uint64   `protobuf:"varint,5,opt,name=ProposalSlot,proto3" json:"ProposalSlot,omitempty"`
+	ProposalSlots        []uint64 `protobuf:"varint,5,rep,packed,name=ProposalSlots,proto3" json:"ProposalSlots,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -569,16 +496,17 @@ func (m *ProposalAnnouncement) Reset()         { *m = ProposalAnnouncement{} }
 func (m *ProposalAnnouncement) String() string { return proto.CompactTextString(m) }
 func (*ProposalAnnouncement) ProtoMessage()    {}
 func (*ProposalAnnouncement) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{12}
+	return fileDescriptor_0aefcd34784e5c0e, []int{10}
 }
+
 func (m *ProposalAnnouncement) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProposalAnnouncement.Unmarshal(m, b)
 }
 func (m *ProposalAnnouncement) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProposalAnnouncement.Marshal(b, m, deterministic)
 }
-func (dst *ProposalAnnouncement) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProposalAnnouncement.Merge(dst, src)
+func (m *ProposalAnnouncement) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProposalAnnouncement.Merge(m, src)
 }
 func (m *ProposalAnnouncement) XXX_Size() int {
 	return xxx_messageInfo_ProposalAnnouncement.Size(m)
@@ -617,11 +545,11 @@ func (m *ProposalAnnouncement) GetStateHash() []byte {
 	return nil
 }
 
-func (m *ProposalAnnouncement) GetProposalSlot() uint64 {
+func (m *ProposalAnnouncement) GetProposalSlots() []uint64 {
 	if m != nil {
-		return m.ProposalSlot
+		return m.ProposalSlots
 	}
-	return 0
+	return nil
 }
 
 type ShardUnsubscribeRequest struct {
@@ -635,16 +563,17 @@ func (m *ShardUnsubscribeRequest) Reset()         { *m = ShardUnsubscribeRequest
 func (m *ShardUnsubscribeRequest) String() string { return proto.CompactTextString(m) }
 func (*ShardUnsubscribeRequest) ProtoMessage()    {}
 func (*ShardUnsubscribeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{13}
+	return fileDescriptor_0aefcd34784e5c0e, []int{11}
 }
+
 func (m *ShardUnsubscribeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardUnsubscribeRequest.Unmarshal(m, b)
 }
 func (m *ShardUnsubscribeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShardUnsubscribeRequest.Marshal(b, m, deterministic)
 }
-func (dst *ShardUnsubscribeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardUnsubscribeRequest.Merge(dst, src)
+func (m *ShardUnsubscribeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardUnsubscribeRequest.Merge(m, src)
 }
 func (m *ShardUnsubscribeRequest) XXX_Size() int {
 	return xxx_messageInfo_ShardUnsubscribeRequest.Size(m)
@@ -674,16 +603,17 @@ func (m *ShardTransactionSubmission) Reset()         { *m = ShardTransactionSubm
 func (m *ShardTransactionSubmission) String() string { return proto.CompactTextString(m) }
 func (*ShardTransactionSubmission) ProtoMessage()    {}
 func (*ShardTransactionSubmission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_shardrpc_e944ae7c94747838, []int{14}
+	return fileDescriptor_0aefcd34784e5c0e, []int{12}
 }
+
 func (m *ShardTransactionSubmission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShardTransactionSubmission.Unmarshal(m, b)
 }
 func (m *ShardTransactionSubmission) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShardTransactionSubmission.Marshal(b, m, deterministic)
 }
-func (dst *ShardTransactionSubmission) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShardTransactionSubmission.Merge(dst, src)
+func (m *ShardTransactionSubmission) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardTransactionSubmission.Merge(m, src)
 }
 func (m *ShardTransactionSubmission) XXX_Size() int {
 	return xxx_messageInfo_ShardTransactionSubmission.Size(m)
@@ -715,8 +645,6 @@ func init() {
 	proto.RegisterType((*ActionAddBlock)(nil), "pb.ActionAddBlock")
 	proto.RegisterType((*ActionFinalizeBlock)(nil), "pb.ActionFinalizeBlock")
 	proto.RegisterType((*ActionUpdateTip)(nil), "pb.ActionUpdateTip")
-	proto.RegisterType((*GetStateKeyRequest)(nil), "pb.GetStateKeyRequest")
-	proto.RegisterType((*GetStateKeyResponse)(nil), "pb.GetStateKeyResponse")
 	proto.RegisterType((*BlockHashResponse)(nil), "pb.BlockHashResponse")
 	proto.RegisterType((*SlotRequest)(nil), "pb.SlotRequest")
 	proto.RegisterType((*BlockGenerationRequest)(nil), "pb.BlockGenerationRequest")
@@ -724,6 +652,56 @@ func init() {
 	proto.RegisterType((*ProposalAnnouncement)(nil), "pb.ProposalAnnouncement")
 	proto.RegisterType((*ShardUnsubscribeRequest)(nil), "pb.ShardUnsubscribeRequest")
 	proto.RegisterType((*ShardTransactionSubmission)(nil), "pb.ShardTransactionSubmission")
+}
+
+func init() { proto.RegisterFile("shardrpc.proto", fileDescriptor_0aefcd34784e5c0e) }
+
+var fileDescriptor_0aefcd34784e5c0e = []byte{
+	// 689 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xdd, 0x4e, 0x1b, 0x3b,
+	0x10, 0x56, 0x7e, 0x38, 0x1c, 0x26, 0x10, 0xc0, 0x04, 0x88, 0xf6, 0xa0, 0x23, 0xb4, 0xe2, 0x48,
+	0xe7, 0xa6, 0x81, 0x42, 0x4b, 0xa5, 0xaa, 0x3f, 0x0a, 0xa1, 0x4d, 0x91, 0xda, 0x82, 0x36, 0xf0,
+	0x00, 0xde, 0xdd, 0x69, 0x58, 0xb1, 0x6b, 0x6f, 0xd7, 0xce, 0x45, 0xfb, 0x3e, 0x7d, 0x87, 0x3e,
+	0x44, 0x1f, 0xaa, 0xb2, 0x9d, 0x5d, 0x6f, 0xc2, 0x06, 0xd4, 0x3b, 0x7b, 0x3c, 0xf3, 0xcd, 0x37,
+	0xf3, 0xd9, 0x63, 0x68, 0x8b, 0x5b, 0x9a, 0x85, 0x59, 0x1a, 0xf4, 0xd2, 0x8c, 0x4b, 0x4e, 0xea,
+	0xa9, 0xef, 0xfc, 0x33, 0xe6, 0x7c, 0x1c, 0xe3, 0xa1, 0xb6, 0xf8, 0x93, 0x2f, 0x87, 0x98, 0xa4,
+	0xf2, 0x9b, 0x71, 0x70, 0x56, 0x03, 0x9e, 0x24, 0x9c, 0x99, 0x9d, 0xfb, 0x04, 0x36, 0x47, 0x31,
+	0x97, 0x9f, 0x27, 0x89, 0x8f, 0x99, 0x87, 0x5f, 0x27, 0x28, 0x24, 0xe9, 0xc2, 0xf2, 0x48, 0xa1,
+	0x5e, 0x9c, 0x77, 0x6b, 0xfb, 0xb5, 0xff, 0x9b, 0x5e, 0xbe, 0x75, 0x9f, 0x41, 0x57, 0x2f, 0xfb,
+	0x81, 0x8c, 0x38, 0x1b, 0xc9, 0x0c, 0x69, 0xf2, 0x78, 0xd4, 0xaf, 0x1a, 0x6c, 0xe8, 0xf5, 0xe0,
+	0x96, 0x46, 0xcc, 0xc4, 0x92, 0x97, 0xd0, 0xee, 0x87, 0xe1, 0x59, 0xcc, 0x83, 0x3b, 0x63, 0xd1,
+	0x51, 0xad, 0x63, 0xd2, 0x4b, 0xfd, 0x9e, 0xb1, 0xe4, 0xe7, 0xde, 0x9c, 0x27, 0xb9, 0x80, 0xad,
+	0xf7, 0x11, 0xa3, 0x71, 0xf4, 0x1d, 0xcb, 0x00, 0x75, 0x0d, 0xb0, 0x6b, 0x01, 0x66, 0x9c, 0xbc,
+	0xaa, 0x18, 0xf2, 0x14, 0x56, 0x6e, 0xd2, 0x90, 0x4a, 0xbc, 0x8e, 0xd2, 0x6e, 0x43, 0x03, 0x6c,
+	0x59, 0x80, 0xe2, 0xc8, 0xb3, 0x5e, 0xee, 0x29, 0xb4, 0x67, 0xf9, 0x91, 0x03, 0x58, 0xd2, 0x8b,
+	0x29, 0x83, 0xb6, 0x02, 0xd0, 0x05, 0x9b, 0xc4, 0xe6, 0xd0, 0x7d, 0x0d, 0x5b, 0x15, 0xb4, 0x08,
+	0x81, 0xe6, 0x07, 0x2a, 0x6e, 0x75, 0xf9, 0xab, 0x9e, 0x5e, 0x2b, 0x9b, 0x92, 0x45, 0xe3, 0x35,
+	0x3d, 0xbd, 0x76, 0xff, 0x83, 0xf5, 0x39, 0x52, 0x45, 0x68, 0xdd, 0x86, 0xba, 0x97, 0xb0, 0xa9,
+	0x71, 0xd5, 0xc6, 0x43, 0x91, 0x72, 0x26, 0x90, 0xec, 0xc1, 0x4a, 0x61, 0x9c, 0x26, 0xb2, 0x06,
+	0x75, 0x3a, 0x92, 0x54, 0x62, 0x09, 0xcb, 0x1a, 0xdc, 0x17, 0xd0, 0x52, 0xf9, 0x73, 0x99, 0x3b,
+	0xb0, 0xa4, 0x4b, 0x9b, 0x8a, 0x6c, 0x36, 0x95, 0x84, 0x25, 0xec, 0xe8, 0x1c, 0x43, 0x64, 0x98,
+	0x51, 0xc5, 0xfc, 0x8f, 0x31, 0xc8, 0x91, 0x55, 0x3a, 0x3c, 0x43, 0x1a, 0x70, 0xa6, 0x49, 0x36,
+	0x34, 0xc9, 0xaa, 0x23, 0xd7, 0x83, 0x8e, 0x6d, 0xfd, 0x68, 0xe2, 0x27, 0x91, 0x10, 0x4a, 0xe8,
+	0x42, 0xa3, 0xda, 0x03, 0x1a, 0x59, 0x66, 0xf5, 0x12, 0x33, 0xf7, 0x67, 0x0d, 0x3a, 0x57, 0x19,
+	0x4f, 0xb9, 0xa0, 0x71, 0x9f, 0x31, 0x3e, 0x61, 0x01, 0x26, 0xc8, 0x1e, 0xb8, 0xf3, 0xe4, 0x00,
+	0xd6, 0x06, 0x19, 0x17, 0x22, 0x8e, 0xd8, 0x5d, 0xa9, 0xaa, 0x59, 0xe3, 0xac, 0x2e, 0x8d, 0x07,
+	0x75, 0x69, 0xce, 0xe9, 0xa2, 0x32, 0xe4, 0x9c, 0x14, 0x96, 0xe8, 0x2e, 0xed, 0x37, 0x54, 0x86,
+	0x19, 0xa3, 0x7b, 0x02, 0xbb, 0x9a, 0xd2, 0x0d, 0x13, 0x13, 0x5f, 0x04, 0x59, 0xe4, 0xe3, 0xe3,
+	0x0f, 0x96, 0x81, 0xa3, 0x97, 0xd7, 0x19, 0x65, 0x82, 0x9a, 0xb7, 0x6e, 0x3b, 0xb9, 0xb8, 0xe8,
+	0x53, 0x68, 0x95, 0x42, 0xa6, 0xaf, 0xa1, 0x53, 0x74, 0xba, 0x74, 0xe6, 0x95, 0x1d, 0x8f, 0x7f,
+	0x34, 0xe1, 0x6f, 0xed, 0xe1, 0x5d, 0x0d, 0xc8, 0x39, 0x6c, 0xe4, 0x3d, 0xce, 0x4b, 0x21, 0x5d,
+	0x85, 0x51, 0xa5, 0x80, 0xb3, 0xd3, 0x33, 0xc3, 0xae, 0x97, 0x0f, 0xbb, 0xde, 0x3b, 0x35, 0xec,
+	0xc8, 0x2b, 0x20, 0x43, 0x94, 0x45, 0x2f, 0xfb, 0x52, 0xf7, 0x7b, 0x5d, 0x73, 0xb1, 0xb7, 0xd9,
+	0xd9, 0x56, 0x86, 0xfb, 0xef, 0x65, 0x00, 0xdb, 0xd3, 0x5b, 0x6b, 0x1e, 0xe9, 0x35, 0x26, 0x69,
+	0x4c, 0x25, 0x12, 0xa7, 0xf0, 0xbf, 0x77, 0xab, 0x9d, 0xb9, 0x2b, 0x45, 0xde, 0x42, 0x4b, 0x77,
+	0xcd, 0xb0, 0x30, 0x35, 0x54, 0x5d, 0xcd, 0x85, 0x35, 0x0c, 0x61, 0x7d, 0x88, 0xb2, 0x3c, 0x6b,
+	0xc9, 0x5e, 0x01, 0x52, 0x31, 0x82, 0x1d, 0xdb, 0xea, 0xd2, 0xa4, 0x3d, 0xaa, 0x91, 0x4b, 0x55,
+	0x8e, 0xfc, 0x18, 0x09, 0x89, 0x2c, 0x62, 0xe3, 0x7e, 0x18, 0x66, 0x28, 0x04, 0x0a, 0xb2, 0x20,
+	0xb3, 0xf3, 0xaf, 0x02, 0xba, 0xef, 0x5f, 0xf4, 0xe7, 0x39, 0x2c, 0x0f, 0x38, 0x63, 0x18, 0x48,
+	0xa2, 0xe7, 0xf5, 0x74, 0xf3, 0x09, 0x85, 0xa0, 0x63, 0x5c, 0x58, 0xd0, 0x1b, 0x58, 0x1b, 0xa2,
+	0xb4, 0x1f, 0x0e, 0xd9, 0xce, 0xf5, 0x98, 0xf9, 0x80, 0x9c, 0x9d, 0x79, 0xb3, 0x49, 0xeb, 0xff,
+	0xa5, 0xf1, 0x4e, 0x7e, 0x07, 0x00, 0x00, 0xff, 0xff, 0x9f, 0x5b, 0xdd, 0xd3, 0xf5, 0x06, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -742,7 +720,6 @@ type ShardRPCClient interface {
 	GetBlockHashAtSlot(ctx context.Context, in *SlotRequest, opts ...grpc.CallOption) (*BlockHashResponse, error)
 	GenerateBlockTemplate(ctx context.Context, in *BlockGenerationRequest, opts ...grpc.CallOption) (*ShardBlock, error)
 	SubmitBlock(ctx context.Context, in *ShardBlockSubmission, opts ...grpc.CallOption) (*empty.Empty, error)
-	GetStateKey(ctx context.Context, in *GetStateKeyRequest, opts ...grpc.CallOption) (*GetStateKeyResponse, error)
 	GetActionStream(ctx context.Context, in *ShardActionStreamRequest, opts ...grpc.CallOption) (ShardRPC_GetActionStreamClient, error)
 	GetListeningAddresses(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ListeningAddressesResponse, error)
 	Connect(ctx context.Context, in *ConnectMessage, opts ...grpc.CallOption) (*empty.Empty, error)
@@ -787,15 +764,6 @@ func (c *shardRPCClient) GenerateBlockTemplate(ctx context.Context, in *BlockGen
 func (c *shardRPCClient) SubmitBlock(ctx context.Context, in *ShardBlockSubmission, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pb.ShardRPC/SubmitBlock", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *shardRPCClient) GetStateKey(ctx context.Context, in *GetStateKeyRequest, opts ...grpc.CallOption) (*GetStateKeyResponse, error) {
-	out := new(GetStateKeyResponse)
-	err := c.cc.Invoke(ctx, "/pb.ShardRPC/GetStateKey", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -867,11 +835,39 @@ type ShardRPCServer interface {
 	GetBlockHashAtSlot(context.Context, *SlotRequest) (*BlockHashResponse, error)
 	GenerateBlockTemplate(context.Context, *BlockGenerationRequest) (*ShardBlock, error)
 	SubmitBlock(context.Context, *ShardBlockSubmission) (*empty.Empty, error)
-	GetStateKey(context.Context, *GetStateKeyRequest) (*GetStateKeyResponse, error)
 	GetActionStream(*ShardActionStreamRequest, ShardRPC_GetActionStreamServer) error
 	GetListeningAddresses(context.Context, *empty.Empty) (*ListeningAddressesResponse, error)
 	Connect(context.Context, *ConnectMessage) (*empty.Empty, error)
 	GetSlotNumber(context.Context, *SlotNumberRequest) (*SlotNumberResponse, error)
+}
+
+// UnimplementedShardRPCServer can be embedded to have forward compatible implementations.
+type UnimplementedShardRPCServer struct {
+}
+
+func (*UnimplementedShardRPCServer) AnnounceProposal(ctx context.Context, req *ProposalAnnouncement) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AnnounceProposal not implemented")
+}
+func (*UnimplementedShardRPCServer) GetBlockHashAtSlot(ctx context.Context, req *SlotRequest) (*BlockHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockHashAtSlot not implemented")
+}
+func (*UnimplementedShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *BlockGenerationRequest) (*ShardBlock, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateBlockTemplate not implemented")
+}
+func (*UnimplementedShardRPCServer) SubmitBlock(ctx context.Context, req *ShardBlockSubmission) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitBlock not implemented")
+}
+func (*UnimplementedShardRPCServer) GetActionStream(req *ShardActionStreamRequest, srv ShardRPC_GetActionStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetActionStream not implemented")
+}
+func (*UnimplementedShardRPCServer) GetListeningAddresses(ctx context.Context, req *empty.Empty) (*ListeningAddressesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetListeningAddresses not implemented")
+}
+func (*UnimplementedShardRPCServer) Connect(ctx context.Context, req *ConnectMessage) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (*UnimplementedShardRPCServer) GetSlotNumber(ctx context.Context, req *SlotNumberRequest) (*SlotNumberResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSlotNumber not implemented")
 }
 
 func RegisterShardRPCServer(s *grpc.Server, srv ShardRPCServer) {
@@ -946,24 +942,6 @@ func _ShardRPC_SubmitBlock_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ShardRPCServer).SubmitBlock(ctx, req.(*ShardBlockSubmission))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ShardRPC_GetStateKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetStateKeyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ShardRPCServer).GetStateKey(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pb.ShardRPC/GetStateKey",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ShardRPCServer).GetStateKey(ctx, req.(*GetStateKeyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1064,10 +1042,6 @@ var _ShardRPC_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ShardRPC_SubmitBlock_Handler,
 		},
 		{
-			MethodName: "GetStateKey",
-			Handler:    _ShardRPC_GetStateKey_Handler,
-		},
-		{
 			MethodName: "GetListeningAddresses",
 			Handler:    _ShardRPC_GetListeningAddresses_Handler,
 		},
@@ -1088,57 +1062,4 @@ var _ShardRPC_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Metadata: "shardrpc.proto",
-}
-
-func init() { proto.RegisterFile("shardrpc.proto", fileDescriptor_shardrpc_e944ae7c94747838) }
-
-var fileDescriptor_shardrpc_e944ae7c94747838 = []byte{
-	// 739 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0x6d, 0x4f, 0x13, 0x41,
-	0x10, 0x4e, 0xdf, 0x44, 0xa6, 0x50, 0x60, 0x5b, 0x4a, 0x73, 0x12, 0x63, 0x2e, 0x98, 0x98, 0x18,
-	0x0b, 0x82, 0x62, 0x62, 0x7c, 0x2b, 0x45, 0x2b, 0x41, 0x85, 0x5c, 0xc1, 0xef, 0x77, 0xd7, 0xb5,
-	0x5c, 0xb8, 0xdb, 0x3d, 0x6f, 0xb7, 0x1f, 0xf0, 0x87, 0xf9, 0x2b, 0xfc, 0x1b, 0xfe, 0x0f, 0xb3,
-	0xb3, 0xf7, 0xda, 0x96, 0x12, 0xbf, 0xcd, 0xce, 0xce, 0x3c, 0xf3, 0xcc, 0xcb, 0xce, 0x42, 0x43,
-	0x5c, 0xd9, 0xd1, 0x28, 0x0a, 0xdd, 0x6e, 0x18, 0x71, 0xc9, 0x49, 0x39, 0x74, 0x8c, 0x07, 0x63,
-	0xce, 0xc7, 0x3e, 0xdd, 0x45, 0x8d, 0x33, 0xf9, 0xb1, 0x4b, 0x83, 0x50, 0xde, 0x68, 0x03, 0x63,
-	0xc5, 0xe5, 0x41, 0xc0, 0x99, 0x3e, 0x99, 0xcf, 0x60, 0x63, 0xe8, 0x73, 0xf9, 0x6d, 0x12, 0x38,
-	0x34, 0xb2, 0xe8, 0xcf, 0x09, 0x15, 0x92, 0x74, 0x60, 0x69, 0xa8, 0x50, 0x4f, 0x8e, 0x3b, 0xa5,
-	0x47, 0xa5, 0x27, 0x55, 0x2b, 0x39, 0x9a, 0x2f, 0xa0, 0x83, 0x62, 0xcf, 0x95, 0x1e, 0x67, 0x43,
-	0x19, 0x51, 0x3b, 0xb8, 0xdb, 0xeb, 0x4f, 0x09, 0xd6, 0x51, 0xee, 0x5f, 0xd9, 0x1e, 0xd3, 0xbe,
-	0xe4, 0x35, 0x34, 0x7a, 0xa3, 0xd1, 0x91, 0xcf, 0xdd, 0x6b, 0xad, 0x41, 0xaf, 0xfa, 0x3e, 0xe9,
-	0x86, 0x4e, 0x57, 0x6b, 0x92, 0x7b, 0x6b, 0xca, 0x92, 0x9c, 0x40, 0xf3, 0x93, 0xc7, 0x6c, 0xdf,
-	0xfb, 0x45, 0xf3, 0x00, 0x65, 0x04, 0xd8, 0xca, 0x00, 0x0a, 0x46, 0xd6, 0x3c, 0x1f, 0xf2, 0x1c,
-	0x96, 0x2f, 0xc3, 0x91, 0x2d, 0xe9, 0x85, 0x17, 0x76, 0x2a, 0x08, 0xd0, 0xcc, 0x00, 0xd2, 0x2b,
-	0x2b, 0xb3, 0x32, 0x0f, 0xa1, 0x51, 0xe4, 0x47, 0x76, 0xa0, 0x86, 0x42, 0xcc, 0xa0, 0xa1, 0x00,
-	0x30, 0x61, 0x1d, 0x58, 0x5f, 0x9a, 0x6f, 0xa1, 0x39, 0x87, 0x16, 0x21, 0x50, 0xfd, 0x6c, 0x8b,
-	0x2b, 0x4c, 0x7f, 0xc5, 0x42, 0x59, 0xe9, 0x54, 0x5b, 0x10, 0xaf, 0x6a, 0xa1, 0x6c, 0x3e, 0x86,
-	0xb5, 0x29, 0x52, 0xa9, 0x6b, 0x39, 0x73, 0x35, 0x3f, 0x00, 0x19, 0x50, 0x39, 0x94, 0xb6, 0xa4,
-	0xa7, 0xf4, 0x26, 0x69, 0xce, 0x3a, 0x54, 0x4e, 0xe9, 0x4d, 0x1c, 0x43, 0x89, 0xf9, 0x76, 0x95,
-	0x8b, 0xed, 0x7a, 0x0a, 0xcd, 0x02, 0x82, 0x08, 0x39, 0x13, 0x94, 0xb4, 0xa0, 0xf6, 0xdd, 0xf6,
-	0x27, 0x34, 0x06, 0xd1, 0x07, 0xf3, 0x0c, 0x36, 0x30, 0x0d, 0x15, 0x3b, 0x35, 0xdd, 0x86, 0xe5,
-	0x54, 0x19, 0x9b, 0x67, 0x0a, 0x75, 0x8b, 0xe0, 0x39, 0xea, 0x99, 0xc2, 0x7c, 0x05, 0x75, 0x95,
-	0x6e, 0x42, 0xbc, 0x05, 0x35, 0xe4, 0x15, 0xcf, 0x94, 0x3e, 0xcc, 0xad, 0x8f, 0x84, 0x36, 0xc6,
-	0x18, 0x50, 0x46, 0x23, 0x5b, 0x15, 0xea, 0xbf, 0x31, 0xc8, 0x5e, 0x36, 0x58, 0xa3, 0x23, 0x6a,
-	0xbb, 0x9c, 0x21, 0xc9, 0x0a, 0x92, 0x9c, 0x77, 0x65, 0x5a, 0xd0, 0xca, 0x3a, 0x3d, 0x9c, 0x38,
-	0x81, 0x27, 0x84, 0x9a, 0xab, 0x74, 0x24, 0x4a, 0x0b, 0x46, 0x22, 0x63, 0x56, 0xce, 0x31, 0x33,
-	0x7f, 0x97, 0xa0, 0x75, 0x1e, 0xf1, 0x90, 0x0b, 0xdb, 0xef, 0x31, 0xc6, 0x27, 0xcc, 0xa5, 0x01,
-	0x65, 0x0b, 0x9e, 0x18, 0xd9, 0x81, 0xd5, 0x7e, 0xc4, 0x85, 0xf0, 0x3d, 0x76, 0x9d, 0xcb, 0xaa,
-	0xa8, 0x2c, 0xf6, 0xa5, 0xb2, 0xb0, 0x2f, 0xd5, 0xa9, 0xbe, 0x10, 0x13, 0x56, 0x12, 0x4e, 0x18,
-	0xa0, 0x86, 0x01, 0x0a, 0x3a, 0xf3, 0x00, 0xb6, 0x90, 0xd0, 0x25, 0x13, 0x13, 0x47, 0xb8, 0x91,
-	0xe7, 0xd0, 0xbb, 0xb7, 0x03, 0x03, 0x03, 0xc5, 0x8b, 0xc8, 0x66, 0xc2, 0xd6, 0x8b, 0x25, 0xab,
-	0xe3, 0xed, 0x29, 0x1f, 0x42, 0x3d, 0xe7, 0x12, 0x3f, 0xbd, 0x56, 0x5a, 0xe7, 0xdc, 0x9d, 0x95,
-	0x37, 0xdc, 0xff, 0x5b, 0x85, 0xfb, 0x68, 0x61, 0x9d, 0xf7, 0xc9, 0x31, 0xac, 0x27, 0x15, 0x4e,
-	0x32, 0x21, 0x1d, 0x85, 0x31, 0xaf, 0xfe, 0x46, 0xbb, 0xab, 0x37, 0x6b, 0x37, 0xd9, 0xac, 0xdd,
-	0x8f, 0x6a, 0xb3, 0x92, 0x37, 0xf8, 0xe6, 0xd2, 0x4a, 0xf6, 0x24, 0x56, 0x7b, 0x0d, 0xb9, 0x64,
-	0xb3, 0x6c, 0x6c, 0x2a, 0xc5, 0xec, 0x6b, 0xe9, 0xc3, 0x66, 0x3c, 0xb3, 0x7a, 0x23, 0x5c, 0xd0,
-	0x20, 0xf4, 0x6d, 0x49, 0x89, 0x91, 0xda, 0xcf, 0xcc, 0xb4, 0x31, 0x35, 0x50, 0xe4, 0x3d, 0xd4,
-	0xb1, 0x6a, 0x9a, 0x85, 0xce, 0x61, 0xde, 0x60, 0xde, 0x9a, 0xc3, 0x3b, 0xa8, 0xe7, 0x5e, 0x3d,
-	0x69, 0x2b, 0x80, 0xd9, 0x45, 0x62, 0x6c, 0xcd, 0xe8, 0xe3, 0x2c, 0x06, 0xb0, 0x36, 0xa0, 0x32,
-	0xff, 0x31, 0x90, 0xed, 0x94, 0xc4, 0x9c, 0xff, 0xc2, 0xc8, 0x5a, 0x95, 0xfb, 0x16, 0xf6, 0x4a,
-	0xe4, 0x4c, 0x95, 0x43, 0x7e, 0xf1, 0x84, 0xa4, 0xcc, 0x63, 0xe3, 0xde, 0x68, 0x14, 0x51, 0x21,
-	0xa8, 0x20, 0xb7, 0x30, 0x37, 0x1e, 0x2a, 0xa0, 0x59, 0xfb, 0x94, 0xd9, 0x4b, 0x58, 0xea, 0x73,
-	0xc6, 0xa8, 0x2b, 0x09, 0x7e, 0x2e, 0xf1, 0xe1, 0x2b, 0x15, 0xc2, 0x1e, 0xd3, 0x05, 0x05, 0x59,
-	0x55, 0x79, 0xa6, 0xbf, 0x23, 0xd9, 0x4c, 0xfa, 0x59, 0xf8, 0x2d, 0x8d, 0xf6, 0xb4, 0x5a, 0x87,
-	0x75, 0xee, 0x21, 0xde, 0xc1, 0xbf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x2d, 0xef, 0x42, 0x4e, 0xa2,
-	0x07, 0x00, 0x00,
 }

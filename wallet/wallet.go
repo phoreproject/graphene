@@ -22,14 +22,14 @@ type KeyInfo struct {
 
 // Wallet is a wallet that keeps track of basic balances for addresses and allows sending/receiving of money.
 type Wallet struct {
-	RPCClient pb.ShardRPCClient
+	RPCClient pb.RelayerRPCClient
 	Keystore  map[address.Address]*KeyInfo
 }
 
 // NewWallet creates a new wallet using a shard connection.
 func NewWallet(conn *grpc.ClientConn) Wallet {
 	return Wallet{
-		RPCClient: pb.NewShardRPCClient(conn),
+		RPCClient: pb.NewRelayerRPCClient(conn),
 		Keystore:  make(map[address.Address]*KeyInfo),
 	}
 }

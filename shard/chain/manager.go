@@ -42,13 +42,13 @@ type ShardManager struct {
 	InitializationParameters ShardChainInitializationParameters
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
-	BlockDB db.ShardBlockDatabase
-	SyncManager *ShardSyncManager
+	BlockDB                  db.ShardBlockDatabase
+	SyncManager              *ShardSyncManager
 
-	stateDB                  csmt.TreeDatabase
-	shardInfo                execution.ShardInfo
+	stateDB   csmt.TreeDatabase
+	shardInfo execution.ShardInfo
 
-	notifees []ShardChainActionNotifee
+	notifees     []ShardChainActionNotifee
 	notifeesLock sync.Mutex
 }
 
@@ -63,17 +63,16 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		ShardID:     uint32(shardID),
 	}
 
-
 	sm := &ShardManager{
 		ShardID:                  shardID,
 		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
-		shardInfo: shardInfo,
-		stateDB: stateDB,
-		notifees: []ShardChainActionNotifee{},
-		BlockDB: db.NewMemoryBlockDB(),
+		shardInfo:                shardInfo,
+		stateDB:                  stateDB,
+		notifees:                 []ShardChainActionNotifee{},
+		BlockDB:                  db.NewMemoryBlockDB(),
 	}
 
 	syncManager, err := NewShardSyncManager(hn, sm, shardID)
@@ -160,8 +159,8 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 	h, _ := ssz.HashTreeRoot(block)
 
 	logrus.WithFields(logrus.Fields{
-		"slot": block.Header.Slot,
-		"hash": chainhash.Hash(h),
+		"slot":    block.Header.Slot,
+		"hash":    chainhash.Hash(h),
 		"shardID": sm.ShardID,
 	}).Debug("processing block")
 

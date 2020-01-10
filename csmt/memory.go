@@ -224,7 +224,7 @@ func (i *InMemoryTreeTX) Get(k chainhash.Hash) (*chainhash.Hash, error) {
 	if v, found := i.store[k]; found {
 		return &v, nil
 	}
-	return nil, nil
+	return &chainhash.Hash{}, nil
 }
 
 // Set sets a value in the key-value store.

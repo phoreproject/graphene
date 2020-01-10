@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"flag"
@@ -31,11 +31,11 @@ func exit(b *prompt.Buffer) {
 }
 
 func main() {
-	shardHost := flag.String("shardhost", "localhost:11783", "host of shard module to connect to")
+	relayerHost := flag.String("relayerhost", "localhost:11786", "host of shard module to connect to")
 
 	flag.Parse()
 
-	c, err := grpc.Dial(*shardHost, grpc.WithInsecure())
+	c, err := grpc.Dial(*relayerHost, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}

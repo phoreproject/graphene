@@ -61,14 +61,14 @@ func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash c
 	}
 }
 
-func (s *ShardMempool) getTipState() csmt.TreeDatabase {
+func (s *ShardMempool) GetTipState() csmt.TreeDatabase {
 	s.stateLock.RLock()
 	defer s.stateLock.RUnlock()
 	return s.tipDB.db
 }
 
 func (s *ShardMempool) check(tx []byte) error {
-	treeCache, err := csmt.NewTreeMemoryCache(s.getTipState())
+	treeCache, err := csmt.NewTreeMemoryCache(s.GetTipState())
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 			return err
 		}
 
-		logrus.WithField("block hash", toFinalizeHash).Info("finalize block action")
+		logrus.WithField("block hash", toFinalizeHash).Debug("finalize block action")
 
 		// first, let's start at the tip and commit everything
 		finalizeNode, found := s.stateMap[*toFinalizeHash]
@@ -225,7 +225,7 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 
 // GetCurrentRoot gets the current root of the mempool.
 func (s *ShardMempool) GetCurrentRoot() (*chainhash.Hash, error) {
-	return s.getTipState().Hash()
+	return s.GetTipState().Hash()
 }
 
 // GetTransactions gets transactions to include.
@@ -236,12 +236,12 @@ func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPac
 
 	totalBytes := 0
 
-	startRoot, err := s.getTipState().Hash()
+	startRoot, err := s.GetTipState().Hash()
 	if err != nil {
 		return nil, err
 	}
 
-	packageTreeCache, err := csmt.NewTreeMemoryCache(s.getTipState())
+	packageTreeCache, err := csmt.NewTreeMemoryCache(s.GetTipState())
 	if err != nil {
 		return nil, err
 	}

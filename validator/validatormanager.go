@@ -194,6 +194,8 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 	}
 
 	if vm.epochIndex != int64(slotNumber/vm.config.EpochLength) {
+		proposalSlots := make(map[uint64][]uint64)
+
 		// go through each committee in the current epoch
 		for _, slotCommittees := range ei.slots[vm.config.EpochLength:] {
 			for _, committee := range slotCommittees {
@@ -204,6 +206,11 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 					proposer := committee.Committee[int(slot+1)%len(committee.Committee)]
 
 					if _, found := vm.validatorMap[proposer]; found {
+						if _, found := proposalSlots[committee.Shard]; !found {
+							proposalSlots[committee.Shard] = []uint64{uint64(slot)}
+						} else {
+							proposalSlots[committee.Shard] = append(proposalSlots[committee.Shard], uint64(slot))
+						}
 						vm.toPropose[uint64(slot)] = append(vm.toPropose[uint64(slot)], SlotProposalAssignment{
 							Shard:     committee.Shard,
 							Validator: proposer,
@@ -218,34 +225,39 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 
 		// find the committee pertaining to that shard
 		for s := 0; uint64(s) < vm.config.EpochLength; s++ {
-			// slot relative to earliest slot
-			slot := int64(s) + ei.earliestSlot + int64(vm.config.EpochLength) + 1
-
 			slotIndex := vm.config.EpochLength + uint64(s)
 			for i := range ei.slots[slotIndex] {
 				slotCommittee := ei.slots[slotIndex][i]
 
-				propserNonshuffling := slotCommittee.Committee[int(slot)%len(slotCommittee.Committee)]
-
-				slotNextCommittee := ei.slotsNextShuffling[s][i]
-				proposerShuffling := slotNextCommittee.Committee[int(slot)%len(slotNextCommittee.Committee)]
-
-				if _, found := vm.validatorMap[propserNonshuffling]; found {
-					shardsToSubscribe[slotCommittee.Shard] = struct{}{}
+				for _, s := range slotCommittee.Committee {
+					if _, found := vm.validatorMap[s]; found {
+						shardsToSubscribe[slotCommittee.Shard] = struct{}{}
+						break
+					}
 				}
 
-				if _, found := vm.validatorMap[proposerShuffling]; found {
-					shardsToSubscribe[slotNextCommittee.Shard] = struct{}{}
+				slotNextCommittee := ei.slotsNextShuffling[s][i]
+
+				for _, s := range slotNextCommittee.Committee {
+					if _, found := vm.validatorMap[s]; found {
+						shardsToSubscribe[slotNextCommittee.Shard] = struct{}{}
+						break
+					}
 				}
 			}
 		}
 
 		for shardID := range shardsToSubscribe {
+			var shardSlots []uint64
+			if _, found := proposalSlots[shardID]; found {
+				shardSlots = proposalSlots[shardID]
+			}
 			_, err := vm.shardRPC.AnnounceProposal(context.Background(), &pb.ProposalAnnouncement{
 				ShardID:       shardID,
 				CrosslinkSlot: ei.latestCrosslinks[shardID].Slot,
 				BlockHash:     ei.latestCrosslinks[shardID].ShardBlockHash[:],
 				StateHash:     ei.latestCrosslinks[shardID].ShardStateHash[:],
+				ProposalSlots: shardSlots,
 			})
 			if err != nil {
 				return err

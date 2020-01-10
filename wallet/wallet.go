@@ -41,16 +41,16 @@ func (w *Wallet) RedeemPremine(to address.Address) error {
 		return err
 	}
 
-	_ = transfer.RedeemTransaction{
+	tx := transfer.RedeemTransaction{
 		ToPubkeyHash: toPkh,
 	}
 
-	//_, err = w.RPCClient.SubmitTransaction(context.Background(), &pb.ShardTransactionSubmission{
-	//	ShardID: 0,
-	//	Transaction: &pb.ShardTransaction{
-	//		TransactionData: tx.Serialize(),
-	//	},
-	//})
+	_, err = w.RPCClient.SubmitTransaction(context.Background(), &pb.SubmitTransactionRequest{
+		ShardID: 0,
+		Transaction: &pb.ShardTransaction{
+			TransactionData: tx.Serialize(),
+		},
+	})
 
 	return err
 }
@@ -87,21 +87,21 @@ func (w *Wallet) SendToAddress(from address.Address, to address.Address, amount 
 		return fmt.Errorf("could not find key for address: %s", from)
 	}
 
-	_, err := key.keypair.Transfer(0, key.CurrentNonce, to, amount)
+	st, err := key.keypair.Transfer(0, key.CurrentNonce, to, amount)
 	if err != nil {
 		return err
 	}
 
-	//_, err = w.RPCClient.SubmitTransaction(context.Background(), &pb.ShardTransactionSubmission{
-	//	ShardID: 0,
-	//	Transaction: &pb.ShardTransaction{
-	//		TransactionData: st.Serialize(),
-	//	},
-	//})
+	_, err = w.RPCClient.SubmitTransaction(context.Background(), &pb.SubmitTransactionRequest{
+		ShardID: 0,
+		Transaction: &pb.ShardTransaction{
+			TransactionData: st.Serialize(),
+		},
+	})
 
-	//if err != nil {
-	//	return err
-	//}
+	if err != nil {
+		return err
+	}
 
 	w.Keystore[from].CurrentNonce++
 

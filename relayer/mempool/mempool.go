@@ -61,6 +61,7 @@ func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash c
 	}
 }
 
+// GetTipState gets the state at the current tip.
 func (s *ShardMempool) GetTipState() csmt.TreeDatabase {
 	s.stateLock.RLock()
 	defer s.stateLock.RUnlock()
@@ -85,6 +86,9 @@ func (s *ShardMempool) Add(tx []byte) error {
 	txHash := chainhash.HashH(tx)
 	s.mempoolLock.Lock()
 	defer s.mempoolLock.Unlock()
+
+	logrus.WithField("hash", txHash).Info("adding new transaction to mempool")
+
 	if _, found := s.mempool[txHash]; found {
 		logrus.WithField("hash", txHash).Debug("transaction already exists")
 

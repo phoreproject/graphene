@@ -60,7 +60,6 @@ func (r *RelayerSyncManager) onGetPackagesMessage(msg []byte, id peer.ID) {
 
 	// ignore requests where the state root differs
 	if !bytes.Equal(getPackageMessage.TipStateRoot, root[:]) {
-		logrus.Warn(err)
 		return
 	}
 

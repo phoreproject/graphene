@@ -8,8 +8,9 @@ class BlockController extends Controller {
 
 	viewBlockDetail(request, response) {
 		const urlQueries = request.query;
-		const hash = urlQueries.hash;
-		this.getDatabase().select().from('blocks').whereRaw('hex(hash) = ?', [ hash ]).then((blockList) => {
+		let hash = urlQueries.hash;
+		hash = '\\x' + hash;
+		this.getDatabase().select().from('blocks').whereRaw("hash = ?", [ hash ]).then((blockList) => {
 			if(blockList.length === 0) {
 				this.send404(response);
 			}

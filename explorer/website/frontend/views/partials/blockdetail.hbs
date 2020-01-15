@@ -1,3 +1,4 @@
+<!--
 Hash: {{ block.hash }} <br />
 Signature: {{ block.signature }} <br />
 Height: {{ block.height }} <br />
@@ -7,3 +8,140 @@ Proposer: {{ block.proposer }} <br />
 Parent hash: {{ block.parent_block_hash }} <br />
 State root: {{ block.state_root }} <br />
 Randao reveal: {{ block.randao_reveal }} <br />
+-->
+
+<div class="container">
+    <div class="grid-container">
+        <div class="grid-x grid-padding-x">
+            <div class="large-12 cell">
+
+                <h1 class="item-title">Beacon Block <strong>#{{ block.height }}</strong></h1>
+
+                <ul class="item-detail-list">
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Slot
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                {{ block.slot }}
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                State Root
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                {{ block.state_root }}
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Parent Root
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                {{ block.parent_block_hash }}
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Signature
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                <a href="#">{{ block.signature }}</a>
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Deposit Root
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                Not Exited (N/A)
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Deposit Count
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                264 (N/A)
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Block Hash
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                {{ block.hash }}
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Proposer Slashings
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                0 (N/A)
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Attester Slashings
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                0 (N/A)
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Randao Reveal
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                {{ block.randao_reveal }}
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Deposits
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                0 (N/A)
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="grid-x">
+                            <div class="large-4 cell item-detail-title">
+                                Voluntary Exits
+                            </div>
+                            <div class="large-8 cell item-detail-content">
+                                0 (N/A)
+                            </div>
+                        </div>
+                    </li>
+
+                </ul>
+
+            </div>
+        </div>
+    </div>
+</div>

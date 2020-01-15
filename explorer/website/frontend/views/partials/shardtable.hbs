@@ -1,0 +1,51 @@
+<table id="shardTable" class="" style="width:100%">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Shard ID</th>
+            <th>Hash</th>
+            <th>Root Slot</th>
+            <th>Genesis</th>
+        </tr>
+    </thead>
+</table>
+
+<script>
+function initShardTable()
+{
+	$('#shardTable').DataTable(createTableOptions({
+		serverSide : true,
+		ordering: false,
+		ajax : {
+			url: "{{ url '/api/shards' }}",
+		},
+		columns : [
+			{
+				data : 'id'
+			},
+			{
+				data : 'shard_id',
+			},
+			{
+				data : 'root_block_hash',
+			},
+			{
+				data : 'root_slot',
+			},
+			{
+				data : 'genesis_time',
+			},
+		],
+		columnDefs: [
+			{ orderable: false, targets: 0 },
+			{ className: "dt-right", targets: [ 0, 1, 2 ] },
+			//{ className: "dt-left", targets: 1 },
+			{ responsivePriority: 1, targets: 0 },
+			{ responsivePriority: 2, targets: 1 },
+		],
+	}));
+}
+
+$(initShardTable);
+
+</script>

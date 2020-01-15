@@ -1,0 +1,56 @@
+<table id="validatorTable" class="" style="width:100%">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Public key</th>
+            <th>Validator ID</th>
+            <th>Validator hash</th>
+        </tr>
+    </thead>
+</table>
+
+<script>
+function initValidatorTable()
+{
+	$('#validatorTable').DataTable(createTableOptions({
+		serverSide : true,
+		ordering: false,
+		ajax : {
+			url: "{{ url '/api/validators' }}",
+		},
+		columns : [
+			{
+				data : 'id'
+			},
+			{
+				data : 'pubkey',
+				render : function(data, type, row, meta) {
+					if(type !== 'display') return data;
+					return util.shortenStringWithEllipsis(data);
+				}
+			},
+			{
+				data : 'validator_id',
+			},
+			{
+				data : 'validator_hash',
+				render : function(data, type, row, meta) {
+					if(type !== 'display') return data;
+					return data;
+					return sprintf('<a href="/validator?hash=%s">%s</a>', data, data);
+				}
+			},
+		],
+		columnDefs: [
+			{ orderable: false, targets: 0 },
+			{ className: "dt-right", targets: [ 0, 1, 2 ] },
+			//{ className: "dt-left", targets: 1 },
+			{ responsivePriority: 1, targets: 0 },
+			{ responsivePriority: 2, targets: 1 },
+		],
+	}));
+}
+
+$(initValidatorTable);
+
+</script>

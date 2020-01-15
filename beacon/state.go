@@ -76,6 +76,11 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	initialJustifiedEpoch := initialState.JustifiedEpoch
 	initialFinalizedEpoch := initialState.FinalizedEpoch
 
+	if (block.BlockHeader.SlotNumber+(b.config.EpochLength-1))/b.config.EpochLength >= initialState.EpochIndex+3 {
+		logger.Debugf("block epoch is too far from parent")
+		return nil, nil, errors.New("block epoch is too far from parent")
+	}
+
 	receipts, newState, err := b.AddBlockToStateMap(block, verifySignature)
 	if err != nil {
 		return nil, nil, err

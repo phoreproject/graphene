@@ -1,0 +1,35 @@
+.width-100 {
+	width: 100%;
+}
+
+.header-search {
+    margin-bottom:0;
+    border-radius:0.5rem;
+    height:3rem;
+}
+
+.container {
+    padding:8rem 0;
+}
+
+.top-bar-container {
+    h1 {
+        margin-bottom:0;
+    }
+}
+
+.item-title {
+    margin-bottom:4rem;
+}
+.item-detail-list {
+    list-style:none;
+    margin:0;
+    li {
+        border-bottom:1px solid whitesmoke;
+        padding:1rem 0;
+    }
+    .item-detail-title {
+        text-transform:uppercase;
+    }
+}
+

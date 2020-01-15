@@ -3,6 +3,7 @@ package primitives
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/pkg/errors"
@@ -1150,6 +1151,8 @@ type BlockView interface {
 func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]Receipt, error) {
 	var receipts []Receipt
 
+	//initialSlot := s.Slot
+
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
@@ -1158,6 +1161,7 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]R
 				return nil, err
 			}
 
+			//fmt.Printf("ProcessSlots...,   ProcessEpochTransition lenOfEpochReceipts=%d s.Slot=%d c.EpochLength=%d\n", len(epochReceipts), s.Slot, c.EpochLength)
 			receipts = append(receipts, epochReceipts...)
 		}
 
@@ -1173,6 +1177,35 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]R
 
 		view.SetTipSlot(s.Slot)
 	}
+
+	/* stats code for test the memory usage, will remove it after we fix the memory usage.
+	statsMap := map[uint32]uint32{}
+	for _, r := range receipts {
+		index := r.Index
+		_, found := statsMap[index]
+		if found {
+			statsMap[index]++
+		} else {
+			statsMap[index] = 1
+		}
+	}
+	validatorCount := uint32(0)
+	maxDuplicatedCount := uint32(0)
+	minDuplicatedCount := uint32(99999999)
+	for _, v := range statsMap {
+		validatorCount++
+		if v > maxDuplicatedCount {
+			maxDuplicatedCount = v
+		}
+		if v < minDuplicatedCount {
+			minDuplicatedCount = v
+		}
+	}
+
+	//fmt.Printf("ProcessSlots s.Slot=%d upTo=%d lenOfReceipts=%d validatorCount=%d maxDuplicatedCount=%d minDuplicatedCount=%d, below is the stack trace\n",
+	//	initialSlot, upTo, len(receipts), validatorCount, maxDuplicatedCount, minDuplicatedCount)
+	//debug.PrintStack()
+	*/
 
 	return receipts, nil
 }

@@ -1,0 +1,41 @@
+<div class="container">
+	<div class="grid-container">
+	<div class="grid-x grid-padding-x">
+		<div class="large-12 cell">
+			<ul class="tabs" data-tabs id="example-tabs">
+				<li class="tabs-title is-active"><a href="#panel1" aria-selected="true">Beacon Blocks</a></li>
+				<li class="tabs-title"><a data-tabs-target="panel2" href="#panel2">Validators</a></li>
+				<li class="tabs-title"><a data-tabs-target="panel3" href="#panel3">Shards</a></li>
+				<li class="tabs-title"><a data-tabs-target="panel4" href="#panel4">Governance</a></li>
+			</ul>
+			
+			<div class="tabs-content" data-tabs-content="example-tabs">
+				<div class="tabs-panel is-active" id="panel1">
+					<h1>Beacon Blocks</h1>
+
+					{{> blocktable }}
+
+				</div>
+
+				<div class="tabs-panel" id="panel2">
+					<h1>Validators</h1>
+
+					{{> validatortable }}
+				</div>
+
+				<div class="tabs-panel" id="panel3">
+					<h1>Shards</h1>
+
+					{{> shardtable }}
+				</div>
+
+				<div class="tabs-panel" id="panel4">
+					<h1>Governance</h1>
+
+					<p>Content for Governance goes here</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	</div>
+</div>

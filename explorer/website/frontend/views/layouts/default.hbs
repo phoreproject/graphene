@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+	<meta name="renderer" content="webkit"/>
+	<meta name="force-rendering" content="webkit"/>
+
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+	<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no' name='viewport' />
+
+    <meta charset="UTF-8">
+
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+
+	<script src="{{ url 'js/app.js' }}"></script>
+	<link href="{{ url 'css/app.css' }} " rel="stylesheet" type="text/css">
+
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/foundation-sites@6.5.3/dist/css/foundation.min.css" crossorigin="anonymous">
+	<script src="https://cdn.jsdelivr.net/npm/foundation-sites@6.5.3/dist/js/foundation.min.js"></script>
+
+    <title>{{ title }}</title>
+</head>
+<body>
+
+<header class="top-bar-container">
+	<div class="grid-x grid-padding-x align-middle">
+		<div class="cell auto">
+			<h1>Synapse</h1>
+			<small>Block Explorer</small>
+		</div>
+		<div class="cell medium-8">
+			<div class="grid-container">
+			<div class="grid-x grid-padding-x">
+			<div class="large-12 cell">
+            <input class="header-search" type="search" placeholder="Search address, block, transaction, tag…">
+			</div>
+			</div>
+			</div>  
+		</div>
+		<div class="cell auto">
+			<ul class="menu align-right">
+			<li><a href="#">Api</a></li>
+			<li><a href="#">About</a></li>
+			</ul>
+		</div>
+	</div>
+</header>
+
+
+{{{body}}}
+
+<footer>
+    <div class="grid-x grid-padding-x align-top">
+         <div class="cell shrink">
+                  <h4>Synapse</h4>
+                  <ul class="menu vertical">
+                      <li><a href="#">About</a></li>
+                      <li><a href="#">Business</a></li>
+                    </ul>
+                </div>
+                <div class="cell shrink">
+                    <h4>Services</h4>
+                    <ul class="menu vertical">
+                        <li><a href="#">Explorer</a></li>
+                        <li><a href="#">Nodes</a></li>
+                        <li><a href="#">Devnet</a></li>
+                      </ul>
+                  </div>
+                  <div class="cell shrink">
+                      <h4>Statistics</h4>
+                      <ul class="menu vertical">
+                          <li><a href="#">Richlist</a></li>
+                          <li><a href="#">Distribution</a></li>
+                        </ul>
+                    </div>
+                    <div class="cell auto">
+                        <ul class="menu align-right">
+                            <li><a href="#">English</a></li>
+                            <li><a href="#">Deutsch</a></li>
+                            <li><a href="#">French</a></li>
+                            <li><a href="#">Spanish</a></li>
+                            <li><a href="#">Portuguese</a></li>
+                            <li><a href="#">Japanese</a></li>
+                            <li><a href="#">Chinese</a></li>
+                            
+                          </ul>
+                      </div>
+      </div>
+</footer>
+
+
+</body>
+</html>

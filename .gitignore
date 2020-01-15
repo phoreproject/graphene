@@ -17,3 +17,5 @@ integration
 
 .idea
 validators.pubs
+node_modules
+*.temp.*

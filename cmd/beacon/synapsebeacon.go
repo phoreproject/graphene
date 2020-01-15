@@ -6,9 +6,20 @@ import (
 	"github.com/phoreproject/synapse/cfg"
 	"github.com/phoreproject/synapse/utils"
 	logger "github.com/sirupsen/logrus"
+	/*
+		Uncomment to enable memory profiling. To use it, run synapsebeacon, then
+		  curl -sK -v http://localhost:9000/debug/pprof/heap > heap
+		  go tool pprof heap
+		or to see all allocated memory
+		  go tool pprof --alloc_space heap
+		in go pprof, use 'top' command to see the top memory usage
+	*///"net/http"
+	//_ "net/http/pprof"
 )
 
 func main() {
+	//go http.ListenAndServe("localhost:9000", nil)
+
 	beaconConfig := config.Options{}
 	globalConfig := cfg.GlobalOptions{}
 	err := cfg.LoadFlags(&beaconConfig, &globalConfig)

@@ -253,6 +253,16 @@ func (app *BeaconApp) GetHostNode() *p2p.HostNode {
 	return app.hostNode
 }
 
+// GetBlockchain gets the block chain
+func (app *BeaconApp) GetBlockchain() *beacon.Blockchain {
+	return app.blockchain
+}
+
+// GetSyncManager gets the syncManager
+func (app *BeaconApp) GetSyncManager() *beacon.SyncManager {
+	return &app.syncManager
+}
+
 // Load user config from configure file
 func (app *BeaconApp) loadConfig() error {
 	return nil

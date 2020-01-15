@@ -29,7 +29,7 @@ type Validator struct {
 type Attestation struct {
 	gorm.Model
 
-	ParticipantHashes   []byte
+	ParticipantHashes   []byte `gorm:"size:16384"`
 	Signature           []byte `gorm:"size:48"`
 	Slot                uint64
 	Shard               uint64
@@ -48,14 +48,20 @@ type Attestation struct {
 type Block struct {
 	gorm.Model
 
-	Proposer        []byte `gorm:"size:32"`
-	ParentBlockHash []byte `gorm:"size:32"`
-	StateRoot       []byte `gorm:"size:32"`
-	RandaoReveal    []byte `gorm:"size:48"`
-	Signature       []byte `gorm:"size:48"`
-	Hash            []byte `gorm:"size:32"`
-	Height          uint64
-	Slot            uint64
+	Proposer          []byte `gorm:"size:32"`
+	ParentBlockHash   []byte `gorm:"size:32"`
+	StateRoot         []byte `gorm:"size:32"`
+	RandaoReveal      []byte `gorm:"size:48"`
+	Signature         []byte `gorm:"size:48"`
+	Hash              []byte `gorm:"size:32"`
+	Height            uint64
+	Slot              uint64
+	Attestations      uint32
+	ProposerSlashings uint32
+	CasperSlashings   uint32
+	Deposits          uint32
+	Exits             uint32
+	Votes             uint32
 }
 
 // Transaction is a slashing or reward on the beacon chain.
@@ -73,7 +79,7 @@ type Assignment struct {
 	gorm.Model
 
 	Shard           uint64
-	CommitteeHashes []byte
+	CommitteeHashes []byte `gorm:"size:16384"`
 	Slot            uint64
 }
 
@@ -83,6 +89,27 @@ type Epoch struct {
 
 	StartSlot  uint64
 	Committees []Assignment
+}
+
+// Shard is the shard information
+type Shard struct {
+	gorm.Model
+
+	ShardID       uint64
+	RootBlockHash []byte `gorm:"size:32"`
+	RootSlot      uint64
+	GenesisTime   uint64
+}
+
+// ShardBlock is the shard block information
+type ShardBlock struct {
+	gorm.Model
+
+	ShardID       uint64
+	BlockHash     []byte `gorm:"size:32"`
+	StateRootHash []byte `gorm:"size:32"`
+	Slot          uint64
+	Height        uint64
 }
 
 // Database is the database used to store information about the blockchain.
@@ -116,6 +143,14 @@ func NewDatabase(db *gorm.DB) *Database {
 		panic(err)
 	}
 	if err := db.AutoMigrate(&Epoch{}).Error; err != nil {
+		panic(err)
+	}
+
+	if err := db.AutoMigrate(&Shard{}).Error; err != nil {
+		panic(err)
+	}
+
+	if err := db.AutoMigrate(&ShardBlock{}).Error; err != nil {
 		panic(err)
 	}
 

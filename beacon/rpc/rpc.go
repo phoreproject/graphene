@@ -2,8 +2,9 @@ package rpc
 
 import (
 	"fmt"
-	"github.com/prysmaticlabs/go-ssz"
 	"net"
+
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
+	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/phoreproject/synapse/primitives"
@@ -176,6 +178,13 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
 
+	if in.EpochIndex > s.chain.GetCurrentSlot()/s.chain.GetConfig().EpochLength-3 {
+		return &pb.EpochInformationResponse{
+			HasEpochInformation: false,
+			Information:         nil,
+		}, nil
+	}
+
 	requestedEpochSlot := uint64(in.EpochIndex) * s.chain.GetConfig().EpochLength
 
 	if requestedEpochSlot > state.Slot {
@@ -332,6 +341,13 @@ func (s *server) GetValidatorInformation(ctx context.Context, in *pb.GetValidato
 	validator := state.ValidatorRegistry[in.ID]
 
 	return validator.ToProto(), nil
+}
+
+// GetConfigHash gets the config hash
+func (s *server) GetConfigHash(ctx context.Context, in *empty.Empty) (*pb.GetConfigHashResponse, error) {
+	return &pb.GetConfigHashResponse{
+		Hash: config.HashConfig(s.chain.GetConfig()),
+	}, nil
 }
 
 // Serve serves the RPC server

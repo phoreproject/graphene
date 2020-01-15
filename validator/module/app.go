@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
 	beaconconfig "github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/phoreproject/synapse/validator/config"
@@ -14,6 +15,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	logger "github.com/sirupsen/logrus"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/validator"
 )
 
@@ -74,6 +76,15 @@ func (v *ValidatorApp) Run() error {
 	shardRPC := pb.NewShardRPCClient(v.config.ShardConn)
 
 	keystore := validator.NewRootKeyStore(v.config.RootKey)
+
+	hashConfigResponse, err := blockchainRPC.GetConfigHash(v.ctx, &empty.Empty{})
+	if err != nil {
+		return err
+	}
+	validatorConfigHash := beaconconfig.HashConfig(v.config.NetworkConfig)
+	if bytes.Compare(validatorConfigHash, hashConfigResponse.Hash) != 0 {
+		return fmt.Errorf("Validator config doesn't match beacon config")
+	}
 
 	logger.Info("Checking validator public keys...")
 

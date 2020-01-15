@@ -181,15 +181,18 @@ func NewManager(ctx context.Context, blockchainRPC pb.BlockchainRPCClient, shard
 func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 	epochInformation, err := vm.blockchainRPC.GetEpochInformation(context.Background(), &pb.EpochInformationRequest{EpochIndex: slotNumber / vm.config.EpochLength})
 	if err != nil {
+		logrus.WithField("function", "UpdateEpochInformation").Errorf("GetEpochInformation error: %v", err)
 		return err
 	}
 
 	if !epochInformation.HasEpochInformation {
+		logrus.WithField("function", "UpdateEpochInformation").Errorf("epochInformation.HasEpochInformation is false")
 		return nil
 	}
 
 	ei, err := epochInformationFromProto(epochInformation.Information)
 	if err != nil {
+		logrus.WithField("function", "UpdateEpochInformation").Errorf("epochInformationFromProto error: %v", err)
 		return err
 	}
 
@@ -247,10 +250,13 @@ func (vm *Manager) UpdateEpochInformation(slotNumber uint64) error {
 				BlockHash:     ei.latestCrosslinks[shardID].ShardBlockHash[:],
 			})
 			if err != nil {
+				logrus.WithField("function", "UpdateEpochInformation").Errorf("SubscribeToShard error: %v", err)
 				return err
 			}
 		}
 	}
+
+	logrus.WithField("function", "UpdateEpochInformation").Info("vm.latestEpochInformation is updated")
 
 	vm.latestEpochInformation = *ei
 	vm.synced = true
@@ -264,6 +270,13 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 	earliestSlot := vm.latestEpochInformation.earliestSlot
 	logrus.WithField("slot", slotNumber).Debug("heard new slot")
 
+	if len(vm.latestEpochInformation.slots) == 0 {
+		return nil
+	}
+
+	if int(int64(slotNumber-1)-earliestSlot) >= len(vm.latestEpochInformation.slots) {
+		logrus.WithField("function", "NewSlot").WithField("slotNumber", slotNumber).WithField("earliestSlot", earliestSlot).WithField("len(vm.latestEpochInformation.slots)", len(vm.latestEpochInformation.slots)).Error("slotNumber is out of range for vm.latestEpochInformation.slots")
+	}
 	proposerSlotCommittees := vm.latestEpochInformation.slots[int64(slotNumber-1)-earliestSlot]
 
 	proposer := proposerSlotCommittees[0].Committee[(slotNumber-1)%uint64(len(proposerSlotCommittees[0].Committee))]

@@ -11,7 +11,6 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1"
 
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/shard/execution"
 )
 
 func TestTransferShard(t *testing.T) {
@@ -43,15 +42,15 @@ func TestTransferShard(t *testing.T) {
 
 	fromAddressHash := chainhash.HashH(append(shardBytes[:], pubkeyFrom[:]...))
 
-	storageHashPubkeyFrom := execution.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
+	storageHashPubkeyFrom := state.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
 
 	err = store.Update(func(a state.AccessInterface) error {
-		err = a.Set(storageHashPubkeyFrom, execution.Uint64ToHash(100))
+		err = a.Set(storageHashPubkeyFrom, state.Uint64ToHash(100))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		s, err := execution.NewShard(shardCode, []int64{8}, a, 0)
+		s, err := state.NewShard(shardCode, []int64{8}, a, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +76,7 @@ func TestTransferShard(t *testing.T) {
 
 		copy(txBytes.Signature[:], sigBytes)
 
-		txContext, err := execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+		txContext, err := state.LoadArgumentContextFromTransaction(txBytes.Serialize())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +119,7 @@ func TestTransferShard(t *testing.T) {
 
 		copy(txBytes.Signature[:], sigBytes)
 
-		txContext, err = execution.LoadArgumentContextFromTransaction(txBytes.Serialize())
+		txContext, err = state.LoadArgumentContextFromTransaction(txBytes.Serialize())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -134,16 +133,16 @@ func TestTransferShard(t *testing.T) {
 			t.Fatalf("function exited with zero exit code: %d", code)
 		}
 
-		fromStoragePath := execution.GetStorageHashForPath([]byte("balance"), make([]byte, 20))
+		fromStoragePath := state.GetStorageHashForPath([]byte("balance"), make([]byte, 20))
 
 		endAmount, _ := a.Get(fromStoragePath)
 
-		if execution.HashTo64(*endAmount) != 20 {
+		if state.HashTo64(*endAmount) != 20 {
 			t.Fatal("expected 10 PHR to be transferred to address 0")
 		}
 
 		endAmountFrom, _ := a.Get(storageHashPubkeyFrom)
-		if execution.HashTo64(*endAmountFrom) != 80 {
+		if state.HashTo64(*endAmountFrom) != 80 {
 			t.Fatal("expected 90 PHR to be left in old address")
 		}
 
@@ -187,7 +186,7 @@ func TestTransferShardRedeem(t *testing.T) {
 		var fromAddress [20]byte
 		copy(fromAddress[:], fromAddressHash[:20])
 
-		s, err := execution.NewShard(shardCode, []int64{8}, a, 0)
+		s, err := state.NewShard(shardCode, []int64{8}, a, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -196,7 +195,7 @@ func TestTransferShardRedeem(t *testing.T) {
 			ToPubkeyHash: fromAddress,
 		}
 
-		redeemCtx, err := execution.LoadArgumentContextFromTransaction(redeemTx.Serialize())
+		redeemCtx, err := state.LoadArgumentContextFromTransaction(redeemTx.Serialize())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -228,7 +227,7 @@ func TestTransferShardRedeem(t *testing.T) {
 
 		copy(tx.Signature[:], sigBytes)
 
-		txContext, err := execution.LoadArgumentContextFromTransaction(tx.Serialize())
+		txContext, err := state.LoadArgumentContextFromTransaction(tx.Serialize())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -242,17 +241,17 @@ func TestTransferShardRedeem(t *testing.T) {
 			t.Fatalf("function exited with non-zero exit code: %d", code)
 		}
 
-		toStoragePath := execution.GetStorageHashForPath([]byte("balance"), make([]byte, 20))
-		storageHashPubkeyFrom := execution.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
+		toStoragePath := state.GetStorageHashForPath([]byte("balance"), make([]byte, 20))
+		storageHashPubkeyFrom := state.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
 
 		endAmount, _ := a.Get(toStoragePath)
 
-		if execution.HashTo64(*endAmount) != 10 {
+		if state.HashTo64(*endAmount) != 10 {
 			t.Fatal("expected 10 PHR to be transferred to address 0")
 		}
 
 		endAmountFrom, _ := a.Get(storageHashPubkeyFrom)
-		if execution.HashTo64(*endAmountFrom) != 100000000-10 {
+		if state.HashTo64(*endAmountFrom) != 100000000-10 {
 			t.Fatal("expected 90 PHR to be left in old address")
 		}
 
@@ -314,17 +313,17 @@ func BenchmarkTransferShard(t *testing.B) {
 
 		copy(tx.Signature[:], sigBytes)
 
-		storageHashPubkeyFrom := execution.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
+		storageHashPubkeyFrom := state.GetStorageHashForPath([]byte("balance"), fromAddressHash[:20])
 
 		// manually set the balance of from
-		_ = a.Set(storageHashPubkeyFrom, execution.Uint64ToHash(10*uint64(t.N)))
+		_ = a.Set(storageHashPubkeyFrom, state.Uint64ToHash(10*uint64(t.N)))
 
-		txContext, err := execution.LoadArgumentContextFromTransaction(tx.Serialize())
+		txContext, err := state.LoadArgumentContextFromTransaction(tx.Serialize())
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		s, err := execution.NewShard(shardCode, []int64{8}, a, 0)
+		s, err := state.NewShard(shardCode, []int64{8}, a, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

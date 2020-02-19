@@ -1,9 +1,8 @@
-package execution
+package state
 
 import (
 	"encoding/hex"
 	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -26,9 +25,9 @@ func TestShard(t *testing.T) {
 	treeDB := csmt.NewInMemoryTreeDB()
 	tree := csmt.NewTree(treeDB)
 
-	store := state.NewFullShardState(tree)
+	store := NewFullShardState(tree)
 
-	err = store.Update(func(a state.AccessInterface) error {
+	err = store.Update(func(a AccessInterface) error {
 		s, err := NewShard(shardCode, []int64{2}, a, 0)
 		if err != nil {
 			t.Fatal(err)
@@ -74,9 +73,9 @@ func BenchmarkShardCall(b *testing.B) {
 	treeDB := csmt.NewInMemoryTreeDB()
 	tree := csmt.NewTree(treeDB)
 
-	store := state.NewFullShardState(tree)
+	store := NewFullShardState(tree)
 
-	err = store.Update(func(a state.AccessInterface) error {
+	err = store.Update(func(a AccessInterface) error {
 		s, err := NewShard(shardCode, []int64{2}, a, 0)
 		if err != nil {
 			b.Fatal(err)

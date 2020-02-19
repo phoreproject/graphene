@@ -5,7 +5,6 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/relayer/mempool"
-	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/wallet/keystore"
@@ -25,7 +24,7 @@ var premineKey, _ = keystore.KeypairFromHex("22a47fa09a223f2aa079edf85a7c2d4f872
 
 func TestShardMempoolAddNormal(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
-	shardInfo := execution.ShardInfo{
+	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
 		ShardID: 0,
 	}
@@ -39,7 +38,7 @@ func TestShardMempoolAddNormal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mempoolReturn, err := sm.GetTransactions(-1)
+	mempoolReturn, _, err := sm.GetTransactions(-1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +55,7 @@ func TestShardMempoolAddNormal(t *testing.T) {
 
 func TestShardMempoolAddInvalid(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
-	shardInfo := execution.ShardInfo{
+	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
 		ShardID: 0,
 	}
@@ -75,7 +74,7 @@ func TestShardMempoolAddInvalid(t *testing.T) {
 
 func TestShardMempoolAddConflicting(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
-	shardInfo := execution.ShardInfo{
+	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
 		ShardID: 0,
 	}
@@ -86,7 +85,7 @@ func TestShardMempoolAddConflicting(t *testing.T) {
 	stateTree := csmt.NewTree(stateDB)
 
 	err := stateTree.Update(func (tx csmt.TreeTransactionAccess) error {
-		_, err := execution.Transition(tx, premineTx, shardInfo)
+		_, err := state.Transition(tx, premineTx, shardInfo)
 		return err
 	})
 	if err != nil {
@@ -123,7 +122,7 @@ func TestShardMempoolAddConflicting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	txPackage, err := sm.GetTransactions(-1)
+	txPackage, _, err := sm.GetTransactions(-1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +138,7 @@ func TestShardMempoolAddConflicting(t *testing.T) {
 
 func TestShardMempoolWitnesses(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
-	shardInfo := execution.ShardInfo{
+	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
 		ShardID: 0,
 	}
@@ -150,7 +149,7 @@ func TestShardMempoolWitnesses(t *testing.T) {
 	stateTree := csmt.NewTree(stateDB)
 
 	err := stateTree.Update(func (tx csmt.TreeTransactionAccess) error {
-		_, err := execution.Transition(tx, premineTx, shardInfo)
+		_, err := state.Transition(tx, premineTx, shardInfo)
 		return err
 	})
 	if err != nil {
@@ -179,14 +178,14 @@ func TestShardMempoolWitnesses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pkg, err := sm.GetTransactions(-1)
+	pkg, _, err := sm.GetTransactions(-1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	partialState := state.NewPartialShardState(preState, pkg.Verifications, pkg.Updates)
 
-	outHash, err := execution.Transition(partialState, pkg.Transactions[0].TransactionData, shardInfo)
+	outHash, err := state.Transition(partialState, pkg.Transactions[0].TransactionData, shardInfo)
 	if err != nil {
 		t.Fatal(err)
 	}

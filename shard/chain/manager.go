@@ -12,7 +12,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/db"
-	"github.com/phoreproject/synapse/shard/execution"
+	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
@@ -45,8 +45,8 @@ type ShardManager struct {
 	BlockDB                  db.ShardBlockDatabase
 	SyncManager              *ShardSyncManager
 
-	stateDB   csmt.TreeDatabase
-	shardInfo execution.ShardInfo
+	stateManager *state.ShardStateManager
+	shardInfo    state.ShardInfo
 
 	notifees     []ShardChainActionNotifee
 	notifeesLock sync.Mutex
@@ -58,10 +58,11 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 	genesisBlock := primitives.GetGenesisBlockForShard(shardID)
 
 	stateDB := csmt.NewInMemoryTreeDB()
-	shardInfo := execution.ShardInfo{
+	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code, // TODO: this should be loaded dynamically instead of directly from the filesystem
 		ShardID:     uint32(shardID),
 	}
+
 
 	sm := &ShardManager{
 		ShardID:                  shardID,
@@ -70,7 +71,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
 		shardInfo:                shardInfo,
-		stateDB:                  stateDB,
+		stateManager:             state.NewShardStateManager(stateDB, init.RootSlot, init.RootBlockHash, shardInfo),
 		notifees:                 []ShardChainActionNotifee{},
 		BlockDB:                  db.NewMemoryBlockDB(),
 	}
@@ -132,6 +133,10 @@ func (sm *ShardManager) ListenForNewCrosslinks() {
 				n.FinalizeBlockHash(*crosslinkHash, newCrosslink.Slot)
 			}
 
+			if err := sm.stateManager.Finalize(*crosslinkHash, newCrosslink.Slot); err != nil {
+				logrus.Error(err, sm.InitializationParameters.RootBlockHash)
+				break
+			}
 			// TODO: also update fork choice with new crosslink
 		}
 	}()
@@ -140,7 +145,7 @@ func (sm *ShardManager) ListenForNewCrosslinks() {
 // GetKey gets a key from the current state.
 func (sm *ShardManager) GetKey(key chainhash.Hash) (*chainhash.Hash, error) {
 	var out *chainhash.Hash
-	err := sm.stateDB.View(func(tx csmt.TreeDatabaseTransaction) error {
+	err := sm.stateManager.GetTip().View(func(tx csmt.TreeDatabaseTransaction) error {
 		val, err := tx.Get(key)
 		if err != nil {
 			return err
@@ -159,9 +164,10 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 	h, _ := ssz.HashTreeRoot(block)
 
 	logrus.WithFields(logrus.Fields{
-		"slot":    block.Header.Slot,
-		"hash":    chainhash.Hash(h),
-		"shardID": sm.ShardID,
+		"slot":  block.Header.Slot,
+		"hash":  chainhash.Hash(h),
+		"shard": sm.ShardID,
+		"transactions": len(block.Body.Transactions),
 	}).Debug("processing block")
 
 	// first, let's make sure we have the parent block
@@ -170,29 +176,11 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 		return fmt.Errorf("missing parent block %s", block.Header.PreviousBlockHash)
 	}
 
-	transactions := make([][]byte, len(block.Body.Transactions))
-	for i := range transactions {
-		transactions[i] = block.Body.Transactions[i].TransactionData
-	}
-
-	databaseCache, err := csmt.NewTreeMemoryCache(sm.stateDB)
-	if err != nil {
-		return err
-	}
-
-	newStateRoot := &primitives.EmptyTree
-
-	tree := csmt.NewTree(databaseCache)
-	err = tree.Update(func(treeTx csmt.TreeTransactionAccess) error {
-		for _, txBytes := range transactions {
-			sr, err := execution.Transition(treeTx, txBytes, sm.shardInfo)
-			if err != nil {
-				return err
-			}
-			newStateRoot = sr
-		}
+	if sm.stateManager.Has(h) {
 		return nil
-	})
+	}
+
+	newStateRoot, err := sm.stateManager.Add(&block)
 	if err != nil {
 		return err
 	}
@@ -249,10 +237,6 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 		return errors.New("block signature was not valid")
 	}
 
-	if err := databaseCache.Flush(); err != nil {
-		return err
-	}
-
 	node, err := sm.Index.AddToIndex(block)
 	if err != nil {
 		return err
@@ -271,6 +255,9 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 	newTip := false
 	if node.Height > tipNode.Height || (node.Height == tipNode.Height && node.Slot > tipNode.Slot) {
 		sm.Chain.SetTip(node)
+		if err := sm.stateManager.SetTip(node.BlockHash); err != nil {
+			return err
+		}
 
 		newTip = true
 	}

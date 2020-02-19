@@ -3,6 +3,7 @@ package p2p
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -42,8 +43,6 @@ func RelayerSyncProtocol(shardNumber uint64, version uint64) protocol.ID {
 }
 
 func (r *RelayerSyncManager) onGetPackagesMessage(msg []byte, id peer.ID) {
-	logrus.WithField("from", id).Debug("got get packages message")
-
 	var getPackageMessage pb.GetPackagesMessage
 
 	err := proto.Unmarshal(msg, &getPackageMessage)
@@ -63,14 +62,20 @@ func (r *RelayerSyncManager) onGetPackagesMessage(msg []byte, id peer.ID) {
 		return
 	}
 
-	txPackage, err := r.mempool.GetTransactions(-1)
+	txPackage, tipSlot, err := r.mempool.GetTransactions(-1)
 	if err != nil {
 		logrus.Warn(err)
 		return
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"txs":       len(txPackage.Transactions),
+		"startRoot": txPackage.StartRoot.String(),
+	}).Debug("sending packages message")
+
 	err = r.protocol.SendMessage(id, &pb.PackageMessage{
 		Package: txPackage.ToProto(),
+		StartSlot: tipSlot,
 	})
 	if err != nil {
 		logrus.Warn(err)

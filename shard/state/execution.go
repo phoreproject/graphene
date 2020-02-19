@@ -1,13 +1,14 @@
-package execution
+package state
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/phoreproject/synapse/csmt"
 	"math/big"
 	"reflect"
 	"sync"
+
+	"github.com/phoreproject/synapse/csmt"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/phoreproject/synapse/chainhash"

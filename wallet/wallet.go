@@ -6,7 +6,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/shard/execution"
+	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/wallet/address"
 	"github.com/phoreproject/synapse/wallet/keystore"
@@ -62,7 +62,7 @@ func (w *Wallet) GetBalance(of address.Address) (uint64, error) {
 		return 0, err
 	}
 
-	storageKey := execution.GetStorageHashForPath([]byte("balance"), pkh[:])
+	storageKey := state.GetStorageHashForPath([]byte("balance"), pkh[:])
 
 	bal, err := w.RPCClient.GetStateKey(context.Background(), &pb.GetStateKeyRequest{
 		ShardID: 0,
@@ -77,7 +77,7 @@ func (w *Wallet) GetBalance(of address.Address) (uint64, error) {
 		return 0, err
 	}
 
-	return execution.HashTo64(*h), nil
+	return state.HashTo64(*h), nil
 }
 
 // SendToAddress sends money to the specified address from the specified address.

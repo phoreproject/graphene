@@ -1,71 +1,46 @@
 package mempool
 
 import (
-	"fmt"
+	"sync"
+
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/state"
-	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
-	"sync"
 )
 
 type shardMempoolItem struct {
 	tx []byte
 }
 
-type stateInfo struct {
-	db     csmt.TreeDatabase
-	parent *stateInfo
-	slot   uint64
-}
-
 // ShardMempool keeps track of shard transactions
 type ShardMempool struct {
 	mempoolLock *sync.RWMutex
-	shardInfo   execution.ShardInfo
+	shardInfo   state.ShardInfo
 
 	mempool      map[chainhash.Hash]*shardMempoolItem
 	mempoolOrder []*shardMempoolItem
 
-	stateLock *sync.RWMutex
-	// each of these TreeDatabase's is a TreeMemoryCache except for the finalized block which is the regular state DB.
-	// When finalizing a block, we commit the hash of the finalized block and recurse through each parent until we reach
-	// the previously justified block (which should be a real DB, not a cache).
-	finalizedDB *stateInfo
-	stateMap    map[chainhash.Hash]*stateInfo
-	tipDB       *stateInfo
+	stateManager *state.ShardStateManager
 }
 
 // NewShardMempool constructs a new shard mempool. This needs to keep track of fork choice and a state tree. Changes
 // should be written to disk once finalized.
-func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash chainhash.Hash, info execution.ShardInfo) *ShardMempool {
-	tip := &stateInfo{
-		db:   stateDB,
-		slot: stateSlot,
-	}
+func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash chainhash.Hash, info state.ShardInfo) *ShardMempool {
 	return &ShardMempool{
 		mempool:      make(map[chainhash.Hash]*shardMempoolItem),
 		mempoolOrder: nil,
 		mempoolLock:  new(sync.RWMutex),
-		finalizedDB:  tip,
-		tipDB:        tip,
-		stateMap: map[chainhash.Hash]*stateInfo{
-			tipBlockHash: tip,
-		},
-		stateLock: new(sync.RWMutex),
+		stateManager: state.NewShardStateManager(stateDB, stateSlot, tipBlockHash, info),
 		shardInfo: info,
 	}
 }
 
 // GetTipState gets the state at the current tip.
 func (s *ShardMempool) GetTipState() csmt.TreeDatabase {
-	s.stateLock.RLock()
-	defer s.stateLock.RUnlock()
-	return s.tipDB.db
+	return s.stateManager.GetTip()
 }
 
 func (s *ShardMempool) check(tx []byte) error {
@@ -76,7 +51,7 @@ func (s *ShardMempool) check(tx []byte) error {
 	tree := csmt.NewTree(treeCache)
 
 	return tree.Update(func(treeTx csmt.TreeTransactionAccess) error {
-		_, err := execution.Transition(treeTx, tx, s.shardInfo)
+		_, err := state.Transition(treeTx, tx, s.shardInfo)
 		return err
 	})
 }
@@ -110,16 +85,6 @@ func (s *ShardMempool) Add(tx []byte) error {
 	return nil
 }
 
-func executeBlockTransactions(a csmt.TreeTransactionAccess, b primitives.ShardBlock, si execution.ShardInfo) error {
-	for _, tx := range b.Body.Transactions {
-		_, err := execution.Transition(a, tx.TransactionData, si)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // AcceptAction updates the current state with all of the
 func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 	// We have 3 types of actions:
@@ -129,99 +94,34 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 
 	// add block adds a block to the chain
 	if action.AddBlockAction != nil {
-		s.stateLock.Lock()
-		defer s.stateLock.Unlock()
-
 		blockToAdd, err := primitives.ShardBlockFromProto(action.AddBlockAction.Block)
 		if err != nil {
 			return err
 		}
 
-		blockHash, _ := ssz.HashTreeRoot(blockToAdd)
-		logrus.WithField("block hash", chainhash.Hash(blockHash)).Info("add block action")
-
-		previousTree, found := s.stateMap[blockToAdd.Header.PreviousBlockHash]
-		if !found {
-			return fmt.Errorf("could not find parent block with hash: %s", blockToAdd.Header.PreviousBlockHash)
-		}
-
-		newCache, err := csmt.NewTreeMemoryCache(previousTree.db)
-		if err != nil {
+		if _, err := s.stateManager.Add(blockToAdd); err != nil {
 			return err
 		}
 
-		newCacheTree := csmt.NewTree(newCache)
-		err = newCacheTree.Update(func(access csmt.TreeTransactionAccess) error {
-			return executeBlockTransactions(access, *blockToAdd, s.shardInfo)
-		})
-		if err != nil {
-			return err
-		}
-
-		s.stateMap[blockHash] = &stateInfo{
-			db:     newCache,
-			parent: previousTree,
-			slot:   blockToAdd.Header.Slot,
-		}
+		s.RemoveTransactionsFromBlock(blockToAdd)
 	} else if action.FinalizeBlockAction != nil {
-		s.stateLock.Lock()
-		defer s.stateLock.Unlock()
-
 		toFinalizeHash, err := chainhash.NewHash(action.FinalizeBlockAction.Hash)
 		if err != nil {
 			return err
 		}
 
-		logrus.WithField("block hash", toFinalizeHash).Debug("finalize block action")
-
-		// first, let's start at the tip and commit everything
-		finalizeNode, found := s.stateMap[*toFinalizeHash]
-		if !found {
-			return fmt.Errorf("could not find block to finalize %s", toFinalizeHash)
+		if err := s.stateManager.Finalize(*toFinalizeHash, action.FinalizeBlockAction.Slot); err != nil {
+			return err
 		}
-		memCache, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
-		for isCache {
-			if err := memCache.Flush(); err != nil {
-				return err
-			}
-			prevBlock := finalizeNode.parent
-			// if this is null, that means something went wrong because there is no underlying store.
-			memCache, isCache = prevBlock.db.(*csmt.TreeMemoryCache)
-
-			finalizeNode = prevBlock
-		}
-
-		// after we've flushed all of that, we should clean up any states with slots before that.
-		for k, node := range s.stateMap {
-			if node.slot > action.FinalizeBlockAction.Slot {
-				continue
-			}
-			if node.slot < action.FinalizeBlockAction.Slot {
-				delete(s.stateMap, k)
-			}
-			if node.slot == action.FinalizeBlockAction.Slot && !k.IsEqual(toFinalizeHash) {
-				delete(s.stateMap, k)
-			}
-		}
-
-		s.finalizedDB = s.stateMap[*toFinalizeHash]
 	} else if action.UpdateTip != nil {
-		s.stateLock.Lock()
-		defer s.stateLock.Unlock()
-
 		newTipHash, err := chainhash.NewHash(action.UpdateTip.Hash)
 		if err != nil {
 			return err
 		}
 
-		logrus.WithField("block hash", newTipHash).Info("new tip block action")
-
-		newTip, found := s.stateMap[*newTipHash]
-		if !found {
-			return fmt.Errorf("couldn't find state root for tip: %s", newTipHash)
+		if err := s.stateManager.SetTip(*newTipHash); err != nil {
+			return err
 		}
-
-		s.tipDB = newTip
 	}
 
 	return nil
@@ -233,21 +133,26 @@ func (s *ShardMempool) GetCurrentRoot() (*chainhash.Hash, error) {
 }
 
 // GetTransactions gets transactions to include.
-func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPackage, error) {
+func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPackage, uint64, error) {
 	transactionsToInclude := make([]primitives.ShardTransaction, 0)
 	s.mempoolLock.RLock()
 	defer s.mempoolLock.RUnlock()
 
 	totalBytes := 0
 
-	startRoot, err := s.GetTipState().Hash()
+	startRootHash, err := s.GetTipState().Hash()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
+	startSlot := s.stateManager.GetTipSlot()
+
+	var startRoot [32]byte
+	copy(startRoot[:], startRootHash[:])
 
 	packageTreeCache, err := csmt.NewTreeMemoryCache(s.GetTipState())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	updates := make([]primitives.UpdateWitness, 0)
@@ -264,18 +169,18 @@ func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPac
 
 		transactionTreeCache, err := csmt.NewTreeMemoryCache(packageTreeCache)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		tree := csmt.NewTree(transactionTreeCache)
 
 		trackingTree, err := state.NewTrackingState(tree)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		err = trackingTree.Update(func(treeTx csmt.TreeTransactionAccess) error {
 			// try to transition
-			_, err := execution.Transition(treeTx, tx.tx, s.shardInfo)
+			_, err := state.Transition(treeTx, tx.tx, s.shardInfo)
 			return err
 		})
 		if err != nil {
@@ -290,7 +195,7 @@ func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPac
 
 		err = transactionTreeCache.Flush()
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		_, txVerifications, txUpdates := trackingTree.GetWitnesses()
@@ -312,22 +217,18 @@ func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPac
 		return nil
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	if err := packageTreeCache.Flush(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	txPackage := &primitives.TransactionPackage{
-		StartRoot:     *startRoot,
+		StartRoot:     startRoot,
 		EndRoot:       endHash,
 		Updates:       updates,
 		Verifications: verifications,
 		Transactions:  transactionsToInclude,
 	}
 
-	return txPackage, nil
+	return txPackage, startSlot, nil
 }
 
 // RemoveTransactionsFromBlock removes transactions from the mempool that were included in a block.
@@ -335,8 +236,18 @@ func (s *ShardMempool) RemoveTransactionsFromBlock(block *primitives.ShardBlock)
 	s.mempoolLock.Lock()
 	defer s.mempoolLock.Unlock()
 
+	newOrder := make([]*shardMempoolItem, 0, len(s.mempoolOrder))
 	for _, tx := range block.Body.Transactions {
 		txHash := chainhash.HashH(tx.TransactionData)
 		delete(s.mempool, txHash)
 	}
+
+	for _, tx := range s.mempoolOrder {
+		txHash := chainhash.HashH(tx.tx)
+		if _, found := s.mempool[txHash]; found {
+			newOrder = append(newOrder, tx)
+		}
+	}
+
+	s.mempoolOrder = newOrder
 }

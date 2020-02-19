@@ -2,7 +2,6 @@ package module
 
 import (
 	"context"
-	"fmt"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/csmt"
@@ -12,7 +11,7 @@ import (
 	shardp2p "github.com/phoreproject/synapse/relayer/p2p"
 	"github.com/phoreproject/synapse/relayer/rpc"
 	"github.com/phoreproject/synapse/relayer/shardrelayer"
-	"github.com/phoreproject/synapse/shard/execution"
+	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
@@ -55,8 +54,6 @@ func (r *RelayerModule) createRPCServer() error {
 	for _, r := range r.relayers {
 		relayers[r.GetShardID()] = r
 	}
-
-	fmt.Println(len(relayers))
 
 	go func() {
 		err := rpc.Serve(rpcListenAddr.Network(), rpcListenAddr.String(), relayers)
@@ -110,7 +107,7 @@ func (r *RelayerModule) Run() error {
 		genesisBlock := primitives.GetGenesisBlockForShard(uint64(s))
 		genesisHash, _ := ssz.HashTreeRoot(genesisBlock)
 
-		m := mempool.NewShardMempool(stateDB, 0, genesisHash, execution.ShardInfo{
+		m := mempool.NewShardMempool(stateDB, 0, genesisHash, state.ShardInfo{
 			CurrentCode: transfer.Code,
 			ShardID:     uint32(s),
 		})

@@ -2,8 +2,10 @@ package chain
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -13,13 +15,10 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	relayerp2p "github.com/phoreproject/synapse/relayer/p2p"
-	"github.com/phoreproject/synapse/shard/execution"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 type shardProtocols struct {
@@ -67,7 +66,7 @@ func (s *SlotProposalManager) requestPackages(stateRoot chainhash.Hash) {
 	if s.requested {
 		return
 	}
-	logrus.WithField("slot", s.proposalSlot).Debug("requesting for slot")
+	logrus.WithField("slot", s.proposalSlot).WithField("stateRoot", stateRoot.String()).Debug("requesting for slot")
 
 	s.requested = true
 
@@ -99,8 +98,6 @@ func (s *SlotProposalManager) requestPackagesAtSlotBoundary() {
 		logrus.Warn(err)
 	}
 
-	fmt.Println("requesting at slot boundary for slot", s.proposalSlot)
-
 	s.requestPackages(startState.StateRoot)
 }
 
@@ -111,8 +108,6 @@ func (s *SlotProposalManager) getProposal() *ProposalInformation {
 }
 
 func (s *SlotProposalManager) processIncomingProposal(p *ProposalInformation) {
-	logrus.WithField("startSlot", p.startSlot).Debug("got proposal")
-
 	if p.startSlot >= s.proposalSlot {
 		return
 	}
@@ -142,6 +137,21 @@ func (s *ShardSyncManager) AddBlock(block *primitives.ShardBlock, newTip bool) {
 
 	if !newTip {
 		return
+	}
+
+	for proposalSlot, mgr := range s.slotProposals {
+		if slot < proposalSlot && !mgr.bestProposal.TransactionPackage.StartRoot.IsEqual(&block.Header.StateRoot) {
+			mgr.bestProposal = &ProposalInformation{
+				TransactionPackage: primitives.TransactionPackage{
+					StartRoot:     block.Header.StateRoot,
+					EndRoot:       block.Header.StateRoot,
+					Updates:       nil,
+					Verifications: nil,
+					Transactions:  nil,
+				},
+				startSlot: block.Header.Slot,
+			}
+		}
 	}
 
 	for proposalSlot, mgr := range s.slotProposals {
@@ -175,11 +185,32 @@ func (s *ShardSyncManager) PeerConnected(id peer.ID, dir network.Direction) {
 // ProposalAnnounced registers a slot to be proposed.
 func (s *ShardSyncManager) ProposalAnnounced(shardProposals []uint64, startState chainhash.Hash, startSlot uint64) {
 	// worst case, we propose an empty block
-	s.slotProposals = make(map[uint64]*SlotProposalManager)
+	oldSlotProposals := s.slotProposals
+	newProposals := make(map[uint64]*SlotProposalManager)
 
 	for _, slot := range shardProposals {
-		s.slotProposals[slot] = NewSlotProposalManager(slot, startState, startSlot, s)
+		root := startState
+		stateSlot := startSlot
+		if manager, found := oldSlotProposals[slot]; found {
+			root = manager.bestProposal.TransactionPackage.StartRoot
+			stateSlot = manager.bestProposal.startSlot
+		}
+
+		newProposals[slot] = NewSlotProposalManager(slot, root, stateSlot, s)
+
+		currentSlot := slot
+		proposalManager, found := oldSlotProposals[currentSlot]
+		for !found && currentSlot > 0 {
+			currentSlot--
+			proposalManager, found = oldSlotProposals[currentSlot]
+		}
+
+		if found {
+			newProposals[slot].bestProposal = proposalManager.bestProposal
+		}
 	}
+
+	s.slotProposals = newProposals
 }
 
 // ProposalInformation is information about how a validator should propose a block.
@@ -190,11 +221,13 @@ type ProposalInformation struct {
 
 func (p *ProposalInformation) isBetterThan(p2 *ProposalInformation) bool {
 	if p2.startSlot > p.startSlot {
+		logrus.WithFields(logrus.Fields{"startSlot": p2.startSlot, "startSlot2": p.startSlot}).Info("current has better slot")
 		return false
 	}
 
 	// TODO: better heuristic for which package of transactions is better
 	if len(p2.TransactionPackage.Transactions) > len(p.TransactionPackage.Transactions) {
+		logrus.Info("other has more transactions")
 		return false
 	}
 
@@ -279,7 +312,7 @@ func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error
 	}
 
 	if !slotRoot.StateRoot.IsEqual(&transactionPackage.StartRoot) {
-		return errors.New("start root doesn't match package")
+		return fmt.Errorf("start root doesn't match package (got: %s, expected: %s, slot: %d)", transactionPackage.StartRoot, slotRoot.StateRoot, packageMessage.StartSlot)
 	}
 
 	p := ProposalInformation{
@@ -291,7 +324,7 @@ func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error
 
 	currentRoot := &transactionPackage.StartRoot
 	for _, tx := range transactionPackage.Transactions {
-		newRoot, err := execution.Transition(witnessStateProvider, tx.TransactionData, execution.ShardInfo{
+		newRoot, err := state.Transition(witnessStateProvider, tx.TransactionData, state.ShardInfo{
 			CurrentCode: transfer.Code,
 			ShardID:     uint32(s.shardID),
 		})
@@ -473,15 +506,9 @@ func (s *ShardSyncManager) processBlock(blockBytes []byte, id peer.ID) {
 	blockHash, _ := ssz.HashTreeRoot(block)
 
 	if s.manager.Index.HasBlock(blockHash) {
-		// we already have this blockpbl
+		// we already have this block
 		return
 	}
-
-	logrus.WithFields(logrus.Fields{
-		"slot":  block.Header.Slot,
-		"hash":  chainhash.Hash(blockHash),
-		"shard": s.shardID,
-	}).Debug("got new block from broadcast")
 
 	if err := s.handleReceivedBlock(block, id); err != nil {
 		logrus.Error(err)

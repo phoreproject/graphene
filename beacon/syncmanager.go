@@ -49,7 +49,7 @@ func (s *SyncManager) PeerConnected(id peer.ID, dir network.Direction) {
 			Height:      s.blockchain.Height(),
 		})
 		if err != nil {
-			logrus.Error(err)
+			logrus.WithField("type", "sync manager connected").WithField("peer", id).Error(err)
 		}
 	}
 }

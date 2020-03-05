@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -34,7 +35,8 @@ type Blockchain struct {
 	config       *config.Config
 	stateManager *StateManager
 
-	Notifees []BlockchainNotifee
+	notifees []BlockchainNotifee
+	notifeeLock sync.Mutex
 }
 
 func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, error) {

@@ -12,6 +12,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -121,9 +122,10 @@ func (p *ProtocolHandler) HandlePeerFound(pi peer.AddrInfo) {
 		return
 	}
 	if len(pi.Addrs) > 0 && p.shouldConnectOutgoing() {
+		logrus.WithField("forProto", p.ID)
 		err := p.connManager.Connect(pi)
 		if err != nil {
-			logrus.Error(err)
+			logrus.WithField("forProto", p.ID).Error(err)
 		}
 	}
 }
@@ -142,7 +144,7 @@ func (p *ProtocolHandler) findPeers() {
 
 		peers, err := p.discovery.FindPeers(findPeerCtx, string(p.ID), discovery.Limit(p.MaximumPeers))
 		if err != nil {
-			logrus.Error(err)
+			logrus.WithField("type", "error finding peers").Error(err)
 			cancel()
 			break
 		}
@@ -190,7 +192,9 @@ func (p *ProtocolHandler) receiveMessages(id peer.ID, r io.Reader) {
 			n.PeerDisconnected(id)
 		}
 		p.notifeeLock.Unlock()
-		logrus.Error(err)
+		if !strings.Contains(err.Error(), "stream reset") {
+			logrus.WithField("type", "receiving messages from peer").WithField("peer", id).Error(err)
+		}
 	}
 }
 
@@ -205,7 +209,7 @@ func (p *ProtocolHandler) sendMessages(id peer.ID, w io.Writer) {
 		for msg := range msgChan {
 			err := writeMessage(msg, w)
 			if err != nil {
-				logrus.Error(err)
+				logrus.WithField("type", "sending message").WithField("toPeer", id).Error(err)
 
 				p.notifeeLock.Lock()
 				for _, n := range p.notifees {
@@ -251,7 +255,13 @@ func (p *ProtocolHandler) Listen(network.Network, multiaddr.Multiaddr) {}
 func (p *ProtocolHandler) ListenClose(network.Network, multiaddr.Multiaddr) {}
 
 // Connected is called when we connect to a peer.
-func (p *ProtocolHandler) Connected(net network.Network, conn network.Conn) {}
+func (p *ProtocolHandler) Connected(net network.Network, conn network.Conn) {
+	if conn.Stat().Direction != network.DirOutbound {
+		return
+	}
+
+	_ = p.host.OpenStreams(conn.RemotePeer(), p.ID)
+}
 
 // Disconnected is called when we disconnect to a peer.
 func (p *ProtocolHandler) Disconnected(net network.Network, conn network.Conn) {

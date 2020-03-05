@@ -5,4 +5,5 @@ type GlobalOptions struct {
 	LogLevel   string `yaml:"log_level" cli:"level"`
 	ForceColors bool `yaml:"log_colors" cli:"colors"`
 	ConfigFile string `cli:"config"`
+	Visualize bool `yaml:"visualize" cli:"visualize"`
 }

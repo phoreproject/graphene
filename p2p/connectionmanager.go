@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 
@@ -151,17 +150,7 @@ func (cm *ConnectionManager) Listen(network.Network, multiaddr.Multiaddr) {}
 func (cm *ConnectionManager) ListenClose(network.Network, multiaddr.Multiaddr) {}
 
 // Connected is called when we connect to a peer.
-func (cm *ConnectionManager) Connected(net network.Network, conn network.Conn) {
-	if conn.Stat().Direction != network.DirOutbound {
-		return
-	}
-
-	err := cm.host.OpenStreams(conn.RemotePeer(), cm.GetProtocols()...)
-	if err != nil {
-		logrus.Error(err)
-		_ = cm.host.DisconnectPeer(conn.RemotePeer())
-	}
-}
+func (cm *ConnectionManager) Connected(net network.Network, conn network.Conn) {}
 
 // Disconnected is called when we disconnect from a peer.
 func (cm *ConnectionManager) Disconnected(net network.Network, conn network.Conn) {}

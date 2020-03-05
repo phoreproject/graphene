@@ -5,6 +5,7 @@ import (
 	beaconconfig "github.com/phoreproject/synapse/beacon/config"
 	beaconmodule "github.com/phoreproject/synapse/beacon/module"
 	"github.com/phoreproject/synapse/cfg"
+	"github.com/phoreproject/synapse/shard/chain"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/pkg/errors"
 	logger "github.com/sirupsen/logrus"
@@ -229,6 +230,10 @@ func main() {
 			logger.Infof("starting relayer module #%d", i)
 			errChan <- a.Run()
 		}()
+	}
+
+	if globalConfig.Visualize {
+		chain.GlobalVis.Start()
 	}
 
 	for {

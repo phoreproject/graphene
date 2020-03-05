@@ -140,6 +140,7 @@ func (s *ShardSyncManager) AddBlock(block *primitives.ShardBlock, newTip bool) {
 	}
 
 	for proposalSlot, mgr := range s.slotProposals {
+		mgr.lock.Lock()
 		if slot < proposalSlot && !mgr.bestProposal.TransactionPackage.StartRoot.IsEqual(&block.Header.StateRoot) {
 			mgr.bestProposal = &ProposalInformation{
 				TransactionPackage: primitives.TransactionPackage{
@@ -152,6 +153,7 @@ func (s *ShardSyncManager) AddBlock(block *primitives.ShardBlock, newTip bool) {
 				startSlot: block.Header.Slot,
 			}
 		}
+		mgr.lock.Unlock()
 	}
 
 	for proposalSlot, mgr := range s.slotProposals {
@@ -221,13 +223,11 @@ type ProposalInformation struct {
 
 func (p *ProposalInformation) isBetterThan(p2 *ProposalInformation) bool {
 	if p2.startSlot > p.startSlot {
-		logrus.WithFields(logrus.Fields{"startSlot": p2.startSlot, "startSlot2": p.startSlot}).Info("current has better slot")
 		return false
 	}
 
 	// TODO: better heuristic for which package of transactions is better
 	if len(p2.TransactionPackage.Transactions) > len(p.TransactionPackage.Transactions) {
-		logrus.Info("other has more transactions")
 		return false
 	}
 
@@ -306,7 +306,7 @@ func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error
 		return err
 	}
 
-	slotRoot, err := s.manager.Chain.GetNodeBySlot(packageMessage.StartSlot)
+	slotRoot, err := s.manager.Chain.GetLatestNodeBySlot(packageMessage.StartSlot)
 	if err != nil {
 		return err
 	}

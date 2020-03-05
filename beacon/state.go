@@ -80,11 +80,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, err
 	}
 
-	for _, n := range b.Notifees {
+	b.notifeeLock.Lock()
+	for _, n := range b.notifees {
 		for _, c := range output.Crosslinks {
 			n.CrosslinkCreated(&c.Crosslink, c.ShardID)
 		}
 	}
+	b.notifeeLock.Unlock()
 
 	reasons := map[uint8]int64{}
 
@@ -185,9 +187,11 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	connectBlockSignalStart := time.Now()
 
-	for _, n := range b.Notifees {
+	b.notifeeLock.Lock()
+	for _, n := range b.notifees {
 		go n.ConnectBlock(block)
 	}
+	b.notifeeLock.Unlock()
 
 	connectBlockSignalTime := time.Since(connectBlockSignalStart)
 

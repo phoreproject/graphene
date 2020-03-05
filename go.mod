@@ -11,7 +11,13 @@ require (
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.2
 	github.com/dgraph-io/badger v1.6.0
+	github.com/faiface/glhf v0.0.0-20181018222622-82a6317ac380 // indirect
+	github.com/faiface/mainthread v0.0.0-20171120011319-8b78f0a41ae3 // indirect
+	github.com/faiface/pixel v0.8.0
 	github.com/fatih/color v1.7.0
+	github.com/go-gl/gl v0.0.0-20190320180904-bf2b1f2f34d7 // indirect
+	github.com/go-gl/glfw v0.0.0-20191125211704-12ad95a8df72 // indirect
+	github.com/go-gl/mathgl v0.0.0-20190713194549-592312d8590a // indirect
 	github.com/go-interpreter/wagon v0.6.0
 	github.com/go-test/deep v1.0.4
 	github.com/gogo/protobuf v1.3.0
@@ -49,6 +55,7 @@ require (
 	github.com/tyler-smith/go-bip32 v0.0.0-20170922074101-2c9cfd177564 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
+	golang.org/x/image v0.0.0-20190703141733-d6a02ce849c9
 	golang.org/x/net v0.0.0-20190918130420-a8b05e9114ab
 	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
 	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610

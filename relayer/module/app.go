@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"fmt"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/csmt"
@@ -78,7 +79,7 @@ func (r *RelayerModule) Run() error {
 
 	shardConn, err := grpc.Dial(shardAddr, grpc.WithInsecure())
 	if err != nil {
-		return err
+		return fmt.Errorf("error dialing shard module: %s", err)
 	}
 
 	addr, err := ma.NewMultiaddr(r.Options.P2PListen)

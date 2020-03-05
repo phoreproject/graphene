@@ -58,6 +58,23 @@ func (c *ShardChain) GetNodeBySlot(slot uint64) (*ShardBlockNode, error) {
 	return tip.GetAncestorAtSlot(slot), nil
 }
 
+// GetLatestNodeBySlot gets the latest block node before or equal to a certain slot.
+func (c *ShardChain) GetLatestNodeBySlot(slot uint64) (*ShardBlockNode, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if slot < c.RootSlot {
+		return nil, fmt.Errorf("do not have slot %d, earliest slot is: %d", slot, c.RootSlot)
+	}
+
+	tip, err := c.tip()
+	if err != nil {
+		return nil, err
+	}
+
+	return tip.GetClosestAncestorAtSlot(slot), nil
+}
+
 // Tip gets the block node of the tip of the blockchain.
 func (c *ShardChain) Tip() (*ShardBlockNode, error) {
 	c.lock.Lock()

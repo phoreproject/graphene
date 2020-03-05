@@ -10,14 +10,18 @@ type BlockchainNotifee interface {
 
 // RegisterNotifee registers a notifee for blockchain
 func (b *Blockchain) RegisterNotifee(n BlockchainNotifee) {
-	b.Notifees = append(b.Notifees, n)
+	b.notifeeLock.Lock()
+	defer b.notifeeLock.Unlock()
+	b.notifees = append(b.notifees, n)
 }
 
 // UnregisterNotifee unregisters a notifee for blockchain.
 func (b *Blockchain) UnregisterNotifee(n BlockchainNotifee) {
-	for i, other := range b.Notifees {
+	b.notifeeLock.Lock()
+	defer b.notifeeLock.Unlock()
+	for i, other := range b.notifees {
 		if other == n {
-			b.Notifees = append(b.Notifees[:i], b.Notifees[i+1:]...)
+			b.notifees = append(b.notifees[:i], b.notifees[i+1:]...)
 		}
 	}
 }

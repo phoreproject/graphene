@@ -60,7 +60,7 @@ const UnitInCoin = 100000000
 
 // MainNetConfig is the config used on the mainnet
 var MainNetConfig = Config{
-	ShardCount:                         64,
+	ShardCount:                         8,
 	TargetCommitteeSize:                3,
 	EjectionBalance:                    16,
 	MaxBalanceChurnQuotient:            32,
@@ -154,7 +154,7 @@ var RegtestConfig = Config{
 	LatestBlockRootsLength:             8192,
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
-	SlotDuration:                       2,
+	SlotDuration:                       7,
 	EpochLength:                        8,
 	MinAttestationInclusionDelay:       1,
 	CollectivePenaltyCalculationPeriod: 1048576,

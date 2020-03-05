@@ -13,6 +13,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
+	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/go-ssz"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -243,7 +244,7 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 
 	err = manager.ProcessBlock(*block)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error processing block submitted through RPC")
 	}
 
 	blockBytes, err := proto.Marshal(req.Block)

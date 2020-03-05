@@ -32,6 +32,15 @@ func (node *ShardBlockNode) GetAncestorAtSlot(slot uint64) *ShardBlockNode {
 	return current
 }
 
+// GetClosestAncestorAtSlot gets the closest ancestor at or before a certain slot.
+func (node *ShardBlockNode) GetClosestAncestorAtSlot(slot uint64) *ShardBlockNode {
+	n := node.GetAncestorAtSlot(slot)
+	if n == nil {
+		return node
+	}
+	return n
+}
+
 // GetAncestorAtHeight gets the first block node that occurred at a certain height.
 func (node *ShardBlockNode) GetAncestorAtHeight(height uint64) *ShardBlockNode {
 	if node.Height < height {

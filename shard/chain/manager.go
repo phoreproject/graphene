@@ -76,6 +76,8 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		BlockDB:                  db.NewMemoryBlockDB(),
 	}
 
+	GlobalVis.addShard(sm)
+
 	syncManager, err := NewShardSyncManager(hn, sm, shardID)
 	if err != nil {
 		return nil, err
@@ -129,11 +131,17 @@ func (sm *ShardManager) ListenForNewCrosslinks() {
 				break
 			}
 
+			finalizedNode, err := sm.Index.GetNodeByHash(crosslinkHash)
+			if err != nil {
+				logrus.Error(err)
+				break
+			}
+
 			for _, n := range sm.notifees {
 				n.FinalizeBlockHash(*crosslinkHash, newCrosslink.Slot)
 			}
 
-			if err := sm.stateManager.Finalize(*crosslinkHash, newCrosslink.Slot); err != nil {
+			if err := sm.stateManager.Finalize(*crosslinkHash, finalizedNode.Slot); err != nil {
 				logrus.Error(err, sm.InitializationParameters.RootBlockHash)
 				break
 			}
@@ -262,9 +270,11 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 		newTip = true
 	}
 
+	sm.notifeesLock.Lock()
 	for _, n := range sm.notifees {
 		n.AddBlock(&block, newTip)
 	}
+	sm.notifeesLock.Unlock()
 
 	return nil
 }

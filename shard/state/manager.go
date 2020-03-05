@@ -95,10 +95,11 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 		return nil, nil
 	}
 
-	logrus.WithField("block hash", chainhash.Hash(blockHash)).Debug("add block action")
+	logrus.WithField("block hash", chainhash.Hash(blockHash)).WithField("shard", sm.shardInfo.ShardID).Debug("add block action")
 
 	previousTree, found := sm.stateMap[block.Header.PreviousBlockHash]
 	if !found {
+		fmt.Println(sm.stateMap)
 		return nil, fmt.Errorf("could not find parent block with hash: %s", block.Header.PreviousBlockHash)
 	}
 
@@ -130,7 +131,7 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 	defer sm.stateLock.Unlock()
 
 
-	logrus.WithField("block hash", finalizedHash).Debug("finalize block action")
+	logrus.WithField("block hash", finalizedHash).WithField("shard", sm.shardInfo.ShardID).Debug("finalize block action")
 
 	// first, let's start at the tip and commit everything
 	finalizeNode, found := sm.stateMap[finalizedHash]
@@ -139,7 +140,6 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 	}
 	memCache, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
 	for isCache {
-		fmt.Println("flushing")
 		if err := memCache.Flush(); err != nil {
 			return err
 		}
@@ -176,7 +176,7 @@ func (sm *ShardStateManager) SetTip(newTipHash chainhash.Hash) error {
 	sm.stateLock.Lock()
 	defer sm.stateLock.Unlock()
 
-	logrus.WithField("block hash", newTipHash).Debug("new tip block action")
+	logrus.WithField("block hash", newTipHash).WithField("shard", sm.shardInfo.ShardID).Debug("new tip block action")
 
 	newTip, found := sm.stateMap[newTipHash]
 	if !found {
@@ -186,4 +186,17 @@ func (sm *ShardStateManager) SetTip(newTipHash chainhash.Hash) error {
 	sm.tipDB = newTip
 
 	return nil
+}
+
+func (sm *ShardStateManager) HasAny() map[chainhash.Hash]bool {
+	sm.stateLock.RLock()
+	defer sm.stateLock.RUnlock()
+
+	hasBlock := make(map[chainhash.Hash]bool)
+
+	for k := range sm.stateMap {
+		hasBlock[k] = true
+	}
+
+	return hasBlock
 }

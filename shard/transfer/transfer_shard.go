@@ -2,7 +2,7 @@ package transfer
 
 import (
 	"encoding/binary"
-	"github.com/phoreproject/synapse/shard/execution"
+	"github.com/phoreproject/synapse/shard/state"
 )
 
 // ShardTransaction is a transaction for the transfer shard.
@@ -34,7 +34,7 @@ func (t *ShardTransaction) Serialize() []byte {
 
 	data := t.GetTransactionData()
 
-	out, _ := execution.SerializeTransactionWithArguments("transfer_to_address", data[:], t.Signature[:], t.FromPubkeyHash[:])
+	out, _ := state.SerializeTransactionWithArguments("transfer_to_address", data[:], t.Signature[:], t.FromPubkeyHash[:])
 
 	return out
 }
@@ -46,7 +46,7 @@ type RedeemTransaction struct {
 
 // Serialize serializes the transfer transaction to bytes.
 func (t *RedeemTransaction) Serialize() []byte {
-	out, _ := execution.SerializeTransactionWithArguments("redeem_premine", t.ToPubkeyHash[:])
+	out, _ := state.SerializeTransactionWithArguments("redeem_premine", t.ToPubkeyHash[:])
 
 	return out
 }

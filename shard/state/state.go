@@ -4,68 +4,104 @@ import (
 	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/synapse/primitives"
+	"sync"
 )
 
-// FullShardState is the full state of a shard.
+// FullShardState represents a full shard state.
 type FullShardState struct {
 	tree csmt.Tree
 }
 
-// NewFullShardState creates a new empty state tree.
-func NewFullShardState() *FullShardState {
-	return &FullShardState{
-		tree: csmt.NewTree(),
+// Hash gets the hash of the current state root.
+func (s *FullShardState) Hash() (*chainhash.Hash, error) {
+	var out *chainhash.Hash
+	err := s.View(func(a AccessInterface) error {
+		outHash, err := a.Hash()
+		if err != nil {
+			return err
+		}
+		out = outHash
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	return out, err
 }
 
-// Copy copies the state.
-func (s *FullShardState) Copy() *FullShardState {
-	return &FullShardState{
-		tree: s.tree.Copy(),
+// NewFullShardState creates a new empty state tree.
+func NewFullShardState(tree csmt.Tree) *FullShardState {
+	return &FullShardState{tree}
+}
+
+// Update updates the underlying state.
+func (s *FullShardState) Update(cb func(AccessInterface) error) error {
+	return s.tree.Update(func(tx csmt.TreeTransactionAccess) error {
+		return cb(newFullShardStateAccess(tx.(*csmt.TreeTransaction)))
+	})
+}
+
+// View views the underlying state.
+func (s *FullShardState) View(cb func(AccessInterface) error) error {
+	return s.tree.View(func(tx csmt.TreeTransactionAccess) error {
+		return cb(newFullShardStateAccess(tx.(*csmt.TreeTransaction)))
+	})
+}
+
+// FullShardStateAccess is access to a standard interface to state.
+type FullShardStateAccess struct {
+	tree *csmt.TreeTransaction
+}
+
+func newFullShardStateAccess(treeTX *csmt.TreeTransaction) *FullShardStateAccess {
+	return &FullShardStateAccess{
+		tree: treeTX,
 	}
 }
 
 // Set sets a key in state.
-func (s *FullShardState) Set(key chainhash.Hash, value chainhash.Hash) error {
-	s.tree.Set(key, value)
-	return nil
+func (s *FullShardStateAccess) Set(key chainhash.Hash, value chainhash.Hash) error {
+	return s.tree.Set(key, value)
 }
 
 // Get gets a key from the state.
-func (s *FullShardState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
-	return s.tree.Get(key), nil
+func (s *FullShardStateAccess) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+	return s.tree.Get(key)
 }
 
 // SetWithWitness sets a key and generates a witness.
-func (s *FullShardState) SetWithWitness(key chainhash.Hash, value chainhash.Hash) *csmt.UpdateWitness {
+func (s *FullShardStateAccess) SetWithWitness(key chainhash.Hash, value chainhash.Hash) (*primitives.UpdateWitness, error) {
 	return s.tree.SetWithWitness(key, value)
 }
 
 // VerifyWitness proves a key in the tree.
-func (s *FullShardState) VerifyWitness(key chainhash.Hash) *csmt.VerificationWitness {
+func (s *FullShardStateAccess) VerifyWitness(key chainhash.Hash) (*primitives.VerificationWitness, error) {
 	return s.tree.Prove(key)
 }
 
 // Hash returns the hash of the tree.
-func (s *FullShardState) Hash() chainhash.Hash {
+func (s *FullShardStateAccess) Hash() (*chainhash.Hash, error) {
 	return s.tree.Hash()
 }
 
-// PartialShardState is the partial state of a shard used for executing transactions without the entire state root.
-type PartialShardState struct {
+// PartialShardStateAccess is the partial state of a shard used for executing transactions without the entire state root.
+type PartialShardStateAccess struct {
 	stateRoot             chainhash.Hash
-	verificationWitnesses []csmt.VerificationWitness
-	updateWitnesses       []csmt.UpdateWitness
+	verificationWitnesses []primitives.VerificationWitness
+	updateWitnesses       []primitives.UpdateWitness
 }
 
 // Hash gets the hash of the partial state tree.
-func (p *PartialShardState) Hash() chainhash.Hash {
-	return p.stateRoot
+func (p PartialShardStateAccess) Hash() (*chainhash.Hash, error) {
+	return &p.stateRoot, nil
 }
 
-// NewPartialShardState creates a new partial shard state.
-func NewPartialShardState(root chainhash.Hash, vWitnesses []csmt.VerificationWitness, uWitnesses []csmt.UpdateWitness) *PartialShardState {
-	return &PartialShardState{
+// NewPartialShardState creates a new partial shard state. This isn't transactional because it can't be. All operations need
+// to be executed in order.
+func NewPartialShardState(root chainhash.Hash, vWitnesses []primitives.VerificationWitness, uWitnesses []primitives.UpdateWitness) *PartialShardStateAccess {
+	return &PartialShardStateAccess{
 		stateRoot:             root,
 		verificationWitnesses: vWitnesses,
 		updateWitnesses:       uWitnesses,
@@ -73,7 +109,7 @@ func NewPartialShardState(root chainhash.Hash, vWitnesses []csmt.VerificationWit
 }
 
 // Get gets a key from the partial state.
-func (p *PartialShardState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+func (p *PartialShardStateAccess) Get(key chainhash.Hash) (*chainhash.Hash, error) {
 	if len(p.verificationWitnesses) == 0 {
 		return nil, fmt.Errorf("no witnesses left")
 	}
@@ -84,7 +120,7 @@ func (p *PartialShardState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
 		return nil, fmt.Errorf("incorrect witness; expected key: %s, got key: %s", vw.Key, key)
 	}
 
-	pass := vw.Check(p.stateRoot)
+	pass := csmt.CheckWitness(&vw, p.stateRoot)
 	if !pass {
 		return nil, fmt.Errorf("witness did not validate for key: %s", key)
 	}
@@ -95,7 +131,7 @@ func (p *PartialShardState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
 }
 
 // Set sets a key from the partial state.
-func (p *PartialShardState) Set(key chainhash.Hash, value chainhash.Hash) error {
+func (p *PartialShardStateAccess) Set(key chainhash.Hash, value chainhash.Hash) error {
 	if len(p.updateWitnesses) == 0 {
 		return fmt.Errorf("no witnesses left")
 	}
@@ -110,7 +146,7 @@ func (p *PartialShardState) Set(key chainhash.Hash, value chainhash.Hash) error 
 		return fmt.Errorf("incorrect witness; expected key: %s, got key: %s", uw.NewValue, value)
 	}
 
-	newStateRoot, err := uw.Apply(p.stateRoot)
+	newStateRoot, err := csmt.ApplyWitness(uw, p.stateRoot)
 	if err != nil {
 		return err
 	}
@@ -123,57 +159,170 @@ func (p *PartialShardState) Set(key chainhash.Hash, value chainhash.Hash) error 
 
 // TrackingState keeps track of gets/sets and allows extracting witnesses from some operations.
 type TrackingState struct {
-	fullState             *FullShardState
-	verificationWitnesses []csmt.VerificationWitness
-	updateWitnesses       []csmt.UpdateWitness
+	fullState             csmt.Tree
+	verificationWitnesses []primitives.VerificationWitness
+	updateWitnesses       []primitives.UpdateWitness
 	initialRoot           chainhash.Hash
+
+	lock *sync.RWMutex
 }
 
-// Hash returns the hash of the state tree.
-func (t *TrackingState) Hash() chainhash.Hash {
-	return t.Hash()
+// Hash returns the current tree root.
+func (t *TrackingState) Hash() (*chainhash.Hash, error) {
+	var out *chainhash.Hash
+	err := t.View(func(a csmt.TreeTransactionAccess) error {
+		outHash, err := a.Hash()
+		if err != nil {
+			return err
+		}
+		out = outHash
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, err
 }
 
 // NewTrackingState creates a new tracking state derived from a full state.
-func NewTrackingState(state *FullShardState) *TrackingState {
+func NewTrackingState(state csmt.Tree) (*TrackingState, error) {
+	initialRoot, err := state.Hash()
+	if err != nil {
+		return nil, err
+	}
+
 	return &TrackingState{
 		fullState:   state,
-		initialRoot: state.Hash(),
-	}
+		initialRoot: initialRoot,
+		lock: new(sync.RWMutex),
+	}, nil
 }
 
+// GetWitnesses gets the witnesses of the state updates since the last clear.
+func (t *TrackingState) GetWitnesses() (chainhash.Hash, []primitives.VerificationWitness, []primitives.UpdateWitness) {
+	return t.initialRoot, t.verificationWitnesses, t.updateWitnesses
+}
+
+// Reset resets all of the witnesses, but not the state.
+func (t *TrackingState) Reset() error {
+	t.updateWitnesses = nil
+	t.verificationWitnesses = nil
+	var r *chainhash.Hash
+	err := t.fullState.View(func(a csmt.TreeTransactionAccess) error {
+		rootHash, err := a.Hash()
+		if err != nil {
+			return err
+		}
+
+		r = rootHash
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	t.initialRoot = *r
+
+	return nil
+}
+
+// Update updates the underlying state and tracks changes.
+func (t *TrackingState) Update(cb func(transaction csmt.TreeTransactionAccess) error) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	tsa := &TrackingStateAccess{
+		verificationWitnesses: t.verificationWitnesses[:],
+		updateWitnesses:       t.updateWitnesses[:],
+	}
+
+	err := t.fullState.Update(func(a csmt.TreeTransactionAccess) error {
+		nonTracking := newFullShardStateAccess(a.(*csmt.TreeTransaction))
+		tsa.fullState = *nonTracking
+		return cb(tsa)
+	})
+	if err != nil {
+		return err
+	}
+
+	t.updateWitnesses = tsa.updateWitnesses
+	t.verificationWitnesses = tsa.verificationWitnesses
+
+	return nil
+}
+
+// View gives a consistent view of the underlying state and tracks changes.
+func (t *TrackingState) View(cb func(transaction csmt.TreeTransactionAccess) error) error {
+	t.lock.RLock()
+
+	tsa := &TrackingStateAccess{
+		verificationWitnesses: t.verificationWitnesses[:],
+		updateWitnesses:       t.updateWitnesses[:],
+	}
+
+	t.lock.RUnlock()
+
+	err := t.fullState.Update(func(a csmt.TreeTransactionAccess) error {
+		nonTracking := newFullShardStateAccess(a.(*csmt.TreeTransaction))
+		tsa.fullState = *nonTracking
+		return cb(tsa)
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TrackingStateAccess provides access to tracking state.
+type TrackingStateAccess struct {
+	fullState FullShardStateAccess
+	verificationWitnesses []primitives.VerificationWitness
+	updateWitnesses []primitives.UpdateWitness
+}
+
+// Hash returns the hash of the state tree.
+func (t *TrackingStateAccess) Hash() (*chainhash.Hash, error) {
+	return t.fullState.Hash()
+}
+
+
 // Get gets a key from state.
-func (t *TrackingState) Get(key chainhash.Hash) (*chainhash.Hash, error) {
-	proof := t.fullState.VerifyWitness(key)
+func (t *TrackingStateAccess) Get(key chainhash.Hash) (*chainhash.Hash, error) {
+	proof, err := t.fullState.VerifyWitness(key)
+	if err != nil {
+		return nil, err
+	}
 	t.verificationWitnesses = append(t.verificationWitnesses, *proof)
 	return t.fullState.Get(key)
 }
 
 // Set sets a key in state.
-func (t *TrackingState) Set(key chainhash.Hash, value chainhash.Hash) error {
-	proof := t.fullState.SetWithWitness(key, value)
+func (t *TrackingStateAccess) Set(key chainhash.Hash, value chainhash.Hash) error {
+	// we know we're getting a full state here so we can do this without checking
+	proof, err := t.fullState.SetWithWitness(key, value)
+	if err != nil {
+		return err
+	}
 	t.updateWitnesses = append(t.updateWitnesses, *proof)
 	return nil
 }
 
-// GetWitnesses gets the witnesses of the state updates since the last clear.
-func (t *TrackingState) GetWitnesses() (chainhash.Hash, []csmt.VerificationWitness, []csmt.UpdateWitness) {
-	return t.initialRoot, t.verificationWitnesses, t.updateWitnesses
-}
-
-// Reset resets all of the witnesses, but not the state.
-func (t *TrackingState) Reset() {
-	t.updateWitnesses = nil
-	t.verificationWitnesses = nil
+// TransactionInterface is an interface that provides transactions to update state.
+type TransactionInterface interface {
+	Update(func(AccessInterface) error) error
+	View(func(AccessInterface) error) error
+	Hash() (*chainhash.Hash, error)
 }
 
 // AccessInterface is the interface for accessing state through either a full or partial state tree.
 type AccessInterface interface {
 	Get(key chainhash.Hash) (*chainhash.Hash, error)
 	Set(key chainhash.Hash, value chainhash.Hash) error
-	Hash() chainhash.Hash
+	Hash() (*chainhash.Hash, error)
 }
 
-var _ AccessInterface = &FullShardState{}
-var _ AccessInterface = &TrackingState{}
-var _ AccessInterface = &PartialShardState{}
+var _ TransactionInterface = &FullShardState{}
+var _ csmt.TreeTransactionAccess = &TrackingStateAccess{}
+var _ AccessInterface = &PartialShardStateAccess{}

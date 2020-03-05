@@ -18,6 +18,10 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	logger.StandardLogger().SetFormatter(&logger.TextFormatter{
+		ForceColors: globalConfig.ForceColors,
+	})
+
 	utils.CheckNTP()
 
 	a, err := module.NewValidatorApp(validatorConfig)

@@ -2,23 +2,29 @@ package main
 
 import (
 	"fmt"
+	beaconconfig "github.com/phoreproject/synapse/beacon/config"
+	beaconmodule "github.com/phoreproject/synapse/beacon/module"
 	"github.com/phoreproject/synapse/cfg"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/pkg/errors"
 	logger "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	"log"
+	"net/http"
 	"reflect"
 	"strings"
-
-	beaconconfig "github.com/phoreproject/synapse/beacon/config"
-	beaconmodule "github.com/phoreproject/synapse/beacon/module"
 
 	shardconfig "github.com/phoreproject/synapse/shard/config"
 	shardmodule "github.com/phoreproject/synapse/shard/module"
 
 	validatorconfig "github.com/phoreproject/synapse/validator/config"
 	validatormodule "github.com/phoreproject/synapse/validator/module"
+
+	relayerconfig "github.com/phoreproject/synapse/relayer/config"
+	relayermodule "github.com/phoreproject/synapse/relayer/module"
 )
+
+import _ "net/http/pprof"
 
 // SynapseOptions are the options for all module configs.
 type SynapseOptions struct {
@@ -62,6 +68,11 @@ func (a *AnyModuleConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 		moduleValue = reflect.ValueOf(module).Elem()
 		moduleType = reflect.TypeOf(module).Elem()
 		a.Module = module
+	case "relayer":
+		module := &relayerconfig.Options{}
+		moduleValue = reflect.ValueOf(module).Elem()
+		moduleType = reflect.TypeOf(module).Elem()
+		a.Module = module
 	default:
 		return fmt.Errorf("error while decoding YAML: module has invalid type: %s", t)
 	}
@@ -98,6 +109,10 @@ func (a *AnyModuleConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 var _ yaml.Unmarshaler = &AnyModuleConfig{}
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	moduleConfigs := SynapseOptions{}
 	globalConfig := cfg.GlobalOptions{}
 	err := cfg.LoadFlags(&moduleConfigs, &globalConfig)
@@ -113,6 +128,10 @@ func main() {
 	}
 	logger.SetLevel(lvl)
 
+	logger.StandardLogger().SetFormatter(&logger.TextFormatter{
+		ForceColors: globalConfig.ForceColors,
+	})
+
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {
 		logger.Fatal(err)
@@ -124,6 +143,7 @@ func main() {
 	beaconConfigs := make([]*beaconconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	validatorConfigs := make([]*validatorconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	shardConfigs := make([]*shardconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
+	relayerConfigs := make([]*relayerconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 
 	for _, v := range moduleConfigs.ModuleConfigs {
 		switch c := v.Module.(type) {
@@ -133,6 +153,8 @@ func main() {
 			validatorConfigs = append(validatorConfigs, c)
 		case *shardconfig.Options:
 			shardConfigs = append(shardConfigs, c)
+		case *relayerconfig.Options:
+			relayerConfigs = append(relayerConfigs, c)
 		}
 	}
 
@@ -140,6 +162,7 @@ func main() {
 	beaconApps := make([]*beaconmodule.BeaconApp, len(beaconConfigs))
 	validatorApps := make([]*validatormodule.ValidatorApp, len(validatorConfigs))
 	shardApps := make([]*shardmodule.ShardApp, len(shardConfigs))
+	relayerApps := make([]*relayermodule.RelayerModule, len(relayerConfigs))
 
 	for i, c := range beaconConfigs {
 		app, err := beaconmodule.NewBeaconApp(*c)
@@ -148,13 +171,13 @@ func main() {
 		}
 		beaconApps[i] = app
 	}
+	errChan := make(chan error)
 
-	for i, c := range validatorConfigs {
-		app, err := validatormodule.NewValidatorApp(*c)
-		if err != nil {
-			logger.Fatal(errors.Wrap(err, "error initializing validator module"))
-		}
-		validatorApps[i] = app
+	for i, a := range beaconApps {
+		go func() {
+			logger.Infof("starting beacon module #%d", i)
+			errChan <- a.Run()
+		}()
 	}
 
 	for i, c := range shardConfigs {
@@ -165,16 +188,6 @@ func main() {
 		shardApps[i] = app
 	}
 
-	errChan := make(chan error)
-
-	// order goes: beacon, shard, validator
-	for i, a := range beaconApps {
-		go func() {
-			logger.Infof("starting beacon module #%d", i)
-			errChan <- a.Run()
-		}()
-	}
-
 	for i, a := range shardApps {
 		go func() {
 			logger.Infof("starting shard module #%d", i)
@@ -182,9 +195,38 @@ func main() {
 		}()
 	}
 
+
+	for i, c := range validatorConfigs {
+		app, err := validatormodule.NewValidatorApp(*c)
+		if err != nil {
+			logger.Fatal(errors.Wrap(err, "error initializing validator module"))
+		}
+		validatorApps[i] = app
+	}
+
+	for i, c := range relayerConfigs {
+		app, err := relayermodule.NewRelayerModule(*c)
+		if err != nil {
+			logger.Fatal(errors.Wrap(err, "error initializing relayer module"))
+		}
+		relayerApps[i] = app
+	}
+
+
+	// order goes: beacon, shard, validator
+
+
+
 	for i, a := range validatorApps {
 		go func() {
 			logger.Infof("starting validator module #%d", i)
+			errChan <- a.Run()
+		}()
+	}
+
+	for i, a := range relayerApps {
+		go func() {
+			logger.Infof("starting relayer module #%d", i)
 			errChan <- a.Run()
 		}()
 	}

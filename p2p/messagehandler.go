@@ -14,7 +14,7 @@ import (
 )
 
 // writeMessage writes a message and message name to the provided writer.
-func writeMessage(message proto.Message, writer *bufio.Writer) error {
+func writeMessage(message proto.Message, writer io.Writer) error {
 	data, err := proto.Marshal(message)
 	if err != nil {
 		return err
@@ -43,11 +43,6 @@ func writeMessage(message proto.Message, writer *bufio.Writer) error {
 	}
 
 	_, err = writer.Write(data)
-	if err != nil {
-		return err
-	}
-
-	err = writer.Flush()
 	if err != nil {
 		return err
 	}
@@ -98,7 +93,7 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 }
 
 // processMessages continuously reads from stream and handles any protobuf messages.
-func processMessages(ctx context.Context, stream *bufio.Reader, handler func(message proto.Message) error) error {
+func processMessages(ctx context.Context, stream io.Reader, handler func(message proto.Message) error) error {
 	const stateReadHeader = 1
 	const stateReadMessage = 2
 

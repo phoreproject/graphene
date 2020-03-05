@@ -5,15 +5,20 @@
 dist
 
 # binaries
+synapse
+synapseshard
 synapsebeacon
 synapsevalidator
 synapsep2p
+synapserelayer
 synapsekey
 synapseexplorer
 integration_tests
-integration
 *.exe
 /.vscode
+
+# testing
+csmt/badger-test
 
 .idea
 validators.pubs

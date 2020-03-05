@@ -3,9 +3,8 @@ package primitives
 import (
 	"bytes"
 	"fmt"
-	"github.com/prysmaticlabs/go-ssz"
-
 	"github.com/pkg/errors"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -1147,18 +1146,19 @@ type BlockView interface {
 // ProcessSlots uses the current head to process slots up to a certain slot, applying
 // slot transitions and epoch transitions, and returns the updated state. Note that this should
 // only process up to the current slot number so that the lastBlockHash remains constant.
-func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]Receipt, error) {
-	var receipts []Receipt
+func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) (*EpochTransitionOutput, error) {
+	var aggregateOutput EpochTransitionOutput
 
 	for s.Slot < upTo {
 		// this only happens when there wasn't a block at the first slot of the epoch
 		if s.Slot/c.EpochLength > s.EpochIndex && s.Slot%c.EpochLength == 0 {
-			epochReceipts, err := s.ProcessEpochTransition(c)
+			output, err := s.ProcessEpochTransition(c)
 			if err != nil {
 				return nil, err
 			}
 
-			receipts = append(receipts, epochReceipts...)
+			aggregateOutput.Receipts = append(aggregateOutput.Receipts, output.Receipts...)
+			aggregateOutput.Crosslinks = append(aggregateOutput.Crosslinks, output.Crosslinks...)
 		}
 
 		tip, err := view.Tip()
@@ -1174,5 +1174,5 @@ func (s *State) ProcessSlots(upTo uint64, view BlockView, c *config.Config) ([]R
 		view.SetTipSlot(s.Slot)
 	}
 
-	return receipts, nil
+	return &aggregateOutput, nil
 }

@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"io"
 
 	"github.com/phoreproject/synapse/primitives"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
 
@@ -24,7 +24,7 @@ type Config struct {
 	NetworkConfig        *config.Config
 	Resync               bool
 	ListeningAddress     string
-	DiscoveryOptions     p2p.DiscoveryOptions
+	DiscoveryOptions     p2p.ConnectionManagerOptions
 }
 
 // GenerateConfigFromChainConfig generates a new config from the passed in network config
@@ -70,9 +70,9 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 
 	c.GenesisTime = chainConfig.GenesisTime
 
-	c.DiscoveryOptions = p2p.NewDiscoveryOptions()
+	c.DiscoveryOptions = p2p.NewConnectionManagerOptions()
 
-	c.DiscoveryOptions.PeerAddresses = make([]peerstore.PeerInfo, len(chainConfig.BootstrapPeers))
+	c.DiscoveryOptions.BootstrapAddresses = make([]peer.AddrInfo, len(chainConfig.BootstrapPeers))
 
 	networkConfig, found := config.NetworkIDs[chainConfig.NetworkID]
 	if !found {
@@ -80,16 +80,16 @@ func GenerateConfigFromChainConfig(chainConfig beaconapp.ChainConfig) (*Config, 
 	}
 	c.NetworkConfig = &networkConfig
 
-	for i := range c.DiscoveryOptions.PeerAddresses {
+	for i := range c.DiscoveryOptions.BootstrapAddresses {
 		a, err := multiaddr.NewMultiaddr(chainConfig.BootstrapPeers[i])
 		if err != nil {
 			return nil, err
 		}
-		peerInfo, err := peerstore.InfoFromP2pAddr(a)
+		peerInfo, err := peer.AddrInfoFromP2pAddr(a)
 		if err != nil {
 			return nil, err
 		}
-		c.DiscoveryOptions.PeerAddresses[i] = *peerInfo
+		c.DiscoveryOptions.BootstrapAddresses[i] = *peerInfo
 	}
 
 	return &c, nil

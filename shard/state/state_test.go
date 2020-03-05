@@ -2,6 +2,7 @@ package state_test
 
 import (
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/shard/state"
 	"testing"
 )
@@ -11,24 +12,35 @@ func ch(s string) chainhash.Hash {
 }
 
 func TestPartialStateGeneration(t *testing.T) {
-	fs := state.NewFullShardState()
-	ts := state.NewTrackingState(fs)
+	treeDB := csmt.NewInMemoryTreeDB()
+	tree := csmt.NewTree(treeDB)
+	ts, err := state.NewTrackingState(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	key := ch("test")
 	val := ch("test2")
 
-	err := ts.Set(key, val)
+	err = ts.Update(func(a csmt.TreeTransactionAccess) error {
+		err = a.Set(key, val)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := a.Get(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !out.IsEqual(&val) {
+			t.Fatal("expected get value to return value set")
+		}
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	out, err := ts.Get(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !out.IsEqual(&val) {
-		t.Fatal("expected get value to return value set")
 	}
 
 	root, vws, uws := ts.GetWitnesses()

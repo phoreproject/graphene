@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"sync"
 )
@@ -11,14 +12,17 @@ type ShardMux struct {
 	lock         *sync.RWMutex
 	managers     map[uint64]*ShardManager
 	beaconClient pb.BlockchainRPCClient
+
+	hn *p2p.HostNode
 }
 
 // NewShardMux creates a new shard multiplexer.
-func NewShardMux(beaconClient pb.BlockchainRPCClient) *ShardMux {
+func NewShardMux(beaconClient pb.BlockchainRPCClient, hn *p2p.HostNode) *ShardMux {
 	return &ShardMux{
 		managers:     make(map[uint64]*ShardManager),
 		lock:         new(sync.RWMutex),
 		beaconClient: beaconClient,
+		hn: hn,
 	}
 }
 
@@ -31,10 +35,15 @@ func (sm *ShardMux) IsManaging(shardID uint64) bool {
 }
 
 // StartManaging starts managing a certain shard.
-func (sm *ShardMux) StartManaging(shardID uint64, init ShardChainInitializationParameters) {
+func (sm *ShardMux) StartManaging(shardID uint64, init ShardChainInitializationParameters) (*ShardManager, error) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
-	sm.managers[shardID] = NewShardManager(shardID, init, sm.beaconClient)
+	shardManager, err := NewShardManager(shardID, init, sm.beaconClient, sm.hn)
+	if err != nil {
+		return nil, err
+	}
+	sm.managers[shardID] = shardManager
+	return shardManager, nil
 }
 
 // StopManaging stops managing a certain shard.

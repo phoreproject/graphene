@@ -225,24 +225,24 @@ func (s *State) GetRecentBlockHash(slotToGet uint64, c *config.Config) (*chainha
 }
 
 // findWinningRoot finds the shard block hash with the most balance voting for it.
-func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, error) {
+func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Config) (*chainhash.Hash, *AttestationData, error) {
 	// find all possible hashes for the winning root
-	possibleHashes := map[chainhash.Hash]struct{}{}
+	possibleHashes := map[chainhash.Hash]AttestationData{}
 	for _, a := range s.CurrentEpochAttestations {
 		if a.Data.Shard != shardCommittee.Shard {
 			continue
 		}
-		possibleHashes[a.Data.ShardBlockHash] = struct{}{}
+		possibleHashes[a.Data.ShardBlockHash] = a.Data
 	}
 	for _, a := range s.PreviousEpochAttestations {
 		if a.Data.Shard != shardCommittee.Shard {
 			continue
 		}
-		possibleHashes[a.Data.ShardBlockHash] = struct{}{}
+		possibleHashes[a.Data.ShardBlockHash] = a.Data
 	}
 
 	if len(possibleHashes) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// find the top balance
@@ -252,7 +252,7 @@ func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Conf
 	for b := range possibleHashes {
 		validatorIndices, err := s.getAttestingValidatorIndices(shardCommittee, b)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		sumBalance := s.GetTotalBalance(validatorIndices, c)
@@ -270,9 +270,11 @@ func (s *State) findWinningRoot(shardCommittee ShardAndCommittee, c *config.Conf
 		}
 	}
 	if topBalance == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
-	return &topHash, nil
+	data := possibleHashes[topHash]
+
+	return &topHash, &data, nil
 }
 
 // getAttestingValidatorIndices gets the attesters in a certain committee who attested to a certain shard block hash.
@@ -307,10 +309,22 @@ func (s *State) getAttestingValidatorIndices(shardComittee ShardAndCommittee, sh
 	return out, nil
 }
 
+// CrosslinkForShardID is a crosslink and the shard ID for which the crosslink was created.
+type CrosslinkForShardID struct {
+	Crosslink Crosslink
+	ShardID uint64
+}
+
+// EpochTransitionOutput is the auxillary output of an epoch transition.
+type EpochTransitionOutput struct {
+	Receipts   []Receipt
+	Crosslinks []CrosslinkForShardID
+}
+
 // ProcessEpochTransition processes an epoch transition and modifies state. This shouldn't usually
 // be used as ProcessSlots is generally a better way to update state, but sometimes it's required to
 // validate/generate attestations for the next epoch.
-func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
+func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput, error) {
 	activeValidatorIndices := GetActiveValidatorIndices(s.ValidatorRegistry)
 	totalBalance := s.GetTotalBalance(activeValidatorIndices, c)
 
@@ -443,10 +457,11 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 	}
 
 	slotWinners := make([]map[uint64]chainhash.Hash, len(s.ShardAndCommitteeForSlots))
+	newCrosslinks := make([]CrosslinkForShardID, 0)
 
 	for i, shardCommitteeAtSlot := range s.ShardAndCommitteeForSlots {
 		for _, shardCommittee := range shardCommitteeAtSlot {
-			bestRoot, err := s.findWinningRoot(shardCommittee, c)
+			bestRoot, bestData, err := s.findWinningRoot(shardCommittee, c)
 			if err != nil {
 				return nil, err
 			}
@@ -467,9 +482,18 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 
 			if 3*totalAttestingBalance >= 2*totalBalance {
 				s.LatestCrosslinks[shardCommittee.Shard] = Crosslink{
-					Slot:           s.Slot,
+					Slot:           bestData.Slot,
+					ShardStateHash: bestData.ShardStateHash,
 					ShardBlockHash: *bestRoot,
 				}
+				newCrosslinks = append(newCrosslinks, CrosslinkForShardID{
+					Crosslink: Crosslink{
+						Slot:           bestData.Slot,
+						ShardStateHash: bestData.ShardStateHash,
+						ShardBlockHash: *bestRoot,
+					},
+					ShardID: shardCommittee.Shard,
+				})
 				//logrus.WithFields(logrus.Fields{
 				//	"slot":             s.Slot,
 				//	"shardBlockHash":   bestRoot.String(),
@@ -846,5 +870,8 @@ func (s *State) ProcessEpochTransition(c *config.Config) ([]Receipt, error) {
 
 	s.CurrentEpochAttestations = make([]PendingAttestation, 0)
 
-	return receipts, nil
+	return &EpochTransitionOutput{
+		Receipts:   receipts,
+		Crosslinks: newCrosslinks,
+	}, nil
 }

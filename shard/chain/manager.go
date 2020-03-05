@@ -7,13 +7,17 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/shard/execution"
-	"github.com/phoreproject/synapse/shard/mempool"
+	"github.com/phoreproject/synapse/shard/db"
+	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
+	"github.com/sirupsen/logrus"
+	"sync"
 )
 
 // ShardChainInitializationParameters are the initialization parameters from the crosslink.
@@ -21,6 +25,12 @@ type ShardChainInitializationParameters struct {
 	RootBlockHash chainhash.Hash
 	RootSlot      uint64
 	GenesisTime   uint64
+}
+
+// ShardChainActionNotifee is a notifee for any shard chain actions.
+type ShardChainActionNotifee interface {
+	AddBlock(block *primitives.ShardBlock, newTip bool)
+	FinalizeBlockHash(blockHash chainhash.Hash, slot uint64)
 }
 
 // ShardManager represents part of the blockchain on a specific shard (starting from a specific crosslinked block hash),
@@ -32,48 +42,145 @@ type ShardManager struct {
 	InitializationParameters ShardChainInitializationParameters
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
-	Mempool                  *mempool.ShardMempool
-	StateManager             *execution.BasicFullStateManager
+	BlockDB                  db.ShardBlockDatabase
+	SyncManager              *ShardSyncManager
+
+	stateManager *state.ShardStateManager
+	shardInfo    state.ShardInfo
+
+	notifees     []ShardChainActionNotifee
+	notifeesLock sync.Mutex
 }
 
 // NewShardManager initializes a new shard manager responsible for keeping track of a shard chain.
-func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient) *ShardManager {
+func NewShardManager(shardID uint64, init ShardChainInitializationParameters, beaconClient pb.BlockchainRPCClient, hn *p2p.HostNode) (*ShardManager, error) {
 
 	genesisBlock := primitives.GetGenesisBlockForShard(shardID)
 
-	return &ShardManager{
+	stateDB := csmt.NewInMemoryTreeDB()
+	shardInfo := state.ShardInfo{
+		CurrentCode: transfer.Code, // TODO: this should be loaded dynamically instead of directly from the filesystem
+		ShardID:     uint32(shardID),
+	}
+
+
+	sm := &ShardManager{
 		ShardID:                  shardID,
 		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
 		Index:                    NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
-		Mempool:                  mempool.NewShardMempool(mempool.ValidateTrue, mempool.PrioritizeEqual),
-		StateManager:             execution.NewBasicFullStateManager(transfer.Code, uint32(shardID)), // TODO: this should be loaded dynamically instead of directly from the filesystem
+		shardInfo:                shardInfo,
+		stateManager:             state.NewShardStateManager(stateDB, init.RootSlot, init.RootBlockHash, shardInfo),
+		notifees:                 []ShardChainActionNotifee{},
+		BlockDB:                  db.NewMemoryBlockDB(),
+	}
+
+	syncManager, err := NewShardSyncManager(hn, sm, shardID)
+	if err != nil {
+		return nil, err
+	}
+
+	sm.SyncManager = syncManager
+
+	sm.ListenForNewCrosslinks()
+
+	return sm, nil
+}
+
+// RegisterNotifee registers a notifee for shard actions
+func (sm *ShardManager) RegisterNotifee(n ShardChainActionNotifee) {
+	sm.notifeesLock.Lock()
+	defer sm.notifeesLock.Unlock()
+	sm.notifees = append(sm.notifees, n)
+}
+
+// UnregisterNotifee unregisters a notifee for shard actions
+func (sm *ShardManager) UnregisterNotifee(n ShardChainActionNotifee) {
+	sm.notifeesLock.Lock()
+	defer sm.notifeesLock.Unlock()
+	for i, other := range sm.notifees {
+		if other == n {
+			sm.notifees = append(sm.notifees[:i], sm.notifees[i+1:]...)
+		}
 	}
 }
 
-// SubmitTransaction submits a transaction to the shard.
-func (sm *ShardManager) SubmitTransaction(transaction []byte) error {
-	return sm.Mempool.SubmitTransaction(transaction)
+// ListenForNewCrosslinks listens for new crosslinks.
+func (sm *ShardManager) ListenForNewCrosslinks() {
+	go func() {
+		stream, err := sm.BeaconClient.CrosslinkStream(context.Background(), &pb.CrosslinkStreamRequest{
+			ShardID: uint64(sm.shardInfo.ShardID),
+		})
+		if err != nil {
+			logrus.Error(err)
+		}
+
+		for {
+			newCrosslink, err := stream.Recv()
+			if err != nil {
+				logrus.Error(err)
+				break
+			}
+
+			crosslinkHash, err := chainhash.NewHash(newCrosslink.BlockHash)
+			if err != nil {
+				logrus.Error(err)
+				break
+			}
+
+			for _, n := range sm.notifees {
+				n.FinalizeBlockHash(*crosslinkHash, newCrosslink.Slot)
+			}
+
+			if err := sm.stateManager.Finalize(*crosslinkHash, newCrosslink.Slot); err != nil {
+				logrus.Error(err, sm.InitializationParameters.RootBlockHash)
+				break
+			}
+			// TODO: also update fork choice with new crosslink
+		}
+	}()
 }
 
-// SubmitBlock submits a block to the chain for processing.
-func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
+// GetKey gets a key from the current state.
+func (sm *ShardManager) GetKey(key chainhash.Hash) (*chainhash.Hash, error) {
+	var out *chainhash.Hash
+	err := sm.stateManager.GetTip().View(func(tx csmt.TreeDatabaseTransaction) error {
+		val, err := tx.Get(key)
+		if err != nil {
+			return err
+		}
+		out = val
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ProcessBlock submits a block to the chain for processing.
+func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
+	h, _ := ssz.HashTreeRoot(block)
+
+	logrus.WithFields(logrus.Fields{
+		"slot":  block.Header.Slot,
+		"hash":  chainhash.Hash(h),
+		"shard": sm.ShardID,
+		"transactions": len(block.Body.Transactions),
+	}).Debug("processing block")
+
 	// first, let's make sure we have the parent block
 	hasParent := sm.Index.HasBlock(block.Header.PreviousBlockHash)
 	if !hasParent {
 		return fmt.Errorf("missing parent block %s", block.Header.PreviousBlockHash)
 	}
 
-	parentStateRoot, _ := sm.Index.GetNodeByHash(&block.Header.PreviousBlockHash)
-
-	transactions := make([][]byte, len(block.Body.Transactions))
-	for i := range transactions {
-		transactions[i] = block.Body.Transactions[i].TransactionData
+	if sm.stateManager.Has(h) {
+		return nil
 	}
 
-	// update state based on block transactions
-	newStateRoot, err := sm.StateManager.CheckTransition(parentStateRoot.StateRoot, transactions)
+	newStateRoot, err := sm.stateManager.Add(&block)
 	if err != nil {
 		return err
 	}
@@ -130,13 +237,12 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 		return errors.New("block signature was not valid")
 	}
 
-	_, err = sm.StateManager.Transition(parentStateRoot.StateRoot, transactions)
+	node, err := sm.Index.AddToIndex(block)
 	if err != nil {
 		return err
 	}
 
-	node, err := sm.Index.AddToIndex(block)
-	if err != nil {
+	if err := sm.BlockDB.SetBlock(&block); err != nil {
 		return err
 	}
 
@@ -146,10 +252,18 @@ func (sm *ShardManager) SubmitBlock(block primitives.ShardBlock) error {
 		return err
 	}
 
+	newTip := false
 	if node.Height > tipNode.Height || (node.Height == tipNode.Height && node.Slot > tipNode.Slot) {
 		sm.Chain.SetTip(node)
+		if err := sm.stateManager.SetTip(node.BlockHash); err != nil {
+			return err
+		}
 
-		sm.Mempool.RemoveTransactionsFromBlock(&block)
+		newTip = true
+	}
+
+	for _, n := range sm.notifees {
+		n.AddBlock(&block, newTip)
 	}
 
 	return nil

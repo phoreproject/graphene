@@ -27,6 +27,10 @@ func main() {
 	}
 	logger.SetLevel(lvl)
 
+	logger.StandardLogger().SetFormatter(&logger.TextFormatter{
+		ForceColors: globalConfig.ForceColors,
+	})
+
 	changed, newLimit, err := utils.ManageFdLimit()
 	if err != nil {
 		logger.Fatal(err)
@@ -39,7 +43,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-
+	
 	err = sa.Run()
 	if err != nil {
 		logger.Fatal(err)

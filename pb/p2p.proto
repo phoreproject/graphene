@@ -1,16 +1,26 @@
 // This is for P2P
 syntax = "proto3";
 
-//import "common.proto";
+import "common.proto";
 
 package pb;
 
-message VersionMessage {
+message BeaconVersionMessage {
     uint64 Version = 1;
-    bytes PeerID = 2;
-    bytes PeerInfo = 3;
-    bytes GenesisHash = 4;
-    uint64 Height = 5;
+    bytes GenesisHash = 2;
+    uint64 Height = 3;
+}
+
+message ShardVersionMessage {
+    uint64 Version = 1;
+    uint64 Height = 2;
+}
+
+message RelayerVersionMessage {
+    uint64 Version = 1;
+    bool Provider = 2; // determines whether relayer is a provider
+    bytes PeerID = 3;
+    bytes PeerInfo = 4;
 }
 
 message PingMessage {
@@ -31,36 +41,45 @@ message AttestationMempoolItem {
 }
 
 // This will advertise which mempool items the client needs/has.
-message GetMempoolMessage {
+message GetAttestationMempoolMessage {
     repeated AttestationMempoolItem Attestations = 1;
 }
 
-message GetBlockMessage {
+message AttestationMempoolMessage {
+    repeated Attestation Attestations = 1;
+}
+
+message GetBlocksMessage {
     repeated bytes LocatorHashes = 1; //block locator object; newest back to genesis block (dense to start, but then sparse)
     bytes HashStop = 2; //hash of the last desired block header; set to zero to get as many blocks as possible (2000)
 }
 
-message MempoolMessage {
-    repeated bytes AttestationHashes = 1;
-}
-
 // Response to GetBlockMessage
-message BlockMessage {
-    repeated string BlockPaths = 1;
+message BeaconBlockMessage {
+    repeated Block Blocks = 1;
     bytes LatestBlockHash = 2;
 }
 
-message GetDataMessage {
-    repeated bytes DataHash = 1;
+message GetShardBlocksMessage {
+    bytes StartHash = 1; // we start at this hash (shard client might not want to sync entire chain)
+    repeated bytes LocatorHashes = 2;
+    bytes HashStop = 3;
 }
 
-message DataMessage {
-    repeated bytes Data = 2;
+message ShardBlockMessage {
+    repeated ShardBlock Blocks = 1;
+    bytes LatestBlockHash = 2;
 }
 
-message GetAddrMessage {}
-
-message AddrMessage {
-    repeated bytes Addrs = 1;
+message GetPackagesMessage {
+    bytes TipStateRoot = 1;
 }
 
+message PackageMessage {
+    TransactionPackage Package = 1;
+    uint64 StartSlot = 2;
+}
+
+message SubmitTransaction {
+    ShardTransaction Transaction = 1;
+}

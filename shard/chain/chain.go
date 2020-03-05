@@ -103,3 +103,84 @@ func (c *ShardChain) SetTip(node *ShardBlockNode) {
 		node = node.Parent
 	}
 }
+
+// Genesis gets the genesis shard node.
+func (c *ShardChain) Genesis() *ShardBlockNode {
+	return c.chain[0]
+}
+
+// Height gets the height of the current shard chain.
+func (c *ShardChain) Height() uint64 {
+	return uint64(len(c.chain))
+}
+
+// Contains checks if the chain contains a certain block node.
+func (c *ShardChain) Contains(node *ShardBlockNode) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return c.contains(node)
+}
+
+func (c *ShardChain) contains(node *ShardBlockNode) bool {
+	return c.chain[node.Height] == node
+}
+
+// Next gets the next block node in the chian.
+func (c *ShardChain) Next(node *ShardBlockNode) *ShardBlockNode {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.contains(node) && uint64(len(c.chain)) > node.Height + 1 {
+		return c.chain[node.Height + 1]
+	}
+
+	return nil
+}
+
+// GetBlockByHeight gets a block at a certain height or
+// if it doesn't exist, returns nil.
+func (c *ShardChain) GetBlockByHeight(height int) *ShardBlockNode {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if height < len(c.chain) {
+		return c.chain[height]
+	}
+	return nil
+}
+
+// GetChainLocator gets a chain locator by requesting blocks at certain heights.
+// This code is basically copied from the Bitcoin code.
+func (c *ShardChain) GetChainLocator() ([][]byte, error) {
+	step := uint64(1)
+	locator := make([][]byte, 0, 32)
+
+	current, err := c.Tip()
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		locator = append(locator, current.BlockHash[:])
+
+		if current.Height == 0 {
+			break
+		}
+
+		nextHeight := int(current.Height) - int(step)
+		if nextHeight < 0 {
+			nextHeight = 0
+		}
+
+		nextCurrent := c.GetBlockByHeight(nextHeight)
+		if nextCurrent == nil {
+			panic("Assertion error: getChainLocator should never ask for block above current tip")
+		}
+
+		step *= 2
+		current = nextCurrent
+	}
+
+	return locator, nil
+}

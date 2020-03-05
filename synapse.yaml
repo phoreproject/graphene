@@ -1,8 +1,12 @@
 modules:
   - type: "shard"
     listen_addr: "/ip4/127.0.0.1/tcp/11783"
+    p2p_listen_addr: "/ip4/127.0.0.1/tcp/11787"
     beacon_addr: "/ip4/127.0.0.1/tcp/11782"
-    log_level: "info"
+    log_level: "debug"
+    track_shards:
+      - "0-255"
+    network_id: "regtest"
   - type: "beacon"
     rpc_listen_addr: "/ip4/127.0.0.1/tcp/11782"
     chain_config: "regtest.json"
@@ -18,4 +22,11 @@ modules:
     root_key: "testnet"
     network_id: "regtest"
     listen_addr: "/ip4/127.0.0.1/tcp/11784"
-log_level: "info"
+    log_level: "debug"
+  - type: "relayer"
+    shard_addr: "/ip4/127.0.0.1/tcp/11783"
+    p2p_listen_addr: "/ip4/127.0.0.1/tcp/11785"
+    rpc_listen_addr: "/ip4/127.0.0.1/tcp/11786"
+    shards:
+      - "0-255"
+log_level: "debug"

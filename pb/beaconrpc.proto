@@ -7,32 +7,36 @@ import "common.proto";
 
 service BlockchainRPC {
     rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
-
     rpc GetSlotNumber(google.protobuf.Empty) returns (SlotNumberResponse);
-
     rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
-
     rpc GetLastBlockHash(google.protobuf.Empty) returns (GetBlockHashResponse);
-
     rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
-
     rpc GetStateRoot(google.protobuf.Empty) returns (GetStateRootResponse);
-
     rpc GetEpochInformation(EpochInformationRequest) returns (EpochInformationResponse);
-
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
-
     rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
-
     rpc GetShardProposerForSlot(GetShardProposerRequest) returns (ShardProposerResponse);
-
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
-
     rpc SubmitAttestation(Attestation) returns (google.protobuf.Empty);
-
     rpc GetMempool(MempoolRequest) returns (BlockBody);
-
     rpc GetValidatorInformation(GetValidatorRequest) returns (Validator);
+    rpc GetListeningAddresses(google.protobuf.Empty) returns (ListeningAddressesResponse);
+    rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
+    rpc CrosslinkStream(CrosslinkStreamRequest) returns (stream CrosslinkMessage);
+    rpc GetGenesisTime(google.protobuf.Empty) returns (GenesisTimeResponse);
+}
+
+message GenesisTimeResponse {
+    uint64 GenesisTime = 1;
+}
+
+message CrosslinkStreamRequest {
+    uint64 ShardID = 1;
+}
+
+message CrosslinkMessage {
+    bytes BlockHash = 1;
+    uint64 Slot = 2;
 }
 
 message GetShardProposerRequest {
@@ -110,11 +114,6 @@ message SubmitBlockRequest {
 
 message SubmitBlockResponse {
     bytes BlockHash = 1;
-}
-
-message SlotNumberResponse {
-    uint64 SlotNumber = 1;
-    bytes BlockHash = 2;
 }
 
 message GetBlockHashRequest {

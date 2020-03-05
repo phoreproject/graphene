@@ -25,17 +25,16 @@ func (b *Blockchain) StoreBlock(block *primitives.Block) error {
 
 // AddBlockToStateMap calculates the state after applying block and adds it
 // to the state map.
-func (b *Blockchain) AddBlockToStateMap(block *primitives.Block, verifySignature bool) ([]primitives.Receipt, *primitives.State, error) {
+func (b *Blockchain) AddBlockToStateMap(block *primitives.Block, verifySignature bool) (*primitives.EpochTransitionOutput, *primitives.State, error) {
 	return b.stateManager.AddBlockToStateMap(block, verifySignature)
 }
 
 // ProcessBlock is called when a block is received from a peer.
-func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verifySignature bool) ([]primitives.Receipt, *primitives.State, error) {
+func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verifySignature bool) (*primitives.EpochTransitionOutput, *primitives.State, error) {
 	genesisTime := b.stateManager.GetGenesisTime()
 
 	validationStart := time.Now()
 
-	// VALIDATE BLOCK HERE
 	if checkTime && (block.BlockHeader.SlotNumber*uint64(b.config.SlotDuration)+genesisTime > uint64(utils.Now().Unix()) || block.BlockHeader.SlotNumber == 0) {
 		return nil, nil, errors.New("block slot too soon")
 	}
@@ -76,15 +75,21 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	initialJustifiedEpoch := initialState.JustifiedEpoch
 	initialFinalizedEpoch := initialState.FinalizedEpoch
 
-	receipts, newState, err := b.AddBlockToStateMap(block, verifySignature)
+	output, newState, err := b.AddBlockToStateMap(block, verifySignature)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	for _, n := range b.Notifees {
+		for _, c := range output.Crosslinks {
+			n.CrosslinkCreated(&c.Crosslink, c.ShardID)
+		}
 	}
 
 	reasons := map[uint8]int64{}
 
 	netRewarded := int64(0)
-	for _, r := range receipts {
+	for _, r := range output.Receipts {
 		netRewarded += r.Amount
 		if _, found := reasons[r.Type]; found {
 			reasons[r.Type] += r.Amount
@@ -270,7 +275,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		"totalTime":          time.Since(validationStart),
 	})
 
-	return receipts, newState, nil
+	return output, newState, nil
 }
 
 // GetState gets a copy of the current state of the blockchain.

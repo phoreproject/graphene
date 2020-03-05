@@ -23,6 +23,7 @@ type AttestationData struct {
 	Shard               uint64
 	LatestCrosslinkHash chainhash.Hash
 	ShardBlockHash      chainhash.Hash
+	ShardStateHash      chainhash.Hash
 }
 
 // Equals checks if this attestation data is equal to another.
@@ -35,7 +36,8 @@ func (a *AttestationData) Equals(other *AttestationData) bool {
 		a.Shard == other.Shard &&
 		a.LatestCrosslinkHash.IsEqual(&other.LatestCrosslinkHash) &&
 		a.ShardBlockHash.IsEqual(&other.ShardBlockHash) &&
-		a.Slot == other.Slot
+		a.Slot == other.Slot &&
+		a.ShardStateHash.IsEqual(&other.ShardStateHash)
 }
 
 // Copy returns a copy of the data.
@@ -68,6 +70,9 @@ func AttestationDataFromProto(att *pb.AttestationData) (*AttestationData, error)
 	if err := a.ShardBlockHash.SetBytes(att.ShardBlockHash); err != nil {
 		return nil, err
 	}
+	if err := a.ShardStateHash.SetBytes(att.ShardStateHash); err != nil {
+		return nil, err
+	}
 
 	return a, nil
 }
@@ -85,6 +90,7 @@ func (a AttestationData) ToProto() *pb.AttestationData {
 
 		Shard:               a.Shard,
 		ShardBlockHash:      a.ShardBlockHash[:],
+		ShardStateHash:      a.ShardStateHash[:],
 		LatestCrosslinkHash: a.LatestCrosslinkHash[:],
 	}
 }

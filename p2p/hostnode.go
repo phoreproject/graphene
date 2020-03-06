@@ -2,8 +2,9 @@ package p2p
 
 import (
 	"context"
-	"github.com/libp2p/go-libp2p"
 	"time"
+
+	"github.com/libp2p/go-libp2p"
 
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	"github.com/libp2p/go-libp2p-pubsub"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 )
@@ -111,6 +112,7 @@ func (node *HostNode) GetHost() host.Host {
 
 // Broadcast broadcasts a message to the network for a topic.
 func (node *HostNode) Broadcast(topic string, data []byte) error {
+	logrus.WithField("topic", topic).WithField("size", len(data)).Debug("broadcasting data to topic")
 	return node.gossipSub.Publish(topic, data)
 }
 
@@ -124,6 +126,11 @@ func (node *HostNode) SubscribeMessage(topic string, handler func([]byte, peer.I
 	go func() {
 		for {
 			msg, err := subscription.Next(node.ctx)
+			logrus.WithFields(logrus.Fields{
+				"peer":  msg.GetFrom(),
+				"topic": topic,
+				"size":  len(msg.Data),
+			}).Debug("got broadcast from peer")
 			if err != nil {
 				logrus.WithField("error", err).Warn("error when getting next topic message")
 				continue
@@ -199,13 +206,14 @@ func (node *HostNode) Connect(ctx context.Context, pi peer.AddrInfo) error {
 }
 
 // OpenStreams opens streams to peer after connecting.
-func (node *HostNode) OpenStreams(id peer.ID, protocols... protocol.ID) error {
+func (node *HostNode) OpenStreams(id peer.ID, protocols ...protocol.ID) error {
 	protoStrings := make([]string, len(protocols))
 	for i := range protocols {
 		protoStrings[i] = string(protocols[i])
 	}
 
 	for _, p := range protoStrings {
+		logrus.WithField("peerID", id).WithField("protocol", p).Debug("setting up stream")
 		stream, err := node.host.NewStream(node.ctx, id, protocol.ID(p))
 		if err != nil {
 			return err
@@ -231,7 +239,6 @@ func (node *HostNode) GetPeerDirection(id peer.ID) network.Direction {
 
 	if len(conns) != 1 {
 		return network.DirUnknown
-	} else {
-		return conns[0].Stat().Direction
 	}
+	return conns[0].Stat().Direction
 }

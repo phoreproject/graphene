@@ -3,6 +3,11 @@ package p2p
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -11,10 +16,6 @@ import (
 	mdnsdiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
-	"io"
-	"strings"
-	"sync"
-	"time"
 
 	discoveryutils "github.com/libp2p/go-libp2p-discovery"
 )
@@ -173,7 +174,11 @@ func (p *ProtocolHandler) findPeers() {
 func (p *ProtocolHandler) receiveMessages(id peer.ID, r io.Reader) {
 	err := processMessages(p.ctx, r, func(message proto.Message) error {
 		name := proto.MessageName(message)
-		logrus.WithField("messageName", name).Debug("received message")
+		logrus.WithFields(logrus.Fields{
+			"peer":  id,
+			"msg":   name,
+			"proto": id,
+		}).Debug("received message")
 		p.messageHandlersLock.RLock()
 		if handler, found := p.messageHandlers[name]; found {
 			p.messageHandlersLock.RUnlock()
@@ -237,6 +242,11 @@ func (p *ProtocolHandler) handleStream(s network.Stream) {
 
 // SendMessage writes a message to a peer.
 func (p *ProtocolHandler) SendMessage(toPeer peer.ID, msg proto.Message) error {
+	logrus.WithFields(logrus.Fields{
+		"peer":  toPeer,
+		"msg":   msg.String(),
+		"proto": p.ID,
+	}).Debug("sending message")
 	p.outgoingMessagesLock.RLock()
 	msgsChan, found := p.outgoingMessages[toPeer]
 	p.outgoingMessagesLock.RUnlock()

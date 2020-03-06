@@ -130,6 +130,7 @@ func (cm *ConnectionManager) GetProtocols() []protocol.ID {
 	return protos
 }
 
+// HandleOutgoing handles outgoing streams.
 func (cm *ConnectionManager) HandleOutgoing(id protocol.ID, s network.Stream) error {
 	cm.protocolConfigurationLock.RLock()
 	ph, found := cm.protocolConfiguration[id]

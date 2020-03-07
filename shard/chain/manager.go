@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
@@ -17,7 +19,6 @@ import (
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
-	"sync"
 )
 
 // ShardChainInitializationParameters are the initialization parameters from the crosslink.
@@ -63,7 +64,6 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		ShardID:     uint32(shardID),
 	}
 
-
 	sm := &ShardManager{
 		ShardID:                  shardID,
 		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
@@ -76,7 +76,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 		BlockDB:                  db.NewMemoryBlockDB(),
 	}
 
-	GlobalVis.addShard(sm)
+	// GlobalVis.addShard(sm)
 
 	syncManager, err := NewShardSyncManager(hn, sm, shardID)
 	if err != nil {
@@ -172,9 +172,9 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 	h, _ := ssz.HashTreeRoot(block)
 
 	logrus.WithFields(logrus.Fields{
-		"slot":  block.Header.Slot,
-		"hash":  chainhash.Hash(h),
-		"shard": sm.ShardID,
+		"slot":         block.Header.Slot,
+		"hash":         chainhash.Hash(h),
+		"shard":        sm.ShardID,
 		"transactions": len(block.Body.Transactions),
 	}).Debug("processing block")
 

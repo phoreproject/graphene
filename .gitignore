@@ -5,14 +5,14 @@
 dist
 
 # binaries
-synapse
-synapseshard
-synapsebeacon
-synapsevalidator
-synapsep2p
-synapserelayer
-synapsekey
-synapseexplorer
+/synapse
+/synapseshard
+/synapsebeacon
+/synapsevalidator
+/synapsep2p
+/synapserelayer
+/synapsekey
+/synapseexplorer
 integration_tests
 *.exe
 /.vscode

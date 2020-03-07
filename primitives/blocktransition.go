@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -93,15 +94,6 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *co
 		if !valid {
 			return fmt.Errorf("attestation signature is invalid. expected committee with members: %v for slot %d shard %d", participants, att.Data.Slot, att.Data.Shard)
 		}
-	}
-
-	node, err := s.GetRecentBlockHash(att.Data.Slot, c)
-	if err != nil {
-		return err
-	}
-
-	if !att.Data.BeaconBlockHash.IsEqual(node) {
-		return fmt.Errorf("beacon block hash is invalid (expected: %s, got: %s)", node, att.Data.BeaconBlockHash)
 	}
 
 	return nil

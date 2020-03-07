@@ -298,6 +298,11 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 			if validator, found := vm.validatorMap[assignmentClosed.Validator]; found {
 				w.Add(1)
 				go func() {
+					logrus.WithFields(logrus.Fields{
+						"slot":      slotNumber,
+						"validator": assignmentClosed.Validator,
+						"shard":     assignmentClosed.Shard,
+					}).Debug("proposing shard block")
 					err := validator.proposeShardblock(context.Background(), assignmentClosed.Shard, slotNumber, chainhash.Hash{})
 					if err != nil {
 						panic(err)

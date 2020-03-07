@@ -163,6 +163,7 @@ func (p *ProtocolHandler) findPeers() {
 				}
 				p.HandlePeerFound(pi)
 			case <-p.ctx.Done():
+				cancel()
 				return
 			case <-findPeerCtx.Done():
 				break peerLoop
@@ -244,7 +245,7 @@ func (p *ProtocolHandler) handleStream(s network.Stream) {
 func (p *ProtocolHandler) SendMessage(toPeer peer.ID, msg proto.Message) error {
 	logrus.WithFields(logrus.Fields{
 		"peer":  toPeer,
-		"msg":   msg.String(),
+		"msg":   proto.MessageName(msg),
 		"proto": p.ID,
 	}).Debug("sending message")
 	p.outgoingMessagesLock.RLock()

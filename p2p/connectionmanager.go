@@ -3,10 +3,11 @@ package p2p
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/multiformats/go-multiaddr"
 	"sync"
 	"time"
+
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/multiformats/go-multiaddr"
 
 	"github.com/libp2p/go-libp2p-core/protocol"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
@@ -42,7 +43,6 @@ func NewConnectionManagerOptions() ConnectionManagerOptions {
 	}
 }
 
-
 // ConnectionManager is the service to discover other peers.
 type ConnectionManager struct {
 	host         *HostNode
@@ -50,10 +50,10 @@ type ConnectionManager struct {
 	ctx          context.Context
 	p2pDiscovery *routingdiscovery.RoutingDiscovery
 
-	protocolConfiguration map[protocol.ID]*ProtocolHandler
+	protocolConfiguration     map[protocol.ID]*ProtocolHandler
 	protocolConfigurationLock sync.RWMutex
 
-	lastConnect map[peer.ID]time.Time
+	lastConnect     map[peer.ID]time.Time
 	lastConnectLock sync.RWMutex
 }
 
@@ -65,6 +65,13 @@ func NewConnectionManager(ctx context.Context, host *HostNode, discoveryOptions 
 	routing, err := kaddht.New(ctx, host.GetHost(), dhtopts.Protocols(
 		protocol.ID(DHTProtocolID),
 	))
+
+	go func() {
+		for _, addr := range discoveryOptions.BootstrapAddresses {
+			host.Connect(context.Background(), addr)
+		}
+	}()
+
 	if err != nil {
 		return nil, err
 	}
@@ -77,12 +84,12 @@ func NewConnectionManager(ctx context.Context, host *HostNode, discoveryOptions 
 		return nil, err
 	}
 	return &ConnectionManager{
-		host:         host,
-		ctx:          ctx,
-		options:      discoveryOptions,
-		p2pDiscovery: routingdiscovery.NewRoutingDiscovery(routing),
+		host:                  host,
+		ctx:                   ctx,
+		options:               discoveryOptions,
+		p2pDiscovery:          routingdiscovery.NewRoutingDiscovery(routing),
 		protocolConfiguration: make(map[protocol.ID]*ProtocolHandler),
-		lastConnect: make(map[peer.ID]time.Time),
+		lastConnect:           make(map[peer.ID]time.Time),
 	}, nil
 }
 

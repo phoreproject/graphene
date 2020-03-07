@@ -236,15 +236,15 @@ func (app *BeaconApp) loadP2P() error {
 	}
 
 	hostNode, err := p2p.NewHostNode(context.Background(), p2p.HostNodeOptions{
-		ListenAddresses:    []ma.Multiaddr{
+		ListenAddresses: []ma.Multiaddr{
 			addr,
 		},
-		PrivateKey:         priv,
+		PrivateKey: priv,
 		ConnManagerOptions: p2p.ConnectionManagerOptions{
 			BootstrapAddresses: app.config.DiscoveryOptions.BootstrapAddresses,
 			MDNS:               p2p.MDNSOptions{},
 		},
-		Timeout:            0,
+		Timeout: 0,
 	})
 	if err != nil {
 		panic(err)

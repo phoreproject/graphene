@@ -4,22 +4,23 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"time"
+
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
+	beaconconfig "github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
 	"github.com/phoreproject/synapse/shard/config"
-	beaconconfig "github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/shard/rpc"
 	"github.com/phoreproject/synapse/utils"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"time"
 )
 
 const shardExecutionVersion = "0.0.1"
@@ -30,7 +31,7 @@ type ShardApp struct {
 	RPC       rpc.ShardRPCServer
 	beaconRPC pb.BlockchainRPCClient
 	shardMux  *chain.ShardMux
-	hostnode *p2p.HostNode
+	hostnode  *p2p.HostNode
 }
 
 // NewShardApp creates a new shard app given a config.
@@ -60,7 +61,7 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 		RPCProtocol: addr.Network(),
 		RPCAddress:  addr.String(),
 		TrackShards: options.TrackShards,
-		P2PListen: options.P2PListen,
+		P2PListen:   options.P2PListen,
 	}
 
 	a := &ShardApp{Config: c}
@@ -77,15 +78,14 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 		return nil, err
 	}
 
-
 	hn, err := p2p.NewHostNode(context.TODO(), p2p.HostNodeOptions{
-		ListenAddresses:    []multiaddr.Multiaddr{p2pAddr},
-		PrivateKey:         priv,
+		ListenAddresses: []multiaddr.Multiaddr{p2pAddr},
+		PrivateKey:      priv,
 		ConnManagerOptions: p2p.ConnectionManagerOptions{
 			BootstrapAddresses: nil,
 			MDNS:               p2p.MDNSOptions{},
 		},
-		Timeout:            60 * time.Second,
+		Timeout: 60 * time.Second,
 	})
 	if err != nil {
 		return nil, err
@@ -93,10 +93,12 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 
 	a.shardMux = chain.NewShardMux(a.beaconRPC, hn)
 
-
 	a.hostnode = hn
 
 	genesisTime, err := a.beaconRPC.GetGenesisTime(context.Background(), &empty.Empty{})
+	if err != nil {
+		return nil, err
+	}
 
 	shards, err := utils.ParseRanges(a.Config.TrackShards)
 	if err != nil {
@@ -141,7 +143,7 @@ func (s *ShardApp) Run() error {
 
 	logrus.Infof("starting RPC server on %s with protocol %s", s.Config.RPCAddress, s.Config.RPCProtocol)
 
-	<- make(chan struct{})
+	<-make(chan struct{})
 
 	return nil
 }

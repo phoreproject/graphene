@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
-	beaconconfig "github.com/phoreproject/synapse/beacon/config"
-	beaconmodule "github.com/phoreproject/synapse/beacon/module"
-	"github.com/phoreproject/synapse/cfg"
-	"github.com/phoreproject/synapse/shard/chain"
-	"github.com/phoreproject/synapse/utils"
-	"github.com/pkg/errors"
-	logger "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
 	"reflect"
 	"strings"
+
+	beaconconfig "github.com/phoreproject/synapse/beacon/config"
+	beaconmodule "github.com/phoreproject/synapse/beacon/module"
+	"github.com/phoreproject/synapse/cfg"
+	"github.com/phoreproject/synapse/utils"
+	"github.com/pkg/errors"
+	logger "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 
 	shardconfig "github.com/phoreproject/synapse/shard/config"
 	shardmodule "github.com/phoreproject/synapse/shard/module"
@@ -23,9 +23,9 @@ import (
 
 	relayerconfig "github.com/phoreproject/synapse/relayer/config"
 	relayermodule "github.com/phoreproject/synapse/relayer/module"
-)
 
-import _ "net/http/pprof"
+	_ "net/http/pprof"
+)
 
 // SynapseOptions are the options for all module configs.
 type SynapseOptions struct {
@@ -196,7 +196,6 @@ func main() {
 		}()
 	}
 
-
 	for i, c := range validatorConfigs {
 		app, err := validatormodule.NewValidatorApp(*c)
 		if err != nil {
@@ -213,10 +212,7 @@ func main() {
 		relayerApps[i] = app
 	}
 
-
 	// order goes: beacon, shard, validator
-
-
 
 	for i, a := range validatorApps {
 		go func() {
@@ -232,9 +228,9 @@ func main() {
 		}()
 	}
 
-	if globalConfig.Visualize {
-		chain.GlobalVis.Start()
-	}
+	// if globalConfig.Visualize {
+	// 	chain.GlobalVis.Start()
+	// }
 
 	for {
 		err := <-errChan

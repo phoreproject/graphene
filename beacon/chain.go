@@ -36,6 +36,7 @@ func (node *BlockNode) GetAncestorAtHeight(height uint64) *BlockNode {
 }
 
 // GetAncestorAtSlot gets the ancestor of a block at a certain slot.
+// Defined if node.Slot >= slot.
 func (node *BlockNode) GetAncestorAtSlot(slot uint64) *BlockNode {
 	if node.Slot < slot {
 		return nil
@@ -273,13 +274,13 @@ func (c *Chain) GetBlockByHeight(height int) *BlockNode {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if height < len(c.chain) {
+	if height < len(c.chain) && height >= 0 {
 		return c.chain[height]
 	}
 	return nil
 }
 
-// Tip gets the tip of the chain.
+// Tip gets the tip of the chain. Returns nil if no genesis block defined.
 func (c *Chain) Tip() *BlockNode {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -310,9 +311,6 @@ func (c *Chain) GetChainLocator() [][]byte {
 		}
 
 		nextCurrent := c.GetBlockByHeight(nextHeight)
-		if nextCurrent == nil {
-			panic("Assertion error: getChainLocator should never ask for block above current tip")
-		}
 
 		step *= 2
 		current = nextCurrent
@@ -367,14 +365,13 @@ func (c *Chain) Next(node *BlockNode) *BlockNode {
 }
 
 // GetBlockBySlot gets the block node at a certain slot.
-func (c *Chain) GetBlockBySlot(slot uint64) (*BlockNode, error) {
+func (c *Chain) GetBlockBySlot(slot uint64) *BlockNode {
 	tip := c.Tip()
+	if tip == nil {
+		return nil
+	}
 	if tip.Slot < slot {
-		return tip, nil
+		return tip
 	}
-	node := tip.GetAncestorAtSlot(slot)
-	if node == nil {
-		return nil, fmt.Errorf("no block at slot %d", slot)
-	}
-	return node, nil
+	return tip.GetAncestorAtSlot(slot)
 }

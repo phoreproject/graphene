@@ -144,7 +144,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 	for i, assignment := range assignments {
 		epochIndex := lastSlot / c.EpochLength
 
-		targetHash, err := b.View.Chain.GetBlockBySlot(epochIndex * c.EpochLength)
+		targetHash := b.View.Chain.GetBlockBySlot(epochIndex * c.EpochLength)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 		if lastSlot%c.EpochLength == 0 {
 			justifiedEpoch = s.PreviousJustifiedEpoch
 
-			targetHash, err = b.View.Chain.GetBlockBySlot(epochIndex*c.EpochLength - c.EpochLength)
+			targetHash = b.View.Chain.GetBlockBySlot(epochIndex*c.EpochLength - c.EpochLength)
 			if err != nil {
 				return nil, err
 			}
@@ -164,7 +164,7 @@ func GenerateFakeAttestations(s *primitives.State, b *beacon.Blockchain, keys va
 			crosslinks = s.PreviousCrosslinks
 		}
 
-		justifiedNode, err := b.View.Chain.GetBlockBySlot(justifiedEpoch * c.EpochLength)
+		justifiedNode := b.View.Chain.GetBlockBySlot(justifiedEpoch * c.EpochLength)
 		if err != nil {
 			return nil, err
 		}

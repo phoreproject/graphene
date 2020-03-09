@@ -33,6 +33,7 @@ type BadgerDB struct {
 // NewBadgerDB initializes the badger database with the supplied directories.
 func NewBadgerDB(databaseDir string) *BadgerDB {
 	opts := badger.DefaultOptions(databaseDir)
+	opts = opts.WithLogger(logrus.StandardLogger())
 	opts.ValueLogFileSize = 8 << 20
 
 	if runtime.GOOS == "windows" {

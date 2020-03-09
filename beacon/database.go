@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"errors"
+
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -15,7 +16,7 @@ func blockNodeToHash(b *BlockNode) chainhash.Hash {
 	return b.Hash
 }
 
-func blockNodeToDisk(b BlockNode) db.BlockNodeDisk {
+func BlockNodeToDisk(b BlockNode) db.BlockNodeDisk {
 	children := make([]chainhash.Hash, len(b.Children))
 	for i := range children {
 		children[i] = blockNodeToHash(b.Children[i])

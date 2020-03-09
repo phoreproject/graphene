@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/phoreproject/synapse/beacon/db"
@@ -145,6 +144,10 @@ func (bi *BlockIndex) GetBlockNodeByHash(hash chainhash.Hash) *BlockNode {
 	return bi.getBlockNodeByHash(hash)
 }
 
+// ErrorNoParent occurs when a block that is being inserted does not have
+// a valid parent block.
+var ErrNoParent = errors.New("could not find parent node for new block node")
+
 // AddBlockNodeToIndex adds a new block ot the blockchain.
 func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash, stateRoot chainhash.Hash) (*BlockNode, error) {
 	bi.lock.Lock()
@@ -159,7 +162,7 @@ func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash cha
 	if block.BlockHeader.SlotNumber == 0 {
 		parentNode = nil
 	} else if parentNode == nil {
-		return nil, errors.New("could not find parent node for block node being added to index")
+		return nil, ErrNoParent
 	}
 
 	height := uint64(0)
@@ -191,7 +194,7 @@ func (bi *BlockIndex) LoadBlockNode(blockNodeDisk *db.BlockNodeDisk) (*BlockNode
 	defer bi.lock.Unlock()
 	parent := bi.getBlockNodeByHash(blockNodeDisk.Parent)
 	if parent == nil && blockNodeDisk.Slot != 0 {
-		return nil, fmt.Errorf("can't load block node to block index without parent block (missing %s)", blockNodeDisk.Parent)
+		return nil, ErrNoParent
 	}
 
 	newNode := &BlockNode{

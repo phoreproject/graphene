@@ -7,7 +7,77 @@ import (
 
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/primitives"
+	"github.com/prysmaticlabs/go-ssz"
 )
+
+func TestBlockIndex(t *testing.T) {
+	bi := beacon.NewBlockIndex()
+
+	genesisBlock := &primitives.Block{}
+	genesisHash, _ := ssz.HashTreeRoot(genesisBlock)
+
+	node, err := bi.AddBlockNodeToIndex(genesisBlock, genesisHash, chainhash.Hash{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	g := chainhash.Hash(genesisHash)
+
+	if !node.Hash.IsEqual(&g) {
+		t.Fatal("expected hash to match")
+	}
+
+	node2, err := bi.AddBlockNodeToIndex(genesisBlock, genesisHash, chainhash.Hash{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if node != node2 {
+		t.Fatal("expected add block node to be idempotent")
+	}
+
+	block1 := &primitives.Block{
+		BlockHeader: primitives.BlockHeader{
+			SlotNumber: 1,
+			ParentRoot: chainhash.Hash{},
+		},
+	}
+	block1Hash, _ := ssz.HashTreeRoot(block1)
+
+	_, err = bi.AddBlockNodeToIndex(block1, block1Hash, chainhash.Hash{})
+	if err != beacon.ErrNoParent {
+		t.Fatal("expected block with no parent to error")
+	}
+
+	block1.BlockHeader.ParentRoot = genesisHash
+	block1Hash, _ = ssz.HashTreeRoot(block1)
+
+	node2, err = bi.AddBlockNodeToIndex(block1, block1Hash, chainhash.Hash{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b0disk := beacon.BlockNodeToDisk(*node)
+	b1disk := beacon.BlockNodeToDisk(*node2)
+
+	bi2 := beacon.NewBlockIndex()
+
+	_, err = bi2.LoadBlockNode(&b0disk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = bi2.LoadBlockNode(&b1disk)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b1disk.Parent = chainhash.Hash{}
+	_, err = bi2.LoadBlockNode(&b1disk)
+	if err != beacon.ErrNoParent {
+		t.Fatal("expected block with no parent to error")
+	}
+}
 
 func TestChainGenesis(t *testing.T) {
 	c := beacon.NewChain()
@@ -159,6 +229,10 @@ func TestChainBlockchain(t *testing.T) {
 		t.Fatal("expected to be able to get ancestor at slot")
 	}
 
+	if nodes[NumberBlocks-1].GetAncestorAtSlot(900) != nil {
+		t.Fatal("expected GetAncestorAtSlot to return nil if slot is over tip")
+	}
+
 	if c.GetBlockByHeight(140).Height != 140 {
 		t.Fatal("expected chain to be able to get block by height")
 	}
@@ -193,5 +267,59 @@ func TestChainBlockchain(t *testing.T) {
 
 		current = int64(current) - step
 		step *= 2
+	}
+}
+
+func TestBlockchainView(t *testing.T) {
+	view := beacon.NewBlockchainView()
+
+	genesisBlock := &primitives.Block{}
+	gBlockHash, _ := ssz.HashTreeRoot(genesisBlock)
+
+	gNode, err := view.Index.AddBlockNodeToIndex(genesisBlock, gBlockHash, chainhash.Hash{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nodes := make([]*beacon.BlockNode, 200)
+	nodes[0] = gNode
+
+	for i := 1; i < 200; i++ {
+		blockN := &primitives.Block{
+			BlockHeader: primitives.BlockHeader{
+				SlotNumber: uint64(i),
+				ParentRoot: nodes[i-1].Hash,
+			},
+		}
+		blockNHash, _ := ssz.HashTreeRoot(blockN)
+		nNode, err := view.Index.AddBlockNodeToIndex(genesisBlock, blockNHash, chainhash.Hash{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		nodes[i] = nNode
+	}
+
+	view.Chain.SetTip(nodes[199])
+
+	if view.SetFinalizedHead(chainhash.Hash{}, primitives.State{}) {
+		t.Fatal("expected setting finalized head to fail with wrong hash")
+	}
+
+	if view.SetJustifiedHead(chainhash.Hash{}, primitives.State{}) {
+		t.Fatal("expected setting justified head to fail with wrong hash")
+	}
+
+	view.SetFinalizedHead(nodes[150].Hash, primitives.State{})
+	view.SetJustifiedHead(nodes[140].Hash, primitives.State{})
+
+	finalizedNode, _ := view.GetFinalizedHead()
+	if finalizedNode != nodes[150] {
+		t.Fatal("expected finalized node to be set properly")
+	}
+
+	justifiedNode, _ := view.GetJustifiedHead()
+	if justifiedNode != nodes[140] {
+		t.Fatal("expected justified node to be set properly")
 	}
 }

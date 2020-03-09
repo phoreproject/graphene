@@ -35,7 +35,7 @@ type Blockchain struct {
 	config       *config.Config
 	stateManager *StateManager
 
-	notifees []BlockchainNotifee
+	notifees    []BlockchainNotifee
 	notifeeLock sync.Mutex
 }
 

@@ -138,13 +138,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	err = b.DB.TransactionalUpdate(func(transaction interface{}) error {
 		// set the block node in the database
-		err = b.DB.SetBlockNode(blockNodeToDisk(*node), transaction)
+		err = b.DB.SetBlockNode(BlockNodeToDisk(*node), transaction)
 		if err != nil {
 			return err
 		}
 
 		// update the parent node in the database
-		err = b.DB.SetBlockNode(blockNodeToDisk(*node.Parent), transaction)
+		err = b.DB.SetBlockNode(BlockNodeToDisk(*node.Parent), transaction)
 		if err != nil {
 			return err
 		}

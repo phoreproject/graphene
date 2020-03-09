@@ -2,10 +2,11 @@ package rpc
 
 import (
 	"fmt"
+	"net"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/prysmaticlabs/go-ssz"
-	"net"
 
 	"github.com/phoreproject/synapse/p2p"
 	"github.com/phoreproject/synapse/utils"
@@ -38,13 +39,12 @@ func (s *server) GetGenesisTime(context.Context, *empty.Empty) (*pb.GenesisTimeR
 	}, nil
 }
 
-
 // GetListeningAddresses gets the addresses we're listening on.
 func (s *server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
 	addrs := s.p2p.GetHost().Addrs()
 
 	info := peer.AddrInfo{
-		ID: s.p2p.GetHost().ID(),
+		ID:    s.p2p.GetHost().ID(),
 		Addrs: addrs,
 	}
 
@@ -59,7 +59,7 @@ func (s *server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.Liste
 	}
 
 	return &pb.ListeningAddressesResponse{
-		Addresses:            addrStrings,
+		Addresses: addrStrings,
 	}, nil
 }
 
@@ -187,19 +187,13 @@ func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNu
 	if currentSlot < 0 {
 		currentSlot = 0
 	}
-	block, err := s.chain.View.Chain.GetBlockBySlot(uint64(currentSlot))
-	if err != nil {
-		return nil, err
-	}
+	block := s.chain.View.Chain.GetBlockBySlot(uint64(currentSlot))
 	return &pb.SlotNumberResponse{SlotNumber: uint64(currentSlot), BlockHash: block.Hash[:], TipSlot: block.Slot}, nil
 }
 
 // GetBlockHash gets the block hash for a certain slot in the main chain.
 func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (*pb.GetBlockHashResponse, error) {
-	n, err := s.chain.View.Chain.GetBlockBySlot(in.SlotNumber)
-	if err != nil {
-		return nil, err
-	}
+	n := s.chain.View.Chain.GetBlockBySlot(in.SlotNumber)
 	return &pb.GetBlockHashResponse{Hash: n.Hash[:]}, nil
 }
 
@@ -249,15 +243,8 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 		}
 	}
 
-	epochBoundaryRoot, err := s.chain.View.Chain.GetBlockBySlot(in.EpochIndex * config.EpochLength)
-	if err != nil {
-		return nil, err
-	}
-
-	previousEpochBoundaryRoot, err := s.chain.View.Chain.GetBlockBySlot((in.EpochIndex - 1) * config.EpochLength)
-	if err != nil {
-		return nil, err
-	}
+	epochBoundaryRoot := s.chain.View.Chain.GetBlockBySlot(in.EpochIndex * config.EpochLength)
+	previousEpochBoundaryRoot := s.chain.View.Chain.GetBlockBySlot((in.EpochIndex - 1) * config.EpochLength)
 
 	latestCrosslinks := make([]*pb.Crosslink, len(state.LatestCrosslinks))
 	for i := range latestCrosslinks {
@@ -269,15 +256,8 @@ func (s *server) GetEpochInformation(ctx context.Context, in *pb.EpochInformatio
 		previousCrosslinks[i] = state.PreviousCrosslinks[i].ToProto()
 	}
 
-	justifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.JustifiedEpoch * config.EpochLength)
-	if err != nil {
-		return nil, err
-	}
-
-	previousJustifiedNode, err := s.chain.View.Chain.GetBlockBySlot(state.PreviousJustifiedEpoch * config.EpochLength)
-	if err != nil {
-		return nil, err
-	}
+	justifiedNode := s.chain.View.Chain.GetBlockBySlot(state.JustifiedEpoch * config.EpochLength)
+	previousJustifiedNode := s.chain.View.Chain.GetBlockBySlot(state.PreviousJustifiedEpoch * config.EpochLength)
 
 	earliestSlot := int64(state.Slot) - int64(state.Slot%config.EpochLength) - int64(config.EpochLength)
 
@@ -393,11 +373,11 @@ func (s *server) CrosslinkStream(req *pb.CrosslinkStreamRequest, res pb.Blockcha
 	cs := NewCrosslinkStream(req.ShardID, func(c *primitives.Crosslink) {
 		_ = res.Send(&pb.CrosslinkMessage{
 			BlockHash: c.ShardBlockHash[:],
-			Slot: c.Slot,
+			Slot:      c.Slot,
 		})
 	})
 	s.chain.RegisterNotifee(cs)
-	<- res.Context().Done()
+	<-res.Context().Done()
 	s.chain.UnregisterNotifee(cs)
 	return nil
 }

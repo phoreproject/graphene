@@ -163,7 +163,11 @@ func (b *BadgerDB) SetLatestAttestationsIfNeeded(validators []uint32, attestatio
 			item, err := txn.Get(key[:])
 			// if there's no attestation yet, set this as the latest
 			if err == badger.ErrKeyNotFound {
-				return txn.Set(key, attSer)
+				err := txn.Set(key, attSer)
+				if err != nil {
+					return err
+				}
+				continue
 			}
 			if err != nil {
 				return err

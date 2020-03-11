@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/phoreproject/synapse/shard/chain/index"
 	"sync"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -39,7 +40,7 @@ type ShardChainActionNotifee interface {
 type ShardManager struct {
 	ShardID                  uint64
 	Chain                    *ShardChain
-	Index                    *ShardBlockIndex
+	Index                    *index.ShardBlockIndex
 	InitializationParameters ShardChainInitializationParameters
 	BeaconClient             pb.BlockchainRPCClient
 	Config                   config.Config
@@ -67,7 +68,7 @@ func NewShardManager(shardID uint64, init ShardChainInitializationParameters, be
 	sm := &ShardManager{
 		ShardID:                  shardID,
 		Chain:                    NewShardChain(init.RootSlot, &genesisBlock),
-		Index:                    NewShardBlockIndex(genesisBlock),
+		Index:                    index.NewShardBlockIndex(genesisBlock),
 		InitializationParameters: init,
 		BeaconClient:             beaconClient,
 		shardInfo:                shardInfo,

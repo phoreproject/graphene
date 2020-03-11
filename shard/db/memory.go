@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -12,6 +13,50 @@ import (
 type MemoryBlockDB struct {
 	blocks     map[chainhash.Hash]primitives.ShardBlock
 	blockNodes map[chainhash.Hash]ShardBlockNodeDisk
+
+	finalizedHead chainhash.Hash
+	tip           chainhash.Hash
+
+	lock sync.Mutex
+}
+
+// SetBlockNode sets a block node in the database.
+func (m *MemoryBlockDB) SetBlockNode(n *ShardBlockNodeDisk) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	m.blockNodes[n.BlockHash] = *n
+	return nil
+}
+
+// SetFinalizedHead sets the finalized head in the database.
+func (m *MemoryBlockDB) SetFinalizedHead(c chainhash.Hash) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.finalizedHead = c
+	return nil
+}
+
+// GetFinalizedHead returns the hash of the finalized head.
+func (m *MemoryBlockDB) GetFinalizedHead() (*chainhash.Hash, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return &m.finalizedHead, nil
+}
+
+// SetChainTip sets the tip of the chain.
+func (m *MemoryBlockDB) SetChainTip(c chainhash.Hash) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.tip = c
+	return nil
+}
+
+// GetChainTip gets the tip of the chain.
+func (m *MemoryBlockDB) GetChainTip() (*chainhash.Hash, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return &m.tip, nil
 }
 
 // NewMemoryBlockDB creates a new block database stored in memory.

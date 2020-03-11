@@ -1,11 +1,12 @@
-package chain
+package index
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
-	"sync"
 )
 
 // ShardBlockNode is a block node in the shard chain.

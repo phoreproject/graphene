@@ -48,10 +48,7 @@ func (b *Blockchain) getLatestAttestationTarget(validator uint32) (*BlockNode, e
 	if err != nil {
 		return nil, err
 	}
-	h, err := ssz.HashTreeRoot(bl)
-	if err != nil {
-		return nil, err
-	}
+	h, _ := ssz.HashTreeRoot(bl)
 
 	node := b.View.Index.GetBlockNodeByHash(h)
 	if node == nil {

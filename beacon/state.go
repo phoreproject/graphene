@@ -2,11 +2,11 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/prysmaticlabs/go-ssz"
 
+	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/utils"
 	logger "github.com/sirupsen/logrus"
@@ -58,22 +58,12 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	validationTime := time.Since(validationStart)
 
-	blockHashStr := fmt.Sprintf("%x", blockHash)
-
 	logger.WithFields(logger.Fields{
-		"hash": blockHashStr,
+		"hash": chainhash.Hash(blockHash),
 		"slot": block.BlockHeader.SlotNumber,
 	}).Info("processing new block")
 
 	stateCalculationStart := time.Now()
-
-	initialState, found := b.stateManager.GetStateForHash(block.BlockHeader.ParentRoot)
-	if !found {
-		return nil, nil, errors.New("could not find state for parent block")
-	}
-
-	initialJustifiedEpoch := initialState.JustifiedEpoch
-	initialFinalizedEpoch := initialState.FinalizedEpoch
 
 	output, newState, err := b.AddBlockToStateMap(block, verifySignature)
 	if err != nil {
@@ -206,19 +196,14 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, errors.New("could not find finalized block Hash in state map")
 	}
 
-	if initialFinalizedEpoch != newState.FinalizedEpoch {
-		logger.WithFields(logger.Fields{
-			"finalizedEpoch": newState.FinalizedEpoch,
-		}).Info("finalized epoch")
-
-		err := b.DB.SetFinalizedState(*finalizedState)
-		if err != nil {
-			return nil, nil, err
-		}
+	if !b.View.SetFinalizedHead(finalizedNode.Hash, *finalizedState) {
+		return nil, nil, errors.New("could not set finalized head")
 	}
 
-	finalizedNodeAndState := blockNodeAndState{finalizedNode, *finalizedState}
-	b.View.finalizedHead = finalizedNodeAndState
+	err = b.DB.SetFinalizedState(*finalizedState)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	err = b.DB.SetFinalizedHead(finalizedNode.Hash)
 	if err != nil {
@@ -234,20 +219,13 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	if !found {
 		return nil, nil, errors.New("could not find justified block Hash in state map")
 	}
-	justifiedNodeAndState := blockNodeAndState{justifiedNode, *justifiedState}
-	b.View.justifiedHead = justifiedNodeAndState
+	if !b.View.SetJustifiedHead(justifiedNode.Hash, *justifiedState) {
+		return nil, nil, errors.New("could not set justified head")
+	}
 
-	if initialJustifiedEpoch != newState.JustifiedEpoch {
-		logger.WithFields(logger.Fields{
-			"justifiedEpoch":         newState.JustifiedEpoch,
-			"previousJustifiedEpoch": newState.PreviousJustifiedEpoch,
-			"justificationBitfield":  fmt.Sprintf("0b%b", newState.JustificationBitfield),
-		}).Info("justified slot")
-
-		err := b.DB.SetJustifiedState(*justifiedState)
-		if err != nil {
-			return nil, nil, err
-		}
+	err = b.DB.SetJustifiedState(*justifiedState)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	err = b.DB.SetJustifiedHead(justifiedNode.Hash)

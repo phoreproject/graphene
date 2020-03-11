@@ -22,22 +22,20 @@ func SetupBlockchain(initialValidators int, c *config.Config) (*beacon.Blockchai
 	return SetupBlockchainWithTime(initialValidators, c, time.Now())
 }
 
-// SetupBlockchainWithTime sets up a blockchain with a certain number of initial validators and genesis time
-func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTime time.Time) (*beacon.Blockchain, validator.Keystore, error) {
-	keystore := validator.NewFakeKeyStore()
-
+// InitialValidators gets the initial validators for tests.
+func InitialValidators(num int, keystore validator.Keystore, c *config.Config) ([]primitives.InitialValidatorEntry, error) {
 	var validators []primitives.InitialValidatorEntry
 
-	for i := 0; i <= initialValidators; i++ {
+	for i := 0; i <= num; i++ {
 		key := keystore.GetKeyForValidator(uint32(i))
 		pub := key.DerivePublicKey()
 		hashPub, err := ssz.HashTreeRoot(pub.Serialize())
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		proofOfPossession, err := bls.Sign(key, hashPub[:], bls.DomainDeposit)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		validators = append(validators, primitives.InitialValidatorEntry{
 			PubKey:                pub.Serialize(),
@@ -46,6 +44,18 @@ func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTim
 			WithdrawalCredentials: chainhash.Hash{},
 			DepositSize:           c.MaxDeposit,
 		})
+	}
+
+	return validators, nil
+}
+
+// SetupBlockchainWithTime sets up a blockchain with a certain number of initial validators and genesis time
+func SetupBlockchainWithTime(initialValidators int, c *config.Config, genesisTime time.Time) (*beacon.Blockchain, validator.Keystore, error) {
+	keystore := validator.NewFakeKeyStore()
+
+	validators, err := InitialValidators(initialValidators, keystore, c)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	b, err := beacon.NewBlockchainWithInitialValidators(db.NewInMemoryDB(), c, validators, true, uint64(genesisTime.Unix()))

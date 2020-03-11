@@ -3,16 +3,18 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
 	"sync"
+
+	"github.com/phoreproject/synapse/primitives"
+	index "github.com/phoreproject/synapse/shard/chain/index"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ShardChain is a chain of shard block nodes that form a chain.
 type ShardChain struct {
 	lock     *sync.Mutex
 	RootSlot uint64
-	chain    []*ShardBlockNode
+	chain    []*index.ShardBlockNode
 }
 
 // NewShardChain creates a new shard chain.
@@ -25,7 +27,7 @@ func NewShardChain(rootSlot uint64, genesisBlock *primitives.ShardBlock) *ShardC
 	return &ShardChain{
 		lock:     new(sync.Mutex),
 		RootSlot: rootSlot,
-		chain: []*ShardBlockNode{
+		chain: []*index.ShardBlockNode{
 			{
 				Parent:    nil,
 				BlockHash: genesisHash,
@@ -38,7 +40,7 @@ func NewShardChain(rootSlot uint64, genesisBlock *primitives.ShardBlock) *ShardC
 }
 
 // GetNodeBySlot gets the block node at a certain slot.
-func (c *ShardChain) GetNodeBySlot(slot uint64) (*ShardBlockNode, error) {
+func (c *ShardChain) GetNodeBySlot(slot uint64) (*index.ShardBlockNode, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -59,7 +61,7 @@ func (c *ShardChain) GetNodeBySlot(slot uint64) (*ShardBlockNode, error) {
 }
 
 // GetLatestNodeBySlot gets the latest block node before or equal to a certain slot.
-func (c *ShardChain) GetLatestNodeBySlot(slot uint64) (*ShardBlockNode, error) {
+func (c *ShardChain) GetLatestNodeBySlot(slot uint64) (*index.ShardBlockNode, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -76,14 +78,14 @@ func (c *ShardChain) GetLatestNodeBySlot(slot uint64) (*ShardBlockNode, error) {
 }
 
 // Tip gets the block node of the tip of the blockchain.
-func (c *ShardChain) Tip() (*ShardBlockNode, error) {
+func (c *ShardChain) Tip() (*index.ShardBlockNode, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.tip()
 }
 
 // tip gets the block node of the tip. Should be called with the lock held.
-func (c *ShardChain) tip() (*ShardBlockNode, error) {
+func (c *ShardChain) tip() (*index.ShardBlockNode, error) {
 	if len(c.chain) == 0 {
 		return nil, errors.New("empty blockchain")
 	}
@@ -92,11 +94,11 @@ func (c *ShardChain) tip() (*ShardBlockNode, error) {
 }
 
 // SetTip sets the tip of the chain.
-func (c *ShardChain) SetTip(node *ShardBlockNode) {
+func (c *ShardChain) SetTip(node *index.ShardBlockNode) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if node == nil {
-		c.chain = make([]*ShardBlockNode, 0)
+		c.chain = make([]*index.ShardBlockNode, 0)
 		return
 	}
 
@@ -104,7 +106,7 @@ func (c *ShardChain) SetTip(node *ShardBlockNode) {
 
 	// algorithm copied from btcd chainview
 	if uint64(cap(c.chain)) < needed {
-		newChain := make([]*ShardBlockNode, needed, 128+needed)
+		newChain := make([]*index.ShardBlockNode, needed, 128+needed)
 		copy(newChain, c.chain)
 		c.chain = newChain
 	} else {
@@ -122,7 +124,7 @@ func (c *ShardChain) SetTip(node *ShardBlockNode) {
 }
 
 // Genesis gets the genesis shard node.
-func (c *ShardChain) Genesis() *ShardBlockNode {
+func (c *ShardChain) Genesis() *index.ShardBlockNode {
 	return c.chain[0]
 }
 
@@ -132,24 +134,24 @@ func (c *ShardChain) Height() uint64 {
 }
 
 // Contains checks if the chain contains a certain block node.
-func (c *ShardChain) Contains(node *ShardBlockNode) bool {
+func (c *ShardChain) Contains(node *index.ShardBlockNode) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	return c.contains(node)
 }
 
-func (c *ShardChain) contains(node *ShardBlockNode) bool {
+func (c *ShardChain) contains(node *index.ShardBlockNode) bool {
 	return c.chain[node.Height] == node
 }
 
 // Next gets the next block node in the chian.
-func (c *ShardChain) Next(node *ShardBlockNode) *ShardBlockNode {
+func (c *ShardChain) Next(node *index.ShardBlockNode) *index.ShardBlockNode {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.contains(node) && uint64(len(c.chain)) > node.Height + 1 {
-		return c.chain[node.Height + 1]
+	if c.contains(node) && uint64(len(c.chain)) > node.Height+1 {
+		return c.chain[node.Height+1]
 	}
 
 	return nil
@@ -157,7 +159,7 @@ func (c *ShardChain) Next(node *ShardBlockNode) *ShardBlockNode {
 
 // GetBlockByHeight gets a block at a certain height or
 // if it doesn't exist, returns nil.
-func (c *ShardChain) GetBlockByHeight(height int) *ShardBlockNode {
+func (c *ShardChain) GetBlockByHeight(height int) *index.ShardBlockNode {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

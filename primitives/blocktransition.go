@@ -17,7 +17,7 @@ import (
 func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *config.Config) error {
 	if att.Data.TargetEpoch == s.EpochIndex {
 		if att.Data.SourceEpoch != s.JustifiedEpoch {
-			return fmt.Errorf("expected source epoch to equal the justified epoch if the target epoch is the current epoch (expected: %d, got %d)", s.EpochIndex, att.Data.TargetEpoch)
+			return fmt.Errorf("expected source epoch to equal the justified epoch if the target epoch is the current epoch (expected: %d, got %d)", s.JustifiedEpoch, att.Data.SourceEpoch)
 		}
 
 		justifiedHash, err := s.GetRecentBlockHash(s.JustifiedEpoch*c.EpochLength, c)
@@ -36,7 +36,7 @@ func (s *State) ValidateAttestation(att Attestation, verifySignature bool, c *co
 		}
 	} else if att.Data.TargetEpoch == s.EpochIndex-1 {
 		if att.Data.SourceEpoch != s.PreviousJustifiedEpoch {
-			return fmt.Errorf("expected source epoch to equal the previous justified epoch if the target epoch is the previous epoch (expected: %d, got %d)", s.EpochIndex-1, att.Data.TargetEpoch)
+			return fmt.Errorf("expected source epoch to equal the previous justified epoch if the target epoch is the previous epoch (expected: %d, got %d)", s.PreviousJustifiedEpoch, att.Data.SourceEpoch)
 		}
 
 		previousJustifiedHash, err := s.GetRecentBlockHash(s.PreviousJustifiedEpoch*c.EpochLength, c)

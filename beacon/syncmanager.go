@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"bytes"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -42,6 +43,8 @@ const syncVersion = 0
 func (s *SyncManager) PeerConnected(id peer.ID, dir network.Direction) {
 	if dir == network.DirInbound {
 		genesisHash := s.blockchain.GenesisHash()
+
+		logrus.WithField("to", id).Info("sending version message")
 
 		err := s.protocol.SendMessage(id, &pb.BeaconVersionMessage{
 			Version:     syncVersion,
@@ -485,15 +488,16 @@ func (s *SyncManager) handleReceivedBlock(block *primitives.Block, peerFrom peer
 			"slotTrying": block.BlockHeader.SlotNumber,
 		}).Info("requesting parent block")
 
-		// request all blocks up to this block
-		err := s.protocol.SendMessage(peerFrom, &pb.GetBlocksMessage{
-			LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
-			HashStop:      blockHash[:],
-		})
-		if err != nil {
-			return err
+		for _, p := range s.hostNode.GetPeerList() {
+			// request all blocks up to this block
+			err := s.protocol.SendMessage(p, &pb.GetBlocksMessage{
+				LocatorHashes: s.blockchain.View.Chain.GetChainLocator(),
+				HashStop:      blockHash[:],
+			})
+			if err != nil {
+				return err
+			}
 		}
-
 	} else {
 		logrus.WithField("slot", block.BlockHeader.SlotNumber).Debug("processing")
 		output, newState, err := s.blockchain.ProcessBlock(block, true, verifySignature)

@@ -46,7 +46,7 @@ func NewConnectionManagerOptions() ConnectionManagerOptions {
 // ConnectionManager is the service to discover other peers.
 type ConnectionManager struct {
 	host         *HostNode
-	options      ConnectionManagerOptions
+	Options      ConnectionManagerOptions
 	ctx          context.Context
 	p2pDiscovery *routingdiscovery.RoutingDiscovery
 
@@ -86,7 +86,7 @@ func NewConnectionManager(ctx context.Context, host *HostNode, discoveryOptions 
 	return &ConnectionManager{
 		host:                  host,
 		ctx:                   ctx,
-		options:               discoveryOptions,
+		Options:               discoveryOptions,
 		p2pDiscovery:          routingdiscovery.NewRoutingDiscovery(routing),
 		protocolConfiguration: make(map[protocol.ID]*ProtocolHandler),
 		lastConnect:           make(map[peer.ID]time.Time),

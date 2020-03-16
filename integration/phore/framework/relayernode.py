@@ -16,7 +16,7 @@ class RelayerConfig:
     def __init__(self, shard_port: str):
         self.p2p_port = -1
         self.rpc_port = -1
-        self.level = "debug"
+        self.level = "info"
         self.index = -1
         self.shards = []
         self.relayer_executable = tester.get_phore_path("synapserelayer")

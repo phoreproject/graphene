@@ -16,7 +16,7 @@ class ValidatorConfig:
         self.rootkey = "testnet"
         self.validators = validators
         self.validator_executable = tester.get_phore_path("synapsevalidator")
-        self.level = "trace"
+        self.level = "info"
         self.rpc_port = -1
 
     def get_args(self) -> typing.List[str]:

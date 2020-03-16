@@ -16,7 +16,7 @@ from phore.pb import shardrpc_pb2_grpc, shardrpc_pb2
 class ShardConfig:
     def __init__(self, beacon_port: str):
         self.beacon_port = beacon_port
-        self.level = "trace"
+        self.level = "info"
         self.index = -1
         self.rpc_port = -1
         self.p2p_port = -1

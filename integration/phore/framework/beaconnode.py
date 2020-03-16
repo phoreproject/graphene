@@ -20,7 +20,7 @@ class BeaconConfig:
         self.p2p_port = p2p_port
         self.rpc_port = rpc_port
         self.connect = []
-        self.level = "debug"
+        self.level = "info"
         self.index = index
         self.beacon_executable = tester.get_phore_path("synapsebeacon")
         self.genesis_time = "+5"

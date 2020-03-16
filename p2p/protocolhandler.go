@@ -133,12 +133,15 @@ func (p *ProtocolHandler) HandlePeerFound(pi peer.AddrInfo) {
 
 // findPeers looks for peers advertising our protocol ID and connects to them if needed.
 func (p *ProtocolHandler) findPeers() {
-	service, err := mdnsdiscovery.NewMdnsService(p.ctx, p.host.GetHost(), time.Minute*3, fmt.Sprintf("phore-%s-discovery._udp", p.ID))
-	if err != nil {
-		logrus.Warn(err)
-	}
 
-	service.RegisterNotifee(p)
+	if p.connManager.Options.MDNS.Enabled {
+		service, err := mdnsdiscovery.NewMdnsService(p.ctx, p.host.GetHost(), p.connManager.Options.MDNS.Interval, fmt.Sprintf("phore-%s-discovery._udp", p.ID))
+		if err != nil {
+			logrus.Warn(err)
+		}
+
+		service.RegisterNotifee(p)
+	}
 
 	for {
 		findPeerCtx, cancel := context.WithTimeout(p.ctx, findPeerCycle)
@@ -230,9 +233,11 @@ func (p *ProtocolHandler) sendMessages(id peer.ID, w io.Writer) {
 }
 
 func (p *ProtocolHandler) handleStream(s network.Stream) {
-	go p.receiveMessages(s.Conn().RemotePeer(), s)
-
 	p.sendMessages(s.Conn().RemotePeer(), s)
+
+	logrus.WithField("from", s.Conn().RemotePeer()).Info("handling messages")
+
+	go p.receiveMessages(s.Conn().RemotePeer(), s)
 
 	p.notifeeLock.Lock()
 	for _, n := range p.notifees {

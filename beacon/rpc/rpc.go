@@ -214,8 +214,19 @@ func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateRes
 }
 
 // GetStateRoot gets the hash of the state in the main chain.
-func (s *server) GetStateRoot(ctx context.Context, in *empty.Empty) (*pb.GetStateRootResponse, error) {
-	return &pb.GetStateRootResponse{StateRoot: s.chain.View.Chain.Tip().StateRoot[:]}, nil
+func (s *server) GetStateRoot(ctx context.Context, in *pb.GetStateRootRequest) (*pb.GetStateRootResponse, error) {
+	h, err := chainhash.NewHash(in.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	n := s.chain.View.Index.GetBlockNodeByHash(*h)
+
+	if n != nil {
+		return &pb.GetStateRootResponse{StateRoot: n.StateRoot[:]}, nil
+	} else {
+		return nil, fmt.Errorf("missing state for hash %s", h)
+	}
 }
 
 // GetEpochInformation gets information about the current epoch used for attestation

@@ -9,8 +9,6 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/sirupsen/logrus"
 
-	"github.com/golang/protobuf/ptypes/empty"
-
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
@@ -62,16 +60,6 @@ func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot 
 }
 
 func (v *Validator) proposeBlock(ctx context.Context, information proposerAssignment) error {
-	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &empty.Empty{})
-	if err != nil {
-		return err
-	}
-
-	stateRoot, err := chainhash.NewHash(stateRootBytes.StateRoot)
-	if err != nil {
-		return err
-	}
-
 	var slotBytes [8]byte
 	binary.BigEndian.PutUint64(slotBytes[:], information.slot)
 	slotBytesHash := chainhash.HashH(slotBytes[:])
@@ -91,6 +79,18 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 	}
 
 	parentRoot, err := chainhash.NewHash(parentRootBytes.Hash)
+	if err != nil {
+		return err
+	}
+
+	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &pb.GetStateRootRequest{
+		BlockHash:            parentRoot[:],
+	})
+	if err != nil {
+		return err
+	}
+
+	stateRoot, err := chainhash.NewHash(stateRootBytes.StateRoot)
 	if err != nil {
 		return err
 	}

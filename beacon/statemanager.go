@@ -25,9 +25,10 @@ type stateDerivedFromBlock struct {
 }
 
 func newStateDerivedFromBlock(stateAfterProcessingBlock *primitives.State) *stateDerivedFromBlock {
+	firstSlotState := stateAfterProcessingBlock.Copy()
 	return &stateDerivedFromBlock{
-		firstSlotState: stateAfterProcessingBlock,
-		firstSlot:      stateAfterProcessingBlock.Slot,
+		firstSlotState: &firstSlotState,
+		firstSlot:      firstSlotState.Slot,
 		lastSlotState:  stateAfterProcessingBlock,
 		lastSlot:       stateAfterProcessingBlock.Slot,
 		lock:           new(sync.Mutex),
@@ -148,7 +149,7 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 	if err != nil {
 		return nil, nil, err
 	}
-
+	
 	output, lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
 		return nil, nil, err

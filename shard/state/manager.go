@@ -99,7 +99,6 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 
 	previousTree, found := sm.stateMap[block.Header.PreviousBlockHash]
 	if !found {
-		fmt.Println(sm.stateMap)
 		return nil, fmt.Errorf("could not find parent block with hash: %s", block.Header.PreviousBlockHash)
 	}
 

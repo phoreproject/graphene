@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"

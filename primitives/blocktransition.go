@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -107,7 +108,7 @@ func (s *State) applyAttestation(att Attestation, c *config.Config, verifySignat
 
 	// these checks are dependent on when the attestation is included
 	if att.Data.Slot+c.MinAttestationInclusionDelay > s.Slot {
-		return errors.New("attestation included too soon")
+		return fmt.Errorf("attestation included too soon (expected s.Slot > %d, got %d)", att.Data.Slot+c.MinAttestationInclusionDelay, s.Slot)
 	}
 
 	// 4 -> 8 should not work

@@ -98,6 +98,7 @@ message BlockHeader {
     bytes StateRoot = 3;
     bytes RandaoReveal = 4;
     bytes Signature = 5;
+    uint32 ValidatorIndex = 6;
 }
 
 message BlockBody {
@@ -231,6 +232,7 @@ message ShardBlockHeader {
     bytes StateRoot = 4;
     bytes TransactionRoot = 5;
     bytes FinalizedBeaconHash = 6;
+    uint32 Validator = 7;
 }
 
 message ShardBlockBody {

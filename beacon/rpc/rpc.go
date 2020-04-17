@@ -87,7 +87,16 @@ func (s *server) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*e
 
 // GetShardProposerForSlot gets the shard proposer ID and public key for a certain slot on a certain shard.
 func (s *server) GetShardProposerForSlot(ctx context.Context, req *pb.GetShardProposerRequest) (*pb.ShardProposerResponse, error) {
-	state := s.chain.GetState()
+	finalizedHash, err := chainhash.NewHash(req.FinalizedHash)
+	if err != nil {
+		return nil, err
+	}
+
+	view, err := s.chain.GetSubView(*finalizedHash)
+	if err != nil {
+		return nil, err
+	}
+	state, err := s.chain.
 	proposer, err := state.GetShardProposerIndex(req.Slot, req.ShardID, s.chain.GetConfig())
 	if err != nil {
 		return nil, err

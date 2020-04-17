@@ -42,6 +42,7 @@ message CrosslinkMessage {
 message GetShardProposerRequest {
     uint64 ShardID = 1;
     uint64 Slot = 2;
+    bytes FinalizedHash = 3;
 }
 
 message ShardProposerResponse {

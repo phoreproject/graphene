@@ -154,7 +154,7 @@ var RegtestConfig = Config{
 	LatestBlockRootsLength:             8192,
 	InitialForkVersion:                 0,
 	InitialSlotNumber:                  0,
-	SlotDuration:                       1,
+	SlotDuration:                       2,
 	EpochLength:                        8,
 	MinAttestationInclusionDelay:       1,
 	CollectivePenaltyCalculationPeriod: 1048576,

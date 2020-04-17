@@ -206,10 +206,15 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 	proposer, err := sm.BeaconClient.GetShardProposerForSlot(context.Background(), &pb.GetShardProposerRequest{
 		ShardID: sm.ShardID,
 		Slot:    block.Header.Slot,
+		FinalizedHash: block.Header.FinalizedBeaconHash[:],
 	})
 
 	if err != nil {
 		return err
+	}
+
+	if proposer.Proposer != block.Header.Validator {
+		return fmt.Errorf("proposer does not match expected proposer (expected: %d, got: %d)", proposer.Proposer, block.Header.Validator)
 	}
 
 	if len(proposer.ProposerPublicKey) > 96 {

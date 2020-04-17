@@ -85,11 +85,12 @@ func MineBlockWithSpecialsAndAttestations(b *beacon.Blockchain, attestations []p
 
 	block1 := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotNumber,
-			ParentRoot:   parentRoot,
-			StateRoot:    stateRoot,
-			RandaoReveal: randaoSig.Serialize(),
-			Signature:    bls.EmptySignature.Serialize(),
+			SlotNumber:     slotNumber,
+			ParentRoot:     parentRoot,
+			StateRoot:      stateRoot,
+			RandaoReveal:   randaoSig.Serialize(),
+			Signature:      bls.EmptySignature.Serialize(),
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      attestations,

@@ -122,11 +122,12 @@ func TestProposerIndex(t *testing.T) {
 
 	blockTest := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -163,11 +164,12 @@ func TestProposerIndex(t *testing.T) {
 
 	blockTest = &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -322,11 +324,12 @@ func TestBlockMaximums(t *testing.T) {
 	for _, b := range testBlockBodies {
 		blockTest := &primitives.Block{
 			BlockHeader: primitives.BlockHeader{
-				SlotNumber:   slotToPropose,
-				ParentRoot:   chainhash.Hash{},
-				StateRoot:    chainhash.Hash{},
-				RandaoReveal: [48]byte{},
-				Signature:    [48]byte{},
+				SlotNumber:     slotToPropose,
+				ParentRoot:     chainhash.Hash{},
+				StateRoot:      chainhash.Hash{},
+				RandaoReveal:   [48]byte{},
+				Signature:      [48]byte{},
+				ValidatorIndex: proposerIndex,
 			},
 			BlockBody: b.b,
 		}
@@ -590,11 +593,12 @@ func TestProposerSlashingValidation(t *testing.T) {
 	for _, b := range testBlockBodies {
 		blockTest := &primitives.Block{
 			BlockHeader: primitives.BlockHeader{
-				SlotNumber:   slotToPropose,
-				ParentRoot:   chainhash.Hash{},
-				StateRoot:    chainhash.Hash{},
-				RandaoReveal: [48]byte{},
-				Signature:    [48]byte{},
+				SlotNumber:     slotToPropose,
+				ParentRoot:     chainhash.Hash{},
+				StateRoot:      chainhash.Hash{},
+				RandaoReveal:   [48]byte{},
+				Signature:      [48]byte{},
+				ValidatorIndex: proposerIndex,
 			},
 			BlockBody: primitives.BlockBody{
 				Attestations: nil,
@@ -644,11 +648,12 @@ func TestVoteValidation(t *testing.T) {
 
 	block1 := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -753,11 +758,12 @@ func TestVoteValidation(t *testing.T) {
 	for _, b := range testProposals {
 		blockTest := &primitives.Block{
 			BlockHeader: primitives.BlockHeader{
-				SlotNumber:   slotToPropose,
-				ParentRoot:   chainhash.Hash{},
-				StateRoot:    chainhash.Hash{},
-				RandaoReveal: [48]byte{},
-				Signature:    [48]byte{},
+				SlotNumber:     slotToPropose,
+				ParentRoot:     chainhash.Hash{},
+				StateRoot:      chainhash.Hash{},
+				RandaoReveal:   [48]byte{},
+				Signature:      [48]byte{},
+				ValidatorIndex: proposerIndex,
 			},
 			BlockBody: primitives.BlockBody{
 				Attestations:      nil,
@@ -790,11 +796,12 @@ func TestVoteValidation(t *testing.T) {
 	// now, actually process the valid proposal
 	blockTest := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -943,11 +950,12 @@ func TestVoteValidation(t *testing.T) {
 	for _, b := range testProposals {
 		blockTest := &primitives.Block{
 			BlockHeader: primitives.BlockHeader{
-				SlotNumber:   slotToPropose,
-				ParentRoot:   chainhash.Hash{},
-				StateRoot:    chainhash.Hash{},
-				RandaoReveal: [48]byte{},
-				Signature:    [48]byte{},
+				SlotNumber:     slotToPropose,
+				ParentRoot:     chainhash.Hash{},
+				StateRoot:      chainhash.Hash{},
+				RandaoReveal:   [48]byte{},
+				Signature:      [48]byte{},
+				ValidatorIndex: proposerIndex,
 			},
 			BlockBody: primitives.BlockBody{
 				Attestations:      nil,
@@ -997,11 +1005,12 @@ func TestProposerSlashingPenalty(t *testing.T) {
 
 	block1 := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose + 1,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose + 1,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -1049,11 +1058,12 @@ func TestProposerSlashingPenalty(t *testing.T) {
 
 	block2 := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose + 1,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose + 1,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      []primitives.Attestation{{}},
@@ -1118,11 +1128,12 @@ func TestProposerSlashingPenalty(t *testing.T) {
 
 	blockTest := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations: nil,
@@ -1182,11 +1193,12 @@ func TestVoteParticipationSliceGrowth(t *testing.T) {
 
 	block1 := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -1233,11 +1245,12 @@ func TestVoteParticipationSliceGrowth(t *testing.T) {
 	// now, actually process the valid proposal
 	blockTest := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -1299,11 +1312,8 @@ func TestVoteParticipationSliceGrowth(t *testing.T) {
 
 	blockTest = &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,
@@ -1401,11 +1411,12 @@ func TestVoteValidatorLeave(t *testing.T) {
 	// now, actually process the valid proposal
 	blockTest := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   slotToPropose,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     slotToPropose,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: proposerIndex,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      nil,

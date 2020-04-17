@@ -15,6 +15,7 @@ func TestShardBlockHeader_Copy(t *testing.T) {
 		StateRoot:           chainhash.Hash{},
 		TransactionRoot:     chainhash.Hash{},
 		FinalizedBeaconHash: chainhash.Hash{},
+		Validator:           0,
 	}
 
 	copyHeader := baseHeader.Copy()
@@ -53,6 +54,11 @@ func TestShardBlockHeader_Copy(t *testing.T) {
 	if baseHeader.Slot == 1 {
 		t.Fatal("mutating copy slot mutated base")
 	}
+
+	copyHeader.Validator = 1
+	if baseHeader.Validator == 1 {
+		t.Fatal("mutating copy validator mutated base")
+	}
 }
 
 func TestShardBlockHeaderToFromProto(t *testing.T) {
@@ -63,6 +69,7 @@ func TestShardBlockHeaderToFromProto(t *testing.T) {
 		StateRoot:           chainhash.Hash{1},
 		TransactionRoot:     chainhash.Hash{1},
 		FinalizedBeaconHash: chainhash.Hash{1},
+		Validator:           2,
 	}
 
 	baseHeaderProto := baseHeader.ToProto()

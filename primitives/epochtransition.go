@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/prysmaticlabs/go-ssz"
 	"math"
+
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/chainhash"
@@ -312,7 +313,7 @@ func (s *State) getAttestingValidatorIndices(shardComittee ShardAndCommittee, sh
 // CrosslinkForShardID is a crosslink and the shard ID for which the crosslink was created.
 type CrosslinkForShardID struct {
 	Crosslink Crosslink
-	ShardID uint64
+	ShardID   uint64
 }
 
 // EpochTransitionOutput is the auxillary output of an epoch transition.
@@ -451,7 +452,7 @@ func (s *State) ProcessEpochTransition(c *config.Config) (*EpochTransitionOutput
 		s.FinalizedEpoch = oldPreviousJustifiedEpoch
 	}
 
-	if ((s.JustificationBitfield>>0)%8 == 7 && s.JustifiedEpoch == s.EpochIndex-1) ||
+	if ((s.JustificationBitfield>>0)%8 == 7 && s.JustifiedEpoch == s.EpochIndex-1) || // 111
 		((s.JustificationBitfield>>0)%4 == 3 && s.JustifiedEpoch == s.EpochIndex) {
 		s.FinalizedEpoch = s.PreviousJustifiedEpoch
 	}

@@ -85,11 +85,12 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 
 	block0 := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   0,
-			StateRoot:    stateRoot,
-			ParentRoot:   zeroHash,
-			RandaoReveal: bls.EmptySignature.Serialize(),
-			Signature:    bls.EmptySignature.Serialize(),
+			SlotNumber:     0,
+			StateRoot:      stateRoot,
+			ParentRoot:     zeroHash,
+			RandaoReveal:   bls.EmptySignature.Serialize(),
+			Signature:      bls.EmptySignature.Serialize(),
+			ValidatorIndex: 0,
 		},
 		BlockBody: primitives.BlockBody{
 			ProposerSlashings: []primitives.ProposerSlashing{},

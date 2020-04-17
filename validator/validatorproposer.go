@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
@@ -29,6 +30,8 @@ func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot 
 	if err != nil {
 		return err
 	}
+
+	blockTemplate.Header.Validator = v.id
 
 	blockTemplate.Header.Signature = bls.EmptySignature.Serialize()
 
@@ -84,7 +87,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 	}
 
 	stateRootBytes, err := v.blockchainRPC.GetStateRoot(context.Background(), &pb.GetStateRootRequest{
-		BlockHash:            parentRoot[:],
+		BlockHash: parentRoot[:],
 	})
 	if err != nil {
 		return err
@@ -114,11 +117,12 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 
 	newBlock := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   information.slot,
-			ParentRoot:   *parentRoot,
-			StateRoot:    *stateRoot,
-			RandaoReveal: randaoSig.Serialize(),
-			Signature:    bls.EmptySignature.Serialize(),
+			SlotNumber:     information.slot,
+			ParentRoot:     *parentRoot,
+			StateRoot:      *stateRoot,
+			RandaoReveal:   randaoSig.Serialize(),
+			Signature:      bls.EmptySignature.Serialize(),
+			ValidatorIndex: v.id,
 		},
 		BlockBody: *blockBody,
 	}

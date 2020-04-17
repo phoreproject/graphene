@@ -11,11 +11,12 @@ import (
 func TestBlock_Copy(t *testing.T) {
 	baseBlock := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   0,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     0,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
+			ValidatorIndex: 0,
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      []primitives.Attestation{},
@@ -43,11 +44,12 @@ func TestBlock_Copy(t *testing.T) {
 func TestBlock_ToFromProto(t *testing.T) {
 	baseBlock := &primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:   0,
-			ParentRoot:   chainhash.Hash{},
-			StateRoot:    chainhash.Hash{},
-			RandaoReveal: [48]byte{},
-			Signature:    [48]byte{},
+			SlotNumber:     0,
+			ValidatorIndex: 0,
+			ParentRoot:     chainhash.Hash{},
+			StateRoot:      chainhash.Hash{},
+			RandaoReveal:   [48]byte{},
+			Signature:      [48]byte{},
 		},
 		BlockBody: primitives.BlockBody{
 			Attestations:      []primitives.Attestation{},
@@ -72,14 +74,20 @@ func TestBlock_ToFromProto(t *testing.T) {
 
 func TestBlockHeader_Copy(t *testing.T) {
 	baseBlockHeader := &primitives.BlockHeader{
-		SlotNumber:   0,
-		ParentRoot:   chainhash.Hash{},
-		StateRoot:    chainhash.Hash{},
-		RandaoReveal: [48]byte{},
-		Signature:    [48]byte{},
+		SlotNumber:     0,
+		ValidatorIndex: 0,
+		ParentRoot:     chainhash.Hash{},
+		StateRoot:      chainhash.Hash{},
+		RandaoReveal:   [48]byte{},
+		Signature:      [48]byte{},
 	}
 
 	copyBlockHeader := baseBlockHeader.Copy()
+
+	copyBlockHeader.ValidatorIndex = 1
+	if baseBlockHeader.ValidatorIndex == 1 {
+		t.Fatal("mutating validator index mutates base")
+	}
 
 	copyBlockHeader.SlotNumber = 1
 	if baseBlockHeader.SlotNumber == 1 {
@@ -109,11 +117,12 @@ func TestBlockHeader_Copy(t *testing.T) {
 
 func TestBlockHeader_ToFromProto(t *testing.T) {
 	baseBlock := &primitives.BlockHeader{
-		SlotNumber:   0,
-		ParentRoot:   chainhash.Hash{},
-		StateRoot:    chainhash.Hash{},
-		RandaoReveal: [48]byte{},
-		Signature:    [48]byte{},
+		SlotNumber:     1,
+		ParentRoot:     chainhash.Hash{2},
+		StateRoot:      chainhash.Hash{3},
+		RandaoReveal:   [48]byte{4},
+		Signature:      [48]byte{5},
+		ValidatorIndex: 6,
 	}
 
 	blockHeaderProto := baseBlock.ToProto()

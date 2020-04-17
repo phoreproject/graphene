@@ -3,6 +3,7 @@ package primitives
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/go-ssz"
 
@@ -590,7 +591,7 @@ func (s *State) ActivateValidator(index uint32) error {
 
 // InitiateValidatorExit moves a validator from active to pending exit.
 func (s *State) InitiateValidatorExit(index uint32) error {
-	validator := s.ValidatorRegistry[index]
+	validator := &s.ValidatorRegistry[index]
 	if validator.Status != Active {
 		return errors.New("validator is not active")
 	}
@@ -707,7 +708,7 @@ func (s *State) UpdateValidatorRegistry(c *config.Config) error {
 	balanceChurn := uint64(0)
 	for idx, validator := range s.ValidatorRegistry {
 		index := uint32(idx)
-		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MaxDeposit {
+		if validator.Status == PendingActivation && s.ValidatorBalances[index] >= c.MinDeposit {
 			balanceChurn += s.GetEffectiveBalance(index, c)
 			if balanceChurn > maxBalanceChurn {
 				break

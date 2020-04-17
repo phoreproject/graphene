@@ -13,6 +13,7 @@ import (
 type ShardBlockHeader struct {
 	PreviousBlockHash   chainhash.Hash
 	Slot                uint64
+	Validator           uint32
 	Signature           [48]byte
 	StateRoot           chainhash.Hash
 	TransactionRoot     chainhash.Hash
@@ -28,6 +29,7 @@ func (sb *ShardBlockHeader) ToProto() *pb.ShardBlockHeader {
 		StateRoot:           sb.StateRoot[:],
 		TransactionRoot:     sb.TransactionRoot[:],
 		FinalizedBeaconHash: sb.FinalizedBeaconHash[:],
+		Validator:           sb.Validator,
 	}
 }
 
@@ -37,7 +39,8 @@ func ShardBlockHeaderFromProto(header *pb.ShardBlockHeader) (*ShardBlockHeader, 
 		return nil, errors.New("signature should be 48 bytes long")
 	}
 	newHeader := &ShardBlockHeader{
-		Slot: header.Slot,
+		Slot:      header.Slot,
+		Validator: header.Validator,
 	}
 
 	copy(newHeader.Signature[:], header.Signature)

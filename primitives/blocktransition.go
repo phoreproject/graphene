@@ -272,6 +272,10 @@ func (s *State) ProcessBlock(block *Block, con *config.Config, view BlockView, v
 		return fmt.Errorf("block has incorrect slot number (expecting: %d, got: %d)", s.Slot, block.BlockHeader.SlotNumber)
 	}
 
+	if block.BlockHeader.ValidatorIndex != proposerIndex {
+		return fmt.Errorf("proposer index doesn't match (expected: %d, got %d)", proposerIndex, block.BlockHeader.ValidatorIndex)
+	}
+
 	blockWithoutSignature := block.Copy()
 	blockWithoutSignature.BlockHeader.Signature = bls.EmptySignature.Serialize()
 	blockWithoutSignatureRoot, err := ssz.HashTreeRoot(blockWithoutSignature)

@@ -2,19 +2,28 @@ package state
 
 import (
 	"fmt"
+	"sync"
+
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/primitives"
-	"sync"
 )
 
-// FullShardState represents a full shard state.
-type FullShardState struct {
+// State is shard state without the database.
+type State struct {
+	SmartContractRoot chainhash.Hash
+	LastCrosslinkHash chainhash.Hash
+	ProposerAssignments []bls.PublicKey
+}
+
+// FullContractState represents a full shard state.
+type FullContractState struct {
 	tree csmt.Tree
 }
 
 // Hash gets the hash of the current state root.
-func (s *FullShardState) Hash() (*chainhash.Hash, error) {
+func (s *FullContractState) Hash() (*chainhash.Hash, error) {
 	var out *chainhash.Hash
 	err := s.View(func(a AccessInterface) error {
 		outHash, err := a.Hash()
@@ -32,19 +41,19 @@ func (s *FullShardState) Hash() (*chainhash.Hash, error) {
 }
 
 // NewFullShardState creates a new empty state tree.
-func NewFullShardState(tree csmt.Tree) *FullShardState {
-	return &FullShardState{tree}
+func NewFullShardState(tree csmt.Tree) *FullContractState {
+	return &FullContractState{tree}
 }
 
 // Update updates the underlying state.
-func (s *FullShardState) Update(cb func(AccessInterface) error) error {
+func (s *FullContractState) Update(cb func(AccessInterface) error) error {
 	return s.tree.Update(func(tx csmt.TreeTransactionAccess) error {
 		return cb(newFullShardStateAccess(tx.(*csmt.TreeTransaction)))
 	})
 }
 
 // View views the underlying state.
-func (s *FullShardState) View(cb func(AccessInterface) error) error {
+func (s *FullContractState) View(cb func(AccessInterface) error) error {
 	return s.tree.View(func(tx csmt.TreeTransactionAccess) error {
 		return cb(newFullShardStateAccess(tx.(*csmt.TreeTransaction)))
 	})
@@ -323,6 +332,6 @@ type AccessInterface interface {
 	Hash() (*chainhash.Hash, error)
 }
 
-var _ TransactionInterface = &FullShardState{}
+var _ TransactionInterface = &FullContractState{}
 var _ csmt.TreeTransactionAccess = &TrackingStateAccess{}
 var _ AccessInterface = &PartialShardStateAccess{}

@@ -2,10 +2,10 @@ package chain
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/phoreproject/synapse/shard/chain/index"
 	"sync"
+
+	"github.com/phoreproject/synapse/shard/chain/index"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
@@ -153,8 +153,10 @@ func (sm *ShardManager) ListenForNewCrosslinks() {
 
 // GetKey gets a key from the current state.
 func (sm *ShardManager) GetKey(key chainhash.Hash) (*chainhash.Hash, error) {
+
+	_, state := sm.stateManager.GetTip()
 	var out *chainhash.Hash
-	err := sm.stateManager.GetTip().View(func(tx csmt.TreeDatabaseTransaction) error {
+	err := state.View(func(tx csmt.TreeDatabaseTransaction) error {
 		val, err := tx.Get(key)
 		if err != nil {
 			return err
@@ -202,54 +204,37 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 		return fmt.Errorf("shard block submitted too soon")
 	}
 
-	// we should check the signature against the beacon chain
-	proposer, err := sm.BeaconClient.GetShardProposerForSlot(context.Background(), &pb.GetShardProposerRequest{
-		ShardID: sm.ShardID,
-		Slot:    block.Header.Slot,
-		FinalizedHash: block.Header.FinalizedBeaconHash[:],
-	})
-
-	if err != nil {
-		return err
-	}
-
-	if proposer.Proposer != block.Header.Validator {
-		return fmt.Errorf("proposer does not match expected proposer (expected: %d, got: %d)", proposer.Proposer, block.Header.Validator)
-	}
-
-	if len(proposer.ProposerPublicKey) > 96 {
-		return errors.New("public key returned from beacon chain is incorrect")
-	}
+	// TODO: check shard chain proposer
 
 	blockWithNoSignature := block.Copy()
 	blockWithNoSignature.Header.Signature = bls.EmptySignature.Serialize()
 
-	blockHashNoSignature, err := ssz.HashTreeRoot(blockWithNoSignature)
-	if err != nil {
-		return err
-	}
+	// blockHashNoSignature, err := ssz.HashTreeRoot(blockWithNoSignature)
+	// if err != nil {
+	// 	return err
+	// }
 
-	var pubkeySerialized [96]byte
-	copy(pubkeySerialized[:], proposer.ProposerPublicKey)
+	// var pubkeySerialized [96]byte
+	// copy(pubkeySerialized[:], proposer.ProposerPublicKey)
 
-	proposerPublicKey, err := bls.DeserializePublicKey(pubkeySerialized)
-	if err != nil {
-		return err
-	}
+	// proposerPublicKey, err := bls.DeserializePublicKey(pubkeySerialized)
+	// if err != nil {
+	// 	return err
+	// }
 
-	blockSig, err := bls.DeserializeSignature(block.Header.Signature)
-	if err != nil {
-		return err
-	}
+	// blockSig, err := bls.DeserializeSignature(block.Header.Signature)
+	// if err != nil {
+	// 	return err
+	// }
 
-	valid, err := bls.VerifySig(proposerPublicKey, blockHashNoSignature[:], blockSig, bls.DomainShardProposal)
-	if err != nil {
-		return err
-	}
+	// valid, err := bls.VerifySig(proposerPublicKey, blockHashNoSignature[:], blockSig, bls.DomainShardProposal)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if !valid {
-		return errors.New("block signature was not valid")
-	}
+	// if !valid {
+	// 	return errors.New("block signature was not valid")
+	// }
 
 	node, err := sm.Index.AddToIndex(block)
 	if err != nil {

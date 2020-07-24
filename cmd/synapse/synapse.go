@@ -140,7 +140,7 @@ func main() {
 	if changed {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
-
+	
 	beaconConfigs := make([]*beaconconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	validatorConfigs := make([]*validatorconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	shardConfigs := make([]*shardconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
@@ -175,10 +175,10 @@ func main() {
 	errChan := make(chan error)
 
 	for i, a := range beaconApps {
-		go func() {
+		go func(i int, a *beaconmodule.BeaconApp) {
 			logger.Infof("starting beacon module #%d", i)
 			errChan <- a.Run()
-		}()
+		}(i, a)
 	}
 
 	for i, c := range shardConfigs {
@@ -190,10 +190,10 @@ func main() {
 	}
 
 	for i, a := range shardApps {
-		go func() {
+		go func(i int, a *shardmodule.ShardApp) {
 			logger.Infof("starting shard module #%d", i)
 			errChan <- a.Run()
-		}()
+		}(i, a)
 	}
 
 	for i, c := range validatorConfigs {
@@ -215,17 +215,17 @@ func main() {
 	// order goes: beacon, shard, validator
 
 	for i, a := range validatorApps {
-		go func() {
+		go func(i int, a *validatormodule.ValidatorApp) {
 			logger.Infof("starting validator module #%d", i)
 			errChan <- a.Run()
-		}()
+		}(i, a)
 	}
 
 	for i, a := range relayerApps {
-		go func() {
+		go func(i int, a *relayermodule.RelayerModule) {
 			logger.Infof("starting relayer module #%d", i)
 			errChan <- a.Run()
-		}()
+		}(i, a)
 	}
 
 	// if globalConfig.Visualize {

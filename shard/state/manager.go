@@ -2,16 +2,19 @@ package state
 
 import (
 	"fmt"
+	"sync"
+
+	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
-	"sync"
 )
 
 type stateInfo struct {
 	db     csmt.TreeDatabase
+	state State
 	parent *stateInfo
 	slot   uint64
 }
@@ -31,8 +34,18 @@ type ShardStateManager struct {
 
 // NewShardStateManager constructs a new shard state manager which keeps track of shard state.
 func NewShardStateManager(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash chainhash.Hash, shardInfo ShardInfo) *ShardStateManager {
+	stateHash, err := stateDB.Hash()
+	if err != nil {
+		panic(err)
+	}
+
 	tip := &stateInfo{
 		db:   stateDB,
+		state: State{
+			SmartContractRoot: *stateHash,
+			LastCrosslinkHash: chainhash.Hash{},
+			ProposerAssignments: []bls.PublicKey{},
+		},
 		slot: stateSlot,
 	}
 
@@ -48,10 +61,10 @@ func NewShardStateManager(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockH
 }
 
 // GetTip gets the state of the current tip.
-func (sm *ShardStateManager) GetTip() csmt.TreeDatabase {
+func (sm *ShardStateManager) GetTip() (State, csmt.TreeDatabase) {
 	sm.stateLock.Lock()
 	defer sm.stateLock.Unlock()
-	return sm.tipDB.db
+	return sm.tipDB.state, sm.tipDB.db
 }
 
 // GetTipSlot gets the slot of the tip of the blockchain.
@@ -97,12 +110,12 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 
 	logrus.WithField("block hash", chainhash.Hash(blockHash)).WithField("shard", sm.shardInfo.ShardID).Debug("add block action")
 
-	previousTree, found := sm.stateMap[block.Header.PreviousBlockHash]
+	previousState, found := sm.stateMap[block.Header.PreviousBlockHash]
 	if !found {
 		return nil, fmt.Errorf("could not find parent block with hash: %s", block.Header.PreviousBlockHash)
 	}
 
-	newCache, err := csmt.NewTreeMemoryCache(previousTree.db)
+	newCache, err := csmt.NewTreeMemoryCache(previousState.db)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +130,7 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 
 	sm.stateMap[blockHash] = &stateInfo{
 		db:     newCache,
-		parent: previousTree,
+		parent: previousState,
 		slot:   block.Header.Slot,
 	}
 
@@ -187,6 +200,7 @@ func (sm *ShardStateManager) SetTip(newTipHash chainhash.Hash) error {
 	return nil
 }
 
+// HasAny checks what blocks are in the state map.
 func (sm *ShardStateManager) HasAny() map[chainhash.Hash]bool {
 	sm.stateLock.RLock()
 	defer sm.stateLock.RUnlock()

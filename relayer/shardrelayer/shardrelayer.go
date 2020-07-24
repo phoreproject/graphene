@@ -2,6 +2,7 @@ package shardrelayer
 
 import (
 	"context"
+
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/pb"
@@ -70,7 +71,8 @@ func (sr *ShardRelayer) GetShardID() uint64 {
 // GetStateKey gets a key from state.
 func (sr *ShardRelayer) GetStateKey(key chainhash.Hash) (chainhash.Hash, error) {
 	var val chainhash.Hash
-	err := sr.mempool.GetTipState().View(func(tx csmt.TreeDatabaseTransaction) error {
+	_, state := sr.mempool.GetTipState()
+	err := state.View(func(tx csmt.TreeDatabaseTransaction) error {
 		v, err := tx.Get(key)
 		if err != nil {
 			return err
@@ -84,7 +86,8 @@ func (sr *ShardRelayer) GetStateKey(key chainhash.Hash) (chainhash.Hash, error) 
 // GetStateKeys gets keys from state.
 func (sr *ShardRelayer) GetStateKeys(keys []chainhash.Hash) ([]chainhash.Hash, error) {
 	vals := make([]chainhash.Hash, len(keys))
-	err := sr.mempool.GetTipState().View(func(tx csmt.TreeDatabaseTransaction) error {
+	_, state := sr.mempool.GetTipState()
+	err := state.View(func(tx csmt.TreeDatabaseTransaction) error {
 		for i, k := range keys {
 			v, err := tx.Get(k)
 			if err != nil {

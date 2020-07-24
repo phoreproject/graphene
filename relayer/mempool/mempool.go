@@ -39,12 +39,13 @@ func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash c
 }
 
 // GetTipState gets the state at the current tip.
-func (s *ShardMempool) GetTipState() csmt.TreeDatabase {
+func (s *ShardMempool) GetTipState() (state.State, csmt.TreeDatabase) {
 	return s.stateManager.GetTip()
 }
 
 func (s *ShardMempool) check(tx []byte) error {
-	treeCache, err := csmt.NewTreeMemoryCache(s.GetTipState())
+	_, db := s.GetTipState()
+	treeCache, err := csmt.NewTreeMemoryCache(db)
 	if err != nil {
 		return err
 	}
@@ -129,7 +130,8 @@ func (s *ShardMempool) AcceptAction(action *pb.ShardChainAction) error {
 
 // GetCurrentRoot gets the current root of the mempool.
 func (s *ShardMempool) GetCurrentRoot() (*chainhash.Hash, error) {
-	return s.GetTipState().Hash()
+	_, state := s.GetTipState()
+	return state.Hash()
 }
 
 // GetTransactions gets transactions to include.
@@ -140,7 +142,9 @@ func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPac
 
 	totalBytes := 0
 
-	startRootHash, err := s.GetTipState().Hash()
+	_, tipState := s.GetTipState()
+
+	startRootHash, err := tipState.Hash()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -150,7 +154,7 @@ func (s *ShardMempool) GetTransactions(maxBytes int) (*primitives.TransactionPac
 	var startRoot [32]byte
 	copy(startRoot[:], startRootHash[:])
 
-	packageTreeCache, err := csmt.NewTreeMemoryCache(s.GetTipState())
+	packageTreeCache, err := csmt.NewTreeMemoryCache(tipState)
 	if err != nil {
 		return nil, 0, err
 	}

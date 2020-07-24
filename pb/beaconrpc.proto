@@ -15,7 +15,6 @@ service BlockchainRPC {
     rpc GetEpochInformation(EpochInformationRequest) returns (EpochInformationResponse);
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
     rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
-    rpc GetShardProposerForSlot(GetShardProposerRequest) returns (ShardProposerResponse);
     rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
     rpc SubmitAttestation(Attestation) returns (google.protobuf.Empty);
     rpc GetMempool(MempoolRequest) returns (BlockBody);
@@ -37,17 +36,6 @@ message CrosslinkStreamRequest {
 message CrosslinkMessage {
     bytes BlockHash = 1;
     uint64 Slot = 2;
-}
-
-message GetShardProposerRequest {
-    uint64 ShardID = 1;
-    uint64 Slot = 2;
-    bytes FinalizedHash = 3;
-}
-
-message ShardProposerResponse {
-    uint32 Proposer = 1;
-    bytes ProposerPublicKey = 2;
 }
 
 message MempoolRequest {

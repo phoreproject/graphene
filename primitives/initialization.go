@@ -4,7 +4,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 )
 
 // InitialValidatorEntry is the validator entry to be added

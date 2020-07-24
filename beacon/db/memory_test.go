@@ -7,7 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"testing"
 
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/chainhash"

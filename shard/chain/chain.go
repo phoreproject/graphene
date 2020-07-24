@@ -7,7 +7,7 @@ import (
 
 	"github.com/phoreproject/synapse/primitives"
 	index "github.com/phoreproject/synapse/shard/chain/index"
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 )
 
 // ShardChain is a chain of shard block nodes that form a chain.

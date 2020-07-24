@@ -3,6 +3,8 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"net"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -13,11 +15,10 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
+	"github.com/phoreproject/synapse/ssz"
 	"github.com/pkg/errors"
-	"github.com/prysmaticlabs/go-ssz"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"net"
 )
 
 // ShardRPCServer handles incoming commands for the shard module.

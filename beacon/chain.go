@@ -12,6 +12,8 @@ import (
 // BlockNode is an in-memory representation of a block.
 type BlockNode struct {
 	Hash      chainhash.Hash
+	RANDAO chainhash.Hash
+	ValidatorRoot chainhash.Hash
 	Height    uint64
 	Slot      uint64
 	Parent    *BlockNode

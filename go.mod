@@ -46,7 +46,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/protolambda/zssz v0.1.3 // indirect
-	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364 // indirect
+	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
 	github.com/tevjef/go-runtime-metrics v0.0.0-20170326170900-527a54029307 // indirect

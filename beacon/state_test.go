@@ -7,7 +7,7 @@ import (
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 	"github.com/sirupsen/logrus"
 
 	"github.com/phoreproject/synapse/beacon/config"

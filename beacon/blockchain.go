@@ -11,8 +11,8 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/utils"
-	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 )

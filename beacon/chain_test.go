@@ -8,7 +8,7 @@ import (
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 )
 
 func TestBlockIndex(t *testing.T) {
@@ -88,6 +88,8 @@ func TestChainGenesis(t *testing.T) {
 		Hash:      genesisHash,
 		Height:    0,
 		Slot:      0,
+		RANDAO: chainhash.Hash{},
+
 		Parent:    nil,
 		StateRoot: chainhash.Hash{},
 		Children:  nil,

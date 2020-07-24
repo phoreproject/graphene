@@ -6,7 +6,7 @@ import (
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 )
 
 // MemoryBlockDB is a block database stored in memory.

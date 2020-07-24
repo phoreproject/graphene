@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"fmt"
+
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/csmt"
@@ -14,8 +15,8 @@ import (
 	"github.com/phoreproject/synapse/relayer/shardrelayer"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
+	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/utils"
-	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 

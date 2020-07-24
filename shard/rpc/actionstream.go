@@ -6,7 +6,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 )
 
 // ActionStreamGenerator listens for block actions and relays them to the callback.

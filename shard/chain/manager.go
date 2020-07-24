@@ -17,8 +17,8 @@ import (
 	"github.com/phoreproject/synapse/shard/db"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
+	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/utils"
-	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 

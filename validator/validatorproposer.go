@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/prysmaticlabs/go-ssz"
+	"github.com/phoreproject/synapse/ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/sirupsen/logrus"

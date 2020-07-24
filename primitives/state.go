@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/phoreproject/synapse/ssz"
 	"github.com/pkg/errors"
-	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/bls"

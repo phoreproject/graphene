@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
+	"github.com/getsentry/sentry-go"
 	beaconconfig "github.com/phoreproject/synapse/beacon/config"
 	beaconmodule "github.com/phoreproject/synapse/beacon/module"
 	"github.com/phoreproject/synapse/cfg"
@@ -158,6 +160,23 @@ func main() {
 			relayerConfigs = append(relayerConfigs, c)
 		}
 	}
+
+	err = sentry.Init(sentry.ClientOptions{
+		Dsn: "https://8c0f848e7a2d4eb38f86af7d7ad60966@o424692.ingest.sentry.io/5356976",
+	})
+	if err != nil {
+		logger.Fatalf("sentry.Init: %s", err)
+	}
+
+	defer func() {
+		err := recover()
+
+		if err != nil {
+			sentry.CurrentHub().Recover(err)
+			sentry.Flush(time.Second * 5)
+		}
+	}()
+
 
 	// first initialize all of the apps using the configs
 	beaconApps := make([]*beaconmodule.BeaconApp, len(beaconConfigs))

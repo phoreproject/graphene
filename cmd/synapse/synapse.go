@@ -26,6 +26,8 @@ import (
 	relayerconfig "github.com/phoreproject/synapse/relayer/config"
 	relayermodule "github.com/phoreproject/synapse/relayer/module"
 
+	metrics "github.com/tevjef/go-runtime-metrics"
+
 	_ "net/http/pprof"
 )
 
@@ -159,6 +161,12 @@ func main() {
 		case *relayerconfig.Options:
 			relayerConfigs = append(relayerConfigs, c)
 		}
+	}
+
+	err = metrics.RunCollector(metrics.DefaultConfig)
+	
+	if err != nil {
+	  logger.Warn(err)
 	}
 
 	err = sentry.Init(sentry.ClientOptions{

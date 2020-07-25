@@ -1,0 +1,128 @@
+package proofs
+
+import (
+	"encoding/binary"
+	"fmt"
+
+	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/synapse/primitives"
+)
+
+// GetValidatorHash gets the merkle root for all currently registered validators.
+func GetValidatorHash(s *primitives.State) chainhash.Hash {
+	committeesPerShard := make(map[uint64]primitives.ShardAndCommittee)
+
+	for _, slotAssignment := range s.ShardAndCommitteeForSlots {
+		for _, committee := range slotAssignment {
+			committeesPerShard[committee.Shard] = committee
+		}
+	}
+
+	validatorMsgs := make(map[chainhash.Hash][32]byte, 0)
+	for shardID, committee := range committeesPerShard {
+		for idx, valIdx := range committee.Committee {
+			val := s.ValidatorRegistry[valIdx]
+
+			var key [16]byte
+			binary.BigEndian.PutUint64(key[:], shardID)
+			binary.BigEndian.PutUint64(key[8:], uint64(idx))
+
+			k := chainhash.HashH(key[:])
+
+			validatorMsgs[k] = chainhash.HashH(val.Pubkey[:])
+		}
+	}
+
+	t := csmt.NewInMemoryTreeDB()
+	_ = t.Update(func(tx csmt.TreeDatabaseTransaction) error {
+		for key, pkh := range validatorMsgs {
+			if err := tx.Set(key, pkh); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	h, _ := t.Hash()
+
+	return *h
+}
+
+// ValidatorProof is a proof that a validator was assigned a certain position
+// in a certain committee. This proof can be verified using the CurrentValidatorHash
+// in beacon blocks.
+type ValidatorProof struct {
+	ShardID        uint64
+	ValidatorIndex uint64
+	PublicKey      [96]byte
+	Proof          primitives.VerificationWitness
+}
+
+// ConstructValidatorProof constructs a proof that a certain validator was in a
+// certain committee and can be verified using the hash calculated in GetValidatorHash.
+func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*ValidatorProof, error) {
+	committeesPerShard := make(map[uint64]primitives.ShardAndCommittee)
+
+	for _, slotAssignment := range s.ShardAndCommitteeForSlots {
+		for _, committee := range slotAssignment {
+			committeesPerShard[committee.Shard] = committee
+		}
+	}
+
+	validatorKey := new(chainhash.Hash)
+	proof := new(ValidatorProof)
+
+	validatorMsgs := make(map[chainhash.Hash][32]byte, 0)
+	for shardID, committee := range committeesPerShard {
+		for idx, valIdx := range committee.Committee {
+			val := s.ValidatorRegistry[valIdx]
+
+			var key [16]byte
+			binary.BigEndian.PutUint64(key[:], shardID)
+			binary.BigEndian.PutUint64(key[8:], uint64(idx))
+
+			k := chainhash.HashH(key[:])
+
+			if valIdx == forValidator {
+				validatorKey = &k
+				proof.ShardID = shardID
+				proof.PublicKey = val.Pubkey
+				proof.ValidatorIndex = uint64(idx)
+			}
+
+			validatorMsgs[k] = chainhash.HashH(val.Pubkey[:])
+		}
+	}
+
+	if validatorKey == nil {
+		return nil, fmt.Errorf("validator %d not assigned", forValidator)
+	}
+
+	t := csmt.NewInMemoryTreeDB()
+	err := t.Update(func(tx csmt.TreeDatabaseTransaction) error {
+		for key, pkh := range validatorMsgs {
+			if err := tx.Set(key, pkh); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var vw *primitives.VerificationWitness
+
+	err = t.View(func(tx csmt.TreeDatabaseTransaction) error {
+		vw, err = csmt.GenerateVerificationWitness(tx, *validatorKey)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	proof.Proof = *vw
+
+	return proof, nil
+}

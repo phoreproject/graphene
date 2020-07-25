@@ -128,3 +128,13 @@ func (v *Validator) ToProto() *pb.Validator {
 		LatestStatusChangeSlot:  v.LatestStatusChangeSlot,
 		ExitCount:               v.ExitCount}
 }
+
+// ValidatorProof is a proof that a validator was assigned a certain position
+// in a certain committee. This proof can be verified using the CurrentValidatorHash
+// in beacon blocks.
+type ValidatorProof struct {
+	ShardID        uint64
+	ValidatorIndex uint64
+	PublicKey      [96]byte
+	Proof          VerificationWitness
+}

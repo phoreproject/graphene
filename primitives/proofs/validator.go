@@ -49,19 +49,9 @@ func GetValidatorHash(s *primitives.State) chainhash.Hash {
 	return h
 }
 
-// ValidatorProof is a proof that a validator was assigned a certain position
-// in a certain committee. This proof can be verified using the CurrentValidatorHash
-// in beacon blocks.
-type ValidatorProof struct {
-	ShardID        uint64
-	ValidatorIndex uint64
-	PublicKey      [96]byte
-	Proof          primitives.VerificationWitness
-}
-
 // ConstructValidatorProof constructs a proof that a certain validator was in a
 // certain committee and can be verified using the hash calculated in GetValidatorHash.
-func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*ValidatorProof, error) {
+func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*primitives.ValidatorProof, error) {
 	committeesPerShard := make(map[uint64]primitives.ShardAndCommittee)
 
 	for _, slotAssignment := range s.ShardAndCommitteeForSlots {
@@ -71,7 +61,7 @@ func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*Validat
 	}
 
 	validatorKey := new(chainhash.Hash)
-	proof := new(ValidatorProof)
+	proof := new(primitives.ValidatorProof)
 
 	validatorMsgs := make(map[chainhash.Hash][32]byte, 0)
 	for shardID, committee := range committeesPerShard {

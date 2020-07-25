@@ -12,7 +12,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.2
 	github.com/dgraph-io/badger v1.6.0
 	github.com/fatih/color v1.7.0
-	github.com/getsentry/sentry-go v0.7.0 // indirect
+	github.com/getsentry/sentry-go v0.7.0
 	github.com/go-interpreter/wagon v0.6.0
 	github.com/go-test/deep v1.0.4
 	github.com/gogo/protobuf v1.3.0
@@ -36,6 +36,7 @@ require (
 	github.com/libp2p/go-libp2p-peer v0.2.0
 	github.com/libp2p/go-libp2p-peerstore v0.1.3
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
+	github.com/minio/sha256-simd v0.1.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mjibson/esc v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr v0.0.4
@@ -45,11 +46,11 @@ require (
 	github.com/phoreproject/go-phore-connmgr v0.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
-	github.com/protolambda/zssz v0.1.3 // indirect
+	github.com/protolambda/zssz v0.1.3
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
-	github.com/tevjef/go-runtime-metrics v0.0.0-20170326170900-527a54029307 // indirect
+	github.com/tevjef/go-runtime-metrics v0.0.0-20170326170900-527a54029307
 	github.com/tyler-smith/go-bip32 v0.0.0-20170922074101-2c9cfd177564 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550

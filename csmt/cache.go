@@ -2,9 +2,11 @@ package csmt
 
 import (
 	"errors"
+	"fmt"
+	"sync"
+
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"sync"
 )
 
 // TreeMemoryCache is a cache that allows
@@ -13,7 +15,7 @@ type TreeMemoryCache struct {
 	dirty           map[chainhash.Hash]Node
 	dirtyKV         map[chainhash.Hash]chainhash.Hash
 	toRemove        map[chainhash.Hash]struct{}
-	root chainhash.Hash
+	root            chainhash.Hash
 
 	lock *sync.RWMutex
 }
@@ -51,11 +53,11 @@ func NewTreeMemoryCache(underlyingDatabase TreeDatabase) (*TreeMemoryCache, erro
 
 	return &TreeMemoryCache{
 		underlyingStore: underlyingDatabase,
-		root: preRoot,
-		dirty: make(map[chainhash.Hash]Node),
-		dirtyKV: make(map[chainhash.Hash]chainhash.Hash),
-		toRemove: make(map[chainhash.Hash]struct{}),
-		lock: new(sync.RWMutex),
+		root:            preRoot,
+		dirty:           make(map[chainhash.Hash]Node),
+		dirtyKV:         make(map[chainhash.Hash]chainhash.Hash),
+		toRemove:        make(map[chainhash.Hash]struct{}),
+		lock:            new(sync.RWMutex),
 	}, nil
 }
 
@@ -183,6 +185,34 @@ func (t *TreeMemoryCache) Flush() error {
 	})
 }
 
+// UpdateUnderlying updates the underlying store.
+func (t *TreeMemoryCache) UpdateUnderlying(cache TreeDatabase) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	oldHash, err := t.Hash()
+	if err != nil {
+		return err
+	}
+
+	newHash, err := cache.Hash()
+	if err != nil {
+		return err
+	}
+
+	if !oldHash.IsEqual(newHash) {
+		return fmt.Errorf("expected old store to match new store (old: %s, new: %s)", oldHash, newHash)
+	}
+
+	t.underlyingStore = cache
+	return nil
+}
+
+// GetUnderlying gets the underlying store.
+func (t *TreeMemoryCache) GetUnderlying() TreeDatabase {
+	return t.underlyingStore
+}
+
 // TreeMemoryCacheTransaction is a transaction wrapper on a CSMT that allows reading and writing from an underlying data store.
 type TreeMemoryCacheTransaction struct {
 	underlyingTransaction TreeDatabaseTransaction
@@ -190,8 +220,8 @@ type TreeMemoryCacheTransaction struct {
 	root chainhash.Hash
 
 	toRemove map[chainhash.Hash]struct{}
-	dirty map[chainhash.Hash]Node
-	dirtyKV map[chainhash.Hash]chainhash.Hash
+	dirty    map[chainhash.Hash]Node
+	dirtyKV  map[chainhash.Hash]chainhash.Hash
 	update   bool
 }
 

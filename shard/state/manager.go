@@ -149,6 +149,16 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 	if !found {
 		return fmt.Errorf("could not find block to finalize %s on slot %d %d", finalizedHash, finalizedSlot, sm.shardInfo.ShardID)
 	}
+
+	var finalizeNodeNonCache csmt.TreeDatabase
+
+	finalizedNodeCacheDB, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
+	if isCache {
+		finalizeNodeNonCache = finalizedNodeCacheDB.GetUnderlying()
+	} else {
+		finalizeNodeNonCache = finalizeNode.db
+	}
+
 	memCache, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
 	for isCache {
 		if err := memCache.Flush(); err != nil {
@@ -160,6 +170,8 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 
 		finalizeNode = prevBlock
 	}
+
+	finalizeNode.db = finalizeNodeNonCache
 
 	// after we've flushed all of that, we should clean up any states with slots before that.
 	for k, node := range sm.stateMap {
@@ -174,6 +186,14 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 		}
 		if node.slot == finalizedSlot && !k.IsEqual(&finalizedHash) {
 			delete(sm.stateMap, k)
+		}
+		if node.parent == finalizeNode {
+			memCache, isCache := node.db.(*csmt.TreeMemoryCache)
+			if isCache {
+				if err := memCache.UpdateUnderlying(finalizeNodeNonCache); err != nil {
+					return err
+				}
+			}
 		}
 	}
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"

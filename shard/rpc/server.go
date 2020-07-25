@@ -15,16 +15,16 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
-	"github.com/phoreproject/synapse/ssz"
 	"github.com/pkg/errors"
+	"github.com/prysmaticlabs/go-ssz"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 // ShardRPCServer handles incoming commands for the shard module.
 type ShardRPCServer struct {
-	sm *chain.ShardMux
-	hn *p2p.HostNode
+	sm     *chain.ShardMux
+	hn     *p2p.HostNode
 	config *config.Config
 }
 
@@ -33,7 +33,7 @@ func (s *ShardRPCServer) GetListeningAddresses(context.Context, *empty.Empty) (*
 	addrs := s.hn.GetHost().Addrs()
 
 	info := peer.AddrInfo{
-		ID: s.hn.GetHost().ID(),
+		ID:    s.hn.GetHost().ID(),
 		Addrs: addrs,
 	}
 
@@ -48,7 +48,7 @@ func (s *ShardRPCServer) GetListeningAddresses(context.Context, *empty.Empty) (*
 	}
 
 	return &pb.ListeningAddressesResponse{
-		Addresses:            addrStrings,
+		Addresses: addrStrings,
 	}, nil
 }
 
@@ -89,7 +89,7 @@ func (s *ShardRPCServer) GetSlotNumber(ctx context.Context, req *pb.SlotNumberRe
 	// TODO: add calculated slot here in addition to tip slot
 	return &pb.SlotNumberResponse{
 		BlockHash: node.BlockHash[:],
-		TipSlot: node.Slot,
+		TipSlot:   node.Slot,
 	}, nil
 }
 
@@ -104,7 +104,7 @@ func (s *ShardRPCServer) GetActionStream(req *pb.ShardActionStreamRequest, res p
 		_ = res.Send(action)
 	}, s.config)
 	manager.RegisterNotifee(n)
-	<- res.Context().Done()
+	<-res.Context().Done()
 	manager.UnregisterNotifee(n)
 
 	return nil

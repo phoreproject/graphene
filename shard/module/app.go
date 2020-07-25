@@ -17,8 +17,8 @@ import (
 	"github.com/phoreproject/synapse/shard/chain"
 	"github.com/phoreproject/synapse/shard/config"
 	"github.com/phoreproject/synapse/shard/rpc"
-	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/utils"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )

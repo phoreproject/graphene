@@ -6,7 +6,7 @@ import (
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ShardBlockNode is a block node in the shard chain.

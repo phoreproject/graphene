@@ -12,7 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 
 	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/proto"
 

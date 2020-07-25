@@ -21,8 +21,8 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 
 	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/validator"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 var zeroHash = chainhash.Hash{}

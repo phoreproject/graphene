@@ -10,8 +10,8 @@ import (
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/primitives/proofs"
-	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/validator"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 

@@ -8,13 +8,13 @@ import (
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 
 type stateInfo struct {
 	db     csmt.TreeDatabase
-	state State
+	state  State
 	parent *stateInfo
 	slot   uint64
 }
@@ -40,19 +40,19 @@ func NewShardStateManager(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockH
 	}
 
 	tip := &stateInfo{
-		db:   stateDB,
+		db: stateDB,
 		state: State{
-			SmartContractRoot: *stateHash,
-			LastCrosslinkHash: chainhash.Hash{},
+			SmartContractRoot:   *stateHash,
+			LastCrosslinkHash:   chainhash.Hash{},
 			ProposerAssignments: []bls.PublicKey{},
 		},
 		slot: stateSlot,
 	}
 
 	return &ShardStateManager{
-		finalizedDB:  tip,
-		tipDB:        tip,
-		shardInfo: shardInfo,
+		finalizedDB: tip,
+		tipDB:       tip,
+		shardInfo:   shardInfo,
 		stateMap: map[chainhash.Hash]*stateInfo{
 			tipBlockHash: tip,
 		},
@@ -141,7 +141,6 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlot uint64) error {
 	sm.stateLock.Lock()
 	defer sm.stateLock.Unlock()
-
 
 	logrus.WithField("block hash", finalizedHash).WithField("shard", sm.shardInfo.ShardID).Debug("finalize block action")
 

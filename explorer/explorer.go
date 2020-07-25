@@ -14,7 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/go-homedir"
@@ -109,7 +109,7 @@ func (ex *Explorer) loadP2P() error {
 		ListenAddresses: []ma.Multiaddr{
 			addr,
 		},
-		PrivateKey:      priv,
+		PrivateKey: priv,
 		ConnManagerOptions: p2p.ConnectionManagerOptions{
 			BootstrapAddresses: ex.config.DiscoveryOptions.BootstrapAddresses,
 			MDNS: p2p.MDNSOptions{

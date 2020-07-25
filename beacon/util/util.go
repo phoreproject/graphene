@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/validator"
 

@@ -8,7 +8,7 @@ package chain
 // 	"github.com/faiface/pixel/text"
 // 	"github.com/phoreproject/synapse/chainhash"
 // 	"github.com/phoreproject/synapse/primitives"
-// 	"github.com/phoreproject/synapse/ssz"
+// 	"github.com/prysmaticlabs/go-ssz"
 // 	"golang.org/x/image/colornames"
 // 	"golang.org/x/image/font/basicfont"
 // 	"sync"

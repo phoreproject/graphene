@@ -6,19 +6,19 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/phoreproject/synapse/shard/chain"
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 )
 
 // ActionStreamGenerator listens for block actions and relays them to the callback.
 type ActionStreamGenerator struct {
-	cb func(action *pb.ShardChainAction)
+	cb     func(action *pb.ShardChainAction)
 	config *config.Config
 }
 
 // NewActionStreamGenerator creates a new action stream generator to use as a notifee to blockchain.
 func NewActionStreamGenerator(cb func(action *pb.ShardChainAction), config *config.Config) *ActionStreamGenerator {
 	return &ActionStreamGenerator{
-		cb: cb,
+		cb:     cb,
 		config: config,
 	}
 }

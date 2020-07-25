@@ -15,8 +15,8 @@ import (
 	"github.com/phoreproject/synapse/relayer/shardrelayer"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
-	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/utils"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
@@ -123,7 +123,7 @@ func (r *RelayerModule) Run() error {
 	}
 
 	if err := r.createRPCServer(); err != nil {
-		return 	err
+		return err
 	}
 
 	for _, relayer := range r.relayers {

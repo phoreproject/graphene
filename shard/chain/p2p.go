@@ -17,7 +17,7 @@ import (
 	relayerp2p "github.com/phoreproject/synapse/relayer/p2p"
 	"github.com/phoreproject/synapse/shard/state"
 	"github.com/phoreproject/synapse/shard/transfer"
-	"github.com/phoreproject/synapse/ssz"
+	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
 

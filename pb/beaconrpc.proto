@@ -12,6 +12,7 @@ service BlockchainRPC {
     rpc GetLastBlockHash(google.protobuf.Empty) returns (GetBlockHashResponse);
     rpc GetState(google.protobuf.Empty) returns (GetStateResponse);
     rpc GetStateRoot(GetStateRootRequest) returns (GetStateRootResponse);
+    rpc GetValidatorRoot(GetValidatorRootRequest) returns (GetValidatorRootResponse);
     rpc GetEpochInformation(EpochInformationRequest) returns (EpochInformationResponse);
     rpc GetForkData(google.protobuf.Empty) returns (ForkData);
     rpc GetProposerForSlot(GetProposerForSlotRequest) returns (GetProposerForSlotResponse);
@@ -23,6 +24,14 @@ service BlockchainRPC {
     rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
     rpc CrosslinkStream(CrosslinkStreamRequest) returns (stream CrosslinkMessage);
     rpc GetGenesisTime(google.protobuf.Empty) returns (GenesisTimeResponse);
+}
+
+message GetValidatorRootRequest {
+    bytes BlockHash = 1;
+}
+
+message GetValidatorRootResponse {
+    bytes ValidatorRoot = 2;
 }
 
 message GenesisTimeResponse {

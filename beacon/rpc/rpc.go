@@ -382,6 +382,22 @@ func (s *server) CrosslinkStream(req *pb.CrosslinkStreamRequest, res pb.Blockcha
 	return nil
 }
 
+// GetValidatorRoot gets the validator root for a specified block.
+func (s *server) GetValidatorRoot(ctx context.Context, req *pb.GetValidatorRootRequest) (*pb.GetValidatorRootResponse, error) {
+	blockHash, err := chainhash.NewHash(req.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	n := s.chain.View.Index.GetBlockNodeByHash(*blockHash)
+
+	if n != nil {
+		return &pb.GetValidatorRootResponse{ValidatorRoot: n.ValidatorRoot[:]}, nil
+	} else {
+		return nil, fmt.Errorf("missing root for hash %s", blockHash)
+	}
+}
+
 var _ pb.BlockchainRPCServer = &server{}
 
 // Serve serves the RPC server

@@ -2,6 +2,7 @@ package csmt
 
 import (
 	"bytes"
+
 	"github.com/dgraph-io/badger"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
@@ -66,7 +67,7 @@ func (b *BadgerTreeTransaction) NewNode(left *Node, right *Node, subtreeHash cha
 
 	newNode := &Node{
 		value: subtreeHash,
-		left: leftHash,
+		left:  leftHash,
 		right: rightHash,
 	}
 
@@ -76,10 +77,10 @@ func (b *BadgerTreeTransaction) NewNode(left *Node, right *Node, subtreeHash cha
 // NewSingleNode creates a new single node and adds it to the database.
 func (b *BadgerTreeTransaction) NewSingleNode(key chainhash.Hash, value chainhash.Hash, subtreeHash chainhash.Hash) (*Node, error) {
 	n := &Node{
-		one: true,
-		oneKey: &key,
+		one:      true,
+		oneKey:   &key,
 		oneValue: &value,
-		value: subtreeHash,
+		value:    subtreeHash,
 	}
 
 	return n, b.SetNode(n)
@@ -168,7 +169,7 @@ func (b *BadgerTreeTransaction) Root() (*Node, error) {
 }
 
 // BadgerTreeTransaction represents a badger transaction.
-type BadgerTreeTransaction struct{
+type BadgerTreeTransaction struct {
 	tx *badger.Txn
 }
 
@@ -188,7 +189,7 @@ func (b *BadgerTreeTransaction) Hash() (*chainhash.Hash, error) {
 }
 
 // Update updates the database.
-func (b *BadgerTreeDB) Update(callback func (TreeDatabaseTransaction) error) error {
+func (b *BadgerTreeDB) Update(callback func(TreeDatabaseTransaction) error) error {
 	badgerTx := b.db.NewTransaction(true)
 
 	err := callback(&BadgerTreeTransaction{badgerTx})
@@ -200,7 +201,7 @@ func (b *BadgerTreeDB) Update(callback func (TreeDatabaseTransaction) error) err
 }
 
 // View creates a read-only transaction for the database.
-func (b *BadgerTreeDB) View(callback func (TreeDatabaseTransaction) error) error {
+func (b *BadgerTreeDB) View(callback func(TreeDatabaseTransaction) error) error {
 	badgerTx := b.db.NewTransaction(false)
 
 	err := callback(&BadgerTreeTransaction{badgerTx})

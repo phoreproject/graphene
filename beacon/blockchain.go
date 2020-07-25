@@ -11,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/beacon/db"
 	"github.com/phoreproject/synapse/bls"
 	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/synapse/primitives/proofs"
 	"github.com/phoreproject/synapse/ssz"
 	"github.com/phoreproject/synapse/utils"
 
@@ -114,7 +115,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	}
 
 	// this is a new database, so let's populate it with default values
-	node, err := b.View.Index.AddBlockNodeToIndex(&block0, blockHash, stateRoot)
+	node, err := b.View.Index.AddBlockNodeToIndex(&block0, blockHash, stateRoot, proofs.GetValidatorHash(initialState))
 	if err != nil {
 		return nil, err
 	}

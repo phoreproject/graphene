@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"fmt"
+	"github.com/phoreproject/synapse/primitives/proofs"
 	"sync"
 
 	"github.com/phoreproject/synapse/beacon/db"
@@ -17,8 +18,8 @@ type stateDerivedFromBlock struct {
 	firstSlot      uint64
 	firstSlotState *primitives.State
 
-	lastSlot         uint64
-	lastSlotState    *primitives.State
+	lastSlot       uint64
+	lastSlotState  *primitives.State
 	lastSlotOutput primitives.EpochTransitionOutput
 
 	lock *sync.Mutex
@@ -149,13 +150,18 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	output, lastBlockState, err := sm.GetStateForHashAtSlot(lastBlockHash, block.BlockHeader.SlotNumber, &view, sm.config)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	newState := lastBlockState.Copy()
+
+	expectedValidatorRoot := proofs.GetValidatorHash(&newState)
+	if !block.BlockHeader.CurrentValidatorHash.IsEqual(&expectedValidatorRoot) {
+		return nil, nil, fmt.Errorf("invalid validator root (got: %s, expected: %s)", block.BlockHeader.CurrentValidatorHash, expectedValidatorRoot)
+	}
 
 	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {

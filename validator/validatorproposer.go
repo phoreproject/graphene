@@ -98,6 +98,18 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 		return err
 	}
 
+	validatorRootBytes, err := v.blockchainRPC.GetValidatorRoot(context.Background(), &pb.GetValidatorRootRequest{
+		BlockHash: parentRoot[:],
+	})
+	if err != nil {
+		return err
+	}
+
+	validatorRoot, err := chainhash.NewHash(validatorRootBytes.ValidatorRoot)
+	if err != nil {
+		return err
+	}
+
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &pb.MempoolRequest{
 		LastBlockHash: parentRootBytes.Hash,
 	})
@@ -117,12 +129,13 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 
 	newBlock := primitives.Block{
 		BlockHeader: primitives.BlockHeader{
-			SlotNumber:     information.slot,
-			ParentRoot:     *parentRoot,
-			StateRoot:      *stateRoot,
-			RandaoReveal:   randaoSig.Serialize(),
-			Signature:      bls.EmptySignature.Serialize(),
-			ValidatorIndex: v.id,
+			SlotNumber:           information.slot,
+			ParentRoot:           *parentRoot,
+			StateRoot:            *stateRoot,
+			RandaoReveal:         randaoSig.Serialize(),
+			Signature:            bls.EmptySignature.Serialize(),
+			ValidatorIndex:       v.id,
+			CurrentValidatorHash: *validatorRoot,
 		},
 		BlockBody: *blockBody,
 	}

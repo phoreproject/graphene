@@ -11,14 +11,14 @@ import (
 
 // BlockNode is an in-memory representation of a block.
 type BlockNode struct {
-	Hash      chainhash.Hash
-	RANDAO chainhash.Hash
+	Hash          chainhash.Hash
+	RANDAO        chainhash.Hash
 	ValidatorRoot chainhash.Hash
-	Height    uint64
-	Slot      uint64
-	Parent    *BlockNode
-	StateRoot chainhash.Hash
-	Children  []*BlockNode
+	Height        uint64
+	Slot          uint64
+	Parent        *BlockNode
+	StateRoot     chainhash.Hash
+	Children      []*BlockNode
 }
 
 // GetAncestorAtHeight gets the ancestor of a block at a certain height.
@@ -151,7 +151,7 @@ func (bi *BlockIndex) GetBlockNodeByHash(hash chainhash.Hash) *BlockNode {
 var ErrNoParent = errors.New("could not find parent node for new block node")
 
 // AddBlockNodeToIndex adds a new block ot the blockchain.
-func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash, stateRoot chainhash.Hash) (*BlockNode, error) {
+func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash chainhash.Hash, stateRoot chainhash.Hash, validatorRoot chainhash.Hash) (*BlockNode, error) {
 	bi.lock.Lock()
 	defer bi.lock.Unlock()
 
@@ -173,12 +173,13 @@ func (bi *BlockIndex) AddBlockNodeToIndex(block *primitives.Block, blockHash cha
 	}
 
 	node := &BlockNode{
-		Hash:      blockHash,
-		Height:    height,
-		Slot:      block.BlockHeader.SlotNumber,
-		Parent:    parentNode,
-		StateRoot: stateRoot,
-		Children:  []*BlockNode{},
+		Hash:          blockHash,
+		Height:        height,
+		Slot:          block.BlockHeader.SlotNumber,
+		Parent:        parentNode,
+		StateRoot:     stateRoot,
+		Children:      []*BlockNode{},
+		ValidatorRoot: validatorRoot,
 	}
 
 	bi.index[blockHash] = node

@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"errors"
+	"github.com/phoreproject/synapse/primitives/proofs"
 	"time"
 
 	"github.com/phoreproject/synapse/ssz"
@@ -119,7 +120,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 
 	//logger.Debug("applied with new state")
 
-	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash, stateRoot)
+	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash, stateRoot, proofs.GetValidatorHash(newState))
 	if err != nil {
 		return nil, nil, err
 	}

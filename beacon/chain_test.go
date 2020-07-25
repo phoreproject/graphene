@@ -17,7 +17,7 @@ func TestBlockIndex(t *testing.T) {
 	genesisBlock := &primitives.Block{}
 	genesisHash, _ := ssz.HashTreeRoot(genesisBlock)
 
-	node, err := bi.AddBlockNodeToIndex(genesisBlock, genesisHash, chainhash.Hash{})
+	node, err := bi.AddBlockNodeToIndex(genesisBlock, genesisHash, chainhash.Hash{}, chainhash.Hash{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestBlockIndex(t *testing.T) {
 		t.Fatal("expected hash to match")
 	}
 
-	node2, err := bi.AddBlockNodeToIndex(genesisBlock, genesisHash, chainhash.Hash{})
+	node2, err := bi.AddBlockNodeToIndex(genesisBlock, genesisHash, chainhash.Hash{}, chainhash.Hash{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestBlockIndex(t *testing.T) {
 	}
 	block1Hash, _ := ssz.HashTreeRoot(block1)
 
-	_, err = bi.AddBlockNodeToIndex(block1, block1Hash, chainhash.Hash{})
+	_, err = bi.AddBlockNodeToIndex(block1, block1Hash, chainhash.Hash{}, chainhash.Hash{})
 	if err != beacon.ErrNoParent {
 		t.Fatal("expected block with no parent to error")
 	}
@@ -53,7 +53,7 @@ func TestBlockIndex(t *testing.T) {
 	block1.BlockHeader.ParentRoot = genesisHash
 	block1Hash, _ = ssz.HashTreeRoot(block1)
 
-	node2, err = bi.AddBlockNodeToIndex(block1, block1Hash, chainhash.Hash{})
+	node2, err = bi.AddBlockNodeToIndex(block1, block1Hash, chainhash.Hash{}, chainhash.Hash{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestBlockchainView(t *testing.T) {
 	genesisBlock := &primitives.Block{}
 	gBlockHash, _ := ssz.HashTreeRoot(genesisBlock)
 
-	gNode, err := view.Index.AddBlockNodeToIndex(genesisBlock, gBlockHash, chainhash.Hash{})
+	gNode, err := view.Index.AddBlockNodeToIndex(genesisBlock, gBlockHash, chainhash.Hash{}, chainhash.Hash{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ func TestBlockchainView(t *testing.T) {
 			},
 		}
 		blockNHash, _ := ssz.HashTreeRoot(blockN)
-		nNode, err := view.Index.AddBlockNodeToIndex(genesisBlock, blockNHash, chainhash.Hash{})
+		nNode, err := view.Index.AddBlockNodeToIndex(genesisBlock, blockNHash, chainhash.Hash{}, chainhash.Hash{})
 		if err != nil {
 			t.Fatal(err)
 		}

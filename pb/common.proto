@@ -99,7 +99,6 @@ message BlockHeader {
     bytes RandaoReveal = 4;
     bytes Signature = 5;
     uint32 ValidatorIndex = 6;
-    bytes CurrentValidatorHash = 7;
 }
 
 message BlockBody {

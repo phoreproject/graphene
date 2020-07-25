@@ -118,9 +118,11 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, err
 	}
 
-	//logger.Debug("applied with new state")
+	validatorRoot := proofs.GetValidatorHash(newState)
 
-	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash, stateRoot, proofs.GetValidatorHash(newState))
+	logger.WithField("new validator root", validatorRoot).Info("applied with new state")
+
+	node, err := b.View.Index.AddBlockNodeToIndex(block, blockHash, stateRoot, validatorRoot)
 	if err != nil {
 		return nil, nil, err
 	}

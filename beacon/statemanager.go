@@ -2,7 +2,6 @@ package beacon
 
 import (
 	"fmt"
-	"github.com/phoreproject/synapse/primitives/proofs"
 	"sync"
 
 	"github.com/phoreproject/synapse/beacon/db"
@@ -157,11 +156,6 @@ func (sm *StateManager) AddBlockToStateMap(block *primitives.Block, verifySignat
 	}
 
 	newState := lastBlockState.Copy()
-
-	expectedValidatorRoot := proofs.GetValidatorHash(&newState)
-	if !block.BlockHeader.CurrentValidatorHash.IsEqual(&expectedValidatorRoot) {
-		return nil, nil, fmt.Errorf("invalid validator root (got: %s, expected: %s)", block.BlockHeader.CurrentValidatorHash, expectedValidatorRoot)
-	}
 
 	err = newState.ProcessBlock(block, sm.config, &view, verifySignature)
 	if err != nil {

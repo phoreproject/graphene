@@ -156,7 +156,7 @@ func TestRandomGenerateUpdateWitness(t *testing.T) {
 	var treehash *chainhash.Hash
 
 	err := tree.Update(func(tx TreeTransactionAccess) error {
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 500; i++ {
 			err := tx.Set(keys[i], val)
 			if err != nil {
 				t.Fatal(err)

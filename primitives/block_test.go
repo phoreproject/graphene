@@ -80,7 +80,6 @@ func TestBlockHeader_Copy(t *testing.T) {
 		StateRoot:      chainhash.Hash{},
 		RandaoReveal:   [48]byte{},
 		Signature:      [48]byte{},
-		CurrentValidatorHash: chainhash.Hash{},
 	}
 
 	copyBlockHeader := baseBlockHeader.Copy()
@@ -114,11 +113,6 @@ func TestBlockHeader_Copy(t *testing.T) {
 	if baseBlockHeader.Signature[0] == 1 {
 		t.Fatal("mutating signature mutates base")
 	}
-
-	copyBlockHeader.CurrentValidatorHash[0] = 1
-	if baseBlockHeader.CurrentValidatorHash[0] == 1 {
-		t.Fatal("mutating CurrentValidatorHash mutates base")
-	}
 }
 
 func TestBlockHeader_ToFromProto(t *testing.T) {
@@ -129,7 +123,6 @@ func TestBlockHeader_ToFromProto(t *testing.T) {
 		RandaoReveal:   [48]byte{4},
 		Signature:      [48]byte{5},
 		ValidatorIndex: 6,
-		CurrentValidatorHash: chainhash.Hash{7},
 	}
 
 	blockHeaderProto := baseBlock.ToProto()

@@ -34,8 +34,8 @@ func GetValidatorHash(s *primitives.State) chainhash.Hash {
 		}
 	}
 
-	t := csmt.NewInMemoryTreeDB()
-	_ = t.Update(func(tx csmt.TreeDatabaseTransaction) error {
+	t := csmt.NewTree(csmt.NewInMemoryTreeDB())
+	_ = t.Update(func(tx csmt.TreeTransactionAccess) error {
 		for key, pkh := range validatorMsgs {
 			if err := tx.Set(key, pkh); err != nil {
 				return err
@@ -46,7 +46,7 @@ func GetValidatorHash(s *primitives.State) chainhash.Hash {
 
 	h, _ := t.Hash()
 
-	return *h
+	return h
 }
 
 // ValidatorProof is a proof that a validator was assigned a certain position
@@ -99,8 +99,8 @@ func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*Validat
 		return nil, fmt.Errorf("validator %d not assigned", forValidator)
 	}
 
-	t := csmt.NewInMemoryTreeDB()
-	err := t.Update(func(tx csmt.TreeDatabaseTransaction) error {
+	t := csmt.NewTree(csmt.NewInMemoryTreeDB())
+	err := t.Update(func(tx csmt.TreeTransactionAccess) error {
 		for key, pkh := range validatorMsgs {
 			if err := tx.Set(key, pkh); err != nil {
 				return err
@@ -114,8 +114,9 @@ func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*Validat
 
 	var vw *primitives.VerificationWitness
 
-	err = t.View(func(tx csmt.TreeDatabaseTransaction) error {
-		vw, err = csmt.GenerateVerificationWitness(tx, *validatorKey)
+	err = t.View(func(txA csmt.TreeTransactionAccess) error {
+		tx := txA.(*csmt.TreeTransaction)
+		vw, err = tx.Prove(*validatorKey)
 		return err
 	})
 	if err != nil {

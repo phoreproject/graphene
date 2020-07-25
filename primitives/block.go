@@ -49,13 +49,12 @@ func BlockFromProto(bl *pb.Block) (*Block, error) {
 
 // BlockHeader is the header of the block.
 type BlockHeader struct {
-	SlotNumber           uint64
-	ParentRoot           chainhash.Hash
-	StateRoot            chainhash.Hash
-	ValidatorIndex       uint32
-	RandaoReveal         [48]byte
-	Signature            [48]byte
-	CurrentValidatorHash chainhash.Hash
+	SlotNumber     uint64
+	ParentRoot     chainhash.Hash
+	StateRoot      chainhash.Hash
+	ValidatorIndex uint32
+	RandaoReveal   [48]byte
+	Signature      [48]byte
 }
 
 // Copy returns a copy of the block header.
@@ -66,13 +65,12 @@ func (bh *BlockHeader) Copy() BlockHeader {
 // ToProto converts to block header to protobuf form.
 func (bh *BlockHeader) ToProto() *pb.BlockHeader {
 	return &pb.BlockHeader{
-		SlotNumber:           bh.SlotNumber,
-		ValidatorIndex:       bh.ValidatorIndex,
-		ParentRoot:           bh.ParentRoot[:],
-		StateRoot:            bh.StateRoot[:],
-		RandaoReveal:         bh.RandaoReveal[:],
-		Signature:            bh.Signature[:],
-		CurrentValidatorHash: bh.CurrentValidatorHash[:],
+		SlotNumber:     bh.SlotNumber,
+		ValidatorIndex: bh.ValidatorIndex,
+		ParentRoot:     bh.ParentRoot[:],
+		StateRoot:      bh.StateRoot[:],
+		RandaoReveal:   bh.RandaoReveal[:],
+		Signature:      bh.Signature[:],
 	}
 }
 
@@ -98,11 +96,6 @@ func BlockHeaderFromProto(header *pb.BlockHeader) (*BlockHeader, error) {
 	}
 
 	err = newHeader.ParentRoot.SetBytes(header.ParentRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	err = newHeader.CurrentValidatorHash.SetBytes(header.CurrentValidatorHash)
 	if err != nil {
 		return nil, err
 	}

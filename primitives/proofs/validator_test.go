@@ -1,7 +1,6 @@
 package proofs_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -64,6 +63,6 @@ func TestValidatorProof(t *testing.T) {
 	}
 
 	if !csmt.CheckWitness(&vw.Proof, rootHash) {
-		fmt.Errorf("proof did not verify")
+		t.Fatal("proof did not verify")
 	}
 }

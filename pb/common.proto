@@ -267,3 +267,10 @@ message TransactionPackage {
     bytes StartRoot = 4;
     bytes EndRoot = 5;
 }
+
+message ValidatorProof {
+    uint64 ShardID = 1;
+	uint64 ValidatorIndex = 2;
+	bytes PublicKey = 3;
+	VerificationWitness Proof = 4;
+}

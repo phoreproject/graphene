@@ -2,6 +2,7 @@ package primitives
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/phoreproject/synapse/bls"
@@ -137,4 +138,44 @@ type ValidatorProof struct {
 	ValidatorIndex uint64
 	PublicKey      [96]byte
 	Proof          VerificationWitness
+}
+
+// ToProto converts the validator proof to protobuf format.
+func (vp *ValidatorProof) ToProto() *pb.ValidatorProof {
+	return &pb.ValidatorProof{
+		ShardID:        vp.ShardID,
+		ValidatorIndex: vp.ValidatorIndex,
+		PublicKey:      vp.PublicKey[:],
+		Proof:          vp.Proof.ToProto(),
+	}
+}
+
+// ValidatorProofFromProto converts a validator proof to protobuf format.
+func ValidatorProofFromProto(proof *pb.ValidatorProof) (*ValidatorProof, error) {
+	if len(proof.PublicKey) != 96 {
+		return nil, fmt.Errorf("expected validator proof public key to be 96 bytes, got %d", len(proof.PublicKey))
+	}
+	var pubKey [96]byte
+	copy(pubKey[:], proof.PublicKey)
+
+	witness, err := VerificationWitnessFromProto(proof.Proof)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ValidatorProof{
+		ShardID:        proof.ShardID,
+		ValidatorIndex: proof.ValidatorIndex,
+		PublicKey:      pubKey,
+		Proof:          *witness,
+	}, nil
+}
+
+// Copy copies the validator proof.
+func (vp *ValidatorProof) Copy() *ValidatorProof {
+	newVP := *vp
+
+	newVP.Proof = vp.Proof.Copy()
+
+	return &newVP
 }

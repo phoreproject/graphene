@@ -233,6 +233,7 @@ message ShardBlockHeader {
     bytes TransactionRoot = 5;
     bytes FinalizedBeaconHash = 6;
     uint32 Validator = 7;
+    ValidatorProof ValidatorProof = 8;
 }
 
 message ShardBlockBody {

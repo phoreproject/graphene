@@ -1,10 +1,11 @@
 package primitives_test
 
 import (
+	"testing"
+
 	"github.com/go-test/deep"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
-	"testing"
 )
 
 func TestShardBlockHeader_Copy(t *testing.T) {
@@ -15,7 +16,10 @@ func TestShardBlockHeader_Copy(t *testing.T) {
 		StateRoot:           chainhash.Hash{},
 		TransactionRoot:     chainhash.Hash{},
 		FinalizedBeaconHash: chainhash.Hash{},
-		Validator:           0,
+		ValidatorProof: primitives.ValidatorProof{
+			ShardID: 1,
+		},
+		Validator: 0,
 	}
 
 	copyHeader := baseHeader.Copy()
@@ -59,6 +63,11 @@ func TestShardBlockHeader_Copy(t *testing.T) {
 	if baseHeader.Validator == 1 {
 		t.Fatal("mutating copy validator mutated base")
 	}
+
+	copyHeader.ValidatorProof.ShardID = 2
+	if baseHeader.ValidatorProof.ShardID == 2 {
+		t.Fatal("mutating copy ValidatorProof mutated base")
+	}
 }
 
 func TestShardBlockHeaderToFromProto(t *testing.T) {
@@ -70,6 +79,12 @@ func TestShardBlockHeaderToFromProto(t *testing.T) {
 		TransactionRoot:     chainhash.Hash{1},
 		FinalizedBeaconHash: chainhash.Hash{1},
 		Validator:           2,
+		ValidatorProof: primitives.ValidatorProof{
+			ShardID: 1,
+			Proof: primitives.VerificationWitness{
+				Witnesses: []chainhash.Hash{chainhash.HashH([]byte("abc"))},
+			},
+		},
 	}
 
 	baseHeaderProto := baseHeader.ToProto()

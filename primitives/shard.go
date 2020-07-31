@@ -16,6 +16,7 @@ type ShardBlockHeader struct {
 	Slot                uint64
 	Validator           uint32
 	Signature           [48]byte
+	ValidatorProof      ValidatorProof
 	StateRoot           chainhash.Hash
 	TransactionRoot     chainhash.Hash
 	FinalizedBeaconHash chainhash.Hash
@@ -31,6 +32,7 @@ func (sb *ShardBlockHeader) ToProto() *pb.ShardBlockHeader {
 		TransactionRoot:     sb.TransactionRoot[:],
 		FinalizedBeaconHash: sb.FinalizedBeaconHash[:],
 		Validator:           sb.Validator,
+		ValidatorProof:      sb.ValidatorProof.ToProto(),
 	}
 }
 
@@ -65,6 +67,12 @@ func ShardBlockHeaderFromProto(header *pb.ShardBlockHeader) (*ShardBlockHeader, 
 	if err != nil {
 		return nil, err
 	}
+
+	proof, err := ValidatorProofFromProto(header.ValidatorProof)
+	if err != nil {
+		return nil, err
+	}
+	newHeader.ValidatorProof = *proof
 
 	return newHeader, nil
 }

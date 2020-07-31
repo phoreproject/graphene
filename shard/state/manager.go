@@ -17,6 +17,7 @@ type stateInfo struct {
 	state  State
 	parent *stateInfo
 	slot   uint64
+	hash chainhash.Hash
 }
 
 // ShardStateManager keeps track of state by reverting and applying blocks.
@@ -46,6 +47,7 @@ func NewShardStateManager(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockH
 			LastCrosslinkHash:   chainhash.Hash{},
 			ProposerAssignments: []bls.PublicKey{},
 		},
+		hash: tipBlockHash,
 		slot: stateSlot,
 	}
 
@@ -132,6 +134,7 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 		db:     newCache,
 		parent: previousState,
 		slot:   block.Header.Slot,
+		hash: blockHash,
 	}
 
 	return newCache.Hash()
@@ -142,6 +145,10 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 	sm.stateLock.Lock()
 	defer sm.stateLock.Unlock()
 
+	if sm.finalizedDB.hash.IsEqual(&finalizedHash) {
+		return nil
+	}
+
 	logrus.WithField("block hash", finalizedHash).WithField("shard", sm.shardInfo.ShardID).Debug("finalize block action")
 
 	// first, let's start at the tip and commit everything
@@ -150,28 +157,27 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 		return fmt.Errorf("could not find block to finalize %s on slot %d %d", finalizedHash, finalizedSlot, sm.shardInfo.ShardID)
 	}
 
-	var finalizeNodeNonCache csmt.TreeDatabase
+	// start at the finalized node
+	flushingNode := finalizeNode
 
-	finalizedNodeCacheDB, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
-	if isCache {
-		finalizeNodeNonCache = finalizedNodeCacheDB.GetUnderlying()
-	} else {
-		finalizeNodeNonCache = finalizeNode.db
-	}
-
-	memCache, isCache := finalizeNode.db.(*csmt.TreeMemoryCache)
+	// while the flushing database is a cache
+	memCache, isCache := flushingNode.db.(*csmt.TreeMemoryCache)
 	for isCache {
 		if err := memCache.Flush(); err != nil {
 			return err
 		}
-		prevBlock := finalizeNode.parent
+		// go to previous block
+		prevBlock := flushingNode.parent
+
 		// if this is null, that means something went wrong because there is no underlying store.
 		memCache, isCache = prevBlock.db.(*csmt.TreeMemoryCache)
 
-		finalizeNode = prevBlock
+		flushingNode = prevBlock
 	}
 
-	finalizeNode.db = finalizeNodeNonCache
+
+	diskCache := flushingNode.db
+	finalizeNode.db = diskCache
 
 	// after we've flushed all of that, we should clean up any states with slots before that.
 	for k, node := range sm.stateMap {
@@ -188,9 +194,10 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 			delete(sm.stateMap, k)
 		}
 		if node.parent == finalizeNode {
-			memCache, isCache := node.db.(*csmt.TreeMemoryCache)
+			// if the parent is a tree cache, let's update the underlying store if needed
+			childCache, isCache := node.db.(*csmt.TreeMemoryCache)
 			if isCache {
-				if err := memCache.UpdateUnderlying(finalizeNodeNonCache); err != nil {
+				if err := childCache.UpdateUnderlying(diskCache); err != nil {
 					return err
 				}
 			}

@@ -189,7 +189,7 @@ func (t *TreeMemoryCache) Flush() error {
 func (t *TreeMemoryCache) UpdateUnderlying(cache TreeDatabase) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-
+	
 	oldHash, err := t.Hash()
 	if err != nil {
 		return err
@@ -210,6 +210,8 @@ func (t *TreeMemoryCache) UpdateUnderlying(cache TreeDatabase) error {
 
 // GetUnderlying gets the underlying store.
 func (t *TreeMemoryCache) GetUnderlying() TreeDatabase {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	return t.underlyingStore
 }
 

@@ -170,6 +170,12 @@ func TestShardBlock_Copy(t *testing.T) {
 			StateRoot:           chainhash.Hash{},
 			TransactionRoot:     chainhash.Hash{},
 			FinalizedBeaconHash: chainhash.Hash{},
+			ValidatorProof: primitives.ValidatorProof{
+				ShardID: 1,
+				Proof: primitives.VerificationWitness{
+					Witnesses: []chainhash.Hash{chainhash.HashH([]byte("abc"))},
+				},
+			},
 		},
 		Body: primitives.ShardBlockBody{
 			Transactions: []primitives.ShardTransaction{

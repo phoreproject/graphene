@@ -303,7 +303,7 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 						"validator": assignmentClosed.Validator,
 						"shard":     assignmentClosed.Shard,
 					}).Debug("proposing shard block")
-					err := validator.proposeShardblock(context.Background(), assignmentClosed.Shard, slotNumber, chainhash.Hash{})
+					err := validator.proposeShardblock(context.Background(), assignmentClosed.Shard, slotNumber)
 					if err != nil {
 						panic(err)
 					}

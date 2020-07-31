@@ -16,11 +16,21 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 )
 
-func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot uint64, finalizedHash chainhash.Hash) error {
+func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot uint64) error {
+	finalizedInfo, err := v.blockchainRPC.GetValidatorProof(v.ctx, &pb.GetValidatorProofRequest{ValidatorID: v.id})
+	if err != nil {
+		return err
+	}
+
+	finalizedProof, err := primitives.ValidatorProofFromProto(finalizedInfo.Proof)
+	if err != nil {
+		return err
+	}
+
 	template, err := v.shardRPC.GenerateBlockTemplate(ctx, &pb.BlockGenerationRequest{
 		Shard:               shardID,
 		Slot:                slot,
-		FinalizedBeaconHash: finalizedHash[:], // TODO: fix this later (this is actually called using justified hash)
+		FinalizedBeaconHash: finalizedInfo.FinalizedHash,
 	})
 	if err != nil {
 		return err
@@ -34,6 +44,8 @@ func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot 
 	blockTemplate.Header.Validator = v.id
 
 	blockTemplate.Header.Signature = bls.EmptySignature.Serialize()
+
+	blockTemplate.Header.ValidatorProof = *finalizedProof
 
 	blockHashWithoutSignature, err := ssz.HashTreeRoot(blockTemplate)
 	if err != nil {

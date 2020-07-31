@@ -24,6 +24,16 @@ service BlockchainRPC {
     rpc Connect(ConnectMessage) returns (google.protobuf.Empty);
     rpc CrosslinkStream(CrosslinkStreamRequest) returns (stream CrosslinkMessage);
     rpc GetGenesisTime(google.protobuf.Empty) returns (GenesisTimeResponse);
+    rpc GetValidatorProof(GetValidatorProofRequest) returns (GetValidatorProofResponse);
+}
+
+message GetValidatorProofResponse {
+    ValidatorProof Proof = 1;
+    bytes FinalizedHash = 2;
+}
+
+message GetValidatorProofRequest {
+    uint32 ValidatorID = 1;
 }
 
 message GetValidatorRootRequest {

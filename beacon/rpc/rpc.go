@@ -9,6 +9,7 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/synapse/primitives/proofs"
 	"github.com/phoreproject/synapse/utils"
 
 	"github.com/golang/protobuf/proto"
@@ -396,6 +397,20 @@ func (s *server) GetValidatorRoot(ctx context.Context, req *pb.GetValidatorRootR
 	} else {
 		return nil, fmt.Errorf("missing root for hash %s", blockHash)
 	}
+}
+
+// GetValidatorRoot gets the validator root for a specified block.
+func (s *server) GetValidatorProof(ctx context.Context, req *pb.GetValidatorProofRequest) (*pb.GetValidatorProofResponse, error) {
+	node, state := s.chain.View.GetFinalizedHead()
+	proof, err := proofs.ConstructValidatorProof(&state, req.ValidatorID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetValidatorProofResponse{
+		FinalizedHash: node.Hash[:],
+		Proof:         proof.ToProto(),
+	}, nil
 }
 
 var _ pb.BlockchainRPCServer = &server{}

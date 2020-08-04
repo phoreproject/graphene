@@ -2,6 +2,7 @@ package chain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -209,32 +210,29 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 	blockWithNoSignature := block.Copy()
 	blockWithNoSignature.Header.Signature = bls.EmptySignature.Serialize()
 
-	// blockHashNoSignature, err := ssz.HashTreeRoot(blockWithNoSignature)
-	// if err != nil {
-	// 	return err
-	// }
+	blockHashNoSignature, err := ssz.HashTreeRoot(blockWithNoSignature)
+	if err != nil {
+		return err
+	}
 
-	// var pubkeySerialized [96]byte
-	// copy(pubkeySerialized[:], proposer.ProposerPublicKey)
+	proposerPublicKey, err := bls.DeserializePublicKey(block.Header.ValidatorProof.PublicKey)
+	if err != nil {
+		return err
+	}
 
-	// proposerPublicKey, err := bls.DeserializePublicKey(pubkeySerialized)
-	// if err != nil {
-	// 	return err
-	// }
+	blockSig, err := bls.DeserializeSignature(block.Header.Signature)
+	if err != nil {
+		return err
+	}
 
-	// blockSig, err := bls.DeserializeSignature(block.Header.Signature)
-	// if err != nil {
-	// 	return err
-	// }
+	valid, err := bls.VerifySig(proposerPublicKey, blockHashNoSignature[:], blockSig, bls.DomainShardProposal)
+	if err != nil {
+		return err
+	}
 
-	// valid, err := bls.VerifySig(proposerPublicKey, blockHashNoSignature[:], blockSig, bls.DomainShardProposal)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if !valid {
-	// 	return errors.New("block signature was not valid")
-	// }
+	if !valid {
+		return errors.New("block signature was not valid")
+	}
 
 	node, err := sm.Index.AddToIndex(block)
 	if err != nil {

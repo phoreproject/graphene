@@ -2,8 +2,9 @@ package beacon
 
 import (
 	"errors"
-	"github.com/phoreproject/synapse/primitives/proofs"
 	"time"
+
+	"github.com/phoreproject/synapse/primitives/proofs"
 
 	"github.com/prysmaticlabs/go-ssz"
 
@@ -118,7 +119,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 		return nil, nil, err
 	}
 
-	validatorRoot := proofs.GetValidatorHash(newState)
+	validatorRoot := proofs.GetValidatorHash(newState, b.config.EpochLength)
 
 	logger.WithField("new validator root", validatorRoot).Info("applied with new state")
 

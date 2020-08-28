@@ -10,10 +10,10 @@ import (
 )
 
 // GetValidatorHash gets the merkle root for all currently registered validators.
-func GetValidatorHash(s *primitives.State) chainhash.Hash {
+func GetValidatorHash(s *primitives.State, slotsPerEpoch uint64) chainhash.Hash {
 	committeesPerShard := make(map[uint64]primitives.ShardAndCommittee)
 
-	for _, slotAssignment := range s.ShardAndCommitteeForSlots {
+	for _, slotAssignment := range s.ShardAndCommitteeForSlots[:slotsPerEpoch] {
 		for _, committee := range slotAssignment {
 			committeesPerShard[committee.Shard] = committee
 		}
@@ -51,10 +51,10 @@ func GetValidatorHash(s *primitives.State) chainhash.Hash {
 
 // ConstructValidatorProof constructs a proof that a certain validator was in a
 // certain committee and can be verified using the hash calculated in GetValidatorHash.
-func ConstructValidatorProof(s *primitives.State, forValidator uint32) (*primitives.ValidatorProof, error) {
+func ConstructValidatorProof(s *primitives.State, forValidator uint32, slotsPerEpoch uint64) (*primitives.ValidatorProof, error) {
 	committeesPerShard := make(map[uint64]primitives.ShardAndCommittee)
 
-	for _, slotAssignment := range s.ShardAndCommitteeForSlots {
+	for _, slotAssignment := range s.ShardAndCommitteeForSlots[:slotsPerEpoch] {
 		for _, committee := range slotAssignment {
 			committeesPerShard[committee.Shard] = committee
 		}

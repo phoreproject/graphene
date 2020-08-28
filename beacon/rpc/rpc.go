@@ -402,7 +402,7 @@ func (s *server) GetValidatorRoot(ctx context.Context, req *pb.GetValidatorRootR
 // GetValidatorRoot gets the validator root for a specified block.
 func (s *server) GetValidatorProof(ctx context.Context, req *pb.GetValidatorProofRequest) (*pb.GetValidatorProofResponse, error) {
 	node, state := s.chain.View.GetFinalizedHead()
-	proof, err := proofs.ConstructValidatorProof(&state, req.ValidatorID)
+	proof, err := proofs.ConstructValidatorProof(&state, req.ValidatorID, s.chain.GetConfig().EpochLength)
 	if err != nil {
 		return nil, err
 	}

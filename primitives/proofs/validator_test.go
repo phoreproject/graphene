@@ -55,9 +55,9 @@ func TestValidatorProof(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rootHash := proofs.GetValidatorHash(state)
+	rootHash := proofs.GetValidatorHash(state, c.EpochLength)
 
-	vw, err := proofs.ConstructValidatorProof(state, 10)
+	vw, err := proofs.ConstructValidatorProof(state, 10, c.EpochLength)
 	if err != nil {
 		t.Fatal(err)
 	}

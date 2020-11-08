@@ -45,9 +45,10 @@ func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot 
 
 	blockTemplate.Header.Signature = bls.EmptySignature.Serialize()
 
-	blockTemplate.Header.ValidatorProof = *finalizedProof
+	blockTemplate.Header.ValidatorProof = *finalizedProof.Copy()
 
-	blockHashWithoutSignature, err := ssz.HashTreeRoot(blockTemplate)
+	blockCopy := blockTemplate.Copy()
+	blockHashWithoutSignature, err := ssz.HashTreeRoot(blockCopy)
 	if err != nil {
 		return err
 	}

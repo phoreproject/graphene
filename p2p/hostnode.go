@@ -31,7 +31,7 @@ const heartbeatInterval = 20 * time.Second
 
 // HostNode is the node for p2p host
 // It's the low level P2P communication layer, the App class handles high level protocols
-// The RPC communication is hanlded by App, not HostNode
+// The RPC communication is handled by App, not HostNode
 type HostNode struct {
 	privateKey crypto.PrivKey
 

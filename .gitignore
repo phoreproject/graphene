@@ -22,3 +22,4 @@ csmt/badger-test
 
 .idea
 validators.pubs
+vendor/

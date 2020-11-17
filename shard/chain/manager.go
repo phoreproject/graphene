@@ -205,7 +205,21 @@ func (sm *ShardManager) ProcessBlock(block primitives.ShardBlock) error {
 		return fmt.Errorf("shard block submitted too soon")
 	}
 
-	// TODO: check shard chain proposer
+	request := pb.GetValidatorRootRequest{BlockHash: block.Header.FinalizedBeaconHash[:]}
+	validatorRoot, err := sm.BeaconClient.GetValidatorRoot(context.Background(), &request)
+	if err != nil {
+		return err
+	}
+
+	hash, err := chainhash.NewHash(validatorRoot.ValidatorRoot)
+	if err != nil {
+		return err
+	}
+
+	pass := csmt.CheckWitness(&block.Header.ValidatorProof.Proof, *hash)
+	if !pass {
+		return fmt.Errorf("proof did not verify validator with key: %s", hash)
+	}
 
 	blockWithNoSignature := block.Copy()
 	blockWithNoSignature.Header.Signature = bls.EmptySignature.Serialize()

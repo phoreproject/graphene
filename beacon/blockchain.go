@@ -115,7 +115,7 @@ func NewBlockchainWithInitialValidators(db db.Database, config *config.Config, v
 	}
 
 	// this is a new database, so let's populate it with default values
-	node, err := b.View.Index.AddBlockNodeToIndex(&block0, blockHash, stateRoot, proofs.GetValidatorHash(initialState))
+	node, err := b.View.Index.AddBlockNodeToIndex(&block0, blockHash, stateRoot, proofs.GetValidatorHash(initialState, config.EpochLength))
 	if err != nil {
 		return nil, err
 	}

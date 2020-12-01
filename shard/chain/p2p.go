@@ -491,6 +491,17 @@ func (s *ShardSyncManager) onMessageGetShardBlocks(id peer.ID, msg proto.Message
 	return s.protocols.shard.SendMessage(id, blockMessage)
 }
 
+func (s *ShardSyncManager) onMessageGetShardCode(id peer.ID, msg proto.Message) error {
+	getShardCodeMessage := msg.(*pb.GetShardCodeMessage)
+
+	shardCodeMessage := &pb.ShardCodeMessage{
+		ShardID: getShardCodeMessage.ShardID,
+		Code: transfer.Code,
+	}
+
+	return s.protocols.shard.SendMessage(id, shardCodeMessage)
+}
+
 func (s *ShardSyncManager) processBlock(blockBytes []byte, id peer.ID) {
 	var blockProto pb.ShardBlock
 	err := proto.Unmarshal(blockBytes, &blockProto)
@@ -584,6 +595,11 @@ func (s *ShardSyncManager) registerP2P() error {
 	}
 
 	err = shardBlocks.RegisterHandler("pb.ShardBlockMessage", s.onMessageBlock)
+	if err != nil {
+		return err
+	}
+
+	err = shardBlocks.RegisterHandler("pb.GetShardCode", s.onMessageGetShardCode)
 	if err != nil {
 		return err
 	}

@@ -29,5 +29,6 @@ modules:
     shard_addr: "/ip4/127.0.0.1/tcp/11783"
     p2p_listen_addr: "/ip4/127.0.0.1/tcp/11785"
     rpc_listen_addr: "/ip4/127.0.0.1/tcp/11786"
-    shards: "0-7"
+    shards:
+      - "0-7"
 log_level: "info"

@@ -83,3 +83,13 @@ message PackageMessage {
 message SubmitTransaction {
     ShardTransaction Transaction = 1;
 }
+
+message GetShardCodeMessage {
+    uint64 ShardID = 1;
+    bytes Hash = 2;
+}
+
+message ShardCodeMessage {
+    uint64 ShardID = 1;
+    bytes Code = 2;
+}

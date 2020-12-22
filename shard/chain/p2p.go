@@ -325,6 +325,7 @@ func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error
 	currentRoot := &transactionPackage.StartRoot
 	for _, tx := range transactionPackage.Transactions {
 		newRoot, err := state.Transition(witnessStateProvider, tx.TransactionData, state.ShardInfo{
+			// TODO anchaj start loading from p2p here
 			CurrentCode: transfer.Code,
 			ShardID:     uint32(s.shardID),
 		})
@@ -494,12 +495,43 @@ func (s *ShardSyncManager) onMessageGetShardBlocks(id peer.ID, msg proto.Message
 func (s *ShardSyncManager) onMessageGetShardCode(id peer.ID, msg proto.Message) error {
 	getShardCodeMessage := msg.(*pb.GetShardCodeMessage)
 
+	logrus.WithFields(logrus.Fields{
+		"shardID": getShardCodeMessage.ShardID,
+		"hash": getShardCodeMessage.Hash,
+	}).Debug("asked for shard code")
+
+	shardCode, err := s.manager.BlockDB.GetCodeForShardId(getShardCodeMessage.ShardID)
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	// Let's ask different nodes for that hash
+	if shardCode == nil {
+
+	}
 	shardCodeMessage := &pb.ShardCodeMessage{
 		ShardID: getShardCodeMessage.ShardID,
-		Code: transfer.Code,
+		Code: shardCode,
 	}
 
 	return s.protocols.shard.SendMessage(id, shardCodeMessage)
+}
+
+func (s *ShardSyncManager) onMessageShardCode(id peer.ID, msg proto.Message) error {
+	shardCodeMessage := msg.(*pb.ShardCodeMessage)
+
+	logrus.WithFields(logrus.Fields{
+		"shardID": shardCodeMessage.ShardID,
+	}).Debug("received shard code from sync")
+
+	// TODO check code hash in blockchain
+
+	err := s.manager.BlockDB.SetCodeForShardId(shardCodeMessage.ShardID, shardCodeMessage.Code)
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	return nil
 }
 
 func (s *ShardSyncManager) processBlock(blockBytes []byte, id peer.ID) {
@@ -599,7 +631,12 @@ func (s *ShardSyncManager) registerP2P() error {
 		return err
 	}
 
-	err = shardBlocks.RegisterHandler("pb.GetShardCode", s.onMessageGetShardCode)
+	err = shardBlocks.RegisterHandler("pb.GetShardCodeMessage", s.onMessageGetShardCode)
+	if err != nil {
+		return err
+	}
+
+	err = shardBlocks.RegisterHandler("pb.ShardCodeMessage", s.onMessageShardCode)
 	if err != nil {
 		return err
 	}

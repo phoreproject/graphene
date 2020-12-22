@@ -17,6 +17,8 @@ type MemoryBlockDB struct {
 	finalizedHead chainhash.Hash
 	tip           chainhash.Hash
 
+	shardCodes map[uint64][]byte
+
 	lock sync.Mutex
 }
 
@@ -91,6 +93,20 @@ func (m *MemoryBlockDB) GetBlockNode(h chainhash.Hash) (*ShardBlockNodeDisk, err
 		return &b, nil
 	}
 	return nil, fmt.Errorf("missing block node %s", h)
+}
+
+// SetCodeForShardId sets a shard code in the database.
+func (m *MemoryBlockDB) SetCodeForShardId(shardID uint64, shardCode []byte) error {
+	m.shardCodes[shardID] = shardCode
+	return nil
+}
+
+// GetCodeForShardId gets a shard code from the database.
+func (m *MemoryBlockDB) GetCodeForShardId(shardID uint64) ([]byte, error) {
+	if code, found := m.shardCodes[shardID]; found {
+		return code, nil
+	}
+	return nil, nil
 }
 
 // Close closes the database, which does nothing for an in-memory database.

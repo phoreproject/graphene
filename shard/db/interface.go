@@ -24,5 +24,7 @@ type ShardBlockDatabase interface {
 	GetFinalizedHead() (*chainhash.Hash, error)
 	SetChainTip(chainhash.Hash) error
 	GetChainTip() (*chainhash.Hash, error)
+	SetCodeForShardId(uint64, []byte) error
+	GetCodeForShardId(uint64) ([]byte, error)
 	Close() error
 }

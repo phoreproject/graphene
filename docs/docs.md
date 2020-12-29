@@ -26,12 +26,13 @@ This documentation gives information about how each of the different modules int
 4. State Management
 5. BLS Signatures
 6. Modules
-    1. Beacon
+    1. [Beacon](validator.md)
     2. [Validator](validator.md)
     3. [Shard](shard.md)
     4. Explorer
     5. [Config](config.md)
 7. Communication
-    1. P2P
+    1. [P2P](p2p.md)
     2. Beacon-Validator
     3. Beacon-Shard
+    4. [RPC](rpc.md)

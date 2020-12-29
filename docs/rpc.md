@@ -3,7 +3,7 @@
 This document explains how to use RPC commands to communicate with modules.
 
 ## Each module have it's own rpc section with particular method descriptions.
-6. Modules
+* Modules
     1. [Beacon](validator.md)
     2. [Validator](validator.md)
     3. [Shard](shard.md)
@@ -16,7 +16,7 @@ This document explains how to use RPC commands to communicate with modules.
 ## Using RPC:
 
 ### I. Connecting from web.
-
+Use JS [library](https://github.com/grpc/grpc-web) provided by Google.
 
 ### II. Using command line. 
 The easies way is to download [this](https://github.com/fullstorydev/grpcurl) package.

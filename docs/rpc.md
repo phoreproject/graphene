@@ -31,3 +31,13 @@ Print all beacon chain methods with params and return types.
 ```bash
 grpcurl -plaintext localhost:11782 describe pb.BlockchainRPC
 ```
+
+Print all available methods for shards chain.
+```bash
+grpcurl -plaintext localhost:11783 describe pb.ShardRPC
+```
+
+Print all shard chain methods with params and return types.
+```bash
+grpcurl -plaintext localhost:11783 describe pb.ShardRPC
+```

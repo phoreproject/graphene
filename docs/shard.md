@@ -59,3 +59,117 @@ The following communication happens between the validator and shard modules when
    3. SM broadcasts the block to the network
 7. Unsubscribe from the assigned shard.
 8. Repeat every epoch.
+
+## RPC 
+
+This section explains RPC methods and return values.
+```go
+service ShardRPC {
+  rpc AnnounceProposal ( .pb.ProposalAnnouncement ) returns ( .google.protobuf.Empty );
+  rpc Connect ( .pb.ConnectMessage ) returns ( .google.protobuf.Empty );
+  rpc GenerateBlockTemplate ( .pb.BlockGenerationRequest ) returns ( .pb.ShardBlock );
+  rpc GetActionStream ( .pb.ShardActionStreamRequest ) returns ( stream .pb.ShardChainAction );
+  rpc GetBlockHashAtSlot ( .pb.SlotRequest ) returns ( .pb.BlockHashResponse );
+  rpc GetListeningAddresses ( .google.protobuf.Empty ) returns ( .pb.ListeningAddressesResponse );
+  rpc GetSlotNumber ( .pb.SlotNumberRequest ) returns ( .pb.SlotNumberResponse );
+  rpc SubmitBlock ( .pb.ShardBlockSubmission ) returns ( .google.protobuf.Empty );
+}
+```
+
+
+### `AnnounceProposal(ShardID: uint64, CrosslinkSlot: uint64, BlockHash: []byte, StateHash: []byte, ProposalSlots: []uint64)`
+
+#### Example cmd:
+```bash
+grpcurl -plaintext -d '{"ShardID": 1, "CrosslinkSlot": 1, "BlockHash": "base64=", "StateHash": "base64=", "ProposalSlots": [1, 2, 3]}' localhost:11783 pb.ShardRPC/AnnounceProposal
+```
+
+
+
+### `GetActionStream(ShardID: uint64)` 
+
+##### This is subscription command and will work until manually stopped.
+
+#### Example cmd:
+```bash
+grpcurl -plaintext -d '{"ShardID": 1}' localhost:11783 pb.ShardRPC/GetActionStream
+```
+
+#### Example output:
+```json
+{
+  "AddBlockAction": {
+    "Block": {
+      "Header": {
+        "PreviousBlockHash": "XFRR0rVpVkT5ZHNHoK62q/ZfcUYlJZkYqjKh2/+AEHk=",
+        "Slot": "17",
+        "Signature": "qbicq9NVuKpD23EPO9jhq3I7IWO7wvcwDN2D5RoAmLvgiAw3nARHpXW8mjby+pmv",
+        "StateRoot": "oaSVkX+xLeg7ynMqi/bJUKl81ZgfwbPU5eDceQ+RUpk=",
+        "TransactionRoot": "9aX9QtFqIDAnmO9u0wmXm0MAPSMg2fDo6pgxqSdZ+0s=",
+        "FinalizedBeaconHash": "3CMsWvD3aCjp5MqThzmCgd2yeowi2ygZsUK21JAKhp8=",
+        "Validator": 108,
+        "ValidatorProof": {
+          "ShardID": "3",
+          "ValidatorIndex": "17",
+          "PublicKey": "rlPrbA4oy//evVNljMYbK5JYJkFizdIoaLBN6BOjl58W8FJ6i8/2nhM9AhFoS5NIDUlxe8wIhOuRnen8eMmDa9UFTavPpFCxAcyuFZMadHlRRIbqH788BUnghMdRZwbv",
+          "Proof": {
+            "Key": "+NND0qej5Z8JqC3mB9rDh6BF2bLrJAetaW0dN5hmKX0=",
+            "Value": "0dmnfzyn5o5ESnuoicQU89n0RaBdhFadpHbwfhSn1G0=",
+            "WitnessBitfield": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8=",
+            "WitnessHashes": [
+              "EYZa82HnFxKm1qRNkf7ZUO/il//zTK/gihUaEzAEtQY=",
+              "hP+LiGevTlnMZLgF/SLbhjVdFWiIZ6B2ubowGRRS4q8=",
+              "DLDcXQO+3Jf2Ci+UBFTlnvGWiAhPISQa3E95n6yM+js=",
+              "CnpTy0e1LX8JFU2dmVxWD9Mnu7y1D4Sv+3Q7Fw2ZyeA=",
+              "tyfXSFMoO2D4Isy4En/0oPIeHHk7CNHvxeAub4h3GBE=",
+              "v9/kHDjZdKYlQTZiq9rRmgkpzIF7NPcFhsdzW7fJfUA=",
+              "7JvGgEvaL3FHCDAczQIv0fcxn0WlLnDLHWTNpOJC9W0=",
+              "8inMFSkqiDKOlXeJj7X2sQW1jVLTyZiSRCMnOL02Vlg="
+            ],
+            "LastLevel": 247
+          }
+        }
+      },
+      "Body": {
+        
+      }
+    }
+  }
+},
+{
+  "UpdateTip": {
+    "Hash": "Q5dHFEXRH1FZVnpRy2NlgOIfgQUGmKnB6Ik27X29Wos="
+  }
+}
+```
+
+### `GetBlockHashAtSlot(Shard: uint64, Slot: uint64)`
+
+#### Example cmd:
+```bash
+grpcurl -plaintext -d '{"Shard": 1, "Slot": 1}' localhost:11783 pb.ShardRPC/GetBlockHashAtSlot
+```
+
+#### Example output:
+```json
+{
+  "BlockHash": "qhfsj1cYuYZvJXmlUO3hTG0MOGt2dwZT4s3FmMi0yWk=",
+  "StateHash": "oaSVkX+xLeg7ynMqi/bJUKl81ZgfwbPU5eDceQ+RUpk="
+}
+```
+
+
+### `GetSlotNumber(ShardID: uint64)`
+
+#### Example cmd:
+```bash
+grpcurl -plaintext -d '{"ShardID": 1}' localhost:11783 pb.ShardRPC/GetSlotNumber
+```
+
+#### Example output:
+```json
+{
+  "BlockHash": "0WrsLjZ3ODmPDA4Kxrfn9VIYqUtssp71d2ZSzGcIozY=",
+  "TipSlot": "14"
+}
+```

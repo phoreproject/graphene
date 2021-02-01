@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package pb;
+
+service WalletRPC {
+    rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+    rpc SendToAddress(SendToAddressRequest) returns (SendToAddressResponse);
+}
+
+message GetBalanceRequest {
+    string Address = 1;
+}
+
+message GetBalanceResponse {
+    uint64 Balance = 1;
+}
+
+message SendToAddressRequest {
+    string From = 1;
+    string To = 2;
+    uint64 Value = 3;
+}
+
+message SendToAddressResponse {
+    bool Success = 1;
+}

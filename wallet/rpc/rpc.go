@@ -35,55 +35,6 @@ func (w *WalletRPC) Exit(args []string) {
 	w.ExitChan <- struct{}{}
 }
 
-// Redeem redeems the premine of an address.
-func (w *WalletRPC) Redeem(args []string) error {
-	if len(args) != 1 {
-		return errors.New("address not provided")
-	}
-
-	if !address.ValidateAddress(args[0]) {
-		return errors.New("address is not valid")
-	}
-
-	addr := address.Address(args[0])
-
-	err := w.w.RedeemPremine(addr)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-//
-//// GetNewAddress gets a new address.
-//func (w *WalletRPC) GetNewAddress(args []string) {
-//	if len(args) != 0 {
-//		return
-//	}
-//
-//	addr, err := w.w.GetNewAddress(0)
-//	if err != nil {
-//	}
-//
-//	w.printf("Generated new address: %s\n", addr)
-//}
-//
-//// ImportPrivKey imports a private key.
-//func (w *WalletRPC) ImportPrivKey(args []string) {
-//	if len(args) != 1 {
-//		w.errln("Usage: importprivkey <keyhex>")
-//		return
-//	}
-//
-//	privBytes, err := hex.DecodeString(args[0])
-//	if err != nil {
-//		w.errf("Error parsing private key: %s\n", err)
-//	}
-//
-//	addr := w.w.ImportPrivKey(privBytes, 0)
-//
-//	w.printf("Imported new address: %s\n", addr)
-//}
-
 type server struct {
 	rpc *WalletRPC
 }
@@ -131,6 +82,37 @@ func (s *server) SendToAddress(ctx context.Context, request *pb.SendToAddressReq
 	return &pb.SendToAddressResponse{
 		Success: true,
 	}, nil
+}
+
+// Redeem redeems the premine of an address.
+func (s *server) Redeem(ctx context.Context, request *pb.RedeemRequest) (*pb.RedeemResponse, error) {
+	if !address.ValidateAddress(request.Address) {
+		return &pb.RedeemResponse{Success: false}, errors.New("address is not valid")
+	}
+
+	err := s.rpc.w.RedeemPremine(address.Address(request.Address))
+	if err != nil {
+		return &pb.RedeemResponse{Success: false}, err
+	}
+
+	return &pb.RedeemResponse{Success: true}, nil
+}
+
+// GetNewAddress gets a new address.
+func (s *server) GetNewAddress(ctx context.Context, request *pb.GetNewAddressRequest) (*pb.GetNewAddressResponse, error) {
+	addr, err := s.rpc.w.GetNewAddress(uint32(request.ShardID))
+	if err != nil {
+		return &pb.GetNewAddressResponse{Address: string(addr)}, nil
+	}
+
+	return &pb.GetNewAddressResponse{Address: string(addr)}, nil
+}
+
+// ImportPrivKey imports a private key.
+func (s *server) ImportPrivateKey(ctx context.Context, request *pb.ImportPrivateKeyRequest) (*pb.ImportPrivateKeyResponse, error) {
+	addr := s.rpc.w.ImportPrivKey(request.PrivateKey, uint32(request.ShardID))
+
+	return &pb.ImportPrivateKeyResponse{Address: string(addr)}, nil
 }
 
 // Serve serves the RPC server

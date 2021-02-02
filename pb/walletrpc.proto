@@ -5,6 +5,9 @@ package pb;
 service WalletRPC {
     rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
     rpc SendToAddress(SendToAddressRequest) returns (SendToAddressResponse);
+    rpc Redeem(RedeemRequest) returns (RedeemResponse);
+    rpc GetNewAddress(GetNewAddressRequest) returns (GetNewAddressResponse);
+    rpc ImportPrivateKey(ImportPrivateKeyRequest) returns (ImportPrivateKeyResponse);
 }
 
 message GetBalanceRequest {
@@ -23,4 +26,29 @@ message SendToAddressRequest {
 
 message SendToAddressResponse {
     bool Success = 1;
+}
+
+message RedeemRequest {
+    string Address = 1;
+}
+
+message RedeemResponse {
+    bool Success = 1;
+}
+
+message GetNewAddressRequest {
+    uint64 ShardID = 1;
+}
+
+message GetNewAddressResponse {
+    string Address = 1;
+}
+
+message ImportPrivateKeyRequest {
+    bytes PrivateKey = 1;
+    uint64 ShardID = 2;
+}
+
+message ImportPrivateKeyResponse {
+    string Address = 1;
 }

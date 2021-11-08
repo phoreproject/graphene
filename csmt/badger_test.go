@@ -2,9 +2,10 @@ package csmt
 
 import (
 	"fmt"
-	"github.com/dgraph-io/badger"
-	"github.com/phoreproject/synapse/chainhash"
 	"testing"
+
+	"github.com/dgraph-io/badger"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestRandomWritesRollbackCommitBadger(t *testing.T) {
@@ -84,7 +85,6 @@ func TestRandomWritesRollbackCommitBadger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 
 	if !underlyingHash.IsEqual(&treeRoot) {
 		t.Fatal("expected uncommitted transaction not to affect underlying tree")

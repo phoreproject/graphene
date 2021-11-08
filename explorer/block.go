@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 // BlockData is the data of a block that gets passed to templates.

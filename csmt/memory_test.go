@@ -1,9 +1,10 @@
 package csmt
 
 import (
-	"github.com/go-test/deep"
-	"github.com/phoreproject/synapse/chainhash"
 	"testing"
+
+	"github.com/go-test/deep"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestNodeSerializeDeserialize(t *testing.T) {

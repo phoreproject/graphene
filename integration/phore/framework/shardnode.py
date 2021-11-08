@@ -21,7 +21,7 @@ class ShardConfig:
         self.rpc_port = -1
         self.p2p_port = -1
         self.network_id = "regtest"
-        self.shard_executable = tester.get_phore_path("synapseshard")
+        self.shard_executable = tester.get_phore_path("grapheneshard")
         self.initial_shards = []
 
     def get_args(self) -> typing.List[str]:

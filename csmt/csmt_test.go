@@ -2,11 +2,12 @@ package csmt
 
 import (
 	"fmt"
-	"github.com/phoreproject/synapse/primitives"
 	"reflect"
 	"testing"
 
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/primitives"
+
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func ch(s string) chainhash.Hash {

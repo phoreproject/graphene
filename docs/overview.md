@@ -1,10 +1,10 @@
-# Phore Synapse
+# Phore graphene
 
-Phore Synapse is an implementation of a sharded blockchain built on top of the Phore ecosystem. This document will provide a simple explanation of the overall architecture, security features, and implementation details.
+Phore graphene is an implementation of a sharded blockchain built on top of the Phore ecosystem. This document will provide a simple explanation of the overall architecture, security features, and implementation details.
 
 ## Overview
 
-Phore Synapse consists of one main chain and many shard chains. The main chain coordinates shard chains by finalizing shard blocks (using CASPER). Funds can transfer between shards by locking funds on one shard, finalizing the lock transaction on the beacon chain, and unlocking funds on another shard by proving that the transaction was locked on the beacon chain.
+Phore graphene consists of one main chain and many shard chains. The main chain coordinates shard chains by finalizing shard blocks (using CASPER). Funds can transfer between shards by locking funds on one shard, finalizing the lock transaction on the beacon chain, and unlocking funds on another shard by proving that the transaction was locked on the beacon chain.
 
 ## Beacon Chain
 

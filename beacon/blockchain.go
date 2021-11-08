@@ -7,15 +7,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/primitives/proofs"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/beacon/db"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/primitives"
+	"github.com/phoreproject/graphene/primitives/proofs"
+	"github.com/phoreproject/graphene/utils"
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 var zeroHash = chainhash.Hash{}

@@ -2,9 +2,10 @@ package state
 
 import (
 	"fmt"
+
 	"github.com/go-interpreter/wagon/exec"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
 )
 
 // ShardInterface is the interface a shard uses to access external information like state, and access slow functions like
@@ -28,13 +29,13 @@ type TransitionInterface interface {
 type FullStateTransition struct {
 	state        *csmt.Tree
 	transactions [][]byte
-	info ShardInfo
+	info         ShardInfo
 }
 
 // ShardInfo is all of the shard specific information needed for execution.
 type ShardInfo struct {
 	CurrentCode []byte
-	ShardID uint32
+	ShardID     uint32
 }
 
 // Transition runs a transaction.

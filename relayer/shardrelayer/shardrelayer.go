@@ -3,11 +3,11 @@ package shardrelayer
 import (
 	"context"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/relayer/mempool"
-	"github.com/phoreproject/synapse/relayer/p2p"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/relayer/mempool"
+	"github.com/phoreproject/graphene/relayer/p2p"
 	"github.com/sirupsen/logrus"
 )
 
@@ -99,4 +99,3 @@ func (sr *ShardRelayer) GetStateKeys(keys []chainhash.Hash) ([]chainhash.Hash, e
 	})
 	return vals, err
 }
-

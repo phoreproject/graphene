@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/primitives"
-	index "github.com/phoreproject/synapse/shard/chain/index"
+	"github.com/phoreproject/graphene/primitives"
+	index "github.com/phoreproject/graphene/shard/chain/index"
 	"github.com/prysmaticlabs/go-ssz"
 )
 

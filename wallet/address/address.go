@@ -3,9 +3,10 @@ package address
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 // PhoreAddressVersion is the version used for addresses.

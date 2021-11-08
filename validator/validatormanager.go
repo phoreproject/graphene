@@ -5,15 +5,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/utils"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 	"github.com/sirupsen/logrus"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/pb"
 )
 
 type attestationAssignment struct {

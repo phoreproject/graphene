@@ -2,7 +2,8 @@ package transfer
 
 import (
 	"encoding/binary"
-	"github.com/phoreproject/synapse/shard/state"
+
+	"github.com/phoreproject/graphene/shard/state"
 )
 
 // ShardTransaction is a transaction for the transfer shard.

@@ -15,7 +15,7 @@ class ValidatorConfig:
         self.networkid = "regtest"
         self.rootkey = "testnet"
         self.validators = validators
-        self.validator_executable = tester.get_phore_path("synapsevalidator")
+        self.validator_executable = tester.get_phore_path("graphenevalidator")
         self.level = "info"
         self.rpc_port = -1
 

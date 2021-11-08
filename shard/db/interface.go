@@ -1,8 +1,8 @@
 package db
 
 import (
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // ShardBlockNodeDisk is an on-disk representation of a ShardBlockNode.

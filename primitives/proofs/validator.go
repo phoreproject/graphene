@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // GetValidatorHash gets the merkle root for all currently registered validators.

@@ -1,6 +1,6 @@
 package beacon
 
-import "github.com/phoreproject/synapse/primitives"
+import "github.com/phoreproject/graphene/primitives"
 
 // BlockchainNotifee is a blockchain notifee.
 type BlockchainNotifee interface {

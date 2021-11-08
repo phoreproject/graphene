@@ -4,9 +4,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/beacon/db"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // BlockNode is an in-memory representation of a block.

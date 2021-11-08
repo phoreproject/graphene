@@ -22,7 +22,7 @@ class BeaconConfig:
         self.connect = []
         self.level = "info"
         self.index = index
-        self.beacon_executable = tester.get_phore_path("synapsebeacon")
+        self.beacon_executable = tester.get_phore_path("graphenebeacon")
         self.genesis_time = "+5"
 
     def get_args(self) -> typing.List[str]:

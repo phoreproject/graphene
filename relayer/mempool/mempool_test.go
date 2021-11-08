@@ -2,15 +2,15 @@ package mempool_test
 
 import (
 	"bytes"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/relayer/mempool"
-	"github.com/phoreproject/synapse/shard/state"
-	"github.com/phoreproject/synapse/shard/transfer"
-	"github.com/phoreproject/synapse/wallet/keystore"
 	"testing"
-)
 
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/relayer/mempool"
+	"github.com/phoreproject/graphene/shard/state"
+	"github.com/phoreproject/graphene/shard/transfer"
+	"github.com/phoreproject/graphene/wallet/keystore"
+)
 
 func RedeemPremine(key *keystore.Keypair, shardID uint32) []byte {
 	tx := transfer.RedeemTransaction{
@@ -26,7 +26,7 @@ func TestShardMempoolAddNormal(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
 	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
-		ShardID: 0,
+		ShardID:     0,
 	}
 
 	sm := mempool.NewShardMempool(stateDB, 0, chainhash.Hash{}, shardInfo)
@@ -52,12 +52,11 @@ func TestShardMempoolAddNormal(t *testing.T) {
 	}
 }
 
-
 func TestShardMempoolAddInvalid(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
 	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
-		ShardID: 0,
+		ShardID:     0,
 	}
 
 	sm := mempool.NewShardMempool(stateDB, 0, chainhash.Hash{}, shardInfo)
@@ -76,15 +75,14 @@ func TestShardMempoolAddConflicting(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
 	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
-		ShardID: 0,
+		ShardID:     0,
 	}
-
 
 	premineTx := RedeemPremine(premineKey, 0)
 
 	stateTree := csmt.NewTree(stateDB)
 
-	err := stateTree.Update(func (tx csmt.TreeTransactionAccess) error {
+	err := stateTree.Update(func(tx csmt.TreeTransactionAccess) error {
 		_, err := state.Transition(tx, premineTx, shardInfo)
 		return err
 	})
@@ -140,15 +138,14 @@ func TestShardMempoolWitnesses(t *testing.T) {
 	stateDB := csmt.NewInMemoryTreeDB()
 	shardInfo := state.ShardInfo{
 		CurrentCode: transfer.Code,
-		ShardID: 0,
+		ShardID:     0,
 	}
-
 
 	premineTx := RedeemPremine(premineKey, 0)
 
 	stateTree := csmt.NewTree(stateDB)
 
-	err := stateTree.Update(func (tx csmt.TreeTransactionAccess) error {
+	err := stateTree.Update(func(tx csmt.TreeTransactionAccess) error {
 		_, err := state.Transition(tx, premineTx, shardInfo)
 		return err
 	})

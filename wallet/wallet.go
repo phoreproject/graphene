@@ -3,13 +3,14 @@ package wallet
 import (
 	"context"
 	"fmt"
+
 	"github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/shard/state"
-	"github.com/phoreproject/synapse/shard/transfer"
-	"github.com/phoreproject/synapse/wallet/address"
-	"github.com/phoreproject/synapse/wallet/keystore"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/shard/state"
+	"github.com/phoreproject/graphene/shard/transfer"
+	"github.com/phoreproject/graphene/wallet/address"
+	"github.com/phoreproject/graphene/wallet/keystore"
 	"google.golang.org/grpc"
 )
 

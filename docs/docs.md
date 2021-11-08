@@ -1,6 +1,6 @@
-# Phore Synapse Documentation
+# Phore graphene Documentation
 
-This documentation gives information about how each of the different modules interact and a human-readable overview about how Phore Synapse works. Design choices and information will also be documented here. The documentation is not complete at this time, but will be filled in over time with more information.
+This documentation gives information about how each of the different modules interact and a human-readable overview about how Phore graphene works. Design choices and information will also be documented here. The documentation is not complete at this time, but will be filled in over time with more information.
 
 ## Table of Contents
 

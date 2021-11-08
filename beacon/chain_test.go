@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/beacon"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 )
 

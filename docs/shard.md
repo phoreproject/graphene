@@ -32,7 +32,7 @@ The shard module mostly just handles requests from the validator module. The val
 
 ## Shard Design
 
-Shards in Phore Synapse work completely statelessly. All state is kept track of using transaction data. For example, assume Bob wants to transfer 10 PHR to Alice. Bob would need to submit the following pieces of information to form a valid transaction:
+Shards in Phore graphene work completely statelessly. All state is kept track of using transaction data. For example, assume Bob wants to transfer 10 PHR to Alice. Bob would need to submit the following pieces of information to form a valid transaction:
 
 - The merkle proof of Bob's balance in the state tree
 - The merkle proof of Alice's balance in the state tree

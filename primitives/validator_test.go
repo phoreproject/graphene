@@ -1,10 +1,11 @@
 package primitives_test
 
 import (
-	"github.com/go-test/deep"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
 	"testing"
+
+	"github.com/go-test/deep"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 func TestValidator_Copy(t *testing.T) {

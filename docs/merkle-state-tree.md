@@ -1,6 +1,6 @@
 # Merkle State Tree
 
-The merkle state tree stores the entire state of the Synapse shards. If a contract needs to lookup the value of a certain key in state, a witness proving the value of the key is included with the transaction so that executors can run the transaction without the entire state. Similarly, if a contract needs to update the value of a certain key in state, a witness allowing an executor to update the value of the key is included with the transaction. This "update witness" allows executors, using the previous state root, the calculate a new state root with only the single key changed to the new value.
+The merkle state tree stores the entire state of the graphene shards. If a contract needs to lookup the value of a certain key in state, a witness proving the value of the key is included with the transaction so that executors can run the transaction without the entire state. Similarly, if a contract needs to update the value of a certain key in state, a witness allowing an executor to update the value of the key is included with the transaction. This "update witness" allows executors, using the previous state root, the calculate a new state root with only the single key changed to the new value.
 
 ## Structure
 

@@ -3,9 +3,9 @@ package beacon
 import (
 	"errors"
 
-	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/beacon/db"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 	"github.com/sirupsen/logrus"
 )
 

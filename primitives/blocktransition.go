@@ -5,11 +5,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 // ValidateAttestation checks if the attestation is valid.

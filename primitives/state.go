@@ -7,10 +7,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // ValidatorRegistryDeltaBlock is a validator change hash.

@@ -31,7 +31,7 @@ type ConnectionManagerOptions struct {
 	MDNS MDNSOptions
 }
 
-var activeDiscoveryNS = "synapse"
+var activeDiscoveryNS = "graphene"
 
 // NewConnectionManagerOptions creates a ConnectionManagerOptions with default values
 func NewConnectionManagerOptions() ConnectionManagerOptions {

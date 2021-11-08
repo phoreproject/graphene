@@ -3,7 +3,7 @@ package primitives
 import (
 	"errors"
 
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // ProposerSlashing is a slashing request for a proposal violation.

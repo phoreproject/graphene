@@ -4,9 +4,9 @@ import (
 	"github.com/go-test/deep"
 	"testing"
 
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/util"
+	"github.com/phoreproject/graphene/beacon"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/beacon/util"
 	"github.com/sirupsen/logrus"
 )
 

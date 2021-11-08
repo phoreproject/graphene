@@ -19,7 +19,7 @@ class RelayerConfig:
         self.level = "info"
         self.index = -1
         self.shards = []
-        self.relayer_executable = tester.get_phore_path("synapserelayer")
+        self.relayer_executable = tester.get_phore_path("graphenerelayer")
         self.shard_port = shard_port
 
     def get_args(self) -> typing.List[str]:

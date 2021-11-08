@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/phoreproject/synapse/cfg"
-	"github.com/phoreproject/synapse/validator/config"
+	"github.com/phoreproject/graphene/cfg"
+	"github.com/phoreproject/graphene/validator/config"
 
-	"github.com/phoreproject/synapse/utils"
-	"github.com/phoreproject/synapse/validator/module"
+	"github.com/phoreproject/graphene/utils"
+	"github.com/phoreproject/graphene/validator/module"
 
 	logger "github.com/sirupsen/logrus"
 )

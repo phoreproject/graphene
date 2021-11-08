@@ -8,10 +8,10 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/graphene/csmt"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 
 	"github.com/go-interpreter/wagon/exec"
 

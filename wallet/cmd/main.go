@@ -2,12 +2,13 @@ package main
 
 import (
 	"flag"
-	"github.com/c-bata/go-prompt"
-	"github.com/fatih/color"
-	"github.com/phoreproject/synapse/wallet/rpc"
-	"google.golang.org/grpc"
 	"os"
 	"strings"
+
+	"github.com/c-bata/go-prompt"
+	"github.com/fatih/color"
+	"github.com/phoreproject/graphene/wallet/rpc"
+	"google.golang.org/grpc"
 )
 
 func commandCompleter(d prompt.Document) []prompt.Suggest {

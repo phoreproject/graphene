@@ -4,13 +4,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"io"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/multiformats/go-multiaddr"
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/p2p"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // InitialValidatorInformation is the encoded information from the JSON file of an

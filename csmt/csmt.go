@@ -1,8 +1,8 @@
 package csmt
 
 import (
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 var emptyHash = chainhash.Hash{}

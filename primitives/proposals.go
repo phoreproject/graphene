@@ -1,8 +1,8 @@
 package primitives
 
 import (
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // ProposalSignedData is a block proposal for a shard or beacon

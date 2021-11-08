@@ -1,17 +1,17 @@
 package main
 
 import (
-	"github.com/phoreproject/synapse/cfg"
-	"github.com/phoreproject/synapse/relayer/config"
-	"github.com/phoreproject/synapse/relayer/module"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/beacon/module"
+	"github.com/phoreproject/graphene/cfg"
+	"github.com/phoreproject/graphene/utils"
 	logger "github.com/sirupsen/logrus"
 )
 
 func main() {
-	relayerConfig := config.Options{}
+	beaconConfig := config.Options{}
 	globalConfig := cfg.GlobalOptions{}
-	err := cfg.LoadFlags(&relayerConfig, &globalConfig)
+	err := cfg.LoadFlags(&beaconConfig, &globalConfig)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func main() {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	a, err := module.NewRelayerModule(relayerConfig)
+	a, err := module.NewBeaconApp(beaconConfig)
 	if err != nil {
 		logger.Fatal(err)
 	}

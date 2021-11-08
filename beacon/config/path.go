@@ -14,7 +14,7 @@ func defaultDataPath() (path string) {
 	return "~"
 }
 
-// GetBaseDirectory gets the directory for synapse
+// GetBaseDirectory gets the directory for graphene
 func GetBaseDirectory(testModeEnabled bool) (path string, err error) {
 	path, err = homedir.Expand(filepath.Join(defaultDataPath(), directoryName(testModeEnabled)))
 	if err == nil {
@@ -25,9 +25,9 @@ func GetBaseDirectory(testModeEnabled bool) (path string, err error) {
 
 func directoryName(isTestnet bool) (directoryName string) {
 	if runtime.GOOS == "linux" {
-		directoryName = ".phore-synapse"
+		directoryName = ".phore-graphene"
 	} else {
-		directoryName = "phore-synapse"
+		directoryName = "phore-graphene"
 	}
 
 	if isTestnet {

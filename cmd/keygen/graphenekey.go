@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/primitives"
 
 	"flag"
 	"fmt"
@@ -15,13 +15,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/phoreproject/synapse/beacon/module"
+	"github.com/phoreproject/graphene/beacon/module"
 
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/chainhash"
 
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/validator"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/validator"
 	"github.com/prysmaticlabs/go-ssz"
 )
 

@@ -9,7 +9,7 @@ A validator has two main responsibilities: attesting to shard blocks to form cro
 
 ## Attestations
 
-Attestations serve two main purposes in Phore Synapse. They:
+Attestations serve two main purposes in Phore graphene. They:
 
 a. act as a vote for beacon chain CASPER
 b. act as a vote for a shard block

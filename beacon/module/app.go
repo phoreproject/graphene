@@ -12,18 +12,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/primitives"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/mitchellh/go-homedir"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/beacon/rpc"
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/beacon"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/beacon/db"
+	"github.com/phoreproject/graphene/beacon/rpc"
+	"github.com/phoreproject/graphene/p2p"
+	"github.com/phoreproject/graphene/utils"
 	logger "github.com/sirupsen/logrus"
 )
 

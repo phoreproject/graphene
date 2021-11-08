@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 func TestBlock_Copy(t *testing.T) {

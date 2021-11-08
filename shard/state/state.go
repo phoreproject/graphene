@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // State is shard state without the database.
 type State struct {
-	SmartContractRoot chainhash.Hash
-	LastCrosslinkHash chainhash.Hash
+	SmartContractRoot   chainhash.Hash
+	LastCrosslinkHash   chainhash.Hash
 	ProposerAssignments []bls.PublicKey
 }
 
@@ -204,7 +204,7 @@ func NewTrackingState(state csmt.Tree) (*TrackingState, error) {
 	return &TrackingState{
 		fullState:   state,
 		initialRoot: initialRoot,
-		lock: new(sync.RWMutex),
+		lock:        new(sync.RWMutex),
 	}, nil
 }
 
@@ -286,16 +286,15 @@ func (t *TrackingState) View(cb func(transaction csmt.TreeTransactionAccess) err
 
 // TrackingStateAccess provides access to tracking state.
 type TrackingStateAccess struct {
-	fullState FullShardStateAccess
+	fullState             FullShardStateAccess
 	verificationWitnesses []primitives.VerificationWitness
-	updateWitnesses []primitives.UpdateWitness
+	updateWitnesses       []primitives.UpdateWitness
 }
 
 // Hash returns the hash of the state tree.
 func (t *TrackingStateAccess) Hash() (*chainhash.Hash, error) {
 	return t.fullState.Hash()
 }
-
 
 // Get gets a key from state.
 func (t *TrackingStateAccess) Get(key chainhash.Hash) (*chainhash.Hash, error) {

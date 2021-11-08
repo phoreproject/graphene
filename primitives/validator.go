@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
 )
 
 const (

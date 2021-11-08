@@ -1,17 +1,20 @@
 package main
 
 import (
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/module"
-	"github.com/phoreproject/synapse/cfg"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/cfg"
+	"github.com/phoreproject/graphene/shard/config"
+	"github.com/phoreproject/graphene/shard/module"
+	"github.com/phoreproject/graphene/utils"
+
 	logger "github.com/sirupsen/logrus"
 )
 
+const clientVersion = "0.2.6"
+
 func main() {
-	beaconConfig := config.Options{}
+	shardConfig := config.Options{}
 	globalConfig := cfg.GlobalOptions{}
-	err := cfg.LoadFlags(&beaconConfig, &globalConfig)
+	err := cfg.LoadFlags(&shardConfig, &globalConfig)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -36,12 +39,12 @@ func main() {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	a, err := module.NewBeaconApp(beaconConfig)
+	sa, err := module.NewShardApp(shardConfig)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	err = a.Run()
+	err = sa.Run()
 	if err != nil {
 		logger.Fatal(err)
 	}

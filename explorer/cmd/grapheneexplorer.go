@@ -5,12 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/p2p"
+	"github.com/phoreproject/graphene/utils"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	"github.com/phoreproject/synapse/explorer"
+	"github.com/phoreproject/graphene/explorer"
 
 	"github.com/sirupsen/logrus"
 )

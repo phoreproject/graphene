@@ -1,6 +1,6 @@
 # Configuration
 
-This document details the configuration system used for Synapse. All configuration settings can be configured straight from the command line, or set via a YAML file, loaded as part of the `ConfigFile` global variable.
+This document details the configuration system used for graphene. All configuration settings can be configured straight from the command line, or set via a YAML file, loaded as part of the `ConfigFile` global variable.
 
 ## Table of Contents
 

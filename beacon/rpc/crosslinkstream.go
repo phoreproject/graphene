@@ -1,21 +1,21 @@
 package rpc
 
 import (
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/beacon"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // CrosslinkStream tracks new crosslinks created.
 type CrosslinkStream struct {
 	trackingShard uint64
-	callback func(c *primitives.Crosslink)
+	callback      func(c *primitives.Crosslink)
 }
 
 // NewCrosslinkStream tracks a new shard with the given callback.
 func NewCrosslinkStream(trackingShard uint64, cb func(c *primitives.Crosslink)) *CrosslinkStream {
 	return &CrosslinkStream{
 		trackingShard: trackingShard,
-		callback: cb,
+		callback:      cb,
 	}
 }
 

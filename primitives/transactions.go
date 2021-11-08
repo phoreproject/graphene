@@ -2,10 +2,10 @@ package primitives
 
 import (
 	"fmt"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
-)
 
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
+)
 
 // CombineHashes combines two branches of the tree.
 func CombineHashes(left *chainhash.Hash, right *chainhash.Hash) chainhash.Hash {
@@ -26,7 +26,6 @@ func init() {
 
 	EmptyTree = EmptyTrees[255]
 }
-
 
 // UpdateWitness allows an executor to securely update the tree root so that only a single key is changed.
 type UpdateWitness struct {
@@ -83,12 +82,12 @@ func UpdateWitnessFromProto(uw *pb.UpdateWitness) (*UpdateWitness, error) {
 // ToProto converts the UpdateWitness into protobuf form.
 func (uw *UpdateWitness) ToProto() *pb.UpdateWitness {
 	out := &pb.UpdateWitness{
-		Key: uw.Key[:],
-		OldValue: uw.OldValue[:],
-		NewValue: uw.NewValue[:],
+		Key:             uw.Key[:],
+		OldValue:        uw.OldValue[:],
+		NewValue:        uw.NewValue[:],
 		WitnessBitfield: uw.WitnessBitfield[:],
-		LastLevel: uint32(uw.LastLevel),
-		WitnessHashes: make([][]byte, len(uw.Witnesses)),
+		LastLevel:       uint32(uw.LastLevel),
+		WitnessHashes:   make([][]byte, len(uw.Witnesses)),
 	}
 
 	for i := range out.WitnessHashes {
@@ -109,7 +108,6 @@ func (uw *UpdateWitness) Copy() UpdateWitness {
 
 	return newUw
 }
-
 
 // VerificationWitness allows an executor to verify a specific node in the tree.
 type VerificationWitness struct {
@@ -160,11 +158,11 @@ func VerificationWitnessFromProto(vw *pb.VerificationWitness) (*VerificationWitn
 // ToProto converts the verification witness into protobuf form.
 func (vw *VerificationWitness) ToProto() *pb.VerificationWitness {
 	out := &pb.VerificationWitness{
-		Key: vw.Key[:],
-		Value: vw.Value[:],
+		Key:             vw.Key[:],
+		Value:           vw.Value[:],
 		WitnessBitfield: vw.WitnessBitfield[:],
-		LastLevel: uint32(vw.LastLevel),
-		WitnessHashes: make([][]byte, len(vw.Witnesses)),
+		LastLevel:       uint32(vw.LastLevel),
+		WitnessHashes:   make([][]byte, len(vw.Witnesses)),
 	}
 
 	for i := range out.WitnessHashes {
@@ -188,11 +186,11 @@ func (vw *VerificationWitness) Copy() VerificationWitness {
 
 // TransactionPackage is a way to update the state root without having the entire state.
 type TransactionPackage struct {
-	StartRoot chainhash.Hash
-	EndRoot chainhash.Hash
-	Updates []UpdateWitness
+	StartRoot     chainhash.Hash
+	EndRoot       chainhash.Hash
+	Updates       []UpdateWitness
 	Verifications []VerificationWitness
-	Transactions []ShardTransaction
+	Transactions  []ShardTransaction
 }
 
 // Copy copies the transaction package.
@@ -221,11 +219,11 @@ func (tp *TransactionPackage) Copy() TransactionPackage {
 // ToProto converts a transaction package into the protobuf representation.
 func (tp *TransactionPackage) ToProto() *pb.TransactionPackage {
 	out := &pb.TransactionPackage{
-		StartRoot: tp.StartRoot[:],
-		EndRoot: tp.EndRoot[:],
-		UpdateWitnesses: make([]*pb.UpdateWitness, len(tp.Updates)),
+		StartRoot:             tp.StartRoot[:],
+		EndRoot:               tp.EndRoot[:],
+		UpdateWitnesses:       make([]*pb.UpdateWitness, len(tp.Updates)),
 		VerificationWitnesses: make([]*pb.VerificationWitness, len(tp.Verifications)),
-		Transactions: make([]*pb.ShardTransaction, len(tp.Transactions)),
+		Transactions:          make([]*pb.ShardTransaction, len(tp.Transactions)),
 	}
 
 	for i := range out.UpdateWitnesses {
@@ -246,9 +244,9 @@ func (tp *TransactionPackage) ToProto() *pb.TransactionPackage {
 // TransactionPackageFromProto converts a protobuf representation of a transaction package to normal form.
 func TransactionPackageFromProto(tp *pb.TransactionPackage) (*TransactionPackage, error) {
 	outTp := &TransactionPackage{
-		Updates: make([]UpdateWitness, len(tp.UpdateWitnesses)),
+		Updates:       make([]UpdateWitness, len(tp.UpdateWitnesses)),
 		Verifications: make([]VerificationWitness, len(tp.VerificationWitnesses)),
-		Transactions: make([]ShardTransaction, len(tp.Transactions)),
+		Transactions:  make([]ShardTransaction, len(tp.Transactions)),
 	}
 
 	err := outTp.StartRoot.SetBytes(tp.StartRoot)

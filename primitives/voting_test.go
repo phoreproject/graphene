@@ -3,8 +3,8 @@ package primitives_test
 import (
 	"testing"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 
 	"github.com/go-test/deep"
 )

@@ -3,8 +3,8 @@ package primitives
 import (
 	"errors"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // Block represents a single beacon chain block.

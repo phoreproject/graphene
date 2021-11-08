@@ -2,13 +2,14 @@ package state
 
 import (
 	"encoding/hex"
-	"github.com/phoreproject/synapse/csmt"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/phoreproject/graphene/csmt"
+
 	"github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestShard(t *testing.T) {

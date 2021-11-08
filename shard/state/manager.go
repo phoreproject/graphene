@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 )
@@ -17,7 +17,7 @@ type stateInfo struct {
 	state  State
 	parent *stateInfo
 	slot   uint64
-	hash chainhash.Hash
+	hash   chainhash.Hash
 }
 
 // ShardStateManager keeps track of state by reverting and applying blocks.
@@ -134,7 +134,7 @@ func (sm *ShardStateManager) Add(block *primitives.ShardBlock) (*chainhash.Hash,
 		db:     newCache,
 		parent: previousState,
 		slot:   block.Header.Slot,
-		hash: blockHash,
+		hash:   blockHash,
 	}
 
 	return newCache.Hash()
@@ -174,7 +174,6 @@ func (sm *ShardStateManager) Finalize(finalizedHash chainhash.Hash, finalizedSlo
 
 		flushingNode = prevBlock
 	}
-
 
 	diskCache := flushingNode.db
 	finalizeNode.db = diskCache

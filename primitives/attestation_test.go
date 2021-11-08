@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/primitives"
 
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestAttestationData_Equals(t *testing.T) {
@@ -17,7 +17,7 @@ func TestAttestationData_Equals(t *testing.T) {
 		SourceEpoch:         0,
 		SourceHash:          chainhash.HashH([]byte("epoch")),
 		ShardBlockHash:      chainhash.HashH([]byte("shard")),
-		ShardStateHash: chainhash.HashH([]byte("shardstate")),
+		ShardStateHash:      chainhash.HashH([]byte("shardstate")),
 		LatestCrosslinkHash: chainhash.HashH([]byte("crosslink")),
 		TargetEpoch:         0,
 		TargetHash:          chainhash.HashH([]byte("justifiedblockhash")),
@@ -35,7 +35,7 @@ func TestAttestationData_Equals(t *testing.T) {
 				SourceEpoch:         0,
 				SourceHash:          chainhash.HashH([]byte("epoch")),
 				ShardBlockHash:      chainhash.HashH([]byte("shard")),
-				ShardStateHash: chainhash.HashH([]byte("shardstate")),
+				ShardStateHash:      chainhash.HashH([]byte("shardstate")),
 				LatestCrosslinkHash: chainhash.HashH([]byte("crosslink")),
 				TargetEpoch:         0,
 				TargetHash:          chainhash.HashH([]byte("justifiedblockhash")),

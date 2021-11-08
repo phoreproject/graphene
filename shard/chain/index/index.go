@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 )
 

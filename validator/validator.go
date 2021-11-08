@@ -3,12 +3,12 @@ package validator
 import (
 	"context"
 
-	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/graphene/beacon/config"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/primitives"
 
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // Validator is a single validator to keep track of

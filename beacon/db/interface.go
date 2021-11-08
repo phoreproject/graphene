@@ -2,8 +2,8 @@ package db
 
 import (
 	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // BlockNodeDisk is a block node stored on the disk.

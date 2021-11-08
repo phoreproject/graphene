@@ -2,9 +2,10 @@ package chain
 
 import (
 	"fmt"
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/pb"
 	"sync"
+
+	"github.com/phoreproject/graphene/p2p"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // ShardMux handles the various different blockchains associated with different shards.
@@ -22,7 +23,7 @@ func NewShardMux(beaconClient pb.BlockchainRPCClient, hn *p2p.HostNode) *ShardMu
 		managers:     make(map[uint64]*ShardManager),
 		lock:         new(sync.RWMutex),
 		beaconClient: beaconClient,
-		hn: hn,
+		hn:           hn,
 	}
 }
 

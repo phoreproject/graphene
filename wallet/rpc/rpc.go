@@ -2,11 +2,12 @@ package rpc
 
 import (
 	"encoding/hex"
-	"github.com/fatih/color"
-	"github.com/phoreproject/synapse/wallet"
-	"github.com/phoreproject/synapse/wallet/address"
-	"google.golang.org/grpc"
 	"strconv"
+
+	"github.com/fatih/color"
+	"github.com/phoreproject/graphene/wallet"
+	"github.com/phoreproject/graphene/wallet/address"
+	"google.golang.org/grpc"
 )
 
 // WalletRPC handles wallet RPC commands.

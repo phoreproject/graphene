@@ -8,8 +8,8 @@ import (
 
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func intSqrt(n uint64) uint64 {

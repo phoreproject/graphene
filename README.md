@@ -1,6 +1,6 @@
-# Phore Synapse
+# Phore graphene
 
-[![Build Status](https://travis-ci.com/phoreproject/synapse.svg?branch=master)](https://travis-ci.com/phoreproject/synapse) [![codecov](https://codecov.io/gh/phoreproject/synapse/branch/master/graph/badge.svg)](https://codecov.io/gh/phoreproject/synapse) [![Go Report Card](https://goreportcard.com/badge/github.com/phoreproject/synapse)](https://goreportcard.com/report/github.com/phoreproject/synapse)
+[![Build Status](https://travis-ci.com/phoreproject/graphene.svg?branch=master)](https://travis-ci.com/phoreproject/graphene) [![codecov](https://codecov.io/gh/phoreproject/graphene/branch/master/graph/badge.svg)](https://codecov.io/gh/phoreproject/graphene) [![Go Report Card](https://goreportcard.com/badge/github.com/phoreproject/graphene)](https://goreportcard.com/report/github.com/phoreproject/graphene)
 
 A proof-of-stake, sharded blockchain built from scratch.
 
@@ -21,9 +21,9 @@ make test
 Also, to test validator code, run the following commands in 3 separate terminals in order:
 
 ```bash
-go run cmd/p2p/synapsep2p.go
-go run cmd/beacon/synapsebeacon.go
-go run cmd/validator/synapsevalidator.go -validators 0-4095
+go run cmd/p2p/graphenep2p.go
+go run cmd/beacon/graphenebeacon.go
+go run cmd/validator/graphenevalidator.go -validators 0-4095
 ```
 
 ## Building

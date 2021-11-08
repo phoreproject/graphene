@@ -3,11 +3,11 @@ package mempool
 import (
 	"sync"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/shard/state"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/primitives"
+	"github.com/phoreproject/graphene/shard/state"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,7 +34,7 @@ func NewShardMempool(stateDB csmt.TreeDatabase, stateSlot uint64, tipBlockHash c
 		mempoolOrder: nil,
 		mempoolLock:  new(sync.RWMutex),
 		stateManager: state.NewShardStateManager(stateDB, stateSlot, tipBlockHash, info),
-		shardInfo: info,
+		shardInfo:    info,
 	}
 }
 

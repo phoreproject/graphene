@@ -1,10 +1,11 @@
 package primitives_test
 
 import (
-	"github.com/go-test/deep"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
 	"testing"
+
+	"github.com/go-test/deep"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 func TestUpdateWitness_Copy(t *testing.T) {
@@ -14,7 +15,7 @@ func TestUpdateWitness_Copy(t *testing.T) {
 		NewValue:        chainhash.Hash{},
 		WitnessBitfield: chainhash.Hash{},
 		LastLevel:       0,
-		Witnesses:       []chainhash.Hash{
+		Witnesses: []chainhash.Hash{
 			{},
 		},
 	}
@@ -54,7 +55,7 @@ func TestUpdateWitness_ToFromProto(t *testing.T) {
 		NewValue:        chainhash.Hash{1},
 		WitnessBitfield: chainhash.Hash{1},
 		LastLevel:       1,
-		Witnesses:       []chainhash.Hash{
+		Witnesses: []chainhash.Hash{
 			{1},
 		},
 	}
@@ -70,14 +71,13 @@ func TestUpdateWitness_ToFromProto(t *testing.T) {
 	}
 }
 
-
 func TestVerificationWitness_Copy(t *testing.T) {
 	baseVerificationWitness := &primitives.VerificationWitness{
 		Key:             chainhash.Hash{},
-		Value:        chainhash.Hash{},
+		Value:           chainhash.Hash{},
 		WitnessBitfield: chainhash.Hash{},
 		LastLevel:       0,
-		Witnesses:       []chainhash.Hash{
+		Witnesses: []chainhash.Hash{
 			{},
 		},
 	}
@@ -109,10 +109,10 @@ func TestVerificationWitness_Copy(t *testing.T) {
 func TestVerificationWitness_ToFromProto(t *testing.T) {
 	baseVerificationWitness := &primitives.VerificationWitness{
 		Key:             chainhash.Hash{1},
-		Value:        chainhash.Hash{1},
+		Value:           chainhash.Hash{1},
 		WitnessBitfield: chainhash.Hash{1},
 		LastLevel:       1,
-		Witnesses:       []chainhash.Hash{
+		Witnesses: []chainhash.Hash{
 			{1},
 		},
 	}
@@ -130,9 +130,9 @@ func TestVerificationWitness_ToFromProto(t *testing.T) {
 
 func TestTransactionPackage_Copy(t *testing.T) {
 	baseTransactionPackage := &primitives.TransactionPackage{
-		StartRoot:     chainhash.Hash{},
-		EndRoot:       chainhash.Hash{},
-		Updates:       []primitives.UpdateWitness{
+		StartRoot: chainhash.Hash{},
+		EndRoot:   chainhash.Hash{},
+		Updates: []primitives.UpdateWitness{
 			{
 				Key:             chainhash.Hash{},
 				OldValue:        chainhash.Hash{},
@@ -145,13 +145,13 @@ func TestTransactionPackage_Copy(t *testing.T) {
 		Verifications: []primitives.VerificationWitness{
 			{
 				Key:             chainhash.Hash{},
-				Value:        chainhash.Hash{},
+				Value:           chainhash.Hash{},
 				WitnessBitfield: chainhash.Hash{},
 				LastLevel:       0,
 				Witnesses:       nil,
 			},
 		},
-		Transactions:  []primitives.ShardTransaction{
+		Transactions: []primitives.ShardTransaction{
 			{[]byte{0}},
 		},
 	}
@@ -182,28 +182,28 @@ func TestTransactionPackage_Copy(t *testing.T) {
 
 func TestTransactionPackage_ToFromProto(t *testing.T) {
 	baseTransactionPackage := &primitives.TransactionPackage{
-		StartRoot:     chainhash.Hash{1},
-		EndRoot:       chainhash.Hash{1},
-		Updates:       []primitives.UpdateWitness{
+		StartRoot: chainhash.Hash{1},
+		EndRoot:   chainhash.Hash{1},
+		Updates: []primitives.UpdateWitness{
 			{
 				Key:             chainhash.Hash{1},
 				OldValue:        chainhash.Hash{},
 				NewValue:        chainhash.Hash{},
 				WitnessBitfield: chainhash.Hash{},
 				LastLevel:       0,
-				Witnesses: []chainhash.Hash{},
+				Witnesses:       []chainhash.Hash{},
 			},
 		},
 		Verifications: []primitives.VerificationWitness{
 			{
 				Key:             chainhash.Hash{1},
-				Value:        chainhash.Hash{},
+				Value:           chainhash.Hash{},
 				WitnessBitfield: chainhash.Hash{},
 				LastLevel:       0,
-				Witnesses: []chainhash.Hash{},
+				Witnesses:       []chainhash.Hash{},
 			},
 		},
-		Transactions:  []primitives.ShardTransaction{
+		Transactions: []primitives.ShardTransaction{
 			{[]byte{1}},
 		},
 	}

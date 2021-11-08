@@ -7,13 +7,13 @@ import (
 
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/beacon/config"
+	"github.com/phoreproject/graphene/beacon/config"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 func (v *Validator) proposeShardblock(ctx context.Context, shardID uint64, slot uint64) error {

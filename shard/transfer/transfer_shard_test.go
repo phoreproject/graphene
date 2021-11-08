@@ -2,15 +2,16 @@ package transfer
 
 import (
 	"encoding/hex"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/shard/state"
+
 	"github.com/decred/dcrd/dcrec/secp256k1"
 
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestTransferShard(t *testing.T) {

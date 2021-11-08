@@ -2,8 +2,9 @@ package csmt
 
 import (
 	"fmt"
-	"github.com/phoreproject/synapse/chainhash"
 	"testing"
+
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestRandomWritesRollbackCommit(t *testing.T) {
@@ -23,7 +24,6 @@ func TestRandomWritesRollbackCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 
 	treeRoot, err := underlyingTree.Hash()
 	if err != nil {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // TreeMemoryCache is a cache that allows
@@ -189,7 +189,7 @@ func (t *TreeMemoryCache) Flush() error {
 func (t *TreeMemoryCache) UpdateUnderlying(cache TreeDatabase) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	
+
 	oldHash, err := t.Hash()
 	if err != nil {
 		return err

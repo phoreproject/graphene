@@ -5,14 +5,14 @@
 dist
 
 # binaries
-/synapse
-/synapseshard
-/synapsebeacon
-/synapsevalidator
-/synapsep2p
-/synapserelayer
-/synapsekey
-/synapseexplorer
+/graphene
+/grapheneshard
+/graphenebeacon
+/graphenevalidator
+/graphenep2p
+/graphenerelayer
+/graphenekey
+/grapheneexplorer
 integration_tests
 *.exe
 /.vscode

@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/utils"
 	"google.golang.org/grpc"
 )
 

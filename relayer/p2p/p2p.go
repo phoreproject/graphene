@@ -8,9 +8,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/relayer/mempool"
+	"github.com/phoreproject/graphene/p2p"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/relayer/mempool"
 	"github.com/sirupsen/logrus"
 )
 
@@ -74,7 +74,7 @@ func (r *RelayerSyncManager) onGetPackagesMessage(msg []byte, id peer.ID) {
 	}).Debug("sending packages message")
 
 	err = r.protocol.SendMessage(id, &pb.PackageMessage{
-		Package: txPackage.ToProto(),
+		Package:   txPackage.ToProto(),
 		StartSlot: tipSlot,
 	})
 	if err != nil {

@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/util"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/beacon/util"
 )
 
 func TestMain(m *testing.M) {

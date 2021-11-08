@@ -1,15 +1,15 @@
 package csmt
 
 import (
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // TreeDatabase provides functions to update or view parts of the tree.
 type TreeDatabase interface {
-	Update(func (TreeDatabaseTransaction) error) error
+	Update(func(TreeDatabaseTransaction) error) error
 
-	View(func (TreeDatabaseTransaction) error) error
+	View(func(TreeDatabaseTransaction) error) error
 
 	Hash() (*chainhash.Hash, error)
 }
@@ -60,14 +60,14 @@ func NewTree(d TreeDatabase) Tree {
 }
 
 // Update creates a transaction for the tree.
-func (t *Tree) Update(cb func (access TreeTransactionAccess) error) error {
+func (t *Tree) Update(cb func(access TreeTransactionAccess) error) error {
 	return t.db.Update(func(tx TreeDatabaseTransaction) error {
 		return cb(&TreeTransaction{tx, true})
 	})
 }
 
 // View creates a view-only transaction for the tree.
-func (t *Tree) View(cb func (access TreeTransactionAccess) error) error {
+func (t *Tree) View(cb func(access TreeTransactionAccess) error) error {
 	return t.db.View(func(tx TreeDatabaseTransaction) error {
 		return cb(&TreeTransaction{tx, false})
 	})
@@ -89,7 +89,7 @@ func (t *Tree) Hash() (chainhash.Hash, error) {
 
 // TreeTransaction is a wr
 type TreeTransaction struct {
-	tx TreeDatabaseTransaction
+	tx     TreeDatabaseTransaction
 	update bool
 }
 
@@ -154,7 +154,6 @@ func (t *TreeTransaction) Prove(key chainhash.Hash) (*primitives.VerificationWit
 
 	return vw, err
 }
-
 
 // Get gets a value from the tree.
 func (t *TreeTransaction) Get(key chainhash.Hash) (*chainhash.Hash, error) {

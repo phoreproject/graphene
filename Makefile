@@ -1,5 +1,5 @@
 export GO111MODULE=on
-BINARY_NAME=synapseshard synapsevalidator synapsebeacon synapsekey synapseexplorer synapse synapserelayer
+BINARY_NAME=grapheneshard graphenevalidator graphenebeacon graphenekey grapheneexplorer graphene graphenerelayer
 SRC=$(shell find . -name "*.go")
 TESTS=$(shell find integration/phore/tests -name "*.py" | sed "s/.*\//integration_test_/" | sed "s/\.py//")
 
@@ -13,32 +13,32 @@ endif
 all: deps $(BINARY_NAME)
 
 install:
-	go install cmd/beacon/synapsebeacon.go
-	go install cmd/validator/synapsevalidator.go
-	go install cmd/keygen/synapsekey.go
-	go install cmd/synapse/synapse.go
-	go install cmd/relayer/synapserelayer.go
+	go install cmd/beacon/graphenebeacon.go
+	go install cmd/validator/graphenevalidator.go
+	go install cmd/keygen/graphenekey.go
+	go install cmd/graphene/graphene.go
+	go install cmd/relayer/graphenerelayer.go
 
-synapseshard: $(SRC)
-	go build cmd/shard/synapseshard.go
+grapheneshard: $(SRC)
+	go build cmd/shard/grapheneshard.go
 
-synapsebeacon: $(SRC)
-	go build cmd/beacon/synapsebeacon.go
+graphenebeacon: $(SRC)
+	go build cmd/beacon/graphenebeacon.go
 
-synapsevalidator: $(SRC)
-	go build cmd/validator/synapsevalidator.go
+graphenevalidator: $(SRC)
+	go build cmd/validator/graphenevalidator.go
 
-synapsekey: $(SRC)
-	go build cmd/keygen/synapsekey.go
+graphenekey: $(SRC)
+	go build cmd/keygen/graphenekey.go
 
-synapseexplorer: $(SRC)
-	go build explorer/cmd/synapseexplorer.go
+grapheneexplorer: $(SRC)
+	go build explorer/cmd/grapheneexplorer.go
 
-synapse: $(SRC)
-	go build cmd/synapse/synapse.go
+graphene: $(SRC)
+	go build cmd/graphene/graphene.go
 
-synapserelayer: $(SRC)
-	go build cmd/relayer/synapserelayer.go
+graphenerelayer: $(SRC)
+	go build cmd/relayer/graphenerelayer.go
 
 test: unittest integrationtests
 

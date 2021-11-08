@@ -3,14 +3,15 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"net"
+
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/relayer/shardrelayer"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/relayer/shardrelayer"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"net"
 )
 
 type server struct {

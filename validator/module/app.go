@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	beaconconfig "github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/utils"
-	"github.com/phoreproject/synapse/validator/config"
+
+	beaconconfig "github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/utils"
+	"github.com/phoreproject/graphene/validator/config"
 	"google.golang.org/grpc"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/primitives"
 
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/pb"
 	logger "github.com/sirupsen/logrus"
 
-	"github.com/phoreproject/synapse/validator"
+	"github.com/phoreproject/graphene/validator"
 )
 
 // ValidatorApp is the app to run the validator runtime.

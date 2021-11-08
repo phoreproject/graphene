@@ -1,4 +1,4 @@
-module github.com/phoreproject/synapse
+module github.com/phoreproject/graphene
 
 go 1.13
 
@@ -44,6 +44,7 @@ require (
 	github.com/multiformats/go-multicodec v0.1.6 // indirect
 	github.com/phoreproject/bls v0.0.0-20190821133044-da95d4798b09
 	github.com/phoreproject/go-phore-connmgr v0.2.0
+	github.com/phoreproject/graphene v0.2.6
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/protolambda/zssz v0.1.3

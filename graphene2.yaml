@@ -3,7 +3,7 @@ modules:
     rpc_listen_addr: "/ip4/127.0.0.1/tcp/11782"
     chain_config: "regtest.json"
     resync: true
-    data_directory: "~/.phore-synapse1"
+    data_directory: "~/.phore-graphene1"
     genesis_time: "1583545411"
     p2p_listen_addr: "/ip4/0.0.0.0/tcp/11781"
     initial_connections:

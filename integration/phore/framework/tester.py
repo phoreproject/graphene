@@ -36,7 +36,7 @@ class Tester:
 
         self.genesis_time = int(time.time()) + 5
 
-        self._directory = tempfile.mkdtemp(suffix=None, prefix='synapse_test_', dir=None)
+        self._directory = tempfile.mkdtemp(suffix=None, prefix='graphene_test_', dir=None)
 
     def setup(self):
         logging.info('Test root directory: {}'.format(self._directory))

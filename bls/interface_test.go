@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/phoreproject/synapse/bls"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/bls"
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 func TestBasicSignature(t *testing.T) {

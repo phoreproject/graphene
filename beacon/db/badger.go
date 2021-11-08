@@ -11,14 +11,14 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/pb"
 	"github.com/prysmaticlabs/go-ssz"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/dgraph-io/badger"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 var _ Database = (*BadgerDB)(nil)

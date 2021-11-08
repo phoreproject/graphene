@@ -1,4 +1,4 @@
-# Synapse Shard Design Document
+# graphene Shard Design Document
 
 ## Overview
 

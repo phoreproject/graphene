@@ -2,9 +2,10 @@ package csmt
 
 import (
 	"errors"
-	"github.com/phoreproject/synapse/primitives"
 
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/primitives"
+
+	"github.com/phoreproject/graphene/chainhash"
 )
 
 // GenerateUpdateWitness generates a witness that allows calculation of a new state root.

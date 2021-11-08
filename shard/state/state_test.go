@@ -1,10 +1,11 @@
 package state_test
 
 import (
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/shard/state"
 	"testing"
+
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/csmt"
+	"github.com/phoreproject/graphene/shard/state"
 )
 
 func ch(s string) chainhash.Hash {

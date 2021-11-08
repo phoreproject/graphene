@@ -1,20 +1,17 @@
 package main
 
 import (
-	"github.com/phoreproject/synapse/cfg"
-	"github.com/phoreproject/synapse/shard/config"
-	"github.com/phoreproject/synapse/shard/module"
-	"github.com/phoreproject/synapse/utils"
-
+	"github.com/phoreproject/graphene/cfg"
+	"github.com/phoreproject/graphene/relayer/config"
+	"github.com/phoreproject/graphene/relayer/module"
+	"github.com/phoreproject/graphene/utils"
 	logger "github.com/sirupsen/logrus"
 )
 
-const clientVersion = "0.2.6"
-
 func main() {
-	shardConfig := config.Options{}
+	relayerConfig := config.Options{}
 	globalConfig := cfg.GlobalOptions{}
-	err := cfg.LoadFlags(&shardConfig, &globalConfig)
+	err := cfg.LoadFlags(&relayerConfig, &globalConfig)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -39,12 +36,12 @@ func main() {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	sa, err := module.NewShardApp(shardConfig)
+	a, err := module.NewRelayerModule(relayerConfig)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	
-	err = sa.Run()
+
+	err = a.Run()
 	if err != nil {
 		logger.Fatal(err)
 	}

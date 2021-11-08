@@ -4,16 +4,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"io"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/libp2p/go-libp2p-core/peer"
+
+	"github.com/phoreproject/graphene/primitives"
 
 	"github.com/multiformats/go-multiaddr"
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/p2p"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/p2p"
 
-	beaconapp "github.com/phoreproject/synapse/beacon/module"
+	beaconapp "github.com/phoreproject/graphene/beacon/module"
 )
 
 // Config is the explorer app config.

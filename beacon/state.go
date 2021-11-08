@@ -2,14 +2,15 @@ package beacon
 
 import (
 	"errors"
-	"github.com/phoreproject/synapse/primitives/proofs"
 	"time"
+
+	"github.com/phoreproject/graphene/primitives/proofs"
 
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
+	"github.com/phoreproject/graphene/utils"
 	logger "github.com/sirupsen/logrus"
 )
 

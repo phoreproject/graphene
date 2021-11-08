@@ -3,8 +3,8 @@ package beacon
 import (
 	"errors"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/primitives"
 )
 
 // ChainView is a view of a certain chain in the block tree so that block processing can access valid blocks.

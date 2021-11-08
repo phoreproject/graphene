@@ -8,19 +8,19 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/p2p"
-	"github.com/phoreproject/synapse/primitives/proofs"
-	"github.com/phoreproject/synapse/utils"
+	"github.com/phoreproject/graphene/p2p"
+	"github.com/phoreproject/graphene/primitives/proofs"
+	"github.com/phoreproject/graphene/utils"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/phoreproject/synapse/beacon"
-	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/graphene/beacon"
+	"github.com/phoreproject/graphene/chainhash"
 
-	"github.com/phoreproject/synapse/primitives"
+	"github.com/phoreproject/graphene/primitives"
 
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

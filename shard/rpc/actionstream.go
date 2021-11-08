@@ -1,11 +1,11 @@
 package rpc
 
 import (
-	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
-	"github.com/phoreproject/synapse/primitives"
-	"github.com/phoreproject/synapse/shard/chain"
+	"github.com/phoreproject/graphene/beacon/config"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
+	"github.com/phoreproject/graphene/primitives"
+	"github.com/phoreproject/graphene/shard/chain"
 	"github.com/prysmaticlabs/go-ssz"
 )
 

@@ -9,30 +9,30 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	beaconconfig "github.com/phoreproject/synapse/beacon/config"
-	beaconmodule "github.com/phoreproject/synapse/beacon/module"
-	"github.com/phoreproject/synapse/cfg"
-	"github.com/phoreproject/synapse/utils"
+	beaconconfig "github.com/phoreproject/graphene/beacon/config"
+	beaconmodule "github.com/phoreproject/graphene/beacon/module"
+	"github.com/phoreproject/graphene/cfg"
+	"github.com/phoreproject/graphene/utils"
 	"github.com/pkg/errors"
 	logger "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	shardconfig "github.com/phoreproject/synapse/shard/config"
-	shardmodule "github.com/phoreproject/synapse/shard/module"
+	shardconfig "github.com/phoreproject/graphene/shard/config"
+	shardmodule "github.com/phoreproject/graphene/shard/module"
 
-	validatorconfig "github.com/phoreproject/synapse/validator/config"
-	validatormodule "github.com/phoreproject/synapse/validator/module"
+	validatorconfig "github.com/phoreproject/graphene/validator/config"
+	validatormodule "github.com/phoreproject/graphene/validator/module"
 
-	relayerconfig "github.com/phoreproject/synapse/relayer/config"
-	relayermodule "github.com/phoreproject/synapse/relayer/module"
+	relayerconfig "github.com/phoreproject/graphene/relayer/config"
+	relayermodule "github.com/phoreproject/graphene/relayer/module"
 
 	metrics "github.com/tevjef/go-runtime-metrics"
 
 	_ "net/http/pprof"
 )
 
-// SynapseOptions are the options for all module configs.
-type SynapseOptions struct {
+// grapheneOptions are the options for all module configs.
+type grapheneOptions struct {
 	ModuleConfigs []AnyModuleConfig `yaml:"modules"`
 }
 
@@ -118,7 +118,7 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	moduleConfigs := SynapseOptions{}
+	moduleConfigs := grapheneOptions{}
 	globalConfig := cfg.GlobalOptions{}
 	err := cfg.LoadFlags(&moduleConfigs, &globalConfig)
 	if err != nil {
@@ -144,7 +144,7 @@ func main() {
 	if changed {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
-	
+
 	beaconConfigs := make([]*beaconconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	validatorConfigs := make([]*validatorconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	shardConfigs := make([]*shardconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
@@ -164,9 +164,9 @@ func main() {
 	}
 
 	err = metrics.RunCollector(metrics.DefaultConfig)
-	
+
 	if err != nil {
-	  logger.Warn(err)
+		logger.Warn(err)
 	}
 
 	err = sentry.Init(sentry.ClientOptions{
@@ -184,7 +184,6 @@ func main() {
 			sentry.Flush(time.Second * 5)
 		}
 	}()
-
 
 	// first initialize all of the apps using the configs
 	beaconApps := make([]*beaconmodule.BeaconApp, len(beaconConfigs))

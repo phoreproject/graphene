@@ -6,8 +6,8 @@ import (
 
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/pb"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/pb"
 )
 
 // ShardBlockHeader is the header for blocks on shard chains.

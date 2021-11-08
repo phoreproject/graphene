@@ -2,15 +2,16 @@ package keystore
 
 import (
 	"encoding/hex"
+
 	"github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/phoreproject/synapse/chainhash"
-	"github.com/phoreproject/synapse/shard/transfer"
-	"github.com/phoreproject/synapse/wallet/address"
+	"github.com/phoreproject/graphene/chainhash"
+	"github.com/phoreproject/graphene/shard/transfer"
+	"github.com/phoreproject/graphene/wallet/address"
 )
 
 // Keypair is a pair of private and public keys.
 type Keypair struct {
-	key secp256k1.PrivateKey
+	key    secp256k1.PrivateKey
 	pubkey secp256k1.PublicKey
 }
 
@@ -70,7 +71,7 @@ func GenerateRandomKeypair() (*Keypair, error) {
 	pub := randKey.PubKey()
 
 	return &Keypair{
-		key: *randKey,
+		key:    *randKey,
 		pubkey: *pub,
 	}, nil
 }
@@ -86,11 +87,11 @@ func KeypairFromHex(hexString string) (*Keypair, error) {
 }
 
 // KeypairFromBytes is a keypair from a byte array.
-func KeypairFromBytes(privBytes []byte) (*Keypair) {
+func KeypairFromBytes(privBytes []byte) *Keypair {
 	key, pub := secp256k1.PrivKeyFromBytes(privBytes)
 
 	return &Keypair{
-		key: *key,
+		key:    *key,
 		pubkey: *pub,
 	}
 }

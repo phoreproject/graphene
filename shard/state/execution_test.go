@@ -2,10 +2,11 @@ package state
 
 import (
 	"encoding/hex"
-	"github.com/phoreproject/synapse/csmt"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/phoreproject/synapse/csmt"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/phoreproject/synapse/chainhash"
@@ -33,12 +34,12 @@ func TestShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = s.RunFunc(NewEmptyContext("run"))
+		err = s.RunFunc(NewEmptyContext("run"))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		_, err = s.RunFunc(NewEmptyContext("run"))
+		err = s.RunFunc(NewEmptyContext("run"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +85,7 @@ func BenchmarkShardCall(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err = s.RunFunc(NewEmptyContext("run"))
+			err = s.RunFunc(NewEmptyContext("run"))
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -115,7 +116,7 @@ func TestECDSAShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = s.RunFunc(NewEmptyContext("run"))
+		err = s.RunFunc(NewEmptyContext("run"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -206,7 +207,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			_, err = s.RunFunc(NewEmptyContext("run"))
+			err = s.RunFunc(NewEmptyContext("run"))
 			if err != nil {
 				b.Fatal(err)
 			}

@@ -2,11 +2,12 @@ package transfer
 
 import (
 	"encoding/hex"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/synapse/shard/state"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 

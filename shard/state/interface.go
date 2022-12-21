@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/csmt"
 )
@@ -40,9 +41,13 @@ func Transition(state csmt.TreeTransactionAccess, tx []byte, info ShardInfo) (*c
 		return nil, err
 	}
 
-	_, err = shard.RunFunc(argContext)
+	outCode, err := shard.RunFunc(argContext)
 	if err != nil {
 		return nil, err
+	}
+
+	if outCode != 0 {
+		return nil, fmt.Errorf("function returned non-zero exit code")
 	}
 
 	outHash, err := state.Hash()

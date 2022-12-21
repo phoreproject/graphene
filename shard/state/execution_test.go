@@ -2,10 +2,11 @@ package state
 
 import (
 	"encoding/hex"
-	"github.com/phoreproject/synapse/csmt"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/phoreproject/synapse/csmt"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/phoreproject/synapse/chainhash"

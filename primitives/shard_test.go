@@ -207,6 +207,11 @@ func TestShardBlockToFromProto(t *testing.T) {
 			StateRoot:           chainhash.Hash{1},
 			TransactionRoot:     chainhash.Hash{1},
 			FinalizedBeaconHash: chainhash.Hash{1},
+			ValidatorProof: primitives.ValidatorProof{
+				Proof: primitives.VerificationWitness{
+					Witnesses: []chainhash.Hash{},
+				},
+			},
 		},
 		Body: primitives.ShardBlockBody{
 			Transactions: []primitives.ShardTransaction{

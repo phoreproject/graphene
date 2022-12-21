@@ -2,11 +2,12 @@ package transfer
 
 import (
 	"encoding/hex"
-	"github.com/phoreproject/synapse/csmt"
-	"github.com/phoreproject/synapse/shard/state"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/phoreproject/synapse/csmt"
+	"github.com/phoreproject/synapse/shard/state"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 
@@ -86,7 +87,7 @@ func TestTransferShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if code.(uint64) != 0 {
+		if code != 0 {
 			t.Fatalf("function exited with non-zero exit code: %d", code)
 		}
 
@@ -96,7 +97,7 @@ func TestTransferShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if code.(uint64) == 0 {
+		if code == 0 {
 			t.Fatalf("function exited with zero exit code: %d", code)
 		}
 
@@ -129,7 +130,7 @@ func TestTransferShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if code.(uint64) != 0 {
+		if code != 0 {
 			t.Fatalf("function exited with zero exit code: %d", code)
 		}
 
@@ -205,7 +206,7 @@ func TestTransferShardRedeem(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if code.(uint64) != 0 {
+		if code != 0 {
 			t.Fatalf("function exited with non-zero exit code: %d", code)
 		}
 
@@ -237,7 +238,7 @@ func TestTransferShardRedeem(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if code.(uint64) != 0 {
+		if code != 0 {
 			t.Fatalf("function exited with non-zero exit code: %d", code)
 		}
 

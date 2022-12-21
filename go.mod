@@ -50,6 +50,7 @@ require (
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
+	github.com/tetratelabs/wazero v1.0.0-pre.5 // indirect
 	github.com/tevjef/go-runtime-metrics v0.0.0-20170326170900-527a54029307
 	github.com/tyler-smith/go-bip32 v0.0.0-20170922074101-2c9cfd177564 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect

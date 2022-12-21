@@ -8,15 +8,15 @@ env:
   global:
     secure: c62aP9rhbhKx3w8ebm93EF7/3dnosWCRIL5phOEIEnCeneJ1NImavSr5HDDDD6b14974B1s9sae2s4S/cXXXajA/hWQu0Kb8mPbJkzMoHAltTriMISXyvAbl1mLwgp+4T1A/94MKri4Xa2aBIuBoKpV8WhZQD/BS6rKuzc+uG2cCWCi/+S+IzOzqxZ1t9uZZTh91DjNQ7ck3XqAj9WW2dgdgTSCZFds3OwpkET6vt/ZILhnXQxLRXDIAwwEIEjiq0bAZsKHk0CkhXt50QHhXZH69XjT8J3ywAPAANsG2WAwikq+RMD66fGmEa3obzQtUkFUm4wL9xlGfr36K1CEXcbjRG5x141knix7zUOKB+BoJgIUgCkX7b5SOyLG/YNdH1x4dLXR7LYzpRH1jJafWAFFZlwGaKFztqkb6H7/Qv702QEY9WzHgmEO2js//SAMpqlcKFLIdyEST5RMolSySaTnnu8UxmgA96c4YWn4suxTauFrjmuPSTgRfVCIV+nMxjfdliFxhQPXdBOIMBZLSP5BU6coqfb5fhRdUgKHS2mSBbDjHSmSyM3Up5x6jxWFoPgY3gl+ctNLErt+wLjPB9iFINl0hK1JakT/uYS1VvVD4RMucMMeAe5xruV8hxeyMT+k6zurLkK5RUXlUebc0oOBOVBSxxTBKvs/nkELocOU=
 go:
-- "1.13.x"
+  - "1.19.x"
 sudo: required
 services:
-- docker
+  - docker
 git:
   depth: 1
 notifications:
   email: false
 script:
-- go test -v -race ./... -coverprofile=coverage.txt -covermode=atomic
+  - go test -v -race ./... -coverprofile=coverage.txt -covermode=atomic
 after_success:
-- bash <(curl -s https://codecov.io/bash)
+  - bash <(curl -s https://codecov.io/bash)

@@ -73,6 +73,7 @@ func (s *Shard) Store(addr int32, val int32) {
 
 // LoadArgument loads an argument passed in via the transaction.
 func (s *Shard) LoadArgument(argNum int32, argLen int32, outAddr int32) {
+	fmt.Println(s.ExecutionContext)
 	out, err := s.ExecutionContext.LoadArgument(argNum, argLen)
 	if err != nil {
 		s.error(err)
@@ -207,33 +208,40 @@ func (s *Shard) ReadHashAt(addr int32) [32]byte {
 }
 
 // RunFunc runs a shard function
-func (s *Shard) RunFunc(executionContext ArgumentContext) error {
+func (s *Shard) RunFunc(executionContext ArgumentContext) (int32, error) {
 	// TODO: ensure in exportedFuncs
 
 	s.executionLock.Lock()
 	defer s.executionLock.Unlock()
 
+	s.ExecutionContext = executionContext
+	s.err = nil
+
 	fnName := executionContext.GetFunction()
 
 	ctx := context.Background()
 
-	_, err := s.Module.ExportedFunction(fnName).Call(ctx)
+	out, err := s.Module.ExportedFunction(fnName).Call(ctx)
+	outCode := int32(-1)
+	if len(out) > 0 {
+		outCode = int32(out[0])
+	}
 	if err != nil {
-		return err
+		return outCode, err
 	}
 
 	// set this to nil because we should re-set it every time we run a function
 	s.ExecutionContext = nil
 
 	if err != nil {
-		return err
+		return outCode, err
 	}
 
 	if s.err != nil {
-		return s.err
+		return outCode, s.err
 	}
 
-	return nil
+	return outCode, nil
 }
 
 // HashTo64 converts a hash to a uint64.

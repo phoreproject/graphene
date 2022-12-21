@@ -40,7 +40,7 @@ func Transition(state csmt.TreeTransactionAccess, tx []byte, info ShardInfo) (*c
 		return nil, err
 	}
 
-	err = shard.RunFunc(argContext)
+	_, err = shard.RunFunc(argContext)
 	if err != nil {
 		return nil, err
 	}

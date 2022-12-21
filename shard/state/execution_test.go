@@ -34,12 +34,12 @@ func TestShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = s.RunFunc(NewEmptyContext("run"))
+		_, err = s.RunFunc(NewEmptyContext("run"))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = s.RunFunc(NewEmptyContext("run"))
+		_, err = s.RunFunc(NewEmptyContext("run"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +85,7 @@ func BenchmarkShardCall(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			err = s.RunFunc(NewEmptyContext("run"))
+			_, err = s.RunFunc(NewEmptyContext("run"))
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -116,7 +116,7 @@ func TestECDSAShard(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = s.RunFunc(NewEmptyContext("run"))
+		_, err = s.RunFunc(NewEmptyContext("run"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -207,7 +207,7 @@ func BenchmarkShardECDSA(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			err = s.RunFunc(NewEmptyContext("run"))
+			_, err = s.RunFunc(NewEmptyContext("run"))
 			if err != nil {
 				b.Fatal(err)
 			}

@@ -73,7 +73,6 @@ func (s *Shard) Store(addr int32, val int32) {
 
 // LoadArgument loads an argument passed in via the transaction.
 func (s *Shard) LoadArgument(argNum int32, argLen int32, outAddr int32) {
-	fmt.Println(s.ExecutionContext)
 	out, err := s.ExecutionContext.LoadArgument(argNum, argLen)
 	if err != nil {
 		s.error(err)

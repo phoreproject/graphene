@@ -4,7 +4,7 @@ modules:
     chain_config: "regtest.json"
     resync: true
     data_directory: "~/.phore-synapse1"
-    genesis_time: "1583545411"
+    genesis_time: "+5"
     p2p_listen_addr: "/ip4/0.0.0.0/tcp/11781"
     initial_connections:
       - "/ip4/10.0.0.2/tcp/11781/ipfs/12D3KooWBJeKfU5fswk9xWytRQbb8d6ZaT9MmMP8fjjty5bn29CP"
@@ -24,7 +24,7 @@ modules:
     root_key: "testnet"
     network_id: "regtest"
     listen_addr: "/ip4/127.0.0.1/tcp/11784"
-    log_level: "info"
+    log_level: "debug"
   - type: "relayer"
     shard_addr: "/ip4/127.0.0.1/tcp/11783"
     p2p_listen_addr: "/ip4/127.0.0.1/tcp/11785"

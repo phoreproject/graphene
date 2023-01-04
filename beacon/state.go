@@ -2,8 +2,9 @@ package beacon
 
 import (
 	"errors"
-	"github.com/phoreproject/synapse/primitives/proofs"
 	"time"
+
+	"github.com/phoreproject/synapse/primitives/proofs"
 
 	"github.com/prysmaticlabs/go-ssz"
 
@@ -84,11 +85,7 @@ func (b *Blockchain) ProcessBlock(block *primitives.Block, checkTime bool, verif
 	netRewarded := int64(0)
 	for _, r := range output.Receipts {
 		netRewarded += r.Amount
-		if _, found := reasons[r.Type]; found {
-			reasons[r.Type] += r.Amount
-		} else {
-			reasons[r.Type] = r.Amount
-		}
+		reasons[r.Type] += r.Amount
 	}
 
 	if len(reasons) > 0 {

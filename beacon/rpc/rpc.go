@@ -123,7 +123,7 @@ func (s *server) GetMempool(ctx context.Context, req *pb.MempoolRequest) (*pb.Bl
 		return nil, fmt.Errorf("could not find block with hash %s", lastBlockHash)
 	}
 
-	atts, err := s.mempool.GetAttestationsToInclude(lastBlockNode.Slot, *lastBlockHash, s.chain.GetConfig())
+	atts, err := s.mempool.GetAttestationsToInclude(req.Slot, *lastBlockHash, s.chain.GetConfig())
 	if err != nil {
 		return nil, err
 	}

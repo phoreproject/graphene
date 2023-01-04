@@ -3,18 +3,20 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"github.com/golang/protobuf/ptypes/empty"
+	"net"
+
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/relayer/shardrelayer"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"net"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type server struct {
 	relayers map[uint64]*shardrelayer.ShardRelayer
+	*pb.UnimplementedRelayerRPCServer
 }
 
 // GetStateKey gets a key from the state for a certain shard.
@@ -54,20 +56,20 @@ func (s *server) GetStateKeys(ctx context.Context, req *pb.GetStateKeysRequest) 
 }
 
 // GetListeningAddresses gets the listening addresses of the relayer P2P protocol.
-func (*server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
+func (*server) GetListeningAddresses(context.Context, *emptypb.Empty) (*pb.ListeningAddressesResponse, error) {
 	panic("implement me")
 }
 
 // Connect connects P2P to a certain node.
-func (*server) Connect(context.Context, *pb.ConnectMessage) (*empty.Empty, error) {
+func (*server) Connect(context.Context, *pb.ConnectMessage) (*emptypb.Empty, error) {
 	panic("implement me")
 }
 
 // SubmitTransaction submits a transaction to the relayer.
-func (s *server) SubmitTransaction(ctx context.Context, tx *pb.SubmitTransactionRequest) (*empty.Empty, error) {
+func (s *server) SubmitTransaction(ctx context.Context, tx *pb.SubmitTransactionRequest) (*emptypb.Empty, error) {
 	if r, found := s.relayers[tx.ShardID]; found {
 		err := r.GetMempool().Add(tx.Transaction.TransactionData)
-		return &empty.Empty{}, err
+		return &emptypb.Empty{}, err
 	}
 	return nil, fmt.Errorf("not tracking shard %d", tx.ShardID)
 }

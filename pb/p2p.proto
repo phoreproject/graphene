@@ -5,6 +5,8 @@ import "common.proto";
 
 package pb;
 
+option go_package = ".;pb";
+
 message BeaconVersionMessage {
     uint64 Version = 1;
     bytes GenesisHash = 2;

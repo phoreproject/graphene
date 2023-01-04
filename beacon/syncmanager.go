@@ -3,7 +3,6 @@ package beacon
 import (
 	"bytes"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -14,6 +13,7 @@ import (
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 )
 
 // SyncManager is responsible for requesting blocks from clients
@@ -22,11 +22,12 @@ import (
 //
 // The basic algorithm for syncing is as follows:
 // func onReceive(newBlock):
-//     if haveBlock(newBlock):
-//         processBlock(newBlock)
-//     else:
-//         locator = generateLocator(chain) - locator starts from tip and goes back exponentially including the genesis block
-//				 askForBlocks(locator)
+//
+//	    if haveBlock(newBlock):
+//	        processBlock(newBlock)
+//	    else:
+//	        locator = generateLocator(chain) - locator starts from tip and goes back exponentially including the genesis block
+//					 askForBlocks(locator)
 type SyncManager struct {
 	hostNode        *p2p.HostNode
 	syncStarted     bool

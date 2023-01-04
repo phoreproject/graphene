@@ -12,9 +12,9 @@ import (
 	"github.com/phoreproject/synapse/primitives/proofs"
 	"github.com/phoreproject/synapse/utils"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/chainhash"
 
@@ -31,17 +31,18 @@ type server struct {
 	chain   *beacon.Blockchain
 	p2p     *p2p.HostNode
 	mempool *beacon.Mempool
+	pb.UnimplementedBlockchainRPCServer
 }
 
 // GetGenesisTime gets the genesis time.
-func (s *server) GetGenesisTime(context.Context, *empty.Empty) (*pb.GenesisTimeResponse, error) {
+func (s *server) GetGenesisTime(context.Context, *emptypb.Empty) (*pb.GenesisTimeResponse, error) {
 	return &pb.GenesisTimeResponse{
 		GenesisTime: s.chain.GetGenesisTime(),
 	}, nil
 }
 
 // GetListeningAddresses gets the addresses we're listening on.
-func (s *server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
+func (s *server) GetListeningAddresses(context.Context, *emptypb.Empty) (*pb.ListeningAddressesResponse, error) {
 	addrs := s.p2p.GetHost().Addrs()
 
 	info := peer.AddrInfo{
@@ -65,7 +66,7 @@ func (s *server) GetListeningAddresses(context.Context, *empty.Empty) (*pb.Liste
 }
 
 // Connect attempts to connect to a node.
-func (s *server) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*empty.Empty, error) {
+func (s *server) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*emptypb.Empty, error) {
 	addr := connectMsg.Address
 
 	ma, err := multiaddr.NewMultiaddr(addr)
@@ -83,11 +84,11 @@ func (s *server) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*e
 		return nil, err
 	}
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // SubmitAttestation submits an attestation to the mempool.
-func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*empty.Empty, error) {
+func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*emptypb.Empty, error) {
 	a, err := primitives.AttestationFromProto(att)
 	if err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func (s *server) SubmitAttestation(ctx context.Context, att *pb.Attestation) (*e
 		return nil, err
 	}
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // GetMempool gets the mempool for a block.
@@ -167,7 +168,7 @@ func (s *server) SubmitBlock(ctx context.Context, in *pb.SubmitBlockRequest) (*p
 }
 
 // GetSlotNumber gets the current slot number.
-func (s *server) GetSlotNumber(ctx context.Context, in *empty.Empty) (*pb.SlotNumberResponse, error) {
+func (s *server) GetSlotNumber(ctx context.Context, in *emptypb.Empty) (*pb.SlotNumberResponse, error) {
 	state := s.chain.GetState()
 	config := s.chain.GetConfig()
 	genesisTime := state.GenesisTime
@@ -188,7 +189,7 @@ func (s *server) GetBlockHash(ctx context.Context, in *pb.GetBlockHashRequest) (
 }
 
 // GetLastBlockHash gets the most recent block hash in the main chain.
-func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.GetBlockHashResponse, error) {
+func (s *server) GetLastBlockHash(ctx context.Context, in *emptypb.Empty) (*pb.GetBlockHashResponse, error) {
 	h := s.chain.View.Chain.Tip()
 	return &pb.GetBlockHashResponse{
 		Hash: h.Hash[:],
@@ -196,7 +197,7 @@ func (s *server) GetLastBlockHash(ctx context.Context, in *empty.Empty) (*pb.Get
 }
 
 // GetState gets the state of the main chain.
-func (s *server) GetState(ctx context.Context, in *empty.Empty) (*pb.GetStateResponse, error) {
+func (s *server) GetState(ctx context.Context, in *emptypb.Empty) (*pb.GetStateResponse, error) {
 	state := s.chain.GetState()
 	stateProto := state.ToProto()
 
@@ -323,7 +324,7 @@ func (s *server) GetCommitteesForSlot(ctx context.Context, in *pb.GetCommitteesF
 }
 
 // GetForkData gets the current fork data.
-func (s *server) GetForkData(ctx context.Context, in *empty.Empty) (*pb.ForkData, error) {
+func (s *server) GetForkData(ctx context.Context, in *emptypb.Empty) (*pb.ForkData, error) {
 	state := s.chain.GetState()
 	return state.ForkData.ToProto(), nil
 }
@@ -422,7 +423,9 @@ func Serve(proto string, listenAddr string, b *beacon.Blockchain, hostNode *p2p.
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterBlockchainRPCServer(s, &server{b, hostNode, mempool})
+
+	rpcServer := &server{chain: b, p2p: hostNode, mempool: mempool}
+	pb.RegisterBlockchainRPCServer(s, rpcServer)
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	err = s.Serve(lis)

@@ -7,10 +7,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // writeMessage writes a message and message name to the provided writer.
@@ -67,14 +68,13 @@ func readMessage(length uint32, reader *bufio.Reader) (proto.Message, error) {
 	if !strings.HasPrefix(messageName, "pb.") {
 		return nil, fmt.Errorf("invalid message name")
 	}
-	messageType := proto.MessageType(messageName)
-	if messageType == nil {
-		return nil, fmt.Errorf("could not get message type")
+	messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(messageName))
+	if err != nil {
+		return nil, err
 	}
 
-	t := messageType.Elem()
-	messagePtr := reflect.New(t)
-	message := messagePtr.Interface().(proto.Message)
+	messagePtr := messageType.New()
+	message := messagePtr.Interface()
 	if message == nil {
 		return nil, fmt.Errorf("could not find message type \"%s\"", messageName)
 	}
@@ -105,7 +105,6 @@ func processMessages(ctx context.Context, stream io.Reader, handler func(message
 		case <-ctx.Done():
 			return nil
 		default:
-			break
 		}
 
 		switch state {

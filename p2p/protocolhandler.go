@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/discovery"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -16,6 +15,8 @@ import (
 	mdnsdiscovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	discoveryutils "github.com/libp2p/go-libp2p-discovery"
 )
@@ -44,7 +45,7 @@ type ProtocolHandler struct {
 
 	discovery discovery.Discovery
 
-	messageHandlers     map[string]MessageHandler
+	messageHandlers     map[protoreflect.FullName]MessageHandler
 	messageHandlersLock sync.RWMutex
 
 	outgoingMessages     map[peer.ID]chan proto.Message
@@ -70,7 +71,7 @@ func newProtocolHandler(ctx context.Context, id protocol.ID, maxPeers int, minPe
 		MinimumPeers:     minPeers,
 		discovery:        disc,
 		host:             host,
-		messageHandlers:  make(map[string]MessageHandler),
+		messageHandlers:  make(map[protoreflect.FullName]MessageHandler),
 		outgoingMessages: make(map[peer.ID]chan proto.Message),
 		connManager:      connManager,
 		ctx:              ctx,
@@ -104,7 +105,7 @@ func (p *ProtocolHandler) advertise() {
 }
 
 // RegisterHandler registers a handler for a protocol.
-func (p *ProtocolHandler) RegisterHandler(messageName string, handler MessageHandler) error {
+func (p *ProtocolHandler) RegisterHandler(messageName protoreflect.FullName, handler MessageHandler) error {
 	p.messageHandlersLock.Lock()
 	defer p.messageHandlersLock.Unlock()
 	if _, found := p.messageHandlers[messageName]; found {

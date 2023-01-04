@@ -5,6 +5,8 @@ package pb;
 import "google/protobuf/empty.proto";
 import "common.proto";
 
+option go_package = ".;pb";
+
 service ShardRPC {
     rpc AnnounceProposal (ProposalAnnouncement) returns (google.protobuf.Empty);
     rpc GetBlockHashAtSlot (SlotRequest) returns (BlockHashResponse);

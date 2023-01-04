@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
@@ -21,6 +20,7 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const shardExecutionVersion = "0.0.1"
@@ -95,7 +95,7 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 
 	a.hostnode = hn
 
-	genesisTime, err := a.beaconRPC.GetGenesisTime(context.Background(), &empty.Empty{})
+	genesisTime, err := a.beaconRPC.GetGenesisTime(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}

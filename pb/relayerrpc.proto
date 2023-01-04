@@ -5,6 +5,8 @@ import "common.proto";
 
 package pb;
 
+option go_package = ".;pb";
+
 service RelayerRPC {
     rpc SubmitTransaction (SubmitTransactionRequest) returns (google.protobuf.Empty);
     rpc GetListeningAddresses (google.protobuf.Empty) returns (ListeningAddressesResponse);

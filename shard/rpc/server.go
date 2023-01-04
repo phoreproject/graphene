@@ -6,7 +6,6 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/phoreproject/synapse/beacon/config"
@@ -19,6 +18,7 @@ import (
 	"github.com/prysmaticlabs/go-ssz"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ShardRPCServer handles incoming commands for the shard module.
@@ -26,10 +26,11 @@ type ShardRPCServer struct {
 	sm     *chain.ShardMux
 	hn     *p2p.HostNode
 	config *config.Config
+	*pb.UnimplementedShardRPCServer
 }
 
 // GetListeningAddresses gets listening addresses for the shard module.
-func (s *ShardRPCServer) GetListeningAddresses(context.Context, *empty.Empty) (*pb.ListeningAddressesResponse, error) {
+func (s *ShardRPCServer) GetListeningAddresses(context.Context, *emptypb.Empty) (*pb.ListeningAddressesResponse, error) {
 	addrs := s.hn.GetHost().Addrs()
 
 	info := peer.AddrInfo{
@@ -53,7 +54,7 @@ func (s *ShardRPCServer) GetListeningAddresses(context.Context, *empty.Empty) (*
 }
 
 // Connect connects to a peer
-func (s *ShardRPCServer) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*empty.Empty, error) {
+func (s *ShardRPCServer) Connect(ctx context.Context, connectMsg *pb.ConnectMessage) (*emptypb.Empty, error) {
 	addr := connectMsg.Address
 
 	ma, err := multiaddr.NewMultiaddr(addr)
@@ -71,7 +72,7 @@ func (s *ShardRPCServer) Connect(ctx context.Context, connectMsg *pb.ConnectMess
 		return nil, err
 	}
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // GetSlotNumber gets the current tip slot and hash.
@@ -112,7 +113,7 @@ func (s *ShardRPCServer) GetActionStream(req *pb.ShardActionStreamRequest, res p
 
 // AnnounceProposal instructs the shard module to subscribe to a specific shard and start downloading blocks. This is a
 // no-op until we implement the P2P network.
-func (s *ShardRPCServer) AnnounceProposal(ctx context.Context, req *pb.ProposalAnnouncement) (*empty.Empty, error) {
+func (s *ShardRPCServer) AnnounceProposal(ctx context.Context, req *pb.ProposalAnnouncement) (*emptypb.Empty, error) {
 	blockHash, err := chainhash.NewHash(req.BlockHash)
 	if err != nil {
 		return nil, err
@@ -146,15 +147,15 @@ func (s *ShardRPCServer) AnnounceProposal(ctx context.Context, req *pb.ProposalA
 
 	mgr.SyncManager.ProposalAnnounced(req.ProposalSlots, *stateHash, req.CrosslinkSlot)
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // UnsubscribeFromShard instructs the shard module to unsubscribe from a specific shard including disconnecting from
 // unnecessary peers and clearing the database of any unnecessary state. No-op until we implement the P2P network.
-func (s *ShardRPCServer) UnsubscribeFromShard(ctx context.Context, req *pb.ShardUnsubscribeRequest) (*empty.Empty, error) {
+func (s *ShardRPCServer) UnsubscribeFromShard(ctx context.Context, req *pb.ShardUnsubscribeRequest) (*emptypb.Empty, error) {
 	s.sm.StopManaging(req.ShardID)
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // GetBlockHashAtSlot gets the block hash at a specific slot on a specific shard.
@@ -232,7 +233,7 @@ func (s *ShardRPCServer) GenerateBlockTemplate(ctx context.Context, req *pb.Bloc
 }
 
 // SubmitBlock submits a block to the shard chain.
-func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubmission) (*empty.Empty, error) {
+func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubmission) (*emptypb.Empty, error) {
 	block, err := primitives.ShardBlockFromProto(req.Block)
 	if err != nil {
 		return nil, err
@@ -258,7 +259,7 @@ func (s *ShardRPCServer) SubmitBlock(ctx context.Context, req *pb.ShardBlockSubm
 		return nil, err
 	}
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 var _ pb.ShardRPCServer = &ShardRPCServer{}
@@ -270,7 +271,7 @@ func Serve(proto string, listenAddr string, mux *chain.ShardMux, c *config.Confi
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterShardRPCServer(s, &ShardRPCServer{mux, node, c})
+	pb.RegisterShardRPCServer(s, &ShardRPCServer{sm: mux, hn: node, config: c})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	err = s.Serve(lis)

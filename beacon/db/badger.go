@@ -14,7 +14,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/prysmaticlabs/go-ssz"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/dgraph-io/badger"
 	"github.com/phoreproject/synapse/chainhash"

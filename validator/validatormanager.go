@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/phoreproject/synapse/utils"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/phoreproject/synapse/chainhash"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/sirupsen/logrus"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/phoreproject/synapse/beacon/config"
 	"github.com/phoreproject/synapse/pb"
 )
@@ -143,7 +143,7 @@ type Manager struct {
 func NewManager(ctx context.Context, blockchainRPC pb.BlockchainRPCClient, shardRPC pb.ShardRPCClient, validators []uint32, keystore Keystore, c *config.Config) (*Manager, error) {
 	validatorObjs := make(map[uint32]*Validator)
 
-	forkDataProto, err := blockchainRPC.GetForkData(context.Background(), &empty.Empty{})
+	forkDataProto, err := blockchainRPC.GetForkData(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +396,7 @@ func (vm *Manager) NewSlot(slotNumber uint64) error {
 // ListenForBlockAndCycle listens for any new blocks or cycles and relays
 // the information to validators.
 func (vm *Manager) ListenForBlockAndCycle() error {
-	stateProto, err := vm.blockchainRPC.GetState(context.Background(), &empty.Empty{})
+	stateProto, err := vm.blockchainRPC.GetState(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return err
 	}
@@ -406,7 +406,7 @@ func (vm *Manager) ListenForBlockAndCycle() error {
 		return err
 	}
 
-	slotNumberResponse, err := vm.blockchainRPC.GetSlotNumber(context.Background(), &empty.Empty{})
+	slotNumberResponse, err := vm.blockchainRPC.GetSlotNumber(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		return err
 	}

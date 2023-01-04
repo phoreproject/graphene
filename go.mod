@@ -16,7 +16,7 @@ require (
 	github.com/go-interpreter/wagon v0.6.0
 	github.com/go-test/deep v1.0.4
 	github.com/gogo/protobuf v1.3.0
-	github.com/golang/protobuf v1.4.1
+	github.com/golang/protobuf v1.5.2
 	github.com/hsanjuan/go-libp2p-http v0.0.2 // indirect
 	github.com/influxdata/influxdb v1.8.1 // indirect
 	github.com/ipfs/dir-index-html v1.0.3 // indirect
@@ -50,19 +50,17 @@ require (
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20190825002834-fb724e897364
 	github.com/prysmaticlabs/go-ssz v0.0.0-20190917152816-977e011d625d
 	github.com/sirupsen/logrus v1.4.2
-	github.com/tetratelabs/wazero v1.0.0-pre.5 // indirect
+	github.com/tetratelabs/wazero v1.0.0-pre.5
 	github.com/tevjef/go-runtime-metrics v0.0.0-20170326170900-527a54029307
 	github.com/tyler-smith/go-bip32 v0.0.0-20170922074101-2c9cfd177564 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/image v0.0.0-20190802002840-cff245a6509b
-	golang.org/x/mod v0.3.0 // indirect
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
-	golang.org/x/sys v0.0.0-20200107162124-548cf772de50
-	golang.org/x/tools v0.0.0-20200619210111-0f592d2728bb // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
-	google.golang.org/grpc v1.27.0
-	google.golang.org/protobuf v1.24.0
+	google.golang.org/grpc v1.51.0
+	google.golang.org/protobuf v1.28.1
 	gopkg.in/yaml.v2 v2.2.4
 	gotest.tools/gotestsum v0.3.4 // indirect
 )

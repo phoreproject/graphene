@@ -112,6 +112,7 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 
 	mempool, err := v.blockchainRPC.GetMempool(context.Background(), &pb.MempoolRequest{
 		LastBlockHash: parentRootBytes.Hash,
+		Slot:          information.slot,
 	})
 	if err != nil {
 		return err
@@ -125,6 +126,18 @@ func (v *Validator) proposeBlock(ctx context.Context, information proposerAssign
 	blockBody, err := primitives.BlockBodyFromProto(mempool)
 	if err != nil {
 		return err
+	}
+
+	attestationsByTargetEpoch := make(map[uint64][]primitives.Attestation)
+
+	for _, attestation := range blockBody.Attestations {
+		targetEpoch := attestation.Data.TargetEpoch
+
+		attestationsByTargetEpoch[targetEpoch] = append(attestationsByTargetEpoch[targetEpoch], attestation)
+	}
+
+	for epoch, attestations := range attestationsByTargetEpoch {
+		v.logger.Debugf("Including epoch %.03d with %.02d attestations", epoch, len(attestations))
 	}
 
 	newBlock := primitives.Block{

@@ -364,11 +364,11 @@ func (am *attestationMempool) GetMempoolDifference(message *pb.GetAttestationMem
 }
 
 // GetMempoolSummary gets a summary of the mempool so we can sync it with other peers.
-func (am *attestationMempool) GetMempoolSummary() pb.GetAttestationMempoolMessage {
+func (am *attestationMempool) GetMempoolSummary() *pb.GetAttestationMempoolMessage {
 	am.attestationsLock.RLock()
 	defer am.attestationsLock.RUnlock()
 
-	summary := pb.GetAttestationMempoolMessage{
+	summary := &pb.GetAttestationMempoolMessage{
 		Attestations: make([]*pb.AttestationMempoolItem, len(am.attestations)),
 	}
 

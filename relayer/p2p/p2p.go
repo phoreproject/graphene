@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -12,6 +11,7 @@ import (
 	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/relayer/mempool"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 )
 
 // RelayerSyncManager keeps track of transactions and packages sync status with peers.
@@ -74,7 +74,7 @@ func (r *RelayerSyncManager) onGetPackagesMessage(msg []byte, id peer.ID) {
 	}).Debug("sending packages message")
 
 	err = r.protocol.SendMessage(id, &pb.PackageMessage{
-		Package: txPackage.ToProto(),
+		Package:   txPackage.ToProto(),
 		StartSlot: tipSlot,
 	})
 	if err != nil {

@@ -26,6 +26,9 @@ import (
 	relayerconfig "github.com/phoreproject/synapse/relayer/config"
 	relayermodule "github.com/phoreproject/synapse/relayer/module"
 
+	explorerconfig "github.com/phoreproject/synapse/explorer/config"
+	explorermodule "github.com/phoreproject/synapse/explorer/module"
+
 	metrics "github.com/tevjef/go-runtime-metrics"
 
 	_ "net/http/pprof"
@@ -75,6 +78,11 @@ func (a *AnyModuleConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 		a.Module = module
 	case "relayer":
 		module := &relayerconfig.Options{}
+		moduleValue = reflect.ValueOf(module).Elem()
+		moduleType = reflect.TypeOf(module).Elem()
+		a.Module = module
+	case "explorer":
+		module := &explorerconfig.Options{}
 		moduleValue = reflect.ValueOf(module).Elem()
 		moduleType = reflect.TypeOf(module).Elem()
 		a.Module = module
@@ -144,11 +152,12 @@ func main() {
 	if changed {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
-	
+
 	beaconConfigs := make([]*beaconconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	validatorConfigs := make([]*validatorconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	shardConfigs := make([]*shardconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 	relayerConfigs := make([]*relayerconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
+	explorerConfigs := make([]*explorerconfig.Options, 0, len(moduleConfigs.ModuleConfigs))
 
 	for _, v := range moduleConfigs.ModuleConfigs {
 		switch c := v.Module.(type) {
@@ -160,13 +169,15 @@ func main() {
 			shardConfigs = append(shardConfigs, c)
 		case *relayerconfig.Options:
 			relayerConfigs = append(relayerConfigs, c)
+		case *explorerconfig.Options:
+			explorerConfigs = append(explorerConfigs, c)
 		}
 	}
 
 	err = metrics.RunCollector(metrics.DefaultConfig)
-	
+
 	if err != nil {
-	  logger.Warn(err)
+		logger.Warn(err)
 	}
 
 	err = sentry.Init(sentry.ClientOptions{
@@ -185,12 +196,12 @@ func main() {
 		}
 	}()
 
-
 	// first initialize all of the apps using the configs
 	beaconApps := make([]*beaconmodule.BeaconApp, len(beaconConfigs))
 	validatorApps := make([]*validatormodule.ValidatorApp, len(validatorConfigs))
 	shardApps := make([]*shardmodule.ShardApp, len(shardConfigs))
 	relayerApps := make([]*relayermodule.RelayerModule, len(relayerConfigs))
+	explorerApps := make([]*explorermodule.ExplorerApp, len(explorerConfigs))
 
 	for i, c := range beaconConfigs {
 		app, err := beaconmodule.NewBeaconApp(*c)
@@ -219,6 +230,21 @@ func main() {
 	for i, a := range shardApps {
 		go func(i int, a *shardmodule.ShardApp) {
 			logger.Infof("starting shard module #%d", i)
+			errChan <- a.Run()
+		}(i, a)
+	}
+
+	for i, c := range explorerConfigs {
+		app, err := explorermodule.NewExplorerApp(*c)
+		if err != nil {
+			logger.Fatal(errors.Wrap(err, "error initializing explorer module"))
+		}
+		explorerApps[i] = app
+	}
+
+	for i, a := range explorerApps {
+		go func(i int, a *explorermodule.ExplorerApp) {
+			logger.Infof("starting explorer module #%d", i)
 			errChan <- a.Run()
 		}(i, a)
 	}
@@ -270,6 +296,9 @@ func main() {
 				a.Exit()
 			}
 			for _, a := range shardApps {
+				a.Exit()
+			}
+			for _, a := range explorerApps {
 				a.Exit()
 			}
 			continue

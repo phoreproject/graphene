@@ -20,7 +20,7 @@ modules:
     beacon_addr: "/ip4/127.0.0.1/tcp/11782"
     shard_addr: "/ip4/127.0.0.1/tcp/11783"
     validators:
-      - "128-255"
+      - "0-255"
     root_key: "testnet"
     network_id: "regtest"
     listen_addr: "/ip4/127.0.0.1/tcp/11784"
@@ -31,4 +31,5 @@ modules:
     rpc_listen_addr: "/ip4/127.0.0.1/tcp/11786"
     shards:
       - "0-7"
+
 log_level: "info"

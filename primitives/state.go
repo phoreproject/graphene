@@ -755,7 +755,7 @@ func ShardCommitteeByShardID(shardID uint64, shardCommittees []ShardAndCommittee
 func (s *State) GetShardCommitteesAtSlot(slot uint64, c *config.Config) ([]ShardAndCommittee, error) {
 	stateSlot := s.EpochIndex * c.EpochLength
 	earliestSlot := int64(stateSlot) - int64(stateSlot%c.EpochLength) - int64(c.EpochLength)
-	if int64(slot)-earliestSlot < 0 || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
+	if int64(slot) < earliestSlot || int64(slot)-earliestSlot >= int64(len(s.ShardAndCommitteeForSlots)) {
 		return nil, errors.WithStack(fmt.Errorf("could not get slot %d when state is at slot %d", slot, stateSlot))
 	}
 	return s.ShardAndCommitteeForSlots[int64(slot)-earliestSlot], nil

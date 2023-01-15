@@ -1,0 +1,7 @@
+modules:
+  - type: "explorer"
+    chain_config: "regtest.json"
+    beacon_addr: "/ip4/127.0.0.1/tcp/11782"
+    log_level: "debug"
+
+log_level: "info"

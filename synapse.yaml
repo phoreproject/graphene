@@ -23,5 +23,4 @@ modules:
     network_id: "regtest"
     listen_addr: "/ip4/127.0.0.1/tcp/11784"
     log_level: "info"
-
 log_level: "info"

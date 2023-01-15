@@ -1,9 +1,10 @@
 package explorer
 
 import (
+	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -11,18 +12,16 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/chainhash"
+	"github.com/phoreproject/synapse/pb"
 	"github.com/phoreproject/synapse/primitives"
 	"github.com/prysmaticlabs/go-ssz"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/go-homedir"
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/phoreproject/synapse/beacon"
 	"github.com/phoreproject/synapse/beacon/config"
-	"github.com/phoreproject/synapse/beacon/db"
-	"github.com/phoreproject/synapse/p2p"
 
 	"github.com/sirupsen/logrus"
 
@@ -34,23 +33,28 @@ import (
 // and then keeps track of its own blockchain so that it can access more
 // info like forking.
 type Explorer struct {
-	blockchain *beacon.Blockchain
-
-	// P2P
-	hostNode    *p2p.HostNode
-	syncManager beacon.SyncManager
-
 	config Config
 
-	database *Database
-	chainDB  db.Database
+	database   *Database
+	beaconRPC  pb.BlockchainRPCClient
+	blockchain *beacon.Blockchain
+
+	ctx context.Context
+
+	tipHash chainhash.Hash
 }
 
 // NewExplorer creates a new block explorer
-func NewExplorer(c Config, gormDB *gorm.DB) (*Explorer, error) {
+func NewExplorer(c Config, gormDB *gorm.DB, beaconRPC pb.BlockchainRPCClient, blockchain *beacon.Blockchain) (*Explorer, error) {
+	// todo: replace in memory DB
+
 	return &Explorer{
-		database: NewDatabase(gormDB),
-		config:   c,
+		database:   NewDatabase(gormDB),
+		config:     c,
+		beaconRPC:  beaconRPC,
+		blockchain: blockchain,
+		tipHash:    blockchain.GenesisHash(),
+		ctx:        context.TODO(),
 	}, nil
 }
 
@@ -77,77 +81,6 @@ func (ex *Explorer) loadDatabase() error {
 
 	logrus.Info("initializing client")
 
-	logrus.Info("initializing database")
-	database := db.NewBadgerDB(dir)
-
-	if ex.config.Resync {
-		logrus.Info("dropping all keys in database to resync")
-		err := database.Flush()
-		if err != nil {
-			return err
-		}
-	}
-
-	ex.chainDB = database
-
-	return nil
-}
-
-func (ex *Explorer) loadP2P() error {
-	logrus.Info("loading P2P")
-	addr, err := ma.NewMultiaddr(ex.config.ListeningAddress)
-	if err != nil {
-		panic(err)
-	}
-
-	priv, _, err := crypto.GenerateEd25519Key(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
-	hostNode, err := p2p.NewHostNode(context.Background(), p2p.HostNodeOptions{
-		ListenAddresses: []ma.Multiaddr{
-			addr,
-		},
-		PrivateKey: priv,
-		ConnManagerOptions: p2p.ConnectionManagerOptions{
-			BootstrapAddresses: ex.config.DiscoveryOptions.BootstrapAddresses,
-			MDNS: p2p.MDNSOptions{
-				Enabled:  false,
-				Interval: 0,
-			},
-		},
-		Timeout: 0,
-	})
-	if err != nil {
-		panic(err)
-	}
-	ex.hostNode = hostNode
-
-	return nil
-}
-
-func (ex *Explorer) loadBlockchain() error {
-	var genesisTime uint64
-	if t, err := ex.chainDB.GetGenesisTime(); err == nil {
-		logrus.WithField("genesisTime", t).Info("using time from database")
-		genesisTime = t
-	} else {
-		logrus.WithField("genesisTime", ex.config.GenesisTime).Info("using time from config")
-		err := ex.chainDB.SetGenesisTime(ex.config.GenesisTime)
-		if err != nil {
-			return err
-		}
-		genesisTime = ex.config.GenesisTime
-	}
-
-	blockchain, err := beacon.NewBlockchainWithInitialValidators(ex.chainDB, ex.config.NetworkConfig, ex.config.InitialValidatorList, true, genesisTime)
-	if err != nil {
-		panic(err)
-	}
-
-	ex.blockchain = blockchain
-
 	return nil
 }
 
@@ -159,16 +92,6 @@ type Template struct {
 // Render renders the template.
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 	return t.templates.ExecuteTemplate(w, name, data)
-}
-
-// WaitForConnections waits until beacon app is connected
-func (ex *Explorer) WaitForConnections(numConnections int) {
-	for {
-		if ex.hostNode.PeersConnected() >= numConnections {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }
 
 func combineHashes(in [][32]byte) []byte {
@@ -191,7 +114,17 @@ func splitHashes(in []byte) [][32]byte {
 	return out
 }
 
-func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.State, receipts []primitives.Receipt) {
+func (ex *Explorer) processBlock(block *primitives.Block) error {
+	blockHash, _ := ssz.HashTreeRoot(block)
+	logrus.Infof("explorer processing block %s", chainhash.Hash(blockHash))
+
+	epochTransition, state, err := ex.blockchain.ProcessBlock(block, false, true)
+	if err != nil {
+		return err
+	}
+
+	ex.tipHash = blockHash
+
 	validators := make(map[int]Validator)
 
 	// Update Validators
@@ -217,7 +150,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		validators[id] = newV
 	}
 
-	for _, r := range receipts {
+	for _, r := range epochTransition.Receipts {
 		var idBytes [4]byte
 		binary.BigEndian.PutUint32(idBytes[:], r.Index)
 		pubAndID := append(state.ValidatorRegistry[r.Index].Pubkey[:], idBytes[:]...)
@@ -237,9 +170,11 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 	var epochCount int
 
-	epochStart := state.Slot - (state.Slot % ex.config.NetworkConfig.EpochLength)
+	epochStart := state.EpochIndex * ex.config.NetworkConfig.EpochLength
 
 	ex.database.database.Model(&Epoch{}).Where(&Epoch{StartSlot: epochStart}).Count(&epochCount)
+
+	fmt.Println(epochStart)
 
 	if epochCount == 0 {
 		var assignments []Assignment
@@ -277,12 +212,7 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 		})
 	}
 
-	blockHash, err := ssz.HashTreeRoot(block)
-	if err != nil {
-		panic(err)
-	}
-
-	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber, ex.blockchain.GetConfig())
+	proposerIdx, err := state.GetBeaconProposerIndex(block.BlockHeader.SlotNumber-1, ex.config.NetworkConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -337,22 +267,83 @@ func (ex *Explorer) postProcessHook(block *primitives.Block, state *primitives.S
 
 		ex.database.database.Create(attestation)
 	}
+
+	return nil
 }
 
 func (ex *Explorer) exit() {
-	err := ex.chainDB.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	for _, p := range ex.hostNode.GetPeerList() {
-		err := ex.hostNode.DisconnectPeer(p)
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
+	ex.database.database.Close()
 
 	os.Exit(0)
+}
+
+const minPollTime = 5 * time.Second
+
+func (ex *Explorer) pollForBlocks() {
+	lastUpdate := time.Unix(0, 0)
+
+	for {
+		timeSinceUpdate := time.Since(lastUpdate)
+
+		if timeSinceUpdate < minPollTime {
+			time.Sleep(minPollTime - timeSinceUpdate)
+		}
+
+		select {
+		case <-ex.ctx.Done():
+
+		default:
+		}
+
+		latestBlockHash, err := ex.beaconRPC.GetLastBlockHash(ex.ctx, &emptypb.Empty{})
+		if err != nil {
+			logrus.Error(err)
+			continue
+		}
+
+		if bytes.Equal(latestBlockHash.Hash, ex.tipHash[:]) {
+			continue
+		}
+
+		blocksToProcess := make([]*primitives.Block, 0)
+		protoBlock, err := ex.beaconRPC.GetBlock(ex.ctx, &pb.GetBlockRequest{Hash: latestBlockHash.Hash[:]})
+		if err != nil {
+			logrus.Error(err)
+			continue
+		}
+
+		currentBlock, err := primitives.BlockFromProto(protoBlock.Block)
+		if err != nil {
+			logrus.Error(err)
+			continue
+		}
+
+		blocksToProcess = append(blocksToProcess, currentBlock)
+
+		for currentBlock.BlockHeader.ParentRoot != ex.tipHash {
+			protoBlock, err := ex.beaconRPC.GetBlock(ex.ctx, &pb.GetBlockRequest{Hash: currentBlock.BlockHeader.ParentRoot[:]})
+			if err != nil {
+				logrus.Error(err)
+				continue
+			}
+
+			block, err := primitives.BlockFromProto(protoBlock.Block)
+			if err != nil {
+				logrus.Error(err)
+				continue
+			}
+
+			currentBlock = block
+			blocksToProcess = append(blocksToProcess, currentBlock)
+		}
+
+		for i := len(blocksToProcess) - 1; i >= 0; i-- {
+			err := ex.processBlock(blocksToProcess[i])
+			if err != nil {
+				logrus.Error(err)
+			}
+		}
+	}
 }
 
 // StartExplorer starts the block explorer
@@ -371,32 +362,7 @@ func (ex *Explorer) StartExplorer() error {
 		ex.exit()
 	}()
 
-	err = ex.loadBlockchain()
-	if err != nil {
-		return err
-	}
-
-	err = ex.loadP2P()
-	if err != nil {
-		return err
-	}
-
-	sm, err := beacon.NewSyncManager(ex.hostNode, ex.blockchain, nil)
-	if err != nil {
-		return err
-	}
-	ex.syncManager = *sm
-
-	ex.syncManager.RegisterPostProcessHook(ex.postProcessHook)
-
-	ex.WaitForConnections(1)
-
-	go func() {
-		err := ex.syncManager.ListenForBlocks()
-		if err != nil {
-			logrus.Errorf("error listening for blocks: %s", err)
-		}
-	}()
+	go ex.pollForBlocks()
 
 	t := &Template{
 		templates: template.Must(template.ParseGlob("explorer/templates/*.html")),

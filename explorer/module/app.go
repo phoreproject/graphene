@@ -104,7 +104,7 @@ func NewExplorerApp(options beaconconfig.Options) (*ExplorerApp, error) {
 
 // Run runs the shard app.
 func (s *ExplorerApp) Run() error {
-	logrus.Info("initializing block explorer v%s", explorerVersion)
+	logrus.Infof("initializing block explorer v%s", explorerVersion)
 
 	return s.explorer.StartExplorer()
 }

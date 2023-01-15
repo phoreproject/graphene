@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -172,6 +173,8 @@ func (ex *Explorer) processBlock(block *primitives.Block) error {
 	epochStart := state.EpochIndex * ex.config.NetworkConfig.EpochLength
 
 	ex.database.database.Model(&Epoch{}).Where(&Epoch{StartSlot: epochStart}).Count(&epochCount)
+
+	fmt.Println(epochStart)
 
 	if epochCount == 0 {
 		var assignments []Assignment

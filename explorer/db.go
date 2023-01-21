@@ -2,6 +2,7 @@ package explorer
 
 import (
 	"github.com/jinzhu/gorm"
+	"github.com/phoreproject/synapse/chainhash"
 )
 
 // Database models:
@@ -93,8 +94,14 @@ type Database struct {
 // GetLatestBlocks gets the latest blocks in the chain.
 func (db *Database) GetLatestBlocks(n int) []Block {
 	var blocks []Block
-	db.database.Limit(n).Order("height desc").Find(&blocks)
+	db.database.Order("height DESC").Limit(n).Find(&blocks)
 	return blocks
+}
+
+func (db *Database) GetBlock(parentHash chainhash.Hash) Block {
+	var block Block
+	db.database.Where("Hash = ?", parentHash).First(&block)
+	return block
 }
 
 // NewDatabase creates a new database given a gorm DB.

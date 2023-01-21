@@ -1,1 +1,24 @@
-body {}
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+body {
+  background: #222;
+  color: white;
+  font-family: Lato, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5 {
+  margin: 0;
+}
+
+a {
+  color: white;
+  text-decoration: none;
+}
+
+.pageContainer {
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 0 20px;
+}

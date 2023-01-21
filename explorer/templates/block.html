@@ -1,191 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" type="text/css" href="/static/style.css" />
     <title>Block {{.BlockHash}}</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            color: black;
-            background-color: white;
-        }
-
-        h1, h2, h3, h4, h5, h6 {
-            text-align: center;
-        }
-
-        .center {
-            margin: auto;
-            width: 96%;
-            /*border: 1px solid #73AD21;
-            padding: 10px;*/
-        }
-
-        tr, li, #pages {
-            font-family: "Lucida Console", Monaco, monospace;
-            font-size  : 12px;
-            height: 22px;
-        }
-
-        #pages
-        {
-            margin-top: 15px;
-        }
-
-        td {
-            text-align: center;
-        }
-
-        a:link {
-            text-decoration: none;
-            color: black;
-        }
-
-        a:visited {
-            text-decoration: none;
-            color: black;
-        }
-
-        a:hover {
-            text-decoration: underline;
-            color: black;
-        }
-
-        a:active {
-            text-decoration: none;
-            color: purple;
-        }
-
-        form {
-            display: inline-block;
-            text-align: center;
-        }
-
-        .style-1 input[type="text"] {
-            padding: 2px;
-            border: solid 1px #dcdcdc;
-            transition: box-shadow 0.3s, border 0.3s;
-        }
-        .style-1 input[type="text"]:focus,
-        .style-1 input[type="text"].focus {
-            border: solid 1px #707070;
-            box-shadow: 0 0 5px 1px #969696;
-        }
-
-
-        .tabs {
-            position: relative;
-            min-height: 200px; /* This part sucks */
-            clear: both;
-            margin: 25px 0;
-        }
-
-        .tab {
-            float: left;
-        }
-
-        .tab label {
-            background: white;
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin-left: -1px;
-            position: relative;
-            left: 1px;
-        }
-
-        .tab [type=radio] {
-            display: none;
-        }
-
-        .content {
-            position: absolute;
-            top: 28px;
-            left: 0;
-            background: white;
-            right: 0;
-            bottom: 0;
-            padding: 20px;
-            border: 1px solid #ccc;
-        }
-
-        [type=radio]:checked ~ label {
-            background: #505050 ;
-            border-bottom: 1px solid white;
-            z-index: 2;
-        }
-
-        [type=radio]:checked ~ label ~ .content {
-            z-index: 1;
-        }
-    </style>
-</head>
-<body>
-<h1>Block {{.BlockHash}}</h1>
-<hr />
-<table>
-    <thead>
-    <tr>
-        <th>Name</th>
-        <th>Value</th>
-    </tr>
-    </thead>
-    <tbody>
-        <tr>
+  </head>
+  <body>
+    <div class="pageContainer">
+      <h1>Block {{.BlockHash}}</h1>
+      <hr />
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
             <td>Slot</td>
             <td>{{.Slot}}</td>
-        </tr>
-        <tr>
+          </tr>
+          <tr>
             <td>Hash</td>
             <td>{{.BlockHash}}</td>
-        </tr>
-        <tr>
+          </tr>
+          <tr>
             <td>Proposer</td>
             <td><a href="/v/{{.ProposerHash}}">{{.ProposerHash}}</a></td>
-        </tr>
-        <tr>
+          </tr>
+          <tr>
             <td>State Root</td>
             <td>{{.StateRoot}}</td>
-        </tr>
-        <tr>
+          </tr>
+          <tr>
             <td>Randao Reveal</td>
             <td>{{.RandaoReveal}}</td>
-        </tr>
-        <tr>
+          </tr>
+          <tr>
             <td>Signature</td>
             <td>{{.Signature}}</td>
-        </tr>
-    </tbody>
-</table>
-<hr />
-<h2>Attestations</h2>
-<table>
-    <thead>
-    <tr>
-        <th>Slot</th>
-        <th>Shard</th>
-        <th>Justified Slot</th>
-        <th>Justified Hash</th>
-        <th>Shard Hash</th>
-        <th>Participants</th>
-    </tr>
-    </thead>
-    <tbody>
-    {{range .Attestations}}
-    <tr>
-        <td>{{.Slot}}</td>
-        <td>{{.Shard}}</td>
-        <td>{{.JustifiedSlot}}</td>
-        <td>{{.JustifiedBlockHash}}</td>
-        <td>{{.ShardBlockHash}}</td>
-        <td>
-            {{range .ParticipantHashes}}
-                <a href="/v/{{.}}">{{.}}</a><br />
-            {{end}}
-        </td>
-    </tr>
-    {{end}}
-    </tbody>
-</table>
-</body>
+          </tr>
+        </tbody>
+      </table>
+      <hr />
+      <h2>Attestations</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Slot</th>
+            <th>Shard</th>
+            <th>Justified Slot</th>
+            <th>Justified Hash</th>
+            <th>Shard Hash</th>
+            <th>Participants</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Attestations}}
+          <tr>
+            <td>{{.Slot}}</td>
+            <td>{{.Shard}}</td>
+            <td>{{.JustifiedSlot}}</td>
+            <td>{{.JustifiedBlockHash}}</td>
+            <td>{{.ShardBlockHash}}</td>
+            <td>
+              {{range .ParticipantHashes}}
+              <a href="/v/{{.}}">{{.}}</a><br />
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </body>
 </html>

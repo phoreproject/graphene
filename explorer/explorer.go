@@ -47,12 +47,60 @@ type Explorer struct {
 func NewExplorer(c Config, gormDB *gorm.DB, beaconRPC pb.BlockchainRPCClient, blockchain *beacon.Blockchain) (*Explorer, error) {
 	// todo: replace in memory DB
 
+	db := NewDatabase(gormDB)
+	genesisHash := blockchain.GenesisHash()
+	tipHash := genesisHash
+
+	tipBlock := db.GetLatestBlocks(1)
+
+	if len(tipBlock) != 0 {
+		h, err := chainhash.NewHash(tipBlock[0].Hash)
+		if err != nil {
+			return nil, err
+		}
+		tipHash = *h
+
+		blocksToApply := make([]*primitives.Block, 0, tipBlock[0].Height-1)
+
+		pbBlock, err := beaconRPC.GetBlock(context.TODO(), &pb.GetBlockRequest{Hash: tipBlock[0].Hash})
+		if err != nil {
+			return nil, err
+		}
+
+		currentBlock, err := primitives.BlockFromProto(pbBlock.Block)
+		if err != nil {
+			return nil, err
+		}
+		blocksToApply = append(blocksToApply, currentBlock)
+
+		for !currentBlock.BlockHeader.ParentRoot.IsEqual(&genesisHash) {
+			pbBlock, err := beaconRPC.GetBlock(context.TODO(), &pb.GetBlockRequest{Hash: currentBlock.BlockHeader.ParentRoot[:]})
+			if err != nil {
+				return nil, err
+			}
+
+			currentBlock, err = primitives.BlockFromProto(pbBlock.Block)
+			if err != nil {
+				return nil, err
+			}
+			blocksToApply = append(blocksToApply, currentBlock)
+
+		}
+
+		for i := len(blocksToApply) - 1; i >= 0; i-- {
+			_, _, err := blockchain.ProcessBlock(blocksToApply[i], false, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &Explorer{
-		database:   NewDatabase(gormDB),
+		database:   db,
 		config:     c,
 		beaconRPC:  beaconRPC,
 		blockchain: blockchain,
-		tipHash:    blockchain.GenesisHash(),
+		tipHash:    tipHash,
 		ctx:        context.TODO(),
 	}, nil
 }
@@ -121,6 +169,8 @@ func (ex *Explorer) processBlock(block *primitives.Block) error {
 	if err != nil {
 		return err
 	}
+
+	node := ex.blockchain.View.Index.GetBlockNodeByHash(blockHash)
 
 	ex.tipHash = blockHash
 
@@ -227,6 +277,7 @@ func (ex *Explorer) processBlock(block *primitives.Block) error {
 		Hash:            blockHash[:],
 		Slot:            block.BlockHeader.SlotNumber,
 		Proposer:        proposerHash[:],
+		Height:          node.Height,
 	}
 
 	ex.database.database.Create(blockDB)
@@ -368,7 +419,7 @@ func (ex *Explorer) StartExplorer() error {
 	e := echo.New()
 	e.Renderer = t
 
-	e.Static("/static", "assets")
+	e.Static("/static", "explorer/assets")
 	e.GET("/", ex.renderIndex)
 	e.GET("/b/:blockHash", ex.renderBlock)
 	e.GET("/v/:validatorHash", ex.renderValidator)

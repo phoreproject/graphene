@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/libp2p/go-libp2p-core/peer"
 	beaconconfig "github.com/phoreproject/synapse/beacon/config"
 	beaconmodule "github.com/phoreproject/synapse/beacon/module"
 	"github.com/phoreproject/synapse/cfg"
@@ -257,8 +258,15 @@ func main() {
 		validatorApps[i] = app
 	}
 
+	// autoconnect any relayer nodes to shard nodes started through the same config
+	relayerInitialConnections := make([]peer.AddrInfo, len(shardApps))
+
+	for i, shardApp := range shardApps {
+		relayerInitialConnections[i] = shardApp.GetAddr()
+	}
+
 	for i, c := range relayerConfigs {
-		app, err := relayermodule.NewRelayerModule(*c)
+		app, err := relayermodule.NewRelayerModule(*c, relayerInitialConnections)
 		if err != nil {
 			logger.Fatal(errors.Wrap(err, "error initializing relayer module"))
 		}

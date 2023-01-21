@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	beaconconfig "github.com/phoreproject/synapse/beacon/config"
@@ -36,6 +37,11 @@ type ShardApp struct {
 
 // NewShardApp creates a new shard app given a config.
 func NewShardApp(options config.Options) (*ShardApp, error) {
+	initialConnections, err := p2p.ParseInitialConnections(options.InitialConnections)
+	if err != nil {
+		return nil, err
+	}
+
 	beaconAddr, err := utils.MultiaddrStringToDialString(options.BeaconRPC)
 	if err != nil {
 		return nil, err
@@ -62,6 +68,9 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 		RPCAddress:  addr.String(),
 		TrackShards: options.TrackShards,
 		P2PListen:   options.P2PListen,
+		DiscoveryOptions: p2p.ConnectionManagerOptions{
+			BootstrapAddresses: initialConnections,
+		},
 	}
 
 	a := &ShardApp{Config: c}
@@ -79,13 +88,10 @@ func NewShardApp(options config.Options) (*ShardApp, error) {
 	}
 
 	hn, err := p2p.NewHostNode(context.TODO(), p2p.HostNodeOptions{
-		ListenAddresses: []multiaddr.Multiaddr{p2pAddr},
-		PrivateKey:      priv,
-		ConnManagerOptions: p2p.ConnectionManagerOptions{
-			BootstrapAddresses: nil,
-			MDNS:               p2p.MDNSOptions{},
-		},
-		Timeout: 60 * time.Second,
+		ListenAddresses:    []multiaddr.Multiaddr{p2pAddr},
+		PrivateKey:         priv,
+		ConnManagerOptions: c.DiscoveryOptions,
+		Timeout:            60 * time.Second,
 	})
 	if err != nil {
 		return nil, err
@@ -146,6 +152,13 @@ func (s *ShardApp) Run() error {
 	<-make(chan struct{})
 
 	return nil
+}
+
+func (s *ShardApp) GetAddr() peer.AddrInfo {
+	return peer.AddrInfo{
+		ID:    s.hostnode.GetHost().ID(),
+		Addrs: s.hostnode.GetHost().Addrs(),
+	}
 }
 
 // Exit exits the module.

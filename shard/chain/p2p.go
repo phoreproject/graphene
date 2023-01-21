@@ -21,6 +21,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var log = logrus.New().WithField("module", "shard.chain")
+
+func init() {
+	log.Logger.SetLevel(logrus.DebugLevel)
+}
+
 type shardProtocols struct {
 	shard   *p2p.ProtocolHandler
 	relayer *p2p.ProtocolHandler
@@ -66,7 +72,7 @@ func (s *SlotProposalManager) requestPackages(stateRoot chainhash.Hash) {
 	if s.requested {
 		return
 	}
-	logrus.WithField("slot", s.proposalSlot).WithField("stateRoot", stateRoot.String()).Debug("requesting for slot")
+	log.WithField("slot", s.proposalSlot).WithField("stateRoot", stateRoot.String()).Debug("requesting for slot")
 
 	s.requested = true
 
@@ -300,6 +306,11 @@ func (s *ShardSyncManager) onMessageVersion(id peer.ID, msg proto.Message) error
 
 func (s *ShardSyncManager) onMessagePackage(id peer.ID, msg proto.Message) error {
 	packageMessage := msg.(*pb.PackageMessage)
+
+	log.WithField("numTransactions", len(packageMessage.Package.Transactions)).
+		WithField("startHash", packageMessage.Package.StartRoot).
+		WithField("endHash", packageMessage.Package.EndRoot).
+		Debug("received package message")
 
 	transactionPackage, err := primitives.TransactionPackageFromProto(packageMessage.Package)
 	if err != nil {

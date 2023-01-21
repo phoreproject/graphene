@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	"github.com/phoreproject/synapse/csmt"
@@ -26,16 +27,24 @@ import (
 
 // RelayerModule is a module that handles processing and packaging transactions into packages.
 type RelayerModule struct {
-	Options   config.Options
-	RPCServer pb.RelayerRPCServer
-	hostnode  *p2p.HostNode
-	relayers  []*shardrelayer.ShardRelayer
+	Options            config.Options
+	RPCServer          pb.RelayerRPCServer
+	InitialConnections []peer.AddrInfo
+	hostnode           *p2p.HostNode
+	relayers           []*shardrelayer.ShardRelayer
 }
 
 // NewRelayerModule creates a new relayer module.
-func NewRelayerModule(o config.Options) (*RelayerModule, error) {
+func NewRelayerModule(o config.Options, initialConnections []peer.AddrInfo) (*RelayerModule, error) {
+
+	initialPeers, err := p2p.ParseInitialConnections(o.InitialConnections)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &RelayerModule{
-		Options: o,
+		Options:            o,
+		InitialConnections: append(initialConnections, initialPeers...),
 	}
 
 	return r, nil
@@ -92,9 +101,11 @@ func (r *RelayerModule) Run() error {
 		ListenAddresses: []ma.Multiaddr{
 			addr,
 		},
-		PrivateKey:         nil,
-		ConnManagerOptions: p2p.ConnectionManagerOptions{},
-		Timeout:            0,
+		PrivateKey: nil,
+		ConnManagerOptions: p2p.ConnectionManagerOptions{
+			BootstrapAddresses: r.InitialConnections,
+		},
+		Timeout: 0,
 	})
 	if err != nil {
 		return err

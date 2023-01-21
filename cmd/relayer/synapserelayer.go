@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/phoreproject/synapse/cfg"
 	"github.com/phoreproject/synapse/relayer/config"
 	"github.com/phoreproject/synapse/relayer/module"
@@ -36,7 +37,7 @@ func main() {
 		logger.Infof("changed open file limit to: %d", newLimit)
 	}
 
-	a, err := module.NewRelayerModule(relayerConfig)
+	a, err := module.NewRelayerModule(relayerConfig, []peer.AddrInfo{})
 	if err != nil {
 		logger.Fatal(err)
 	}

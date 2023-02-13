@@ -54,9 +54,10 @@ type Block struct {
 	StateRoot       []byte `gorm:"size:32"`
 	RandaoReveal    []byte `gorm:"size:48"`
 	Signature       []byte `gorm:"size:48"`
-	Hash            []byte `gorm:"size:32"`
+	Hash            []byte `gorm:"size:32;primary_key"`
 	Height          uint64
 	Slot            uint64
+	Timestamp       uint64
 }
 
 // Transaction is a slashing or reward on the beacon chain.

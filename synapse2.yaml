@@ -32,5 +32,8 @@ modules:
     log_level: debug
     shards:
       - "0-7"
-
+  - type: "explorer"
+    beacon_addr: "/ip4/127.0.0.1/tcp/11782"
+    network_id: "regtest"
+    chain_config: "regtest.json"
 log_level: "info"

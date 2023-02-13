@@ -73,7 +73,7 @@ func (ex *Explorer) renderValidator(c echo.Context) error {
 		//Attestations:           attestationsData,
 	}
 
-	err = c.Render(http.StatusOK, "validator.html", validator)
+	err = c.JSON(http.StatusOK, validator)
 
 	if err != nil {
 		return err

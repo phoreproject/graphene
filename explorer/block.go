@@ -19,6 +19,8 @@ type BlockData struct {
 	RandaoReveal string
 	Signature    string
 	Attestations []AttestationData
+	Timestamp    uint64
+	Height       uint64
 }
 
 // AttestationData is the data of an attestation that gets passed to templates.
@@ -95,13 +97,15 @@ func (ex *Explorer) renderBlock(c echo.Context) error {
 		BlockHash:    blockHash.String(),
 		ProposerHash: proposerHash.String(),
 		ParentBlock:  parentBlockHash.String(),
+		Timestamp:    b.Timestamp,
 		StateRoot:    stateRoot.String(),
 		RandaoReveal: fmt.Sprintf("%x", b.RandaoReveal),
 		Signature:    fmt.Sprintf("%x", b.Signature),
 		Attestations: attestationsData,
+		Height:       b.Height,
 	}
 
-	err = c.Render(http.StatusOK, "block.html", block)
+	err = c.JSON(http.StatusOK, block)
 
 	if err != nil {
 		return err

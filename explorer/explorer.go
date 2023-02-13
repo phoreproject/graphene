@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 // Explorer is a blockchain explorer.
@@ -278,6 +279,7 @@ func (ex *Explorer) processBlock(block *primitives.Block) error {
 		Slot:            block.BlockHeader.SlotNumber,
 		Proposer:        proposerHash[:],
 		Height:          node.Height,
+		Timestamp:       ex.blockchain.GetState().GenesisTime + block.BlockHeader.SlotNumber*uint64(ex.config.NetworkConfig.SlotDuration),
 	}
 
 	ex.database.database.Create(blockDB)
@@ -418,11 +420,14 @@ func (ex *Explorer) StartExplorer() error {
 
 	e := echo.New()
 	e.Renderer = t
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+	}))
 
 	e.Static("/static", "explorer/assets")
 	e.GET("/", ex.renderIndex)
-	e.GET("/b/:blockHash", ex.renderBlock)
-	e.GET("/v/:validatorHash", ex.renderValidator)
+	e.GET("/block/:blockHash", ex.renderBlock)
+	e.GET("/validator/:validatorHash", ex.renderValidator)
 
 	e.Logger.Fatal(e.Start(":1323"))
 

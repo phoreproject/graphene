@@ -1,8 +1,10 @@
 package explorer
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/phoreproject/synapse/chainhash"
@@ -32,7 +34,12 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 
 	var dbBlocks []Block
 
-	ex.database.database.Order("slot desc").Limit(30).Find(&dbBlocks)
+	ex.database.database.Order("slot desc").Limit(30).Preload("Attestations").Find(&dbBlocks)
+
+	blockHashes := make([]string, 0)
+	for _, b := range dbBlocks {
+		blockHashes = append(blockHashes, hex.EncodeToString(b.Hash))
+	}
 
 	for _, b := range dbBlocks {
 		var blockHash chainhash.Hash
@@ -47,6 +54,27 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 		var stateRoot chainhash.Hash
 		copy(stateRoot[:], b.StateRoot)
 
+		var attestationData []AttestationData
+		for _, a := range b.Attestations {
+			var attestationHash chainhash.Hash
+			copy(attestationHash[:], a.Hash)
+
+			participantHashes := strings.Split(a.ParticipantHashes, ",")
+
+			attestationData = append(attestationData, AttestationData{
+				Hash:               attestationHash.String(),
+				ParticipantHashes:  participantHashes,
+				Signature:          fmt.Sprintf("%x", a.Signature),
+				Slot:               a.Slot,
+				Shard:              a.Shard,
+				BeaconBlockHash:    hex.EncodeToString(a.BeaconBlockHash),
+				EpochBoundaryHash:  hex.EncodeToString(a.EpochBoundaryHash),
+				ShardBlockHash:     hex.EncodeToString(a.ShardBlockHash),
+				JustifiedSlot:      a.JustifiedSlot,
+				JustifiedBlockHash: hex.EncodeToString(a.JustifiedBlockHash),
+			})
+		}
+
 		blocks = append(blocks, BlockData{
 			Slot:         b.Slot,
 			BlockHash:    blockHash.String(),
@@ -55,6 +83,9 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 			StateRoot:    stateRoot.String(),
 			RandaoReveal: fmt.Sprintf("%x", b.RandaoReveal),
 			Signature:    fmt.Sprintf("%x", b.Signature),
+			Timestamp:    b.Timestamp,
+			Height:       b.Height,
+			Attestations: b.Attestations,
 		})
 	}
 
@@ -75,7 +106,7 @@ func (ex *Explorer) renderIndex(c echo.Context) error {
 		})
 	}
 
-	err := c.Render(http.StatusOK, "index.html", IndexData{
+	err := c.JSON(http.StatusOK, IndexData{
 		Blocks:       blocks,
 		Transactions: transactions,
 	})

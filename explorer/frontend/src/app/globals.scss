@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+a {
+  &:hover {
+    @apply text-blue-600 underline;
+  }
+}

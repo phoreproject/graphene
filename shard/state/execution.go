@@ -166,12 +166,12 @@ func NewShard(wasmCode []byte, exportedFuncs []int64, storageAccess csmt.TreeTra
 		NewFunctionBuilder().WithFunc(s.LoadArgument).Export("loadArgument").
 		NewFunctionBuilder().WithFunc(s.Log).Export("write_log").
 		NewFunctionBuilder().WithFunc(s.ShardNumber).Export("shard_number").
-		Instantiate(ctx, runtime)
+		Instantiate(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	mod, err := runtime.InstantiateModuleFromBinary(ctx, buf.Bytes())
+	mod, err := runtime.Instantiate(ctx, buf.Bytes())
 	if err != nil {
 		return nil, err
 	}

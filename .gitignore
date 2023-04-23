@@ -3,6 +3,7 @@
 *.pyc
 **/__pycache__
 dist
+.vscode
 
 # binaries
 /synapse
